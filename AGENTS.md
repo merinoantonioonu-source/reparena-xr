@@ -33,7 +33,8 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
 | `src/combat/` | El modo Combate: la partida, los enemigos, las compuertas, los efectos y sus componentes |
 | `src/style/` | El estilo Cómic: sombreado, contornos de tinta y efectos (se aplica solo a lo que aparece en la escena) |
 | `src/ui/` | Paneles y letras |
-| `src/audio/` | El sonido |
+| `src/audio/` | El sonido: el de IWSDK (AudioSource) con los efectos de RepArena (`SND`) y el catálogo por nombre |
+| `sounds/` | Los sonidos: los del usuario (por nombre, ver su `LEEME.md`) y los de serie (`de-serie/`) |
 | `public/` | Escena (`scenes/`), paneles (`ui/`), modelos, letras y manos (cada carpeta con su `LEEME.md` y licencia) |
 | `tests/unit/` | Pruebas de la lógica pura (Vitest: `npm test`) |
 | `tests/e2e/` | La partida simulada en un navegador sin gafas (`npm run test:e2e`) |

@@ -45,8 +45,9 @@ Por ahora, Combate con sentadillas, como en RepArena:
   Letras de RepArena (Rubik y Bungee), con tildes.
 - **Nitidez en las gafas**: Normal ×1, Alta ×1,4 (de serie) o Máxima ×1,7. Se elige en el panel de inicio y se aplica al
   entrar en VR (para cambiarla dentro, hay que salir y volver a entrar).
-- **Sonidos** sintetizados: carga, niveles, rayo, impactos, gruñidos de zombi (en 3D: se oye de dónde vienen), golpes y
-  oleadas.
+- **Sonido** con el de IWSDK (en 3D: se oye de dónde viene): los de RepArena (tus archivos de `sounds/`, sustituibles
+  por nombre, y los que allí se fabricaban al vuelo, grabados como archivos), con la voz de cada zombi, la compuerta que
+  suena y echa vapor al abrirse y el ambiente de la arena (a 0 mientras suena Spotify).
 
 En el ordenador (sin gafas) también se puede probar: flecha abajo (o S) para agacharse (al subir, el rayo sale solo al
 zombi más cercano) y Enter para empezar.
@@ -94,7 +95,9 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/core/settings.ts` | Cargar, guardar y cambiar los ajustes (los mismos datos que RepArena), cada modo con cada ejercicio, los rangos con su tabla y la dificultad creciente |
 | `src/core/values.ts`, `src/core/rules.ts` | Los valores de ahora y lo que se deduce de ellos (de pie, en el suelo, qué enemigos salen, cómo se apunta…) |
 | `src/core/catalog.ts`, `src/core/dev-state.ts` | Ejercicios, modos, enemigos y rangos; el modo desarrollador y su tabla |
-| `src/audio/sound.ts` | Los sonidos (WebAudio) |
+| `src/audio/sound.ts` | El sonido sobre el de IWSDK (AudioSource): los efectos de RepArena (`SND`), volumen, ambiente y compresor |
+| `src/audio/catalog.ts` | Los sonidos por nombre: el archivo de cada uno (el tuyo o el de serie) y a qué distancia se oye |
+| `sounds/` | Tus sonidos (la lista, en su `LEEME.md`) y los de serie (`de-serie/`, grabados con `tests/sonidos.mjs`) |
 | `src/ui/fonts.ts` | Pone las letras de RepArena (con tildes) en los paneles |
 | `src/input/hand-system.ts` | Las manos y los mandos en cada fotograma (lo que da IWSDK, en `hands` y `head`), la vibración y «Mandos como manos» |
 | `src/input/hand-model.ts` | Lo que el juego sabe de cada mano (muñeca, articulaciones, pellizco, gatillo, agarre, rayo) y el puño |
