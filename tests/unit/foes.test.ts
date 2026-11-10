@@ -6,8 +6,8 @@ import path from 'node:path';
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { DEV } from '../../src/core/dev-state.js';
-import { FOE_GATE } from '../../src/core/catalog.js';
-import { deal, devFoe, FOE_DEF, foeSlot, FRONT_MIN, gateFoes, type SlotFoe } from '../../src/combat/foes.js';
+import { FOE_FLY, FOE_GATE } from '../../src/core/catalog.js';
+import { deal, devFoe, flyFoes, FOE_DEF, foeSlot, FRONT_MIN, gateFoes, type SlotFoe } from '../../src/combat/foes.js';
 
 const ASSETS = fs.readFileSync(path.resolve('src/assets.ts'), 'utf8');
 // el nombre de archivo de cada recurso del catálogo (foe('piratas/capitan.glb', …) o glb('zombie_basic.glb', …))
@@ -22,9 +22,9 @@ const animsOf = (file: string): string[] => {
 };
 
 describe('la tabla', () => {
-  it('cada enemigo de la tabla es de las compuertas y tiene su modelo con sus animaciones', () => {
+  it('cada enemigo de la tabla es de las compuertas (o vuela) y tiene su modelo con sus animaciones', () => {
     for (const [k, d] of Object.entries(FOE_DEF)) {
-      expect(FOE_GATE.some((o) => o[0] === k), k).toBe(true);
+      expect((d.fly ? FOE_FLY : FOE_GATE).some((o) => o[0] === k), k).toBe(true);
       const anims = animsOf(fileOf(d.ual ? 'foe-anims' : d.asset)); // (el diablillo y el puglin: las de la biblioteca)
       for (const [what, name] of Object.entries(d.clips)) if (name) expect(anims, `${k}: ${what} (${name})`).toContain(name);
       for (const need of ['idle', 'walk', 'attack'] as const) expect(d.clips[need], `${k}: ${need}`).toBeTruthy();
@@ -44,6 +44,12 @@ describe('la tabla', () => {
     expect(gateFoes(['robot'])).toEqual(['zgreen']);
     expect(gateFoes(['robot', 'imp', 'thrower'])).toEqual(['imp', 'thrower']);
     expect(gateFoes(['robot', 'raptor', 'captain'])).toEqual(['raptor', 'captain']);
+  });
+  it('los voladores: los elegidos con modelo, sin el dragón (solo de jefe); si ninguno, abeja y murciélago', () => {
+    expect(flyFoes(['drone', 'hornet'])).toEqual(['bee', 'bat']);
+    expect(flyFoes(['drone', 'cthulhu', 'dragon'])).toEqual(['cthulhu']);
+    expect(flyFoes(['dragon'])).toEqual(['bee', 'bat']);
+    expect(gateFoes(['bee'])).toEqual(['zgreen']);
   });
   it('el reparto: bien mezclados, cada uno lo mismo', () => {
     const next = deal(['zombie', 'raptor', 'yeti']), n: Record<string, number> = {};

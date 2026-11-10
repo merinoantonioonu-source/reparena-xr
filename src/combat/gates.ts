@@ -128,6 +128,15 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] } }, {}
     return r.root.localToWorld(out.set(0, 0, -0.75));
   }
 
+  /** Dónde está y hacia dónde mira (para los voladores, que salen por su hueco). */
+  frame(e: Entity, out: { x: number; z: number; ry: number; scale: number }): { x: number; z: number; ry: number; scale: number } {
+    const r = this.rt.get(e);
+    if (!r) return Object.assign(out, { x: 0, z: -11, ry: 0, scale: 1 });
+    r.root.getWorldPosition(this.v);
+    r.root.getWorldDirection(this.sv); // (su +Z, hacia fuera del túnel)
+    return Object.assign(out, { x: this.v.x, z: this.v.z, ry: Math.atan2(this.sv.x, this.sv.z), scale: 1 });
+  }
+
   /** ¿Cuánto está abierta? (0 cerrada, 1 abierta) */
   openness(e: Entity): number {
     return e.getValue(Gate, 'open') ?? 0;

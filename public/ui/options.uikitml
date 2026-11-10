@@ -320,6 +320,39 @@
       <span id="c-alientalls" class="cstat">Resiste 2 · Fuerza 1</span>
     </button>
   </div>
+  <span id="fcards-t" class="note">Voladores</span>
+  <div id="fcards" class="cards">
+    <button id="c-drone" class="card">
+      <img id="c-dronei" class="pic" src="retratos/drone.png" />
+      <span id="c-dronen" class="cname">Drones</span>
+      <span id="c-drones" class="cstat">Resiste 1 · Fuerza 1</span>
+    </button>
+    <button id="c-hornet" class="card">
+      <img id="c-horneti" class="pic" src="retratos/hornet.png" />
+      <span id="c-hornetn" class="cname">Avispones</span>
+      <span id="c-hornets" class="cstat">Resiste 1 · Fuerza 1</span>
+    </button>
+    <button id="c-bee" class="card">
+      <img id="c-beei" class="pic" src="retratos/bee.png" />
+      <span id="c-been" class="cname">Abeja</span>
+      <span id="c-bees" class="cstat">Resiste 1 · Fuerza 1</span>
+    </button>
+    <button id="c-bat" class="card">
+      <img id="c-bati" class="pic" src="retratos/bat.png" />
+      <span id="c-batn" class="cname">Murciélago</span>
+      <span id="c-bats" class="cstat">Resiste 1 · Fuerza 1</span>
+    </button>
+    <button id="c-cthulhu" class="card">
+      <img id="c-cthulhui" class="pic" src="retratos/cthulhu.png" />
+      <span id="c-cthulhun" class="cname">Cthulhu</span>
+      <span id="c-cthulhus" class="cstat">Resiste 1 · Fuerza 1</span>
+    </button>
+    <button id="c-dragon" class="card">
+      <img id="c-dragoni" class="pic" src="retratos/dragon.png" />
+      <span id="c-dragonn" class="cname">Dragón (jefe)</span>
+      <span id="c-dragons" class="cstat">Resiste 1 · Fuerza 1</span>
+    </button>
+  </div>
   <div class="body">
     <span id="o-note" class="note">Nota</span>
     <div id="o1" class="frow">

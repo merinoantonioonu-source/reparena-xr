@@ -21,6 +21,12 @@ export const Foe = createComponent('Foe', {
   radius: { type: Types.Float32, default: 0.3, help: 'Radio de su cápsula' },
 });
 
+/** Un volador (abeja, murciélago, Cthulhu, dragón): vuela por su cuenta (src/combat/flight.ts), sin cuerpo de física
+ * mientras vive (como en RepArena: no choca con los de tierra); al morir cae al suelo como un cuerpo suelto. */
+export const Flyer = createComponent('Flyer', {
+  kind: { type: Types.String, default: 'bee', help: 'Qué volador es (bee, bat, cthulhu, dragon)' },
+});
+
 /** Un obstáculo fijo que los zombis rodean (además de chocar con él por la física). */
 export const Obstacle = createComponent('Obstacle', {
   radius: { type: Types.Float32, default: 0.6, min: 0.1, step: 0.05, help: 'Radio del círculo que rodean, en metros' },

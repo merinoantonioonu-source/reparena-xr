@@ -7,7 +7,8 @@
 // Juega: EMPEZAR (Enter) → sale el primer zombi → sentadilla aguantada (flecha abajo) hasta ×2 (la carga se escribe en el
 // suelo) → arriba (cuenta la repetición y, en el ordenador, sin manos, el rayo sale solo al zombi más cercano) → otra
 // sentadilla si no le ha dado; comprueba que ha sonado lo de la partida (la oleada, la compuerta, la carga, el rayo y el
-// impacto), ya cargado, y el vapor de las compuertas; y una sentadilla a medias saca «¡Baja más!» en grande en el suelo.
+// impacto), ya cargado, y el vapor de las compuertas; una sentadilla a medias saca «¡Baja más!» en grande en el suelo; y
+// sale un volador que vuela hacia ti zumbando.
 // Falla si algo no pasa a tiempo o si la página da errores.
 // Necesita el Chromium de Playwright (npx playwright install chromium; ver MIGRACION.md › Cómo probar).
 import { createServer } from 'node:http';
@@ -131,6 +132,25 @@ try {
   await until('a medias: «¡Baja más!» en grande en el suelo', (s) => s.warn === '¡Baja más!', 20);
   await page.evaluate(() => (window.__rx.game.stCfg.squatDepth = 26));
   await shot('4-aviso');
+  // los voladores (con los de tierra, uno de cada): sale uno por el hueco de una compuerta, vuela hacia ti y zumba
+  const fl = await until('sale un volador (abeja o murciélago) y vuela hacia ti', (s) => s.foes.some((f) => f.fly && f.state === 'walk' && f.y > 0.8 && f.z > -9), 120);
+  if (!fl.sound.played['zumbido-dron']) throw new Error('el volador no zumba\nsonidos: ' + JSON.stringify(fl.sound.played));
+  console.log('  ✓ el volador zumba');
+  await shot('5-volador');
+  // derribar a un volador: el rayo sale solo al más cercano; muerto, cae al suelo como un cuerpo suelto
+  const t1 = Date.now();
+  let down = null;
+  while (!down && Date.now() - t1 < 90000) {
+    await page.keyboard.down('ArrowDown');
+    await until('otra carga', (s) => s.charge >= 1 || s.phase !== 'playing', 30);
+    await page.keyboard.up('ArrowDown');
+    await page.waitForTimeout(600);
+    last = await snap();
+    down = last.foes.find((f) => f.fly && f.state === 'dead');
+    if (last.phase !== 'playing') break;
+  }
+  if (!down) throw new Error('no ha caído ningún volador\núltimo estado: ' + JSON.stringify(last));
+  await until('el volador derribado cae al suelo', (s) => s.foes.some((f) => f.fly && f.state === 'dead' && f.y < 0.6), 20);
   if (missing.length) throw new Error('faltan archivos: ' + missing.join(', '));
   if (errors.length) throw new Error('errores en la página:\n' + errors.join('\n'));
   ok = true;

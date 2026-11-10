@@ -56,6 +56,8 @@ export interface FoeDef {
   tex?: string[];
   /** El lanzador: se queda lejos y te tira piedras en vez de golpear. */
   thrower?: boolean;
+  /** Vuela (src/combat/flight.ts): no va a un puesto ni pisa el suelo. */
+  fly?: boolean;
 }
 
 const ZOMBIE2_CLIPS: FoeClips = { idle: 'Idle', walk: 'Walk', run: 'Run', attack: 'Punch', hit: 'HitReact', death: 'Death', dance: 'Idle_Attack' };
@@ -101,6 +103,24 @@ Object.assign(FOE_DEF, {
   // el lanzador: un diablillo algo más pequeño que se queda lejos (a 4,2 m) y te tira piedras (RepArena: impthrow)
   thrower: { asset: 'foe-imp', h: 1.6, k: 0.95, r: 0.38, stop: 4.2, speedF: 1, heavy: false, walk: 1.19, run: 2.75, minTs: 0.5, maxTs: 1.8, clips: { ...UAL_CLIPS, attack: 'OverhandThrow' }, atk: [0.25, 0.35], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp'), thrower: true },
 } satisfies Record<string, FoeDef>);
+
+// Los monstruitos que vuelan (Cute Animated Monsters): solo su vuelo, su mordisco, su golpe y su muerte; el tamaño, el de
+// RepArena (BEAST_DEF: [alto del modelo, metros que miden]); su vuelo, en src/combat/flight.ts
+const FLY_CLIPS: FoeClips = { idle: 'Flying', walk: 'Flying', run: 'Flying', attack: 'Bite_Front', hit: 'HitRecieve', death: 'Death', dance: 'Flying' };
+const flyer = (asset: string, nat: number, h: number, voice: string): FoeDef => ({ ...cute(asset, nat, h, voice), clips: FLY_CLIPS, grp: 'fly', fly: true });
+Object.assign(FOE_DEF, {
+  bee: flyer('foe-bee', 1.9, 0.5, 'bee'),
+  bat: flyer('foe-bat', 1.75, 0.45, 'bat'),
+  cthulhu: flyer('foe-cthulhu', 1.56, 0.55, 'cthulhu'),
+  dragon: flyer('foe-dragon', 1.65, 0.5, 'dragon'),
+} satisfies Record<string, FoeDef>);
+
+/** Los voladores elegidos que ya se pueden sacar (sin el dragón, que solo sale de jefe: PR 10); si ninguno (los drones y
+ * los avispones eran geométricos: por ahora no), la abeja y el murciélago (RepArena: buildWave, FL). */
+export const flyFoes = (chosen: string[]): string[] => {
+  const ok = chosen.filter((k) => k !== 'dragon' && !!FOE_DEF[k]?.fly);
+  return ok.length ? ok : ['bee', 'bat'];
+};
 
 /** ¿Ya se puede sacar? (los robots, que eran geométricos, por ahora no: decisión del usuario en el PR 8b) */
 export const foeReady = (k: string): boolean => !!FOE_DEF[k];
@@ -150,7 +170,7 @@ export const throwK = (rank: number, rampK: number): number => Math.min(1.4, 1 +
 
 /** De los elegidos en Rivales, los que ya se pueden sacar; si ninguno, los zombis verdes (los del prototipo). */
 export const gateFoes = (chosen: string[]): string[] => {
-  const ok = chosen.filter(foeReady);
+  const ok = chosen.filter((k) => foeReady(k) && !FOE_DEF[k].fly);
   return ok.length ? ok : ['zgreen'];
 };
 
