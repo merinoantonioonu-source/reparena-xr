@@ -114,6 +114,10 @@ try {
   if (!played.rayo && !played['rayo-cargado']) want.push('rayo');
   if (want.length) throw new Error('no han sonado: ' + want.join(', ') + '\nsonidos: ' + JSON.stringify(snd.sound));
   console.log(`  ✓ suenan la oleada, la compuerta, la carga, el rayo y el impacto (${Object.keys(played).length} distintos)`);
+  // el vapor: cada compuerta que se abre echa doce bocanadas (seis a cada lado) y se llegan a ver
+  const vap = await until('la compuerta echa vapor', (s) => s.steam && s.steam.added >= 12 && s.steam.peak > 0, 30);
+  await shot('3-vapor');
+  console.log(`  ✓ la compuerta echa vapor (${vap.steam.added} bocanadas, hasta ${vap.steam.peak} a la vez)`);
   await shot('3-rayo');
   if (missing.length) throw new Error('faltan archivos: ' + missing.join(', '));
   if (errors.length) throw new Error('errores en la página:\n' + errors.join('\n'));

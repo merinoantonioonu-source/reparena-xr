@@ -51,6 +51,11 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] } }, {}
   private sv = new Vector3();
   private gq = new Quaternion();
 
+  /** Para las pruebas: el vapor lanzado y las bocanadas que se han visto a la vez como mucho. */
+  steam(): { added: number; peak: number } {
+    return { added: this.puffs.added, peak: this.puffs.peak };
+  }
+
   init(): void {
     this.physics = this.world.getSystem(PhysicsSystem)!;
     this.world.createTransformEntity(this.puffs.group);

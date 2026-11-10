@@ -176,6 +176,9 @@ export class Puffs {
   readonly group = new Group();
   private list: { s: Sprite; v: Vector3; t: number; life: number; size: number }[] = [];
   private next = 0;
+  /** Para las pruebas: las bocanadas lanzadas en total y las que se han visto a la vez como mucho. */
+  added = 0;
+  peak = 0;
 
   constructor(n = 36) {
     const map = puff();
@@ -195,6 +198,7 @@ export class Puffs {
     f.s.position.copy(p);
     f.v.copy(v);
     Object.assign(f, { t: 0, life, size });
+    this.added++;
     const m = f.s.material as SpriteMaterial;
     m.rotation = Math.random() * TAU;
     m.opacity = 1;
@@ -203,8 +207,10 @@ export class Puffs {
   }
 
   update(dt: number): void {
+    let live = 0;
     for (const f of this.list) {
       if (!f.s.visible) continue;
+      live++;
       f.t += dt;
       const k = f.t / f.life;
       if (k >= 1) {
@@ -218,5 +224,6 @@ export class Puffs {
       f.s.position.addScaledVector(f.v, dt);
       f.v.multiplyScalar(Math.max(0, 1 - dt * 1.5));
     }
+    if (live > this.peak) this.peak = live;
   }
 }
