@@ -1,10 +1,9 @@
 /**
  * Los efectos de cómic (RepArena, src/38_comic.js: comicHit y comicKill): al acertar, líneas de impacto; al derribar, un
  * estallido de estrella (sin palabras: para eso está el sonido). Láminas de cara a ti, de un montón fijo (sin crear
- * nada en cada fotograma); solo en el estilo Cómic.
+ * nada en cada fotograma); solo en el estilo Cómic. Y el vapor de las compuertas, en nubes de dibujo (Puffs).
  */
-import { CanvasTexture, Group, Sprite, SpriteMaterial, SRGBColorSpace } from '@iwsdk/core';
-import type { Vector3 } from '@iwsdk/core';
+import { CanvasTexture, Group, Sprite, SpriteMaterial, SRGBColorSpace, Vector3 } from '@iwsdk/core';
 import { COMIC } from './comic.js';
 
 const TAU = Math.PI * 2;
@@ -146,3 +145,78 @@ export class ComicFx {
   }
 }
 const smooth = (x: number): number => x * x * (3 - 2 * x);
+
+// la nube de dibujo de RepArena (src/38_comic.js: cfxTex, puff): blanca, con el borde entintado y la panza lavanda
+function puff(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#140c1a';
+  x.beginPath();
+  x.arc(64, 64, 60, 0, TAU);
+  x.fill();
+  x.fillStyle = '#ffffff';
+  x.beginPath();
+  x.arc(64, 64, 53, 0, TAU);
+  x.fill();
+  x.fillStyle = '#d9cdf0';
+  x.beginPath();
+  x.arc(64, 64, 53, 0.15 * Math.PI, 0.85 * Math.PI);
+  x.arc(64, 44, 48, 0.8 * Math.PI, 0.2 * Math.PI, true);
+  x.fill();
+  return tex(c);
+}
+
+/**
+ * Bocanadas de vapor (las de las compuertas al abrirse: RepArena, fx.steam), en las nubes de dibujo de las explosiones
+ * de cómic de RepArena: salen disparadas, se frenan, crecen y se van. De un montón fijo (sin crear nada en cada
+ * fotograma); en los dos estilos, como el vapor de RepArena.
+ */
+export class Puffs {
+  readonly group = new Group();
+  private list: { s: Sprite; v: Vector3; t: number; life: number; size: number }[] = [];
+  private next = 0;
+
+  constructor(n = 36) {
+    const map = puff();
+    for (let i = 0; i < n; i++) {
+      const s = new Sprite(new SpriteMaterial({ map, transparent: true, depthWrite: false, toneMapped: false }));
+      s.visible = false;
+      s.renderOrder = 9;
+      this.group.add(s);
+      this.list.push({ s, v: new Vector3(), t: 0, life: 1, size: 0.6 });
+    }
+  }
+
+  /** Una bocanada en p, que sale a la velocidad v (m/s); size: lo que mide (m) y life, lo que dura (s). */
+  add(p: Vector3, v: Vector3, size: number, life: number): void {
+    const f = this.list[this.next];
+    this.next = (this.next + 1) % this.list.length;
+    f.s.position.copy(p);
+    f.v.copy(v);
+    Object.assign(f, { t: 0, life, size });
+    const m = f.s.material as SpriteMaterial;
+    m.rotation = Math.random() * TAU;
+    m.opacity = 1;
+    f.s.scale.setScalar(0.001);
+    f.s.visible = true;
+  }
+
+  update(dt: number): void {
+    for (const f of this.list) {
+      if (!f.s.visible) continue;
+      f.t += dt;
+      const k = f.t / f.life;
+      if (k >= 1) {
+        f.s.visible = false;
+        continue;
+      }
+      // (como las nubes de las explosiones de cómic de RepArena: crecen deprisa y se van al final; frenadas como su vapor)
+      const sc = f.size * (0.35 + 0.9 * smooth(Math.min(1, k * 1.7)));
+      f.s.scale.set(sc, sc, 1);
+      (f.s.material as SpriteMaterial).opacity = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1;
+      f.s.position.addScaledVector(f.v, dt);
+      f.v.multiplyScalar(Math.max(0, 1 - dt * 1.5));
+    }
+  }
+}

@@ -103,7 +103,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 2 · Ajustes y datos** — #3
 - [x] **PR 3 · Manos, mandos y gestos** — #4
 - [x] **PR 4 · Estilo Cómic y la arena** — #5
-- [ ] **PR 5 · Sonido**
+- [x] **PR 5 · Sonido** — #6
 - [ ] **PR 6 · Ejercicios de pie**
 - [ ] **PR 7 · Menú principal y Opciones en VR**
 - [ ] **PR 8 · Enemigos**
@@ -168,10 +168,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   oscuro, baliza) y los efectos de cómic (líneas de impacto y estrella al derribar). Los zombis salen por las compuertas.
 - «Estilo visual: Realista» quita el sombreado y los contornos; el paisaje realista llega con los entornos (PR 20).
 
-**PR 5 · Sonido** (M)
-- El motor de sonido de RepArena (sintetizado, en 3D, reverberación), los archivos de `sounds/` (sustituibles, con su
-  `LEEME.md`) y el ambiente (a 0 % mientras suena Spotify).
-- De RepArena: `src/10_audio.js`, `sounds/`.
+**PR 5 · Sonido** (M) — hecho
+- De IWSDK, de serie: su sistema de sonido (AudioSource): cada sonido, un archivo que IWSDK carga, reparte en voces y
+  coloca en 3D, con el oído en la cabeza (al salir de la VR lo pausa).
+- Los archivos: los del usuario de RepArena (`sounds/`, sustituibles por nombre: `sounds/LEEME.md`) y, si falta uno, el
+  de serie (`sounds/de-serie/`: los sintetizados de RepArena, grabados una vez con `tests/sonidos.mjs`, con su eco).
+- De RepArena, lo que IWSDK no trae: cada efecto con su volumen y su tono (`SND`), el volumen de efectos y el del
+  ambiente (a 0 con Spotify: `setMusicPlaying`), los sonidos apagados (`reparena3-sndoff`), el tono que varía un poco, el
+  compresor de la mezcla y el ambiente de la arena con golpes metálicos lejanos; la voz de cada zombi; la compuerta suena
+  y echa vapor al abrirse.
 
 ### Fase 1 · Combate completo
 
@@ -260,8 +265,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
-- PR 4 → PR 5: el sonido de las compuertas (RepArena: `SND.door` al abrirse, y vapor a los lados) no está: engánchalo en
-  `GateSystem` (`src/combat/gates.ts`), cuando una pasa a abrirse. Los gruñidos y golpes siguen en `src/audio/sound.ts`.
+- PR 5 → PR 6: cada efecto, con su nombre de RepArena: `SND.bolt(pos, L)`, `SND.door(pos)`… (`src/audio/sound.ts`).
+  Uno nuevo: `playSound('nombre', pos, volumen, tono)`, con su fila en `SOUNDS` (`src/audio/catalog.ts`), su archivo de
+  serie en `sounds/de-serie/` y su línea en `sounds/LEEME.md` (la prueba lo exige). Los de Combate se preparan al arrancar
+  (`PRE_FLAT`/`PRE_POS`); un modo nuevo, que prepare los suyos. Los bucles que siguen a algo que se mueve (zumbidos de los
+  voladores, espada láser, remolino, arcos) ya están grabados (`sounds/de-serie/*.ogg`) pero falta su función: una fuente
+  con `loop` pegada a lo que suena y el tono en sus voces. En desarrollo, la consola apunta cada sonido (`rxdbg sonido`).
 - Estilo Cómic: todo lo que aparece en la escena se prepara solo (`ComicSystem`): los materiales estándar
   (`MeshStandardMaterial`) se pintan en cómic y reciben su contorno de tinta. Para que algo nuevo se vea en cómic, dale un
   material estándar con colores claros y lisos (sin texturas de relieve). `userData.noInk` en una malla: sin contorno;
@@ -293,7 +302,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   hay que mirarlo en las gafas. Para aligerar: sin sombras en tiempo real y lo fijo de cada compuerta en pocas mallas.
 - Los zombis no tienen sombra (sin sombras en tiempo real; la de contacto de IWSDK pide el origen a ras de suelo, y el de
   los zombis está en el centro de su cuerpo): por ver en las gafas si hace falta.
-- Sin el sonido ni el vapor de las compuertas al abrirse (PR 5).
+- PR 5: la ronda con sonido no se ha comprobado en la VR simulada (el gatillo sobre EMPEZAR no llegó a contar: el
+  emulador va muy lento); sí en la partida simulada del ordenador (se abre, carga sus archivos y suena lo de la partida).
+- Los sonidos del usuario suenan sin el eco de sala que les añadía RepArena (IWSDK no lo tiene); los de serie lo llevan.
+- El combo (cada 10 repeticiones seguidas) aún no suena: llega con el PR 10.
 
 ## Fallos de IWSDK
 
@@ -304,3 +316,7 @@ arregla, se quita el apaño.
   datos en otro orden del que le pasa IWSDK (cogía la escena entera y fallaba al crearse), le carga el modelo del mando en
   vez del de la mano, compartiría el modelo con la mano desnuda y, si una imagen tarda más de 0,1 s, los dedos se le
   disparan (planos blancos enormes y luego la mano desaparece). Apaño: `src/input/controller-hand.ts`.
+- **El sonido suelto** (`AudioUtils.createOneShot`) no se coloca donde se le dice ni se borra al acabar. Apaño: cada sonido
+  tiene unas pocas fuentes fijas que se colocan al tocarlas (`src/audio/sound.ts`).
+- **AudioSource no cambia el tono**: se les pone a sus voces (`AudioPool`, que IWSDK deja usar para casos así).
+- **Fuera de la VR, el sonido no se abre** (IWSDK solo lo abre al entrar): en el ordenador, con el primer toque o tecla.

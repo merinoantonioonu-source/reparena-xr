@@ -28,18 +28,22 @@ import {
 } from '@iwsdk/core';
 import { Foe, FoeState, Obstacle } from './components.js';
 import type { LockTarget } from './lockline.js';
-import { sfx } from '../audio/sound.js';
+import { SND } from '../audio/sound.js';
+import { VOICE_PITCH } from '../audio/catalog.js';
 import { GAME, HOOKS } from '../core/state.js';
 import type { PunchTarget } from '../input/punch.js';
 
 type FoeKind = 'basic' | 'chubby';
 
 /** Cada tipo: su modelo, su tamaño (alto de la cápsula y radio), su escala, su vida (la resistencia de RepArena: disparos
- * normales que aguanta; el verde, 2, y el gordo, 3) y el tono de su voz. */
-const KIND: Record<FoeKind, { asset: string; height: number; radius: number; scale: number; hp: number; pitch: number; mass: number }> = {
-  basic: { asset: 'zombie-basic', height: 1.62, radius: 0.27, scale: 1.2, hp: 2, pitch: 1.0, mass: 1 },
-  chubby: { asset: 'zombie-chubby', height: 1.8, radius: 0.38, scale: 1.1, hp: 3, pitch: 0.75, mass: 1.6 },
+ * normales que aguanta; el verde, 2, y el gordo, 3) y su voz (la de RepArena: VOICE en src/audio/catalog.ts). */
+const KIND: Record<FoeKind, { asset: string; height: number; radius: number; scale: number; hp: number; voice: string; mass: number }> = {
+  basic: { asset: 'zombie-basic', height: 1.62, radius: 0.27, scale: 1.2, hp: 2, voice: 'zgreen', mass: 1 },
+  chubby: { asset: 'zombie-chubby', height: 1.8, radius: 0.38, scale: 1.1, hp: 3, voice: 'zchubby', mass: 1.6 },
 };
+
+// su voz, con su tono (RepArena: Beast.roar; al morir, más grave)
+const roar = (at: Vector3, who: string, k = 1): void => SND.roar(at, (VOICE_PITCH[who] ?? 1.4) * k, who);
 
 /** Lo que ven de cada zombi la sacudida, la mirada, el puñetazo y la diana: si sigue en pie, su radio y su centro. */
 export class FoeTarget implements LockTarget, PunchTarget {
@@ -67,7 +71,8 @@ interface FoeRuntime {
   actions: Map<string, AnimationAction>;
   current: string;
   yaw: number;
-  groanT: number;
+  /** Ya te ha rugido al llegar (RepArena: una vez, al cargar contra ti). */
+  charged: boolean;
   attackT: number;
   struck: boolean;
   /** Un disparo le acaba de dar: este fotograma manda su empujón, no la marcha. */
@@ -170,14 +175,14 @@ export class EnemySystem extends createSystem(
     for (const clip of gltf.animations) actions.set(clip.name, mixer.clipAction(clip));
     const e = this.world.createTransformEntity(root);
     const target = new FoeTarget(e, root, K.radius, K.height * 0.15);
-    const rt: FoeRuntime = { kind, model, mixer, actions, current: '', yaw, groanT: 1 + Math.random() * 3, attackT: 0.6, struck: false, kick: false, stun: STAGGER, fade: null, target };
+    const rt: FoeRuntime = { kind, model, mixer, actions, current: '', yaw, charged: false, attackT: 0.6, struck: false, kick: false, stun: STAGGER, fade: null, target };
     root.userData.rt = rt;
     this.targets.push(target);
     e.addComponent(Foe, { hp: K.hp, speed: GAME.foeSpeed * (kind === 'chubby' ? 0.8 : 1) * (0.9 + Math.random() * 0.2), state: FoeState.Walk, timer: 0, side: Math.random() < 0.5 ? -1 : 1, radius: K.radius });
     e.addComponent(PhysicsShape, { shape: PhysicsShapeType.Capsules, dimensions: [K.radius, K.height, 0], density: K.mass * 60, friction: 0.15, restitution: 0.05 });
     e.addComponent(PhysicsBody, { state: PhysicsState.Dynamic, linearDamping: 0.2, angularDamping: 6 });
     this.anim(rt, 'Walk', 0);
-    sfx.groan(root.position, K.pitch);
+    if (kind === 'chubby' || Math.random() < 0.5) roar(root.position, K.voice); // (al salir: la mitad de las veces; el gordo, siempre)
   }
 
   /** Al acabar la ronda: los que quedan en pie se desvanecen (no tapan el resumen). */
@@ -245,6 +250,7 @@ export class EnemySystem extends createSystem(
       this.setVel(e, dir.x * kb, 0.6 + 0.3 * power, dir.z * kb, null);
       rt.kick = true;
       this.anim(rt, 'HitReact', 0.08, true, 1.3);
+      if (Math.random() < 0.3) roar(e.object3D!.position, KIND[rt.kind].voice);
       return;
     }
     // muerto: cuerpo suelto (sin enderezarse), lanzado hacia atrás y hacia arriba, girando
@@ -264,7 +270,8 @@ export class EnemySystem extends createSystem(
       a.time = a.getClip().duration * 0.35;
       a.paused = true;
     }
-    sfx.down(e.object3D!.position);
+    roar(e.object3D!.position, KIND[rt.kind].voice, 0.8);
+    SND.squish(e.object3D!.position);
     HOOKS.foeDown();
   }
 
@@ -443,11 +450,10 @@ export class EnemySystem extends createSystem(
         if (dist < ATTACK_RANGE + r) {
           newState = FoeState.Attack;
           rt.attackT = 0.35;
-        }
-        rt.groanT -= dt;
-        if (rt.groanT <= 0) {
-          rt.groanT = 3 + Math.random() * 5;
-          sfx.groan(p, KIND[rt.kind].pitch);
+          if (!rt.charged) {
+            rt.charged = true;
+            roar(p, KIND[rt.kind].voice);
+          }
         }
       } else if (state === FoeState.Attack) {
         // quieto, de cara a ti; cada poco, un puñetazo (si sigues cerca, te da)

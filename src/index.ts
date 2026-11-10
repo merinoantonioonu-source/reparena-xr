@@ -10,6 +10,7 @@ import { GameSystem } from './combat/game.js';
 import { GateSystem } from './combat/gates.js';
 import { HandSystem } from './input/hand-system.js';
 import { ComicSystem } from './style/comic-system.js';
+import { SoundSystem } from './audio/sound.js';
 import { useLocalInputModels } from './input/input-models.js';
 import { initSettings } from './core/settings.js';
 
@@ -23,4 +24,5 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(EnemySystem, { priority: 5 });
   world.registerSystem(GameSystem, { priority: 6 });
   world.registerSystem(ComicSystem, { priority: 7 });
+  world.registerSystem(SoundSystem, { priority: 8 });
 });

@@ -34,7 +34,7 @@ import { squatConfig, VertDetector, type VertConfig, type VertEvent } from '../e
 import { deepOn } from '../core/rules.js';
 import { dv, nLives } from '../core/settings.js';
 import { num, on, str } from '../core/values.js';
-import { setListener, sfx, unlockAudio } from '../audio/sound.js';
+import { SND, soundState, unlockAudio } from '../audio/sound.js';
 import { GAME, HOOKS } from '../core/state.js';
 import { hands, head, headFwd, SIDES, type Side } from '../input/hand-model.js';
 import { haptic } from '../input/hand-system.js';
@@ -49,6 +49,8 @@ const SQUAT_SPAWN_DIST = 11; // (a cuánto salen los zombis, más o menos: con l
 
 /** Lo que suma la carga al daño (RepArena: POW_DMG): ×1 nada, ×2 +1, ×3 +2, ×4 +4. */
 const POW_DMG = [0, 1, 2, 4];
+// el nivel del rayo (RepArena, src/52_bolt.js: boltLevel): 1 el perfecto y, con carga, su nivel (de él salen su color y su sonido)
+const boltLevel = (perfect: boolean, pow: number): number => Math.max(perfect ? 1 : 0, pow > 1 ? pow : 0);
 
 /** Nitidez en las gafas: la resolución que se pide al entrar (×1 es la «nativa» del navegador de las Quest 3, que se
  * queda corta) y la foveación (cuánto se emborrona el borde de la vista para ir más ligero). */
@@ -176,7 +178,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       foes.push({ state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
-    return { phase: GAME.phase, wave: GAME.wave, between: GAME.between, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
+    return { phase: GAME.phase, wave: GAME.wave, between: GAME.between, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
@@ -197,7 +199,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       if (!el) return;
       const h = (): void => {
         unlockAudio();
-        sfx.click();
+        SND.click();
         fn();
       };
       el.addEventListener('click', h);
@@ -323,7 +325,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.maxAlive = Math.max(1, Math.round(dv('maxAlive', this.rampLvl)));
     this.squatCfg = squatConfig(dv('squatDepth', this.rampLvl), num('perfectTime'), num('powHold'), num('powHoldInc'), deepOn() ? num('deepDrop') : 0);
     this.message(`OLEADA ${GAME.wave}`, this.betweenT);
-    sfx.wave();
+    SND.horn();
   }
 
   private gameOver(): void {
@@ -331,7 +333,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.chargePow = 0;
     throwReset();
     this.locks.clear();
-    sfx.over();
+    SND.defeat();
+    haptic('left', 1, 450);
+    haptic('right', 1, 450);
     this.enemies.vanishAll();
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
@@ -343,7 +347,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (GAME.phase !== 'playing') return;
     if (GAME.maxLives > 0) GAME.lives--;
     this.hurtT = 0.45;
-    sfx.punch();
+    SND.hurt();
     this.message(GAME.maxLives === 0 ? '¡Golpe!' : GAME.lives > 0 ? '¡Golpe! Quedan ' + GAME.lives : '¡Golpe!', 1.5);
     if (GAME.maxLives > 0 && GAME.lives <= 0) this.gameOver();
   }
@@ -411,13 +415,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // al bajar: la bola de energía aparece con la carga
   private onCharge(): void {
     this.chargePow = 1;
-    sfx.charge();
+    SND.charge();
   }
 
   // aguantando abajo: la carga sube un nivel
   private onPower(p: number): void {
     this.chargePow = p;
-    sfx.power(p);
+    SND.power(p);
     if (p >= 4) {
       this.fx.ball.flashMax();
       this.fx.sparks.burst(this.fx.ball.pos, 60, 0xff4d70, 3.2, 0.03);
@@ -428,6 +432,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // subió sin bajar lo bastante: la carga se pierde
   private onPartial(text: string): void {
     this.chargePow = 0;
+    SND.partial();
     this.message(text, 1.2);
   }
 
@@ -437,6 +442,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.reps++;
     if (perfect) {
       GAME.perfect++;
+      SND.perfect();
       this.message('¡PERFECTA!', 1.0);
     } else this.message(fast ? 'Más controlado' : '¡Bien!', fast ? 1.0 : 0.7);
     const pow = Math.max(1, Math.min(4, powIn || 1)), dmg = (perfect ? 2 : 1) + POW_DMG[pow - 1];
@@ -500,6 +506,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const e = this.nearest();
     if (e) this.strike(origin, e, dmg, perfect, pow);
     else this.miss(origin, this.tmpB.copy(origin).addScaledVector(GAME.fwd, 5), perfect, pow, false);
+    if (pow > 1) SND.power(pow, origin);
   }
 
   /** Apuntando tú: el rayo sale hacia d y se engancha al zombi fijado (forced) o al de la ayuda de puntería. */
@@ -523,8 +530,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.fx.sparks.burst(tp, 18 + pow * 8, col, 2.4 + 0.6 * pow, 0.028);
     this.fx.flashes.at(tp, col, 0.6 + 0.25 * pow);
     this.fx.flashes.at(from, 0xff4060, 0.35, 0.15);
-    sfx.zap(pow);
-    sfx.hit(tp, pow);
+    const L = boltLevel(perfect, pow);
+    SND.bolt(from, L);
+    SND.boltHit(tp, L);
     const d = this.tmpC.copy(tp).sub(from).setY(0).normalize();
     this.enemies.hit(e.entity, dmg, pow, d);
     if (e.alive) this.cfx.hit(tp); // (en cómic: líneas de impacto; y si cae, la estrella)
@@ -535,8 +543,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private miss(from: Vector3, to: Vector3, perfect: boolean, pow: number, say: boolean): void {
     this.fx.bolts.fire(from, to, pow, boltColor(perfect, pow));
     this.fx.sparks.burst(to, 4, 0x99ffff, 1, 0.03);
-    sfx.zap(pow);
-    if (say) this.message('Fallo', 0.6);
+    SND.bolt(from, boltLevel(perfect, pow));
+    if (say) {
+      SND.miss();
+      this.message('Fallo', 0.6);
+    }
   }
 
   // un puñetazo: lo aparta (hacia donde iba el puño) y lo aturde; no le quita vida
@@ -546,7 +557,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const hp = this.tmpB.copy(hands[side].wrist).lerp(e.center(this.tmpA), 0.5);
     this.fx.sparks.burst(hp, 14, 0xffd98a, 2.5, 0.035);
     this.fx.flashes.at(hp, 0xfff0c0, 0.35, 0.08);
-    sfx.hit(hp, 1);
+    SND.squish(hp); // (RepArena: el puñetazo a un bicho; a un robot, el golpe metálico)
     haptic(side, 0.9, 60);
     if (PUNCH.n <= 2) this.message('¡Golpe!', 0.6);
   };
@@ -578,7 +589,6 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     while (dy < -Math.PI) dy += Math.PI * 2;
     this.bodyYaw += dy * Math.min(1, dt * 2.5);
     GAME.fwd.set(Math.sin(this.bodyYaw), 0, Math.cos(this.bodyYaw));
-    setListener(GAME.head, this.tmpA.set(GAME.fwd.x, 0, GAME.fwd.z));
 
     const playing = GAME.phase === 'playing';
     if (playing) {

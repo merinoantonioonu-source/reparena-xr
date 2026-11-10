@@ -5,7 +5,8 @@
 //   E2E_SHOTS=carpeta npm run test:e2e   (guarda capturas en esa carpeta)
 //
 // Juega: EMPEZAR (Enter) → sale el primer zombi → sentadilla aguantada (flecha abajo) hasta ×2 → arriba (cuenta la
-// repetición y, en el ordenador, sin manos, el rayo sale solo al zombi más cercano) → otra sentadilla si no le ha dado.
+// repetición y, en el ordenador, sin manos, el rayo sale solo al zombi más cercano) → otra sentadilla si no le ha dado;
+// y comprueba que ha sonado lo de la partida (la oleada, la compuerta, la carga, el rayo y el impacto), ya cargado.
 // Falla si algo no pasa a tiempo o si la página da errores.
 // Necesita el Chromium de Playwright (npx playwright install chromium; ver MIGRACION.md › Cómo probar).
 import { createServer } from 'node:http';
@@ -18,7 +19,7 @@ import { chromium } from 'playwright';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist');
 const BASE = '/reparena-xr/';
 const SHOTS = process.env.E2E_SHOTS || '';
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm', '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.uikitml': 'text/plain', '.md': 'text/markdown', '.mp3': 'audio/mpeg' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm', '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.uikitml': 'text/plain', '.md': 'text/markdown', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav' };
 
 if (!existsSync(path.join(ROOT, 'index.html'))) {
   console.error('No está dist/: construye antes (npm run build).');
@@ -107,6 +108,12 @@ try {
   }
   if (!hit) throw new Error('el rayo no ha dado a ningún zombi\núltimo estado: ' + JSON.stringify(last));
   console.log('  ✓ el rayo le da a un zombi');
+  // el sonido: se abre con el primer toque, IWSDK carga los archivos y suena lo de la partida
+  const snd = await until('el sonido se abre y tiene sus archivos cargados', (s) => s.sound?.running && s.sound.loaded[0] === s.sound.loaded[1] && s.sound.loaded[1] > 0, 30);
+  const played = snd.sound.played, want = ['oleada', 'compuerta', 'carga', 'carga-nivel', 'impacto'].filter((n) => !played[n]);
+  if (!played.rayo && !played['rayo-cargado']) want.push('rayo');
+  if (want.length) throw new Error('no han sonado: ' + want.join(', ') + '\nsonidos: ' + JSON.stringify(snd.sound));
+  console.log(`  ✓ suenan la oleada, la compuerta, la carga, el rayo y el impacto (${Object.keys(played).length} distintos)`);
   await shot('3-rayo');
   if (missing.length) throw new Error('faltan archivos: ' + missing.join(', '));
   if (errors.length) throw new Error('errores en la página:\n' + errors.join('\n'));
