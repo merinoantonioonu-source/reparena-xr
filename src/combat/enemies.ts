@@ -504,6 +504,15 @@ export class EnemySystem extends createSystem(
 
   update(delta: number, time: number): void {
     const dt = Math.min(delta, 0.05);
+    if (GAME.paused) {
+      // en pausa: quietos donde están (la física los sigue moviendo si no se les para)
+      for (const e of this.queries.foes.entities) {
+        if (e.getValue(Foe, 'state') === FoeState.Dead || !e.getValue(PhysicsBody, '_engineBody')) continue;
+        const vel = e.getVectorView(PhysicsBody, '_linearVelocity');
+        if (Math.abs(vel[0]) + Math.abs(vel[2]) > 1e-3) this.setVel(e, 0, vel[1], 0, null);
+      }
+      return;
+    }
     // tu cápsula, donde estás (solo si te has movido algo)
     if (this.playerBody?.object3D) {
       const pp = this.playerPose.position;

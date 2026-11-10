@@ -43,6 +43,9 @@ import { devFoe, flyFoes, FOE_DEF, foeName, gateFoes } from './foes.js';
 import { Rewards } from './rewards.js';
 import { RUSH_SECS } from './perks.js';
 import { BoardRing } from '../ui/board-ring.js';
+import { PAUSE_INFO } from '../ui/menu.js';
+import { HIST_KEY, runRecord, summaryOf, type RunStats } from '../core/run.js';
+import { PERKS } from './perks.js';
 import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, REP_TIME, repPoints, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
 import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
@@ -136,6 +139,14 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private trophyT = 0;
   private trophyCur = '';
   private failBest = -1;
+  // el final de la ronda: el resumen que sale tras el fundido a negro, y el tiempo de oleada (para las calorías)
+  private summary: ReturnType<typeof summaryOf> | null = null;
+  private outT = -1;
+  private outAt = 0;
+  private outK = 0;
+  private black!: Mesh;
+  private workT = 0;
+  private warnLog: string[] = [];
   // los premios (cartas de mejora, dorado, relámpago, cofre y carrera contra tu récord) y si se está descansando
   private rw!: Rewards;
   private resting = false;
@@ -208,6 +219,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (this.waveE?.object3D) this.waveE.object3D.visible = false;
     this.veil = new Mesh(new PlaneGeometry(14, 9), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false }));
     this.veil.userData.noInk = true;
+    // el negro del final: una esfera a tu alrededor (más lejos que el resumen y tus manos, que quedan a la vista)
+    this.black = new Mesh(new SphereGeometry(2.4, 24, 12), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, side: BackSide, depthWrite: false, toneMapped: false, fog: false }));
+    this.black.renderOrder = 10;
+    this.black.visible = false;
+    this.world.createTransformEntity(this.black);
     this.veil.visible = false;
     this.world.createTransformEntity(this.veil);
     this.trophyP = this.world.getSceneObject<UIKitMLAsset>('trophy-panel') ?? null;
@@ -237,6 +253,30 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       }
     };
     HOOKS.startRound = () => this.startRound();
+    HOOKS.endRound = () => this.endRound(false, true);
+    HOOKS.toLobby = () => {
+      // al menú principal en plena ronda: se guarda lo hecho (sin resumen), como en RepArena
+      if (GAME.phase === 'playing') {
+        const row = runRecord(this.runStats(false));
+        if (row) store(HIST_KEY, [...(store<Record<string, unknown>[]>(HIST_KEY) ?? []), row].slice(-400));
+        GAME.phase = 'over';
+        this.rw.roundEnd();
+        this.enemies.vanishAll();
+        this.gates?.closeAll();
+      }
+      HOOKS.showMenu('');
+    };
+    HOOKS.recalibrate = () => {
+      // volver a tomar la postura: en el suelo o sentado, otra vez quieto en ella; de pie, desde donde estás ahora
+      if (FLOOR_EX.includes(settings.exercise)) {
+        this.calibT = 0;
+        GAME.between = true;
+        this.message(PLACE[settings.exercise] ?? 'Colócate', 3600);
+      } else {
+        this.st.reset(head.p.y);
+        this.message('¡Listo!', 1.5);
+      }
+    };
     HOOKS.say = (text, color, secs) => {
       this.message(text, secs);
       if (color === WARN_COL) this.floorWarn(text, color); // (lo que se hace mal, también en grande en el suelo)
@@ -295,6 +335,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // Lo que estás haciendo mal se escribe en grande en el suelo, delante, durante 4 s (RepArena: warnFloor): más lejos
   // cuanto más alta la cabeza, tumbado y legible desde donde estás. Cada aviso nuevo sale delante; luego se queda quieto
   private floorWarn(text: string, color = WARN_COL): void {
+    if (this.warnLog[this.warnLog.length - 1] !== text) this.warnLog.push(text); // (los últimos, para la pausa)
+    if (this.warnLog.length > 8) this.warnLog.shift();
     const p = this.warn, o = this.warnEntity?.object3D;
     if (!p || !o) return;
     if (text === this.warnText && this.warnT > 1) {
@@ -522,6 +564,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.queue.length = 0;
     this.rw.roundStart();
     this.resting = false;
+    this.workT = 0;
+    this.warnLog.length = 0;
+    this.outT = -1;
+    this.summary = null;
     this.world.getSystem(HatchSystem)?.layout(false, head.p, false);
     this.world.getSystem(HatchSystem)?.inchLayout(false, 1);
     this.placeBoard();
@@ -693,7 +739,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   }
 
   // Se acaba la ronda: al perder todas las vidas (win: false) o al superar la última oleada (RepArena: endRun)
-  private endRound(win: boolean): void {
+  private endRound(win: boolean, manual = false): void {
+    if (GAME.phase !== 'playing') return;
+    GAME.paused = false;
     GAME.phase = 'over';
     GAME.between = false;
     this.chargePow = 0;
@@ -710,10 +758,40 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.enemies.vanishAll();
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
-    this.message(win ? '¡Victoria!' : '¡Te han derribado!', 4);
-    // el menú principal, delante de ti, con cómo fue la ronda (el resumen de RepArena llega con el PR 12)
-    const t = Math.floor(this.clock - GAME.startTime);
-    HOOKS.showMenu(`${win ? '¡Victoria!' : `Oleada ${GAME.wave}`} · ${GAME.score} puntos · ${GAME.reps} repeticiones (${GAME.perfect} perfectas) · ${GAME.kills} derribados · ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`);
+    this.message(win ? '¡Victoria!' : manual ? 'Ronda terminada' : '¡Te han derribado!', 4);
+    // lo que se guarda (el historial de RepArena: las dos versiones comparten tu progreso) y el resumen (opción A), tras un
+    // fundido a negro (RepArena: endRun y showOutcome; al terminarla tú, enseguida)
+    const hist = store<Record<string, unknown>[]>(HIST_KEY) ?? [], s = this.runStats(win);
+    const row = runRecord(s);
+    if (row) store(HIST_KEY, [...hist, row].slice(-400));
+    this.summary = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist);
+    this.outT = 0;
+    this.outAt = manual ? 0.4 : win ? 1.4 : 2.6;
+  }
+
+  // lo de la ronda que se guarda y sale en el resumen
+  private runStats(win: boolean): RunStats {
+    return { ex: settings.exercise, mode: settings.mode, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, win, failWave: num('toFail') ? GAME.wave : null, time: this.clock - GAME.startTime, work: this.workT, score: GAME.score, bestCombo: GAME.bestCombo, kg: num('weight') || 70 };
+  }
+
+  // el final: la escena funde a negro (del todo; solo quedan el resumen y tus manos) y sale el resumen
+  private stepOutcome(dt: number): void {
+    if (this.outT < 0) {
+      if (this.outK > 0 && GAME.menu !== 'summary') this.outK = Math.max(0, this.outK - dt * 2);
+    } else {
+      this.outT += dt;
+      this.outK = Math.min(1, this.outT / 0.8);
+      if (this.outT >= this.outAt && this.summary) {
+        HOOKS.showSummary(this.summary);
+        this.summary = null;
+        this.outT = -1;
+      }
+    }
+    this.black.visible = this.outK > 0.01;
+    if (this.black.visible) {
+      this.black.position.copy(head.p);
+      (this.black.material as MeshBasicMaterial).opacity = 0.94 * this.outK;
+    }
   }
 
   // te han dado: pierdes las vidas de su fuerza (la de la tabla del desarrollador; RepArena: hurtPlayer)
@@ -1067,6 +1145,15 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   update(delta: number, time: number): void {
     const dt = Math.min(delta, 0.05);
+    this.stepOutcome(dt);
+    if (GAME.paused) {
+      // en pausa: nada se mueve ni sale; el reloj de la ronda tampoco corre
+      GAME.startTime += time - this.clock;
+      this.clock = time;
+      PAUSE_INFO.perks = this.rw.perks.has.size ? 'Mejoras: ' + [...this.rw.perks.has].map((k) => PERKS[k].name).join(' · ') : '';
+      PAUSE_INFO.warns = this.warnLog.length ? 'Últimos avisos: ' + this.warnLog.slice(-3).reverse().join(' · ') : '';
+      return;
+    }
     this.clock = time;
     const inXR = this.world.visibilityState.peek() !== VisibilityState.NonImmersive;
     if (!inXR) {
@@ -1094,6 +1181,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const playing = GAME.phase === 'playing';
     if (playing) {
       this.exercise(time, dt);
+      if (!GAME.between) this.workT += dt; // (el tiempo de oleada, para las calorías)
       // oleadas: el descanso (no sale nadie); luego van saliendo de la cola, de uno en uno (con ritmo, en el pulso), sin
       // pasar de «Máximo a la vez»; cuando no queda nadie, oleada superada
       this.stepIntro(dt);

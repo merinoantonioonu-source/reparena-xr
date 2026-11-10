@@ -128,7 +128,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 11a · Fondos, plancha lateral y superman** — #17
 - [x] **PR 11b · La batalla diminuta: flexiones y plancha con un brazo** — #18
 - [x] **PR 11c · Inchworm** — #19
-- [ ] **PR 12 · Menú de muñeca, resumen, carátula del duelo y caricatura**
+- [x] **PR 12a · Botón MENÚ de la muñeca, pausa y resumen de la ronda** — #20
+- [ ] **PR 12b · Carátula del duelo, caricatura y avisos de la vista**
 - [ ] **PR 13 · Carrera y progreso**
 - [ ] **PR 14 · Página web y app del móvil**
 - [ ] **PR 15 · Arcos**
@@ -301,8 +302,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ### Fase 2 · Alrededor de la partida
 
-**PR 12 · Menú de muñeca, resumen, carátula del duelo y caricatura** (M)
+**PR 12 · Menú de muñeca, resumen, carátula del duelo y caricatura** (M: partido en 12a y 12b)
 - De RepArena: `src/60_ui.js`, `src/64_intro.js`, `src/62_demo.js`.
+- **12a (hecho)**: el botón MENÚ de la muñeca izquierda (`wrist.uikitml`: sale al mirarte la muñeca; con mandos, también
+  X/Y), la pausa (`pause.uikitml`: seguir, recolocarse, terminar la ronda, menú principal), recoger el menú con la palma
+  hacia abajo o el puño, el final de la ronda con el fundido a negro y el resumen (opción A: `summary.uikitml`;
+  `src/core/run.ts`: `summaryOf`), y la ronda guardada en el historial de RepArena (`runRecord`, `kcalOf`; comparados con
+  su `saveRun` en `tests/compare/run.compare.test.ts`).
+- **12b**: la carátula del duelo (`src/64_intro.js`), la caricatura que enseña cómo se hace cada ejercicio
+  (`src/62_demo.js`) y los avisos de la vista (los del centro, PERFECTA, las indicaciones para colocarse: derechos, y
+  tumbado en el suelo bajo la cara).
 
 **PR 13 · Carrera y progreso** (M)
 - Experiencia, nivel, títulos y colores; misiones del día con su cofre y escudos de racha; campaña (7 regiones, jefes,
@@ -348,6 +357,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `wave-panel`). Los puntos y el combo, en `GAME.score`/`GAME.combo` (`repScore`, `onFoeDown`, `HOOKS.score` para las
   piedras); los golpes recibidos, en `GAME.taken`. Las cartas de mejora tienen que hacer esperar al descanso (RepArena:
   `perkWaits`), y el dorado, el relámpago y el cofre multiplican los puntos (`perkPtsK`, `perkKillK`).
+- PR 12a → PR 12b: los menús tienen ya cinco vistas (`GAME.menu`: lobby, options, summary, pause, none) y el botón de la
+  muñeca (`stepWrist` en `src/ui/menu.ts`). La ronda acaba con `endRound(win, manual)` (fundido a negro: `stepOutcome`);
+  la carátula del duelo va antes de la primera oleada (RepArena: `introStart` en `beginRun`, 7 s, se salta con un botón).
+  El historial se guarda en `reparena3-history` (lo lee también RepArena); la carrera (PR 13) leerá de ahí.
 - PR 11c → PR 12: los avisos de la vista (los del centro, PERFECTA, las indicaciones para colocarse y la caricatura) aún
   van al marcador: tumbado y en plancha, RepArena los ponía en el suelo bajo la cara o en el techo, fijos y derechos.
   La colocación antes de empezar (`calibStep`) dice cómo con el marcador; la caricatura (RepArena: `src/62_demo.js`) lo
@@ -464,6 +477,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   PR 9) y su tamaño se ha probado en el navegador (el zombi verde a lo grande y el dragón); en las gafas, por ver que
   quepan bien por la compuerta. Los robots, drones, avispones y la nodriza (geométricos) no salen: en su lugar, zombis
   verdes, abejas y el dragón.
+- PR 12a: en la VR simulada, la pausa se abrió con el botón X del mando izquierdo y se cerró con «Continuar» (el rayo);
+  el resumen sale al terminar la ronda y la ronda queda en el historial (partida simulada). En las gafas, por mirar: el
+  botón MENÚ al mirarte la muñeca con las manos, pulsarlo con la otra mano, y recoger el menú con la palma hacia abajo o
+  el puño (el sentido de «palma hacia abajo» se ha supuesto con el giro de la muñeca de WebXR; si recoge el menú al
+  revés, se cambia). Con mandos, el botón sale con el mando izquierdo cerca y por debajo de la cabeza (como en RepArena).
+- PR 12a: el resumen aún no trae lo de la carrera (nivel, misiones, racha de días, cofre del día: PR 13) ni la propuesta
+  de subir o bajar de rango (RepArena: `rankFitAdd`).
 - PR 11c: probado en la VR simulada (llegar a la línea carga, una flexión allí da ×2, al volver y ponerse de pie dispara
   y sale la onda con su sonido, que manda a los bichos a su trampilla). El polvo de la onda de RepArena (nubes que se
   hinchan y columnas que suben) aquí son chispas de colores a su paso; por mirar en las gafas si hace falta más.

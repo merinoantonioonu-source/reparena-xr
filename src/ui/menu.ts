@@ -5,7 +5,11 @@
  *  - el principal (public/ui/lobby.uikitml): EMPEZAR, el modo, los ejercicios y la dificultad, Opciones y Salir;
  *  - Opciones (public/ui/options.uikitml): Rivales y armas, Progreso, Sonido, Entorno y Ajustes, en pestañas, con los
  *    ajustes del esquema;
- *  - la explicación de un ajuste (public/ui/hint.uikitml), al lado del menú, con la tecla «?».
+ *  - la explicación de un ajuste (public/ui/hint.uikitml), al lado del menú, con la tecla «?»;
+ *  - el resumen de la ronda (public/ui/summary.uikitml: RepArena, opción A) y la pausa (public/ui/pause.uikitml);
+ *  - el botón MENÚ de la muñeca izquierda (public/ui/wrist.uikitml: RepArena, watch): sale al mirarte la muñeca y se pulsa
+ *    con la otra mano (con mandos, también X/Y): en la ronda, la pausa; fuera, trae el menú delante. El menú se recoge con
+ *    la palma izquierda hacia abajo o con el puño (RepArena: «Menú de muñeca»).
  * En las gafas, el menú sale delante de ti y a tu alcance (a «Distancia del menú»), colgando a la altura del pecho e
  * inclinado hacia ti; cada menú nuevo sale donde estaba el anterior. En el ordenador, quieto donde lo pone la escena.
  * Lo que se enseña de cada ajuste y lo que hace tocarlo, sin IWSDK, en src/ui/fields.ts.
@@ -19,7 +23,8 @@ import { fieldVisible, onSettingsChange, rankIdx, setSetting } from '../core/set
 import { isCombat } from '../core/rules.js';
 import { num, settings } from '../core/values.js';
 import { GAME, HOOKS } from '../core/state.js';
-import { head } from '../input/hand-model.js';
+import { hands, head, isFist } from '../input/hand-model.js';
+import type { Summary } from '../core/run.js';
 import { SND, unlockAudio } from '../audio/sound.js';
 import { HOW } from '../exercise/how.js';
 import { curEx, PLAY_EX, eyeFields, fieldHere, fieldPick, fieldStep, fieldView, groupFields, groupName, roundInfo, settingsGroups, type FieldView } from './fields.js';
@@ -55,6 +60,9 @@ const HINT_SECS = 9;
 // En las gafas: el borde de arriba del menú, 18 cm por debajo de los ojos; a «Distancia del menú» (RepArena: el 75 %)
 const TOP_BELOW = 0.18;
 
+/** Lo que la pausa cuenta además (lo pone la partida): las mejoras que llevas y los últimos avisos. */
+export const PAUSE_INFO = { perks: '', warns: '' };
+
 /** Lo que va en una fila: un ajuste del esquema o la nitidez (propia del juego nuevo). */
 type Row = FieldDef | 'quality' | null;
 
@@ -67,7 +75,19 @@ export class MenuSystem extends createSystem({}, {}) {
   private eLobby: Entity | undefined;
   private eOpts: Entity | undefined;
   private eHint: Entity | undefined;
-  private view: 'lobby' | 'options' | 'none' = 'lobby';
+  private view: 'lobby' | 'options' | 'summary' | 'pause' | 'none' = 'lobby';
+  private sum: UIKitMLAsset | null = null;
+  private pausep: UIKitMLAsset | null = null;
+  private wrist: UIKitMLAsset | null = null;
+  private eSum: Entity | undefined;
+  private ePause: Entity | undefined;
+  private eWrist: Entity | undefined;
+  private wristOn = false;
+  private wristT = 0;
+  private btnPrev = false;
+  private closeT = 0;
+  private wu = new Vector3();
+  private wh = new Vector3();
   private tab: Tab = 'set';
   private group = 'partida';
   private page = 0;
@@ -91,7 +111,38 @@ export class MenuSystem extends createSystem({}, {}) {
     this.eLobby = this.world.getSceneEntity('lobby-panel');
     this.eOpts = this.world.getSceneEntity('options-panel');
     this.eHint = this.world.getSceneEntity('hint-panel');
-    for (const p of [this.lobby, this.opts, this.hint]) if (p) applyFonts(p);
+    this.sum = this.world.getSceneObject<UIKitMLAsset>('summary-panel') ?? null;
+    this.pausep = this.world.getSceneObject<UIKitMLAsset>('pause-panel') ?? null;
+    this.wrist = this.world.getSceneObject<UIKitMLAsset>('wrist-panel') ?? null;
+    this.eSum = this.world.getSceneEntity('summary-panel');
+    this.ePause = this.world.getSceneEntity('pause-panel');
+    this.eWrist = this.world.getSceneEntity('wrist-panel');
+    for (const p of [this.lobby, this.opts, this.hint, this.sum, this.pausep, this.wrist]) if (p) applyFonts(p);
+    this.setOn(this.wrist, this.eWrist, false);
+    // el resumen: otra ronda o el menú principal; la pausa: seguir, recolocarse, terminar la ronda o el menú principal;
+    // el botón de la muñeca
+    this.on(this.sum, 's-again', () => HOOKS.startRound());
+    this.on(this.sum, 's-menu', () => this.show('lobby'));
+    this.on(this.pausep, 'p-go', () => HOOKS.resume());
+    this.on(this.pausep, 'p-recal', () => {
+      HOOKS.resume();
+      HOOKS.recalibrate();
+    });
+    this.on(this.pausep, 'p-end', () => {
+      HOOKS.resume();
+      HOOKS.endRound();
+    });
+    this.on(this.pausep, 'p-menu', () => {
+      HOOKS.resume();
+      HOOKS.toLobby();
+    });
+    this.on(this.wrist, 'w-btn', () => this.onWatch());
+    HOOKS.showSummary = (s) => this.showSummary(s as Summary);
+    HOOKS.pause = () => this.pause();
+    HOOKS.resume = () => {
+      GAME.paused = false;
+      this.show('none');
+    };
     // dónde los pone la escena (en el ordenador se quedan ahí)
     this.eLobby?.object3D?.getWorldPosition(this.home.lobby);
     this.eOpts?.object3D?.getWorldPosition(this.home.opts);
@@ -131,11 +182,13 @@ export class MenuSystem extends createSystem({}, {}) {
 
   // ---------------------------------------------------------------- abrir, cerrar y colocar
 
-  private show(v: 'lobby' | 'options' | 'none'): void {
+  private show(v: 'lobby' | 'options' | 'summary' | 'pause' | 'none'): void {
     this.view = v;
     GAME.menu = v;
     this.setOn(this.lobby, this.eLobby, v === 'lobby');
     this.setOn(this.opts, this.eOpts, v === 'options');
+    this.setOn(this.sum, this.eSum, v === 'summary');
+    this.setOn(this.pausep, this.ePause, v === 'pause');
     if (v === 'none') this.hideHint();
     this.place();
     this.refresh();
@@ -160,7 +213,7 @@ export class MenuSystem extends createSystem({}, {}) {
   // placeAnchor); los menús siguientes salen en el mismo sitio. En el ordenador, donde lo pone la escena
   private place(): void {
     if (this.placed || this.view === 'none') return;
-    const L = this.eLobby?.object3D, O = this.eOpts?.object3D, H = this.eHint?.object3D;
+    const L = this.eLobby?.object3D, O = this.eOpts?.object3D, H = this.eHint?.object3D, Sm = this.eSum?.object3D, Pz = this.ePause?.object3D;
     if (!L || !O) return;
     this.placed = true;
     if (!this.inXR()) {
@@ -168,6 +221,7 @@ export class MenuSystem extends createSystem({}, {}) {
       O.position.copy(this.home.opts);
       H?.position.copy(this.home.hint);
       for (const o of [L, O, H]) o?.rotation.set(0, 0, 0);
+      for (const o of [Sm, Pz]) o?.position.set(this.home.lobby.x, this.home.lobby.y, this.home.lobby.z + 0.05);
       return;
     }
     const f = this.v.set(0, 0, -1).applyQuaternion(head.q).setY(0);
@@ -177,7 +231,8 @@ export class MenuSystem extends createSystem({}, {}) {
     // no se aleja ni se sube; inclinado hacia ti, que lo de abajo quede a la vista)
     const d = (0.75 * Math.max(30, num('menuDist') || 85)) / 100, top = head.p.y - TOP_BELOW;
     this.e.set(-Math.atan2(TOP_BELOW + 0.4, d) * 0.6, Math.atan2(-f.x, -f.z), 0);
-    for (const o of [L, O]) {
+    for (const o of [L, O, Sm, Pz]) {
+      if (!o) continue;
       o.position.set(head.p.x + f.x * d, top, head.p.z + f.z * d);
       o.quaternion.setFromEuler(this.e);
     }
@@ -472,7 +527,102 @@ export class MenuSystem extends createSystem({}, {}) {
     else if (this.view === 'options') this.refreshOptions();
   }
 
+  // ---------------------------------------------------------------- el resumen, la pausa y la muñeca
+
+  // El resumen (RepArena: endMenu, opción A), delante de ti como los menús
+  private showSummary(S: Summary): void {
+    const p = this.sum;
+    this.text(p, 's-title', S.title);
+    this.set(p, 's-title', { color: S.title === 'DERROTA' ? '#ff6b8b' : '#ffd166' });
+    this.text(p, 's-where', `${S.sub} · ${S.where}`);
+    this.text(p, 's-big', String(S.got));
+    this.text(p, 's-unit', S.unit);
+    const MEDAL: Record<string, [string, string]> = { bronce: ['#c9874a', 'Bronce'], plata: ['#c9d2de', 'Plata'], oro: ['#ffd166', 'Oro'] };
+    const m = S.medal ? MEDAL[S.medal] : null;
+    this.set(p, 's-medal', { backgroundColor: m ? m[0] : '#241c33', display: m ? 'flex' : 'none' });
+    this.text(p, 's-medalt', m ? m[1] : '');
+    this.text(p, 's-pct', `${S.pct} %`);
+    S.tiles.forEach(([v], i) => this.text(p, 's-t' + i, v));
+    this.shown(p, 's-chip', !!S.chip);
+    if (S.chip) {
+      this.text(p, 's-chipt', S.chip[0]);
+      this.set(p, 's-chipt', { color: S.chip[1] });
+    }
+    this.placed = false; // (delante de ti, donde esté el menú)
+    this.show('summary');
+  }
+
+  // La pausa (RepArena: openPause y pauseMenu): cómo vas, las mejoras que llevas y los últimos avisos
+  private pause(): void {
+    if (GAME.phase !== 'playing' || GAME.paused) return;
+    GAME.paused = true;
+    const p = this.pausep, x = PAUSE_INFO;
+    this.text(p, 'p-stats', `${GAME.reps} repeticiones · ${GAME.kills} enemigos · ${GAME.score} puntos`);
+    this.text(p, 'p-perks', x.perks);
+    this.shown(p, 'p-perks', !!x.perks);
+    this.text(p, 'p-warn', x.warns);
+    this.shown(p, 'p-warn', !!x.warns);
+    this.placed = false;
+    SND.click();
+    this.show('pause');
+  }
+
+  // El botón MENÚ (o X/Y del mando izquierdo): en la ronda, la pausa; fuera, el menú delante (RepArena: onWatch)
+  private onWatch(): void {
+    if (GAME.phase === 'playing' && !GAME.paused && this.view === 'none') {
+      this.pause();
+      return;
+    }
+    this.placed = false;
+    if (this.view === 'none') this.show(GAME.phase === 'playing' ? 'pause' : 'lobby');
+    else this.place();
+    SND.tick();
+  }
+
+  // ¿Te miras la muñeca izquierda? (el dorso o la palma hacia la cara; con mando, levantado delante) (RepArena: wristLook)
+  private wristLook(): boolean {
+    const h = hands.left;
+    if (!h.ok) return false;
+    const d = h.wrist.distanceTo(head.p);
+    if (h.virt || !h.J.length || !h.J[0].ok) return d < 0.65 && h.wrist.y < head.p.y - 0.1;
+    this.wu.set(0, 1, 0).applyQuaternion(h.wristQ);
+    this.wh.copy(head.p).sub(h.wrist).normalize();
+    return Math.abs(this.wu.dot(this.wh)) > 0.72 && d < 0.7;
+  }
+
+  private stepWrist(dt: number): void {
+    const h = hands.left, inXR = this.inXR();
+    // con mandos, X/Y hacen de botón MENÚ
+    if (h.btnMenu && !this.btnPrev) this.onWatch();
+    this.btnPrev = h.btnMenu;
+    const look = inXR && this.wristLook(), menuUp = this.view !== 'none';
+    this.wristT = look ? this.wristT + dt : 0;
+    const show = look && (!menuUp || this.wristT > 1);
+    if (show !== this.wristOn) {
+      this.wristOn = show;
+      this.setOn(this.wrist, this.eWrist, show);
+    }
+    const o = this.eWrist?.object3D;
+    if (show && o) {
+      this.wu.set(0, 1, 0).applyQuaternion(h.wristQ);
+      this.wh.copy(head.p).sub(h.wrist).normalize();
+      o.position.copy(h.wrist).addScaledVector(this.wu, Math.sign(this.wu.dot(this.wh) || 1) * 0.045);
+      if (h.virt) o.position.copy(h.wrist).add(this.wh.set(0, 0.08, 0));
+      o.lookAt(head.p);
+      this.text(this.wrist, 'w-t', GAME.phase === 'playing' ? 'PAUSA' : menuUp ? 'TRAER MENÚ' : 'MENÚ');
+    }
+    // el menú se recoge con la palma izquierda hacia abajo o con el puño (un momento, para no recogerlo sin querer)
+    const closing = inXR && (this.view === 'lobby' || this.view === 'options') && h.ok && !h.virt && (isFist(h) || this.wu.set(0, 1, 0).applyQuaternion(h.wristQ).y > 0.85);
+    this.closeT = closing ? this.closeT + dt : 0;
+    if (this.closeT > 0.5) {
+      this.closeT = 0;
+      SND.tick();
+      this.show('none');
+    }
+  }
+
   update(delta: number): void {
+    this.stepWrist(Math.min(delta, 0.1));
     if (this.noteT > 0) {
       this.noteT -= delta;
       if (this.noteT <= 0) this.refresh();
@@ -482,6 +632,6 @@ export class MenuSystem extends createSystem({}, {}) {
       if (this.hintT <= 0 || this.view === 'none') this.hideHint();
     }
     // en el menú, Enter (en el ordenador) empieza; en plena partida no hay menú
-    if (GAME.phase === 'playing' && this.view !== 'none') this.show('none');
+    if (GAME.phase === 'playing' && !GAME.paused && this.view !== 'none' && this.view !== 'pause') this.show('none');
   }
 }

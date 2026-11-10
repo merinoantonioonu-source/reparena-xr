@@ -344,6 +344,7 @@ export class HatchSystem extends createSystem({ hatched: { required: [Foe] } }, 
   }
 
   update(delta: number, time: number): void {
+    if (GAME.paused) return; // (en pausa, quietos)
     const dt = Math.min(delta, 0.05);
     this.waveStep(dt);
     // las trampillas: se abren al salir uno y se cierran después

@@ -183,6 +183,15 @@ try {
   await until('sale el jefe zombi verde, a lo grande', (s) => s.foes.some((f) => f.kind === 'zgreen' && f.boss && f.y > 1.2), 60);
   await until('sale el dragón, el jefe de los voladores', (s) => s.foes.some((f) => f.kind === 'dragon' && f.boss), 60);
   await shot('8-jefes');
+  // terminar la ronda (como «Terminar ronda» en la pausa): fundido a negro, el resumen y la ronda en el historial (el de
+  // RepArena: las dos versiones lo comparten)
+  await page.evaluate(() => window.__rx.game.endRound(false, true));
+  await until('el resumen de la ronda', (s) => s.menu === 'summary' && s.phase === 'over', 20);
+  const hist = await page.evaluate(() => JSON.parse(localStorage.getItem('reparena3-history') || '[]'));
+  const lastRun = hist[hist.length - 1];
+  if (!lastRun || lastRun.ex !== 'squat' || !(lastRun.reps > 0) || typeof lastRun.kcal !== 'number') throw new Error('la ronda no está en el historial: ' + JSON.stringify(lastRun));
+  console.log(`  ✓ la ronda, en el historial (${lastRun.reps} repeticiones, ${lastRun.kcal} kcal)`);
+  await shot('9-resumen');
   if (missing.length) throw new Error('faltan archivos: ' + missing.join(', '));
   if (errors.length) throw new Error('errores en la página:\n' + errors.join('\n'));
   ok = true;

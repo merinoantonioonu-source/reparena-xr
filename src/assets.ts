@@ -68,6 +68,9 @@ export default defineAssets({
   'wave-intro': uikitml('wave.uikitml', 'Panel entre oleadas'),
   'perks-cards': uikitml('perks.uikitml', 'Cartas de mejora'),
   'trophy-card': uikitml('trophy.uikitml', 'Logro en grande (trofeo dorado)'),
+  'summary-card': uikitml('summary.uikitml', 'Resumen de la ronda'),
+  'pause-card': uikitml('pause.uikitml', 'Pausa'),
+  'wrist-card': uikitml('wrist.uikitml', 'Botón MENÚ de la muñeca'),
   // la isla pirata (Pirate Kit): de momento, solo su cofre (el del descanso de Combate)
   'island-kit': foe('island.glb', 'Isla pirata (Pirate Kit)'),
   ...sounds,

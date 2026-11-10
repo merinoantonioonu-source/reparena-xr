@@ -96,6 +96,13 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
   **nitidez en las gafas**: Normal ×1, Alta ×1,4 de serie o Máxima ×1,7, que se aplica al entrar en VR) y Ajustes (una
   pestaña por grupo). Los ajustes salen del esquema de RepArena, cada uno con − y + o sus opciones, y la tecla **«?»**
   enseña su explicación al lado del menú. Cada menú sale donde estaba el anterior.
+- **El botón MENÚ** de la muñeca izquierda (como en RepArena): sale al mirarte la muñeca y se pulsa con la otra mano (con
+  mandos, también X/Y del izquierdo). En plena ronda, la **pausa** (cómo vas, tus mejoras, los últimos avisos; seguir,
+  recolocarte, terminar la ronda o ir al menú principal); fuera, trae el menú delante. El menú se recoge con la palma
+  izquierda hacia abajo o con el puño.
+- **Al acabar la ronda**, todo funde a negro y sale el **resumen** (la opción A de RepArena): dónde acabó y el ejercicio,
+  el número grande, la medalla y las perfectas, puntos, tiempo y kcal, el logro más importante y «Otra ronda» o «Menú
+  principal». La ronda se guarda en tu historial (el mismo que RepArena).
 - **El marcador** (el diseño C de RepArena), a un lado (Entorno → «Marcador»: a la izquierda o a la derecha): arriba, la
   oleada en puntos, los puntos (en el relámpago, «×2» y una mecha que se consume) y las vidas; debajo, lo que llevas
   entrenando y la hora; a la izquierda, el **rosco doble** (fuera, lo que llevas de la oleada —en el descanso, la cuenta
@@ -179,6 +186,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/exercise/standing.ts` | Los ejercicios de pie de RepArena (zancada, en dos tiempos, peso muerto, curl, curl con barra, elevación frontal, antebrazos), sin IWSDK |
 | `src/exercise/floor.ts` | Los ejercicios de suelo y sentado de RepArena (fondos, flexiones, plancha lateral, superman, plancha con un brazo), sin IWSDK |
 | `src/exercise/how.ts` | Cómo se hace cada ejercicio de pie (lo que dice el menú principal y el recordatorio del marcador) |
+| `src/core/run.ts` | Al acabar la ronda: lo que se guarda en el historial (el formato de RepArena), las calorías y el resumen |
 | `src/core/state.ts` | Lo que comparten los sistemas (fase, cabeza, bola, marcador) |
 | `src/core/schema.ts` | Los 186 ajustes de RepArena (claves, valores de serie, límites, grupos, condiciones y explicaciones) |
 | `src/core/settings.ts` | Cargar, guardar y cambiar los ajustes (los mismos datos que RepArena), cada modo con cada ejercicio, los rangos con su tabla y la dificultad creciente |
@@ -199,7 +207,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
 | `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de arena, aro del jugador, cajas, rocas, compuertas, valle, nubes, zombis y paneles |
 | `public/scenes/main.iwsdk.scene.json` | La escena: cielo, neblina, suelo, compuertas, valle, nubes, cajas y rocas con su física, paneles y luces |
-| `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador, los dos del suelo (avisos y carga) el de entre oleadas, las cartas de mejora y el trofeo dorado |
+| `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador, los dos del suelo (avisos y carga) el de entre oleadas, las cartas de mejora, el trofeo dorado, el resumen, la pausa y el botón MENÚ de la muñeca |
 | `public/models/` | Los enemigos: zombis, velociraptor, piratas, monstruitos (también los que vuelan), diablillo y puglin, y las animaciones de la biblioteca (Quaternius; ver su `LEEME.md`) |
 | `public/retratos/` | El retrato de cada enemigo para su ficha en Rivales (cortados de la hoja de RepArena) |
 | `public/fonts/` | Las letras (Rubik y Bungee, OFL) |

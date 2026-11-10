@@ -73,7 +73,8 @@ tabla de `README.md` dice qué hace cada archivo.
   id fijo que el sistema llena (textos, colores y `display`) desde el esquema (`src/ui/fields.ts`); las filas de ajuste
   (`o1`…`o9`, `l1`…`l4`) se repiten con la misma forma. Se pulsan con `RayInteractable` y `PokeInteractable` (los de IWSDK)
   mientras se ven. Cuelgan de su borde de arriba (`anchor-y: top`). La partida y el menú se avisan con `HOOKS.startRound`,
-  `HOOKS.showMenu` y `HOOKS.hideMenu`; `GAME.menu` dice cuál se ve.
+  `HOOKS.showMenu` y `HOOKS.hideMenu`; `GAME.menu` dice cuál se ve (también el resumen y la pausa: `HOOKS.showSummary`,
+  `HOOKS.pause`/`resume`; en pausa, `GAME.paused` para a todos). El botón MENÚ de la muñeca, en `stepWrist`.
 - **Enemigos**: cada uno sale de su fila en `FOE_DEF` (`src/combat/foes.ts`: su modelo del catálogo, tamaño, nombres de sus
   animaciones —`idle`, `walk`, `run`, `attack`, `hit`, `death`, `dance`—, cuándo empieza y llega su golpe, su voz); su
   resistencia y su fuerza, de `devFoe` (la tabla del desarrollador). Uno nuevo: su fila, su modelo en `src/assets.ts`

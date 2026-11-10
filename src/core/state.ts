@@ -9,7 +9,9 @@ export type Phase = 'menu' | 'playing' | 'over';
 export const GAME = {
   phase: 'menu' as Phase,
   /** El menú que se ve: el principal, Opciones o ninguno (en plena partida). */
-  menu: 'lobby' as 'lobby' | 'options' | 'none',
+  menu: 'lobby' as 'lobby' | 'options' | 'summary' | 'pause' | 'none',
+  /** En pausa (la ronda se para: nadie se mueve ni sale). */
+  paused: false,
   /** Oleada en curso (1, 2, 3…) y si está en la pausa de entre oleadas (no sale nadie). */
   wave: 0,
   between: false,
@@ -55,6 +57,14 @@ export const HOOKS = {
   /** Abrir el menú principal delante de ti (last: cómo fue la ronda que acaba; vacío, ninguna) y quitarlo: lo pone el menú. */
   showMenu: (_last: string): void => {},
   hideMenu: (): void => {},
+  /** El resumen de la ronda (RepArena, opción A): lo enseña el menú. */
+  showSummary: (_s: unknown): void => {},
+  /** La pausa: pararla y seguir (los pone el menú), recolocarse, terminar la ronda y volver al menú (los pone la partida). */
+  pause: (): void => {},
+  resume: (): void => {},
+  recalibrate: (): void => {},
+  endRound: (): void => {},
+  toLobby: (): void => {},
   /** Un aviso en el marcador (y, si es naranja, también en grande en el suelo): lo pone la partida. */
   say: (_text: string, _color: string, _secs: number): void => {},
   /** Unas chispas (n, del color c) en p: lo pone la partida. */
