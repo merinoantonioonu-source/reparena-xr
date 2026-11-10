@@ -42,4 +42,8 @@ export const HOOKS = {
   /** Abrir el menú principal delante de ti (last: cómo fue la ronda que acaba; vacío, ninguna) y quitarlo: lo pone el menú. */
   showMenu: (_last: string): void => {},
   hideMenu: (): void => {},
+  /** Un aviso en el marcador (y, si es naranja, también en grande en el suelo): lo pone la partida. */
+  say: (_text: string, _color: string, _secs: number): void => {},
+  /** Unas chispas (n, del color c) en p: lo pone la partida. */
+  sparks: (_p: Vector3, _n: number, _c: number): void => {},
 };

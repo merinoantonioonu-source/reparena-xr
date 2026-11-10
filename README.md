@@ -44,9 +44,11 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
 - **Los enemigos de las compuertas**, los que elijas en Opciones → Rivales y armas (cada uno, una ficha con su retrato,
   su nombre, su resistencia y su fuerza): zombi, zombi verde, zombi gordo, velociraptor, los piratas (esqueleto, capitán
   Barbarroja, Sharky y Mako) y los monstruitos (demonio, demonio verde, cíclope, yeti, calavera, alien y alien alto), de
-  Quaternius, con sus animaciones y su voz. Salen repartidos entre los elegidos; su resistencia (disparos que aguantan) y
-  su fuerza (vidas que quitan), las de la tabla del desarrollador de RepArena. El diablillo, el puglin, el lanzador, los
-  robots y los voladores llegan con el PR 8b.
+  Quaternius, con sus animaciones y su voz, y el diablillo y el puglin (de tres colores, con las animaciones de la
+  biblioteca de Quaternius pasadas a su esqueleto). El **lanzador**, un diablillo, se queda lejos y te tira piedras en
+  parábola: apártate («¡Esquivada!») o párala con la mano («¡Parada!»); si te da, pierdes una vida. Salen repartidos entre
+  los elegidos; su resistencia (disparos que aguantan) y su fuerza (vidas que quitan), las de la tabla del desarrollador
+  de RepArena. Los robots, que eran geométricos, por ahora no; los voladores llegan con el PR 8c.
 - **Con física de verdad** (motor Havok): cada uno es un cuerpo que choca con el suelo, las cajas, las rocas, la bola y
   los demás. Van a **su puesto de ataque**, en un arco delante de ti (como en RepArena): **rodean la bola**, las cajas y
   las rocas y se apartan entre ellos; si la primera fila está llena, **esperan en la de atrás** y, con ritmo marcado
@@ -113,6 +115,8 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/scene-assets/comic-valley.scene-asset.ts`, `src/scene-assets/comic-sky.scene-asset.ts` | El valle de dibujo y las nubes |
 | `src/scene-assets/lib/hardsurface.ts` | Piezas de IWSDK para construir modelos (cajas biseladas…) |
 | `src/combat/foes.ts` | La tabla de los enemigos (modelo, tamaño, animaciones, golpe, voz), su resistencia y fuerza, el reparto y los puestos de ataque, sin IWSDK |
+| `src/combat/retarget.ts` | Las animaciones de la biblioteca de Quaternius, pasadas al esqueleto del diablillo y el puglin |
+| `src/combat/rocks.ts`, `src/combat/rock-path.ts` | Las piedras del lanzador: la parábola, la parada con la mano y lo que pasa al llegar |
 | `src/combat/life.ts` | Las cuentas de vida sobre cada enemigo (bolitas doradas, en un solo dibujo) |
 | `src/combat/enemies.ts` | Los enemigos: cuerpos de física, marcha a su puesto rodeando obstáculos, ataque con su fuerza, baile al compás, retroceso y muerte |
 | `src/combat/fx.ts` | La bola de energía, la carga en cada mano, los rayos, las chispas y los destellos |
@@ -140,7 +144,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de arena, aro del jugador, cajas, rocas, compuertas, valle, nubes, zombis y paneles |
 | `public/scenes/main.iwsdk.scene.json` | La escena: cielo, neblina, suelo, compuertas, valle, nubes, cajas y rocas con su física, paneles y luces |
 | `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador y los dos del suelo (avisos y carga) |
-| `public/models/` | Los enemigos: zombis, velociraptor, piratas y monstruitos (Quaternius, CC0; ver su `LEEME.md`) |
+| `public/models/` | Los enemigos: zombis, velociraptor, piratas, monstruitos, diablillo y puglin, y las animaciones de la biblioteca (Quaternius; ver su `LEEME.md`) |
 | `public/retratos/` | El retrato de cada enemigo para su ficha en Rivales (cortados de la hoja de RepArena) |
 | `public/fonts/` | Las letras (Rubik y Bungee, OFL) |
 | `public/input-profiles/` | Las manos y los mandos (MIT) |

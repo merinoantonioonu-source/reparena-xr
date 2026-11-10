@@ -44,6 +44,11 @@ export default defineAssets({
   'foe-skull': foe('monstruitos/skull.glb', 'Calavera'),
   'foe-alien': foe('monstruitos/alien.glb', 'Alien'),
   'foe-alientall': foe('monstruitos/alien_tall.glb', 'Alien alto'),
+  // el diablillo y el puglin (Bestiary), con las animaciones de la biblioteca (Universal Animation Library) y tres colores
+  'foe-imp': foe('imp.glb', 'Diablillo'),
+  'foe-puglin': foe('puglin.glb', 'Puglin'),
+  'foe-anims': foe('anims.glb', 'Animaciones de la biblioteca (diablillo y puglin)'),
+  ...Object.fromEntries(['imp', 'puglin'].flatMap((k) => [1, 2, 3].map((v) => [`foe-${k}-color${v}`, { url: publicAssetUrl(`models/tex/${k}_color${v}.jpg`), type: AssetType.Texture, name: `${k === 'imp' ? 'Diablillo' : 'Puglin'}: color ${v}`, priority: 'background' as const }]))),
   'lobby-panel': uikitml('lobby.uikitml', 'Menú principal'),
   'options-panel': uikitml('options.uikitml', 'Opciones'),
   'hint-panel': uikitml('hint.uikitml', 'Explicación de un ajuste'),

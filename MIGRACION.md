@@ -114,7 +114,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 6 · Ejercicios de pie** — #8
 - [x] **PR 7 · Menú principal y Opciones en VR** — #9
 - [x] **PR 8a · Enemigos de las compuertas con su modelo** — #10
-- [ ] **PR 8b · Diablillo, puglin, lanzador, robots y voladores**
+- [x] **PR 8b · Diablillo, puglin y lanzador** — #11
+- [ ] **PR 8c · Voladores con modelo (abeja, murciélago, Cthulhu y dragón)**
 - [ ] **PR 9 · Armas y defensa**
 - [ ] **PR 10 · Oleadas y premios**
 - [ ] **PR 11 · Ejercicios de suelo**
@@ -214,7 +215,7 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   apaño de rendimiento) se mide en las gafas antes de decidir.
 - De RepArena: `src/60_ui.js`.
 
-**PR 8 · Enemigos** (XL: partido en 8a y 8b)
+**PR 8 · Enemigos** (XL: partido en 8a, 8b y 8c)
 - Todos los de RepArena, desde una tabla (robots, diablillo, puglin, lanzador, zombis, raptor, piratas, monstruitos,
   voladores…), con física: rodean los obstáculos, no se atraviesan, bailan al compás esperando; compuertas, cuentas de
   vida (`LIFE`), retratos y la tabla del desarrollador.
@@ -226,13 +227,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `tests/compare/foes.compare.test.ts`: los mismos puestos); el golpe preparado (en el pulso con ritmo) con su fuerza y el
   retroceso; el baile al compás esperando (con ritmo marcado); las cuentas de vida (`LIFE`, `src/combat/life.ts`); y las
   fichas con retrato en Rivales, que eligen quién sale.
-- **8b**: el diablillo y el puglin (sus animaciones salen de `anims.glb`, la Universal Animation Library, pasadas a su
-  esqueleto: `beastRetarget`), el lanzador (un diablillo que se queda lejos y tira piedras, `throwRock`), los robots
-  (`buildRipper`, `buildDestroyer`: hechos a mano en RepArena; aquí, con la habilidad `iwsdk-build-model`, o proponer al
-  usuario cambiarlos por un modelo de Quaternius: su regla dice que los geométricos gustaron poco) y los voladores
-  (`Flyer`: drones, avispones, abeja, murciélago, Cthulhu y el dragón). También las amenazas a media distancia (`taunt`),
-  las formas de moverse de cada clase (Ajustes → Cada enemigo: `move_*`, `spd_*`, `pace_*`) y las esquivas. Los de las
-  trampillas (arañas, cangrejo, seta, calavera), con los ejercicios de suelo (PR 11).
+- **8b (hecho)**: el diablillo y el puglin, con las animaciones de la biblioteca (`anims.glb`, la Universal Animation
+  Library) pasadas a su esqueleto (`src/combat/retarget.ts`: `beastRetarget`) y uno de sus tres colores al azar; el
+  lanzador (un diablillo que se queda a 4,2 m y te tira piedras en parábola: apártate o párala con la mano;
+  `src/combat/rocks.ts` y `rock-path.ts`: `throwRock`, `rockParry`, `updateRocks`; más deprisa cuanto más difícil,
+  `throwK`). **Decisión del usuario en el PR 8b: los personajes geométricos (robots, drones, avispones; también las
+  arañas del PR 11) no se migran por ahora**; la ficha del robot dice «Por ahora, no».
+- **8c**: los voladores con modelo de Quaternius (`Flyer` de RepArena con `beastFlyer`: abeja, murciélago, Cthulhu y el
+  dragón, jefe), con su vuelo errático, su lanzarse a picar y su aleteo a su ritmo (`FLAP_HZ`). También las amenazas a
+  media distancia (`taunt`), las formas de moverse de cada clase (Ajustes → Cada enemigo: `move_*`, `spd_*`, `pace_*`) y
+  las esquivas. Los de las trampillas con modelo (cangrejo, seta, calavera), con los ejercicios de suelo (PR 11).
 
 **PR 9 · Armas y defensa** (L)
 - Rayos con el aspecto de RepArena, pistolas, espadas; escudo, guardia, esquiva, onda y burbuja (el puñetazo, la diana y
@@ -298,6 +302,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   igual (`SOON_EX`, PR 11); las metas de hoy y la columna HOY, en el PR 13 (su sitio: el elemento `goals` del principal,
   escondido); sin la pantalla invisible detrás de los menús (se mide en las gafas); y la nitidez, solo la del juego nuevo
   (`QUALITY`, en Opciones → Entorno; la «Calidad de imagen» de RepArena no sale: `NOT_HERE`).
+- PR 8b → PR 8c: los voladores no van a puestos (`foeSlot`): vuelan con su propio movimiento (RepArena: `Flyer`). Los
+  modelos de los monstruitos voladores están en RepArena (`models/monstruitos/bee.glb`, `bat.glb`, `cthulhu.glb`,
+  `yellowdragon.glb`), con la animación `Flying`. Los avisos de las piedras usan `HOOKS.say` y `HOOKS.sparks`.
 - PR 8a → PR 8b: la tabla (`FOE_DEF`) y el sistema (`EnemySystem`) ya admiten cualquier enemigo con su modelo y sus
   animaciones por nombre; los que necesitan animaciones de otro archivo (diablillo, puglin) piden pasarlas a su esqueleto
   antes de añadir su fila. `foeReady(k)` dice cuáles hay; las fichas de Rivales (`c-*` en `options.uikitml`) se encienden
@@ -347,8 +354,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
-- PR 8a: aún no están el diablillo, el puglin, el lanzador, los robots ni los voladores (PR 8b): si solo eliges esos,
-  salen zombis verdes; sus fichas en Rivales dicen «Llega con el PR 8b».
+- PR 8b: los robots no salen (eran geométricos: decisión del usuario); si solo eliges robots, salen zombis verdes. Los
+  voladores, con el PR 8c.
+- PR 8b: las piedras se paran con la mano (muñeca o dedos); con la espada, en el PR 9. El lanzador se ha probado en la
+  VR simulada (tira desde la mano y la piedra da si no te apartas); esquivarla y pararla, por mirar en las gafas.
 - PR 8a: los enemigos no hacen amenazas a media distancia ni zigzag o rachas (Ajustes → Cada enemigo): PR 8b. Los jefes,
   la escalera de dureza y la resistencia que sube por oleadas superadas, con el PR 10. El baile al compás, con el ritmo
   marcado (Opciones → Sonido); el de la canción de Spotify, con el PR 22.

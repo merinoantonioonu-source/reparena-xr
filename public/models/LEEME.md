@@ -11,7 +11,11 @@ Licencia: el Ultimate Platformer Pack trae su `License.txt`: CC0 1.0 (dominio p�
 | `piratas/*.glb` | **Piratas** (Pirate Kit, de Quaternius, CC0): el esqueleto, el capitán Barbarroja (con su loro) y los tiburones Sharky y Mako, con su arma en la mano y sus animaciones (reposo, andar, correr, tajo, puñetazo, saludo, recibir golpe y morir). |
 | `monstruitos/*.glb` | **Monstruitos** (Cute Animated Monsters, de Quaternius, CC0): demonio, demonio verde, cíclope, yeti, calavera, alien y alien alto, con su textura dentro y sus animaciones (reposo, andar, saltar, morder, recibir golpe y morir). |
 
-Más licencias: el zombi, el Pirate Kit y Cute Animated Monsters no traen archivo de licencia; Quaternius publica sus packs
+| `imp.glb`, `puglin.glb`, `tex/imp_color*.jpg`, `tex/puglin_color*.jpg` | **Diablillo** y **Puglin** (Bestiary · Dungeon Monsters Kit, de Quaternius): cuerpo y esqueleto, y sus tres colores (texturas reducidas a 1024 px). El lanzador es el mismo diablillo. |
+| `anims.glb` | Las animaciones de la **Universal Animation Library** (Quaternius, CC0), hechas para el esqueleto del diablillo y el puglin: andar, trotar, correr, puñetazos, tajos, gancho, lanzar, recibir golpe, morir, bailar… El juego las pasa a cada modelo al cargarlo (`src/combat/retarget.ts`). |
+
+Más licencias: los modelos y texturas del Bestiary están bajo la Quaternius Asset License (QAL) v1.0 (se pueden usar
+gratis en juegos y otros proyectos; los mismos que usa RepArena). La Universal Animation Library, CC0. el zombi, el Pirate Kit y Cute Animated Monsters no traen archivo de licencia; Quaternius publica sus packs
 gratuitos como CC0 (dominio público). El Dinosaur Animated Pack, CC0.
 
 Los retratos de cada enemigo para sus fichas del menú (`../retratos/*.png`, 128 px) salen de la hoja de RepArena
