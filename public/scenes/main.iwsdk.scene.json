@@ -663,6 +663,69 @@
         ],
         "scale": 1
       }
+    },
+    {
+      "id": "summary-panel",
+      "name": "Resumen de la ronda",
+      "content": {
+        "type": "asset",
+        "asset": "summary-card"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.62,
+          -0.75
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1
+      }
+    },
+    {
+      "id": "pause-panel",
+      "name": "Pausa",
+      "content": {
+        "type": "asset",
+        "asset": "pause-card"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.62,
+          -0.7
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1
+      }
+    },
+    {
+      "id": "wrist-panel",
+      "name": "Botón MENÚ de la muñeca",
+      "content": {
+        "type": "asset",
+        "asset": "wrist-card"
+      },
+      "transform": {
+        "position": [
+          -0.25,
+          1.0,
+          -0.3
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1
+      }
     }
   ],
   "authoring": {

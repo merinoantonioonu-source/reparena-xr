@@ -185,6 +185,7 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
   }
 
   update(delta: number, time: number): void {
+    if (GAME.paused) return; // (en pausa, quietos en el aire)
     const dt = Math.min(delta, 0.05);
     const env = this.env;
     env.active = GAME.phase === 'playing';
