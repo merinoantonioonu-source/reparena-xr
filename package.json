@@ -14,7 +14,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:e2e": "vite build --logLevel warn && node tests/e2e/run.mjs"
+    "test:e2e": "vite build --logLevel warn && node tests/e2e/run.mjs",
+    "test:compare": "vitest run --config vitest.compare.config.ts"
   },
   "dependencies": {
     "@iwsdk/core": "1.1.0-rc.2",

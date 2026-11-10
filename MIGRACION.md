@@ -53,7 +53,14 @@ npm run typecheck      # siempre lo primero: un error de tipos puede parar los s
 npm test               # la lógica pura (Vitest, tests/unit)
 npm run test:e2e       # construye y juega una partida simulada en un navegador sin gafas (tests/e2e/run.mjs)
 npm run build          # la versión publicable, en dist/
+RA_DIR=../reparena npm run test:compare   # compara lo portado con el código original de RepArena (tests/compare)
 ```
+
+- **Comparar con RepArena** (`tests/compare`): ejecuta trozos del código original de RepArena (con `RA_DIR` apuntando a
+  un clon suyo en `main`) junto a lo portado, con los mismos datos y miles de cambios al azar, y comprueba que dan lo
+  mismo. Así se portaron los ajustes (`settings.compare.test.ts`: 24.000 cambios, idénticos). Úsalo para portar
+  cualquier lógica pura (detectores, carrera, sesiones…): `raSlice` saca las líneas entre dos marcas de un archivo de
+  RepArena y `raRun` las ejecuta aisladas. No va en la comprobación de GitHub (allí no está RepArena).
 
 - **Modo ordenador** (la página sin gafas): flecha abajo (o S) para agacharse, espacio para lanzar y Enter para empezar.
   `window.__rx.snapshot()` da el estado de la partida en datos simples (lo usa la partida simulada).
@@ -74,7 +81,7 @@ npm run build          # la versión publicable, en dist/
 
 - [x] **PR 0 · Prototipo** (Combate con sentadillas, para decidir) — #1
 - [x] **PR 1 · Plan, reglas y pruebas** — #2
-- [ ] **PR 2 · Ajustes y datos**
+- [x] **PR 2 · Ajustes y datos** — #3
 - [ ] **PR 3 · Manos, mandos y gestos**
 - [ ] **PR 4 · Estilo Cómic y la arena**
 - [ ] **PR 5 · Sonido**
@@ -220,13 +227,21 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
-- PR 1 → PR 2: los ajustes se leen hoy de constantes (`squatConfig()` en `src/exercise/vertical.ts`, `QUALITY` en
-  `src/combat/game.ts`). El PR 2 debe sustituirlas por el esquema de ajustes sin cambiar el comportamiento (las pruebas
-  de `tests/unit/vertical.test.ts` usan los valores de serie de RepArena). La nitidez (`rx-quality`) hoy se guarda aparte:
-  pásala al esquema con su clave.
+- PR 2 → PR 3: los ajustes ya son los de RepArena (`src/core/`): léelos con `num('clave')`, `str('clave')` u
+  `on('clave')` (`src/core/values.ts`), con `dv('clave', oleadas)` si les afecta la dificultad creciente, y cámbialos
+  solo con `setSetting` (guarda donde RepArena: lo verá también RepArena). Las reglas que dependen de los ajustes
+  (`handsFree`, `foes`, `autoAim`, `twoShots`…) están en `src/core/rules.ts`. Para la mano y el lanzamiento interesan
+  `aim`, `throwPick`, `padHands` y `bodyHands` (mira su explicación en `src/core/schema.ts`).
+- El prototipo juega siempre sentadillas, pero con los ajustes del modo y ejercicio que tenga elegidos el usuario (los
+  últimos de RepArena): si tenía elegido el curl, la dificultad es la del curl. Se arregla al portar los ejercicios (PR 6)
+  y el menú (PR 7). No elijas el ejercicio por código con `setSetting` antes: cambiaría también el de RepArena.
+- La nitidez del prototipo se guarda aparte (`reparenaxr-quality`): RepArena tiene la suya (`quality`, con otras
+  opciones) y este motor pide otra resolución. Se decide en el PR 7 si se unen.
 
 ## Fallos conocidos
 
 - La sacudida del prototipo (`trackHand`, `src/combat/game.ts`) es una simplificación (1,6 m/s en 80 ms): en las gafas
   falla a veces. La arregla el PR 3 con la de RepArena.
 - Pulsar los paneles con el dedo no se ha podido comprobar en el emulador (va demasiado lento); en las gafas, por ver.
+- La dificultad creciente sube con cada oleada; en RepArena solo con las superadas con soltura (pocos golpes): llega en el
+  PR 10.

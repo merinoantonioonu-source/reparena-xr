@@ -70,6 +70,10 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/components.ts`, `src/components.ts` | Los componentes `Foe` (zombi) y `Obstacle` (lo que rodean), y su catálogo |
 | `src/exercise/vertical.ts` | El detector de la sentadilla (bajar y subir, carga, ×2-×4, PERFECTA), sin IWSDK |
 | `src/core/state.ts` | Lo que comparten los sistemas (fase, cabeza, bola, marcador) |
+| `src/core/schema.ts` | Los 186 ajustes de RepArena (claves, valores de serie, límites, grupos, condiciones y explicaciones) |
+| `src/core/settings.ts` | Cargar, guardar y cambiar los ajustes (los mismos datos que RepArena), cada modo con cada ejercicio, los rangos con su tabla y la dificultad creciente |
+| `src/core/values.ts`, `src/core/rules.ts` | Los valores de ahora y lo que se deduce de ellos (de pie, en el suelo, qué enemigos salen, cómo se apunta…) |
+| `src/core/catalog.ts`, `src/core/dev-state.ts` | Ejercicios, modos, enemigos y rangos; el modo desarrollador y su tabla |
 | `src/audio/sound.ts` | Los sonidos (WebAudio) |
 | `src/ui/fonts.ts` | Pone las letras de RepArena (con tildes) en los paneles |
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
@@ -81,3 +85,4 @@ Build and deployment → Source: **GitHub Actions**.
 | `public/input-profiles/` | Las manos y los mandos (MIT) |
 | `tests/unit/` | Pruebas de la lógica (Vitest) |
 | `tests/e2e/run.mjs` | La partida simulada (Playwright), sobre la versión construida servida en una subcarpeta |
+| `tests/compare/` | Comparaciones con el código original de RepArena (`RA_DIR=… npm run test:compare`) |
