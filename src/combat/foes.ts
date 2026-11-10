@@ -4,8 +4,9 @@
  * eliges en Rivales (buildWave: deal) y los puestos de ataque delante de ti (robotSlot). Sin IWSDK: se prueba en
  * tests/unit/foes.test.ts.
  *
- * Por ahora, los que traen su modelo y sus animaciones (PR 8a): zombis, velociraptor, piratas y monstruitos. El diablillo,
- * el puglin, el lanzador y los robots llegan con el PR 8b (hasta entonces, si solo están elegidos esos, salen zombis).
+ * Los de las compuertas con modelo de Quaternius: zombis, velociraptor, piratas, monstruitos (PR 8a), y el diablillo, el
+ * puglin y el lanzador (PR 8b; sus animaciones, las de la biblioteca pasadas a su esqueleto: src/combat/retarget.ts). Los
+ * robots, que en RepArena eran geométricos, por ahora no (decisión del usuario): si solo están elegidos esos, zombis verdes.
  */
 import { Vector3 } from 'three';
 import { DEV, DEV_FACTORY } from '../core/dev-state.js';
@@ -49,6 +50,12 @@ export interface FoeDef {
   palette?: string;
   /** El centro del cuerpo, en proporción a su altura (los monstruitos, su hueso del cuerpo a ras de suelo). */
   ctr: number;
+  /** Sus animaciones salen de la biblioteca (anims.glb, la Universal Animation Library), pasadas a su esqueleto. */
+  ual?: boolean;
+  /** Sus colores: uno de estos al azar (texturas del catálogo de recursos). */
+  tex?: string[];
+  /** El lanzador: se queda lejos y te tira piedras en vez de golpear. */
+  thrower?: boolean;
 }
 
 const ZOMBIE2_CLIPS: FoeClips = { idle: 'Idle', walk: 'Walk', run: 'Run', attack: 'Punch', hit: 'HitReact', death: 'Death', dance: 'Idle_Attack' };
@@ -85,7 +92,17 @@ FOE_DEF.zchubby.k = 1.1;
 FOE_DEF.zchubby.h = 1.8;
 FOE_DEF.zchubby.r = 0.45;
 
-/** ¿Ya se puede sacar? (los demás, con el PR 8b) */
+// El diablillo y el puglin (Bestiary, de Quaternius): las animaciones de la biblioteca (RepArena: BEAST_CLIPS, BEAST_PUNCH)
+const UAL_CLIPS: FoeClips = { idle: 'Idle_Loop', walk: 'Walk_Loop', run: 'Jog_Fwd_Loop', attack: 'Punch_Cross', hit: 'Hit_Chest', death: 'Death01', dance: 'Dance_Loop' };
+const texOf = (k: string): string[] => [1, 2, 3].map((v) => `foe-${k}-color${v}`);
+Object.assign(FOE_DEF, {
+  imp: { asset: 'foe-imp', h: 1.68, k: 1, r: 0.4, stop: 1.2, speedF: 1, heavy: false, walk: 1.25, run: 2.9, minTs: 0.5, maxTs: 1.8, clips: UAL_CLIPS, atk: [0.15, 0.3], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp') },
+  puglin: { asset: 'foe-puglin', h: 1.07, k: 1.15, r: 0.4, stop: 1.0, speedF: 1.25, heavy: false, walk: 0.92, run: 2.2, minTs: 0.5, maxTs: 1.8, clips: UAL_CLIPS, atk: [0.15, 0.3], voice: 'puglin', grp: 'beast', ctr: 0.6, ual: true, tex: texOf('puglin') },
+  // el lanzador: un diablillo algo más pequeño que se queda lejos (a 4,2 m) y te tira piedras (RepArena: impthrow)
+  thrower: { asset: 'foe-imp', h: 1.6, k: 0.95, r: 0.38, stop: 4.2, speedF: 1, heavy: false, walk: 1.19, run: 2.75, minTs: 0.5, maxTs: 1.8, clips: { ...UAL_CLIPS, attack: 'OverhandThrow' }, atk: [0.25, 0.35], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp'), thrower: true },
+} satisfies Record<string, FoeDef>);
+
+/** ¿Ya se puede sacar? (los robots, que eran geométricos, por ahora no: decisión del usuario en el PR 8b) */
 export const foeReady = (k: string): boolean => !!FOE_DEF[k];
 
 /** Su nombre (el de Rivales). */
@@ -126,6 +143,10 @@ export function deal(ks: string[], rnd = Math.random): () => string {
     return g;
   };
 }
+
+/** Lo que el lanzador tira más deprisa (y más a menudo) cuanto más difícil, poco a poco: el rango (de recluta a general,
+ * hasta un 24 %) y la mitad de lo que ha subido la dificultad en la ronda; como mucho, un 40 % (RepArena: throwK). */
+export const throwK = (rank: number, rampK: number): number => Math.min(1.4, 1 + 0.04 * rank + 0.5 * rampK);
 
 /** De los elegidos en Rivales, los que ya se pueden sacar; si ninguno, los zombis verdes (los del prototipo). */
 export const gateFoes = (chosen: string[]): string[] => {

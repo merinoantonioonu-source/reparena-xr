@@ -25,7 +25,7 @@ describe('la tabla', () => {
   it('cada enemigo de la tabla es de las compuertas y tiene su modelo con sus animaciones', () => {
     for (const [k, d] of Object.entries(FOE_DEF)) {
       expect(FOE_GATE.some((o) => o[0] === k), k).toBe(true);
-      const anims = animsOf(fileOf(d.asset));
+      const anims = animsOf(fileOf(d.ual ? 'foe-anims' : d.asset)); // (el diablillo y el puglin: las de la biblioteca)
       for (const [what, name] of Object.entries(d.clips)) if (name) expect(anims, `${k}: ${what} (${name})`).toContain(name);
       for (const need of ['idle', 'walk', 'attack'] as const) expect(d.clips[need], `${k}: ${need}`).toBeTruthy();
       expect(d.atk[0]).toBeLessThan(d.atk[1]);
@@ -40,8 +40,9 @@ describe('la tabla', () => {
     expect(devFoe('g:raptor')).toEqual({ hp: 5, str: 2, tier: 0 });
     DEV.t.foes = {};
   });
-  it('los que aún no están (PR 8b) no salen: si solo hay esos, zombis verdes', () => {
-    expect(gateFoes(['robot', 'imp'])).toEqual(['zgreen']);
+  it('los robots (geométricos) por ahora no salen: si solo están ellos, zombis verdes', () => {
+    expect(gateFoes(['robot'])).toEqual(['zgreen']);
+    expect(gateFoes(['robot', 'imp', 'thrower'])).toEqual(['imp', 'thrower']);
     expect(gateFoes(['robot', 'raptor', 'captain'])).toEqual(['raptor', 'captain']);
   });
   it('el reparto: bien mezclados, cada uno lo mismo', () => {

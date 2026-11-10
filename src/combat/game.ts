@@ -161,6 +161,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     HOOKS.playerHit = (str) => this.onPlayerHit(str ?? 1);
     HOOKS.foeDown = () => this.onFoeDown();
     HOOKS.startRound = () => this.startRound();
+    HOOKS.say = (text, color, secs) => {
+      this.message(text, secs);
+      if (color === WARN_COL) this.floorWarn(text, color); // (lo que se hace mal, también en grande en el suelo)
+    };
+    HOOKS.sparks = (p, n, c) => this.fx.sparks.burst(p, n, c, 2.4, 0.04);
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
     (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, snapshot: () => this.snapshot() };
     // la letra de la ×N de la bola (Bungee, para el lienzo)

@@ -9,6 +9,7 @@
  */
 import {
   AnimationAction,
+  AnimationClip,
   MeshStandardMaterial,
   NearestFilter,
   SRGBColorSpace,
@@ -35,6 +36,10 @@ import {
 import { Foe, FoeState, Obstacle } from './components.js';
 import { devFoe, FOE_DEF, foeSlot, type FoeDef, type FoeClips, type SlotFoe } from './foes.js';
 import { LifeBeads } from './life.js';
+import { Rocks } from './rocks.js';
+import { retarget } from './retarget.js';
+import { throwK } from './foes.js';
+import { rankIdx } from '../core/settings.js';
 import { num } from '../core/values.js';
 import type { LockTarget } from './lockline.js';
 import { SND } from '../audio/sound.js';
@@ -82,6 +87,8 @@ interface FoeRuntime {
   /** Ya te ha rugido al llegar (RepArena: una vez, al cargar contra ti). */
   charged: boolean;
   attackT: number;
+  /** El lanzador: lo que le falta para poder tirar la siguiente piedra (s). */
+  throwCD: number;
   struck: boolean;
   /** Un disparo le acaba de dar: este fotograma manda su empujón, no la marcha. */
   kick: boolean;
@@ -131,6 +138,12 @@ export class EnemySystem extends createSystem(
   readonly targets: FoeTarget[] = [];
   /** Las cuentas de vida, encima de cada uno. */
   readonly life = new LifeBeads();
+  /** Las piedras del lanzador. */
+  readonly rocks = new Rocks();
+  // las animaciones de la biblioteca ya pasadas al esqueleto de cada modelo, y un material por cada color
+  private ualClips = new Map<string, Map<string, AnimationClip>>();
+  private texMats = new Map<string, MeshStandardMaterial>();
+  private hand = new Vector3();
   private slots: SlotFoe[] = [];
   private beatK = -1;
   private beatHit = false;
@@ -155,6 +168,7 @@ export class EnemySystem extends createSystem(
     ball.addComponent(PhysicsBody, { state: PhysicsState.Kinematic });
     this.ballBody = ball;
     this.world.createTransformEntity(this.life.points);
+    this.world.createTransformEntity(this.rocks.group);
   }
 
   /** Cuántos zombis quedan en pie. */
@@ -167,7 +181,34 @@ export class EnemySystem extends createSystem(
   /** ¿Está ya cargado su modelo? (los que no son los de siempre, IWSDK los carga después de arrancar) */
   ready(kind: string): boolean {
     const d = FOE_DEF[kind];
-    return !!d && !!AssetManager.getGLTF(d.asset);
+    return !!d && !!AssetManager.getGLTF(d.asset) && (!d.ual || !!AssetManager.getGLTF('foe-anims'));
+  }
+
+  // las animaciones de la biblioteca para un modelo (las mismas para todos los de ese modelo: se pasan una vez)
+  private ualFor(asset: string, model: Object3D): Map<string, AnimationClip> | null {
+    let m = this.ualClips.get(asset);
+    if (m) return m;
+    const U = AssetManager.getGLTF('foe-anims'), up = U?.scene.getObjectByName('pelvis')?.position.z, mp = model.getObjectByName('pelvis')?.position.z;
+    if (!U || !up || !mp) return null;
+    const has = new Set<string>();
+    model.traverse((o) => has.add(o.name));
+    m = new Map();
+    for (const c of U.animations) m.set(c.name, retarget(c, up, mp, has));
+    this.ualClips.set(asset, m);
+    return m;
+  }
+
+  // uno de sus colores (el material de cada color, uno solo para todos los que lo llevan)
+  private texMat(id: string): MeshStandardMaterial | null {
+    let m = this.texMats.get(id);
+    if (m) return m;
+    const t = AssetManager.getTexture(id);
+    if (!t) return null;
+    t.flipY = false;
+    t.colorSpace = SRGBColorSpace;
+    m = new MeshStandardMaterial({ map: t, roughness: 0.85, metalness: 0 });
+    this.texMats.set(id, m);
+    return m;
   }
 
   /** Saca uno de la tabla (kind: zgreen, raptor, captain…) en (x, z), mirando hacia ti, con hp de vida. */
@@ -188,9 +229,11 @@ export class EnemySystem extends createSystem(
       palette.magFilter = palette.minFilter = NearestFilter;
       palette.generateMipmaps = false;
     }
+    const tint = d.tex ? this.texMat(d.tex[Math.floor(Math.random() * d.tex.length)]) : null;
     model.traverse((o) => {
       const m = o as Mesh;
       if (m.isMesh) {
+        if (tint) m.material = tint;
         m.castShadow = true;
         m.receiveShadow = false;
         // (animado, se sale de su caja de reposo: sin esto, desaparecía a ratos por el borde de la vista)
@@ -211,8 +254,9 @@ export class EnemySystem extends createSystem(
     root.quaternion.setFromAxisAngle(this.up.set(0, 1, 0), yaw);
     const mixer = new AnimationMixer(model);
     const actions = new Map<keyof FoeClips, AnimationAction>();
+    const ual = d.ual ? this.ualFor(d.asset, model) : null;
     for (const [k, name] of Object.entries(d.clips) as [keyof FoeClips, string][]) {
-      const clip = name && gltf.animations.find((c) => c.name === name);
+      const clip = name && (ual ? ual.get(name) : gltf.animations.find((c) => c.name === name));
       if (clip) actions.set(k, mixer.clipAction(clip));
     }
     const e = this.world.createTransformEntity(root);
@@ -221,7 +265,7 @@ export class EnemySystem extends createSystem(
     foeSlot(sf, this.slots, GAME.head);
     this.slots.push(sf);
     const str = devFoe('g:' + kind).str;
-    const rt: FoeRuntime = { kind, def: d, mass: massOf(d), maxHp: hp, str, model, mixer, actions, current: '', yaw, charged: false, attackT: 0, struck: false, kick: false, stun: STAGGER, fade: null, target, sf, slotT: 0.6, slotAt: GAME.head.clone() };
+    const rt: FoeRuntime = { kind, def: d, mass: massOf(d), maxHp: hp, str, model, mixer, actions, current: '', yaw, charged: false, attackT: 0, throwCD: 0, struck: false, kick: false, stun: STAGGER, fade: null, target, sf, slotT: 0.6, slotAt: GAME.head.clone() };
     root.userData.rt = rt;
     this.targets.push(target);
     e.addComponent(Foe, { hp, speed: GAME.foeSpeed * d.speedF * (0.9 + Math.random() * 0.2), state: FoeState.Walk, timer: 0, side: Math.random() < 0.5 ? -1 : 1, radius: d.r });
@@ -242,6 +286,7 @@ export class EnemySystem extends createSystem(
 
   /** Quita a todos (al empezar otra ronda). */
   clear(): void {
+    this.rocks.clear();
     for (const e of [...this.queries.foes.entities]) this.remove(e);
   }
 
@@ -494,6 +539,7 @@ export class EnemySystem extends createSystem(
       let newState = state;
       const sf = rt.sf, d = rt.def;
       sf.pos.set(p.x, 0, p.z);
+      if (rt.throwCD > 0) rt.throwCD -= dt;
       if (!playing) {
         this.anim(rt, 'idle'); // fuera de la partida: quietos (la física los frena)
       } else if (state === FoeState.Stagger) {
@@ -514,7 +560,7 @@ export class EnemySystem extends createSystem(
           const keep = 1 - Math.min(1, dt * 10);
           vx = vel[0] * keep;
           vz = vel[2] * keep;
-          if (sf.row === 0 && !GAME.between && (!P || this.beatHit)) {
+          if (sf.row === 0 && !GAME.between && rt.throwCD <= 0 && (!P || this.beatHit)) {
             newState = FoeState.Attack;
             rt.struck = false;
             this.anim(rt, 'attack', 0.25, true, 0);
@@ -550,10 +596,22 @@ export class EnemySystem extends createSystem(
         if (a) a.time = timer < WINDUP ? t0 * sm(timer / WINDUP) : timer < WINDUP + STRIKE ? t0 + (t1 - t0) * ((timer - WINDUP) / STRIKE) : t1 + 0.35 * Math.min(1, (timer - WINDUP - STRIKE) / RECOVER);
         if (!rt.struck && timer >= WINDUP + STRIKE) {
           rt.struck = true;
-          if (dist < sf.stop + r + 0.6) HOOKS.playerHit(rt.str);
-          SND.step(p, true);
+          if (d.thrower) {
+            // el lanzador no se acerca: suelta la piedra desde la mano y espera a la siguiente (una cada 3-5 s; más a
+            // menudo y más deprisa cuanto más difícil: throwK)
+            const k = throwK(rankIdx(), Math.min(0.6, (num('ramp') / 100) * Math.max(0, GAME.wave - 1)));
+            const hb = o.getObjectByName('hand_r');
+            if (hb) hb.getWorldPosition(this.hand);
+            else this.hand.copy(p).setY(p.y + d.h * 0.3);
+            this.rocks.throw(this.hand, k);
+            rt.throwCD = (3.5 + Math.random() * 2) / k;
+          } else {
+            if (dist < sf.stop + r + 0.6) HOOKS.playerHit(rt.str);
+            SND.step(p, true);
+          }
         }
         if (Math.hypot(sf.slot.x - p.x, sf.slot.z - p.z) > 0.45 && !rt.struck) newState = FoeState.Walk; // (lo apartaron: vuelve a acercarse)
+        else if (d.thrower && timer > WINDUP + STRIKE + 0.35) newState = FoeState.Walk; // (tras tirar, se queda en su sitio)
         else if (timer > WINDUP + STRIKE + RECOVER) {
           // retrocede de espaldas (RepArena: knock), a paso tranquilo
           newState = FoeState.Stagger;
@@ -582,6 +640,7 @@ export class EnemySystem extends createSystem(
       this.w.y += Math.max(-5, Math.min(5, yawErr * 7)) + 1e-5; // (nunca todo a cero: sería «no cambies»)
       this.setVel(e, vx, vel[1], vz, this.w);
     }
+    this.rocks.update(dt);
     // las cuentas de vida, encima de cada uno
     this.life.begin();
     for (const t of this.targets) {

@@ -352,7 +352,7 @@ export class MenuSystem extends createSystem({}, {}) {
         const on = chosen.includes(k), ok = foeReady(k), f = devFoe('g:' + k);
         this.set(p, 'c-' + k, { borderColor: on ? '#ff8a3d' : KEY.bg, backgroundColor: on ? '#2b2130' : '#1b2030' });
         this.set(p, `c-${k}n`, { color: ok ? KEY.fg : KEY.offFg });
-        this.text(p, `c-${k}s`, ok ? `Resiste ${f.hp} · Fuerza ${f.str}` : 'Llega con el PR 8b');
+        this.text(p, `c-${k}s`, ok ? `Resiste ${f.hp} · Fuerza ${f.str}` : 'Por ahora, no');
       }
     const { rows, note } = this.optRows(), per = ROWS_OPT.length, pages = Math.max(1, Math.ceil(rows.length / per));
     this.page = Math.min(this.page, pages - 1);
