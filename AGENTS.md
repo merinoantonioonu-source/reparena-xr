@@ -10,12 +10,14 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
   usuario no programa: explícale los cambios por lo que se ve y se siente en las gafas, no por el código.
 - Cuando algo sea ambiguo o haya varias formas razonables de hacerlo, dale propuestas (o modelos visuales) y deja que
   elija. Cuando pregunte «¿entiendes lo que te digo?», resúmele lo que has entendido.
-- **Lo que resuelve IWSDK, como lo resuelve IWSDK** (lo pidió el usuario): si IWSDK hace algo de forma distinta a como lo
-  hacía RepArena (pintar las manos y los mandos, el pellizco, los rayos y la pulsación de los paneles, la física, las
-  letras…), se usa su solución de serie, sin forzar la de RepArena: la migración es precisamente para ver si así se van
-  los problemas que tenía RepArena. De RepArena se porta lo que IWSDK no trae (la lógica del juego). Si en las gafas un
-  problema vuelve, se le proponen al usuario los apaños de RepArena; si la solución de IWSDK tiene un fallo, se arregla lo
-  mínimo y se apunta en `MIGRACION.md` › Fallos de IWSDK.
+- **Lo que resuelve IWSDK, como lo resuelve IWSDK** (lo pidió el usuario: primarán siempre las soluciones de IWSDK de
+  serie): si IWSDK hace algo de forma distinta a como lo hacía RepArena (leer y pintar las manos y los mandos —RepArena, en
+  el curl con barra, a veces disparaba rayos al azar porque detectaba mal las manos—, los movimientos del cuerpo, la física
+  de pulsar los menús, el pellizco, los rayos de apuntar, la física, las letras…), se usa su solución de serie, sin forzar
+  la de RepArena: la migración es precisamente para ver si así se van los problemas que tenía RepArena. De RepArena se
+  porta lo que IWSDK no trae (la lógica del juego). Si en las gafas un problema vuelve, se busca primero lo que ofrezca
+  IWSDK y, si no hay nada, se le proponen al usuario los apaños de RepArena; si la solución de IWSDK tiene un fallo, se
+  arregla lo mínimo y se apunta en `MIGRACION.md` › Fallos de IWSDK.
 
 ## Dónde está cada cosa
 

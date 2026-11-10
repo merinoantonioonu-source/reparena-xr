@@ -26,12 +26,15 @@ ella (una cada vez, nunca a la vez) y cada PR lo deja al día.
   (`merinoantonioonu-source.github.io`), así que **comparten esos datos**: usa las mismas claves con el mismo formato y lo
   del usuario aparece solo, sin exportar nada. Lo que solo exista aquí, con claves `reparenaxr-*`. La sincronización
   (Firebase) también es la misma: las dos versiones se sincronizan entre sí hasta el cambio de casa.
-- **Lo que resuelve IWSDK, como lo resuelve IWSDK** (pedido del usuario en el PR 3). Si IWSDK resuelve algo de forma
-  distinta a como lo hacía RepArena (pintar las manos y los mandos, el pellizco, los rayos y la pulsación de los paneles,
-  la física, las letras…), se usa su solución de serie, sin forzar la de RepArena: la migración es precisamente para ver
-  si las soluciones de IWSDK resuelven los problemas que tenía RepArena. Los apaños de RepArena para esas cosas no se
-  portan (en `docs/REGLAS.md`, marcados **[Con IWSDK, de serie]**); si en las gafas vuelve un problema, se le proponen al
-  usuario. Si la solución de IWSDK tiene un fallo, se arregla lo mínimo y se apunta en [Fallos de IWSDK](#fallos-de-iwsdk).
+- **Lo que resuelve IWSDK, como lo resuelve IWSDK** (pedido del usuario en el PR 3: «primarán siempre las soluciones de
+  IWSDK de serie»). Si IWSDK resuelve algo de forma distinta a como lo hacía RepArena, se usa su solución de serie, sin
+  forzar la de RepArena: la migración es precisamente para ver si las soluciones de IWSDK resuelven los problemas que
+  tenía RepArena. Por ejemplo: la lectura de las manos (RepArena, sobre todo en el curl con barra, a veces disparaba rayos
+  al azar porque detectaba mal las manos), los movimientos del cuerpo, la física de pulsar los menús, pintar las manos y
+  los mandos, el pellizco, los rayos de apuntar, la física de los cuerpos, las letras… Los apaños de RepArena para esas
+  cosas no se portan (en `docs/REGLAS.md`, marcados **[Con IWSDK, de serie]**); si en las gafas vuelve un problema, se
+  busca primero lo que ofrezca IWSDK y, si no hay nada, se le proponen al usuario los de RepArena. Si la solución de
+  IWSDK tiene un fallo, se arregla lo mínimo y se apunta en [Fallos de IWSDK](#fallos-de-iwsdk).
 - **Portar, no copiar.** Cada parte se rehace sobre IWSDK (sistemas y componentes, física Havok para los cuerpos,
   paneles UIKit para los menús, las manos y mandos de IWSDK), conservando el comportamiento y los números de RepArena en lo
   que IWSDK no trae (la lógica del juego). La lógica pura (detectores, ajustes, sacudida, carrera, sesiones…) se pasa casi
@@ -168,15 +171,19 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   antebrazos y elevación frontal, con sus cargas ×2-×4, PERFECTA, avisos de lo que se hace mal (grandes, en el suelo) y
   «Tu cuerpo (recorridos)»; un selector sencillo de ejercicio en el panel de inicio hasta el PR 7.
 - De RepArena: `src/70_game.js` (detectores, `CHAIN`, `topCue`…).
-- **Decisión del usuario**: el filtro de las dos manos juntas en una pesa (`HF`, `handFilter`: las gafas confunden las
-  manos pegadas). Siguiendo el criterio de usar IWSDK de serie, propuesta: probar primero los curls sin él y portarlo si
-  en las gafas vuelve el problema.
+- **Las manos, las de IWSDK** (criterio del usuario): en RepArena, sobre todo en el curl con barra, a veces salían rayos
+  al azar porque detectaba mal las manos (manos inventadas, saltos del seguimiento, las dos manos pegadas en la pesa).
+  Aquí los detectores leen las manos tal como las da IWSDK (`hands`, sin manos inventadas), y los apaños de RepArena para
+  eso (el filtro `HF` de las dos manos juntas, `handEx`…) no se portan. Si en las gafas vuelven los rayos al azar, se
+  busca primero lo que ofrezca IWSDK y, si no hay nada, se le propone al usuario.
 
 **PR 7 · Menú principal y Opciones en VR** (L)
 - EMPEZAR, metas de hoy, columna HOY, modos, ejercicios, dificultad (galones, «Al fallo», la ficha de la ronda),
   Spotify; Opciones en pestañas, salidas del esquema de ajustes, con la tecla «?».
-- **Decisión del usuario**: cómo se pulsan las teclas (las reglas [A REVISAR] de los menús). Propuesta: probar primero los
-  botones de UIKit en las gafas y quedarse solo con las reglas que sigan haciendo falta.
+- **Las teclas, como las pulsa IWSDK** (lo pidió el usuario: la física del toque de los menús es la de IWSDK de serie):
+  los botones de UIKit con su pulsación (el dedo o el rayo); las reglas de las teclas de RepArena (sólidas, imán,
+  pegadas, retirar el dedo) no se portan. Lo que no es de la pulsación (la pantalla invisible detrás de cada menú, un
+  apaño de rendimiento) se mide en las gafas antes de decidir.
 - De RepArena: `src/60_ui.js`.
 
 **PR 8 · Enemigos** (L)

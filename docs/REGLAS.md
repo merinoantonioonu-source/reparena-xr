@@ -10,8 +10,11 @@ en que se decide: puede que con IWSDK ya no hagan falta, pero eso lo decide el u
 
 **Lo que resuelve IWSDK, como lo resuelve IWSDK** (pedido del usuario en el PR 3): si IWSDK resuelve algo de forma
 distinta a como lo hacía RepArena, se usa su solución de serie y no se fuerza la de RepArena: la migración es precisamente
-para ver si las soluciones de IWSDK resuelven los problemas que tenía RepArena. Los apaños de RepArena para esas cosas
-(van marcados **[Con IWSDK, de serie]**) no se portan; si en las gafas vuelve el problema, se le proponen al usuario.
+para ver si las soluciones de IWSDK resuelven los problemas que tenía RepArena (por ejemplo, los rayos al azar del curl con
+barra, que salían porque RepArena detectaba mal las manos; los movimientos del cuerpo; la física de pulsar los menús).
+Primarán siempre las soluciones de IWSDK de serie. Los apaños de RepArena para esas cosas (van marcados **[Con IWSDK, de
+serie]**) no se portan; si en las gafas vuelve el problema, se busca primero lo que ofrezca IWSDK y, si no hay nada, se le
+proponen al usuario.
 
 ## Lecciones del motor viejo que siguen valiendo
 
@@ -126,7 +129,7 @@ No las cambies sin preguntarle.
   y contaba curls y disparos que no se habían hecho. Fuera de la partida (menús), tampoco.
 - **[Con IWSDK, de serie (PR 3): la mano que se ve es la de IWSDK, sin suavizar]** La mano que se pinta usa la posición suavizada (`J.s`) y también el giro suavizado (`J.sq`, mismo filtro): con el giro
   tal cual, la palma y las falanges temblaban. Solo para pintar: el juego sigue con lo que dan las gafas.
-- **[PR 3: la sacudida y el puñetazo, los de RepArena tal cual (comparados con su código); el suavizado y el pellizco, los de IWSDK de serie; el filtro `HF`, con los ejercicios de pesa (PR 6)]** La lectura de las manos (suavizado, filtro `HF` de las dos manos juntas, lanzamiento, puñetazo, pellizco) está como antes
+- **[PR 3: la sacudida y el puñetazo, los de RepArena tal cual (comparados con su código: IWSDK no los trae); la lectura, el suavizado y el pellizco, los de IWSDK de serie; el filtro `HF` no se porta (con IWSDK, de serie; ver el PR 6 en `MIGRACION.md`)]** La lectura de las manos (suavizado, filtro `HF` de las dos manos juntas, lanzamiento, puñetazo, pellizco) está como antes
   de la auditoría externa: sus cambios (solo posturas nuevas, pellizco con puño, salto de la mano recuperada) empeoraron
   mucho los dos curls en las gafas y el usuario pidió quitarlos. No vuelvas a tocarla sin probarlo con él en las gafas.
 - Espada: corta solo con el brazo (la mano también a ≥ 0,6 m/s, `SWORD_ARM`); el bloqueo, con la hoja en la marca en los
@@ -233,24 +236,24 @@ No las cambies sin preguntarle.
   - se cierra con la palma izquierda hacia abajo o con el puño;
   - los menús nuevos salen solos.
 - **Cada menú sale donde estaba el anterior**: «Traer menú», «Volver», «Menú principal» y el resumen no se alejan.
-- **[A REVISAR en el PR 7: teclas sólidas e imán eran del menú hecho a mano]** Los botones de los menús se pulsan con **las dos manos** (el botón MENÚ de la muñeca izquierda, con la derecha). Las
+- **[Con IWSDK, de serie (pedido del usuario): la física de pulsar los menús es la de IWSDK; las teclas sólidas y el imán no se portan]** Los botones de los menús se pulsan con **las dos manos** (el botón MENÚ de la muñeca izquierda, con la derecha). Las
   teclas son **sólidas**: al llegar al fondo, la mano que se ve se queda apoyada en ella y no la atraviesa; el panel
   también (el fondo y los huecos entre teclas). Y tienen **imán** (opción B elegida): la iluminada sigue iluminada hasta que
   el dedo sale de ella más de 1 cm, la mano que se ve se acerca a ella y, al tocarla, se queda clavada donde tocó; decide la
   punta suavizada (la que se ve) y el barrido de lado se juzga por el movimiento de ~0,1 s, no por un fotograma.
-- **[A REVISAR en el PR 7]** Las teclas son **planas** (opción B del usuario; `flatKeys`, `src/60_ui.js`): cada una, un solo panel con su cara de
+- **[Con IWSDK, de serie: los botones de UIKit, con su pulsación]** Las teclas son **planas** (opción B del usuario; `flatKeys`, `src/60_ui.js`): cada una, un solo panel con su cara de
   color, su borde y su texto, que flota un poco sobre la bandeja con su sombra. **No se hunden** (pedido del usuario: al
   pulsar, el menú se rehace y la tecla nueva salía sin hundir, con el dedo dentro): con el dedo delante se aclara, tocada
   brilla y, al pulsar, destella con un fogonazo de luz donde está el dedo; nada de eso repinta el panel (solo su color).
   Las de relieve (una malla con laterales y contorno de tinta, y la etiqueta encima) pesaban demasiado.
-- **[A REVISAR en el PR 7]** **Pegadas** (pedido del usuario): la tecla pulsada retiene el dedo que se ve hasta que lo apartas por delante; aunque la
+- **[Con IWSDK, de serie (pedido del usuario): la física de pulsar los menús es la de IWSDK; no se porta]** **Pegadas** (pedido del usuario): la tecla pulsada retiene el dedo que se ve hasta que lo apartas por delante; aunque la
   mano de verdad resbale de lado (hasta `POKE_KEEP`, 7 cm), la punta sigue sobre ella y no se desliza por el panel ni
   ilumina las vecinas. En las planas, la punta se queda en el punto exacto que tocó (`pinW`, en el candado `POKE.lock`),
   también cuando la pulsación rehace el menú con teclas nuevas en el mismo sitio.
 - **[A REVISAR en el PR 7: era un apaño de rendimiento del motor viejo; medir si hace falta]** Detrás del fondo de cada menú (y de la columna HOY), una pantalla invisible que solo escribe profundidad y se pinta la
   primera (`menuOccluder`, `src/60_ui.js`): así no se pinta el paisaje tapado por el menú. Sin ella, el menú principal, que
   cubre casi toda la vista, iba a saltos al mover la cabeza (el resumen, pequeño, no). Un panel de menú nuevo, con la suya.
-- **[A REVISAR en el PR 7]** Tras pulsar un botón, hay que **retirar el dedo** antes de que cuente otra pulsación, para que no se toquen dos
+- **[Con IWSDK, de serie (pedido del usuario): la física de pulsar los menús es la de IWSDK; no se porta]** Tras pulsar un botón, hay que **retirar el dedo** antes de que cuente otra pulsación, para que no se toquen dos
   opciones ni el menú siguiente.
 - Menús compactos y al alcance de la mano:
   - lo poco usado va en submenús (Sonido, Entorno, Ajustes…);
