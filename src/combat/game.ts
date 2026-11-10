@@ -39,11 +39,14 @@ import { IDLE } from '../exercise/how.js';
 import { aimForced, deepOn, flyList, foes, groundList, handsFree, twoShots } from '../core/rules.js';
 import { devFoe, flyFoes, FOE_DEF, foeName, gateFoes } from './foes.js';
 import { Rewards } from './rewards.js';
+import { RUSH_SECS } from './perks.js';
+import { BoardRing } from '../ui/board-ring.js';
 import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, REP_TIME, repPoints, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
 import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
 import { curEx } from '../ui/fields.js';
-import { dv, nLives, nWaves, RAMP_CAP, rankIdx, setSetting, waveReps } from '../core/settings.js';
+import { dv, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, waveReps } from '../core/settings.js';
+import { EX_NAMES, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
 import { GAME, HOOKS } from '../core/state.js';
@@ -72,8 +75,8 @@ const aimNow = (): 'auto' | 'hands' | 'gaze' => {
   return a === 'gaze' || !handsFree() ? 'gaze' : 'hands';
 };
 
-// El panel entre oleadas: lo que dura (s) (RepArena: WIN.dur)
-const WAVE_INTRO = 2.4;
+// El panel entre oleadas: lo que dura (s) (RepArena: WIN.dur); y cada logro en grande (RepArena: TROPHY_SECS)
+const WAVE_INTRO = 2.4, TROPHY_SECS = 3.6;
 
 // Avisos en el suelo (RepArena, src/60_ui.js: warnFloor y chargeFloor)
 const WARN_SECS = 4;
@@ -111,6 +114,20 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private waveE: Entity | undefined;
   private veil!: Mesh;
   private introT = -1;
+  // el marcador (el rosco, un lienzo) y los trofeos dorados
+  private ring = new BoardRing();
+  private ringFont = 'sans-serif';
+  private msgText = '';
+  private msgCol = '#3cf0c6';
+  private rampNote = '';
+  private rampUp = false;
+  private waveDone = 0;
+  private trophyP: UIKitMLAsset | null = null;
+  private trophyE: Entity | undefined;
+  private trophies: { title: string; sub: string; color: string }[] = [];
+  private trophyT = 0;
+  private trophyCur = '';
+  private failBest = -1;
   // los premios (cartas de mejora, dorado, relámpago, cofre y carrera contra tu récord) y si se está descansando
   private rw!: Rewards;
   private resting = false;
@@ -184,7 +201,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.veil.userData.noInk = true;
     this.veil.visible = false;
     this.world.createTransformEntity(this.veil);
-    for (const p of [this.board, this.warn, this.chargeP, this.waveP]) if (p) applyFonts(p);
+    this.trophyP = this.world.getSceneObject<UIKitMLAsset>('trophy-panel') ?? null;
+    this.trophyE = this.world.getSceneEntity('trophy-panel');
+    if (this.trophyE?.object3D) this.trophyE.object3D.visible = false;
+    for (const p of [this.board, this.warn, this.chargeP, this.waveP, this.trophyP]) if (p) applyFonts(p);
     this.rw = new Rewards(this.world, {
       message: (t, s) => this.message(t, s),
       sparks: (p, n, c, sp) => this.fx.sparks.burst(p, n, c, sp ?? 2.4, 0.04),
@@ -193,6 +213,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         GAME.lives++;
         return true;
       },
+      trophy: (t, s, c) => this.trophy(t, s, c),
     });
     this.enemies.slowOf = (t) => this.rw.slow(t);
     for (const e of [this.warnEntity, this.chargeEntity]) if (e?.object3D) e.object3D.visible = false;
@@ -217,7 +238,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // la letra de la ×N de la bola (Bungee, para el lienzo)
     try {
       const face = new FontFace('Bungee', `url(${import.meta.env.BASE_URL}fonts/Bungee-Regular.ttf)`);
-      void face.load().then((f) => document.fonts.add(f)).catch(() => {});
+      void face
+        .load()
+        .then((f) => {
+          document.fonts.add(f);
+          this.ringFont = 'Bungee'; // (y la del rosco del marcador)
+        })
+        .catch(() => {});
     } catch {
       /* (sin FontFace: letra del sistema) */
     }
@@ -246,9 +273,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     panel.getElementById(id)?.setProperties({ text });
   }
 
-  private message(text: string, secs = 2.5): void {
-    this.setText(this.board, 'msg', text);
+  // Lo que pasa ahora, en el hueco del marcador (RepArena: cheer; las celebraciones van solo al marcador)
+  private message(text: string, secs = 2.5, color = '#3cf0c6'): void {
+    this.msgText = text;
+    this.msgCol = color;
     this.msgT = secs;
+    this.boardT = 0;
   }
 
   // ---------------------------------------------------------------- avisos en el suelo
@@ -320,22 +350,134 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     }
   }
 
+  // El marcador (diseño C de RepArena: drawBoard), cuatro veces por segundo y solo lo que cambia
   private refreshBoard(): void {
     const b = this.board;
     if (!b) return;
-    const N = nWaves();
-    this.setText(b, 'wave', GAME.phase === 'menu' || !GAME.wave ? 'PREPARADO' : N ? `OLEADA ${GAME.wave}/${N}` : `OLEADA ${GAME.wave}`);
-    this.setText(b, 'lives', GAME.maxLives > 0 ? `VIDAS ${GAME.lives}/${GAME.maxLives}` : 'VIDAS SIN FIN');
-    this.setText(b, 'reps', String(GAME.reps));
-    this.setText(b, 'kills', `${GAME.score} puntos · Derribados: ${GAME.kills}`);
-    const gh = this.rw?.ghostText();
-    this.setText(b, 'perfect', gh ? `Perfectas: ${GAME.perfect} · ${gh[0]}` : `Perfectas: ${GAME.perfect}`);
-    const pow = Math.max(this.chargePow, HTH.left.c?.pow ?? 0, HTH.right.c?.pow ?? 0); // (en la bola o en las manos)
-    this.setText(b, 'charge', pow > 0 ? `Carga ×${pow}` : 'Sin carga');
-    b.getElementById('charge')?.setProperties({ color: pow > 0 ? '#' + POW_COL[pow - 1].toString(16).padStart(6, '0') : '#8b95a8' });
-    const t = GAME.phase === 'playing' ? this.clock - GAME.startTime : 0;
-    const d = new Date();
-    this.setText(b, 'time', `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')} · ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`);
+    const N = nWaves(), playing = GAME.phase === 'playing', rush = this.rw?.rush;
+    const ink = '#eeeaff', teal = '#3cf0c6', gold = '#ffd166', dim = '#5a4d7a', minus = (t: string): string => t.replace(/−/g, '-'); // (la letra no tiene «−»)
+    // el relámpago: el borde de arriba es una mecha que se consume
+    this.boardSet(b, 'fuse-box', { display: rush?.on ? 'flex' : 'none' });
+    if (rush?.on) this.boardSet(b, 'fuse', { width: Math.max(0.5, (58 * rush.left) / RUSH_SECS).toFixed(1) });
+    // arriba: la oleada en puntos (con más de 10, el número), los puntos y las vidas
+    const wi = Math.max(0, GAME.wave - 1);
+    for (let i = 0; i < 10; i++) {
+      const on = playing && N > 0 && N <= 10 && i < N, done = i < wi || (i === wi && this.resting);
+      this.boardSet(b, 'w' + i, { display: on ? 'flex' : 'none', backgroundColor: done ? teal : i === wi && GAME.wave ? '#3a2d5c' : dim, borderColor: done || i === wi ? teal : dim });
+    }
+    this.boardSet(b, 'wtext', { display: playing && !(N > 0 && N <= 10) ? 'flex' : 'none' });
+    this.setText(b, 'wtext', playing ? (N ? `${Math.min(GAME.wave || 1, N)}/${N}` : `OLEADA ${GAME.wave || 1}`) : '');
+    this.setText(b, 'score', String(GAME.score));
+    this.boardSet(b, 'score', { color: rush?.on ? '#ffffff' : gold });
+    this.boardSet(b, 'x2', { display: rush?.on ? 'flex' : 'none' });
+    const L = GAME.maxLives;
+    for (let i = 0; i < 8; i++) this.boardSet(b, 'l' + i, { display: L > 0 && L <= 8 && i < L ? 'flex' : 'none', backgroundColor: i < GAME.lives ? '#ff4fa3' : '#3a2d5c' }); // (las que pierdes, huecas)
+    this.boardSet(b, 'ltext', { display: L === 0 || L > 8 ? 'flex' : 'none' });
+    this.setText(b, 'ltext', L === 0 ? 'SIN FIN' : `VIDAS ${GAME.lives}`);
+    // debajo: lo que llevas entrenando y, discreta, la hora
+    const t = playing ? this.clock - GAME.startTime : 0, d = new Date();
+    this.setText(b, 'train', `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`);
+    this.setText(b, 'clock', `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`);
+    // el rosco: fuera, la oleada (en el descanso, la cuenta atrás) con la muesca de tu récord; dentro, la racha
+    let k = this.waveTarget ? Math.min(1, this.waveDone / this.waveTarget) : 0;
+    if (this.resting && num('rest') > 0) k = Math.max(0, Math.min(1, 1 - this.restT / num('rest')));
+    const gh = playing && !this.resting ? this.rw?.ghostAt() : null;
+    let notch = -1, ahead = false;
+    if (gh && this.waveTarget) {
+      const kk = (gh.g - (GAME.reps - this.waveDone)) / this.waveTarget;
+      ahead = gh.beat || GAME.reps >= gh.g;
+      if (kk > 0) notch = Math.min(0.995, kk);
+    }
+    if (this.ring.draw({ k: playing ? k : 0, notch, ahead: ahead && k > 0, combo: GAME.combo, gold: !!rush?.on, big: String(GAME.reps) }, this.ringFont)) b.getElementById('ring')?.setProperties({ src: this.ring.tex });
+    // a la derecha, un solo hueco para lo que pasa ahora (lo más importante)
+    let msg = '', col = teal;
+    const lines = ['', '', ''];
+    if (!playing) {
+      msg = this.msgT > 0 ? this.msgText : 'PULSA EMPEZAR';
+      lines[0] = `${MODE_NAMES[settings.mode] ?? ''} · ${EX_NAMES[settings.exercise] ?? ''}`;
+    } else if (this.resting) {
+      const waits = this.restT <= 0 && this.rw.waits();
+      msg = waits ? 'ELIGE MEJORA' : `DESCANSO ${Math.max(0, Math.ceil(this.restT))}`;
+      col = waits ? gold : teal;
+      lines[0] = `Siguiente: ${waveReps(GAME.wave)} repeticiones${this.rampNote ? (this.rampUp ? ' · un poco más difícil' : ' · igual') : ''}`;
+      const g = this.rw.ghostText();
+      if (g) lines[1] = minus(g[0]);
+    } else if (!GAME.wave && this.restT > 0) {
+      msg = String(Math.max(1, Math.ceil(this.restT)));
+      col = gold;
+    } else if (this.msgT > 0) {
+      msg = this.msgText;
+      col = this.msgCol;
+    } else if (rush?.on) {
+      msg = '¡RELÁMPAGO! ×2';
+      col = gold;
+    }
+    if (playing && !this.resting) {
+      const g = this.rw.ghostText();
+      if (g) lines[1] = minus(g[0]);
+      lines[2] = IDLE[this.stCfg.ex] ?? '';
+    }
+    this.setText(b, 'msg', minus(msg));
+    this.boardSet(b, 'msg', { color: col, display: msg ? 'flex' : 'none', fontSize: msg.length > 16 ? 3.6 : 5.2 });
+    lines.forEach((l, i) => {
+      this.setText(b, 'r' + (i + 1), l);
+      this.boardSet(b, 'r' + (i + 1), { display: l ? 'flex' : 'none', color: i === 0 && this.rampUp && this.resting ? gold : ink });
+    });
+    // abajo a la derecha, tu rango
+    this.setText(b, 'rank', rankName().toUpperCase());
+  }
+
+  // A un lado, por fuera de las compuertas (Entorno → «Marcador»: a la izquierda —de serie— o a la derecha)
+  private placeBoard(): void {
+    const o = this.world.getSceneEntity('board-panel')?.object3D;
+    if (!o) return;
+    if (!this.boardHome) this.boardHome = { x: o.position.x, ry: o.rotation.y };
+    const right = str('board') === 'right';
+    o.position.x = right ? -this.boardHome.x : this.boardHome.x;
+    o.rotation.y = right ? -this.boardHome.ry : this.boardHome.ry;
+  }
+  private boardHome: { x: number; ry: number } | null = null;
+
+  private boardSet(p: UIKitMLAsset, id: string, props: Record<string, unknown>): void {
+    const k = id + '#' + p.assetId, v = JSON.stringify(props);
+    if (this.texts.get(k) === v) return;
+    this.texts.set(k, v);
+    p.getElementById(id)?.setProperties(props);
+  }
+
+  // Los logros importantes, en grande y dorados (RepArena: trophy), uno tras otro: arriba, por encima de lo que llega
+  trophy(title: string, sub = '', color = '#ffd166'): void {
+    if (this.trophies.length < 6 && !this.trophies.some((o) => o.title === title) && this.trophyCur !== title) this.trophies.push({ title, sub, color });
+  }
+
+  private stepTrophy(dt: number): void {
+    const p = this.trophyP, o = this.trophyE?.object3D;
+    if (!p || !o) return;
+    if (this.trophyT <= 0) {
+      const q = this.trophies.shift();
+      if (!q) {
+        o.visible = false;
+        this.trophyCur = '';
+        return;
+      }
+      this.trophyCur = q.title;
+      p.getElementById('title')?.setProperties({ text: q.title, color: q.color });
+      p.getElementById('sub')?.setProperties({ text: q.sub, display: q.sub ? 'flex' : 'none' });
+      for (const s of ['s1', 's2', 'box']) p.getElementById(s)?.setProperties(s === 'box' ? { borderColor: q.color } : { backgroundColor: q.color });
+      this.trophyT = TROPHY_SECS;
+      const f = GAME.fwd;
+      o.position.set(head.p.x + f.x * 1.6, head.p.y + 0.42, head.p.z + f.z * 1.6); // (arriba: no tapa lo que llega)
+      o.rotation.set(0, Math.atan2(-f.x, -f.z), 0);
+      o.visible = true;
+      SND.combo();
+      haptic('left', 0.7, 160);
+      haptic('right', 0.7, 160);
+    }
+    this.trophyT -= dt;
+    const age = TROPHY_SECS - this.trophyT;
+    o.scale.setScalar(age < 0.25 ? 0.6 + 1.8 * age : age < 0.4 ? 1.05 - (age - 0.25) / 3 : 1); // (entra con un golpe y se asienta)
+    if (age < dt * 1.5 || (age > 0.6 && age < 0.6 + dt)) this.fx.sparks.burst(o.position, 50, 0xffd14d, 2.6, 0.04);
+    if (this.trophyT <= 0) o.visible = false;
   }
 
   // ---------------------------------------------------------------- la ronda
@@ -362,6 +504,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.queue.length = 0;
     this.rw.roundStart();
     this.resting = false;
+    this.placeBoard();
+    // al fallo: la oleada más lejana a la que llegaste nunca con este ejercicio (para el trofeo al pasarla)
+    const hist = store<{ ex?: string; mode?: string; fail?: number }[]>('reparena3-history') ?? [];
+    this.failBest = num('toFail') ? hist.filter((r) => r.ex === settings.exercise && r.mode === settings.mode && r.fail).reduce((a, r) => Math.max(a, r.fail ?? 0), 0) : 0;
     // antes de la primera oleada, 3 s para colocarte (RepArena: 'ready')
     GAME.between = true;
     this.restT = 3;
@@ -387,11 +533,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.foeSpeed = Math.min(2.2, Math.max(0.4, SQUAT_SPAWN_DIST / Math.max(1, dv('walkTime', this.rampLvl))));
     this.stCfg = this.readCfg(this.rampLvl);
     this.taken0 = GAME.taken;
+    this.waveDone = 0;
     this.rw.waveStart(i, isBossWave(i, nWaves()));
     if (i > 0) {
       this.waveIntro(i, w.fresh, rk);
       this.spawnT += WAVE_INTRO; // (llegan cuando se va el panel)
     }
+    if (this.failBest > 0 && i + 1 === this.failBest + 1) this.trophy('¡RÉCORD AL FALLO!', `Oleada ${i + 1}: nunca habías llegado tan lejos`);
     const W1 = `OLEADA ${i + 1}`;
     this.message(rk ? `${W1} · +${Math.round(rk * 100)} % DIFICULTAD` : W1, 1.6);
     SND.horn();
@@ -441,6 +589,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private waveCleared(): void {
     const r = rampAfter(true, GAME.taken - this.taken0, this.waveTarget, num('ramp'), this.rampLvl, RAMP_CAP);
     if (r.up) this.rampLvl++;
+    this.rampNote = r.note;
+    this.rampUp = r.up;
     const N = nWaves();
     if (N && GAME.wave >= N) {
       this.endRound(true);
@@ -516,7 +666,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     SND.hurt();
     if (!this.rw.keepCombo()) GAME.combo = 0; // (te han dado: se rompe el combo, salvo con el combo de hierro)
     GAME.taken++;
-    this.message(GAME.maxLives === 0 ? '¡Golpe!' : GAME.lives > 0 ? '¡Golpe! Quedan ' + GAME.lives : '¡Golpe!', 1.5);
+    this.message(GAME.maxLives === 0 ? '¡Golpe!' : '¡Te han golpeado!', 1.3, '#ff3b5c');
     if (GAME.maxLives > 0 && GAME.lives <= 0) this.endRound(false);
   }
 
@@ -526,7 +676,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.score += killPoints(kind, boss) * this.rw.killK(t); // (dorado ×3, relámpago ×2)
     this.rw.onKill(t);
     if (boss) {
-      this.message('¡JEFE DESTRUIDO!', 2.2);
+      this.message('¡JEFE DESTRUIDO!', 2.2, '#ffd166');
       SND.combo();
     }
   }
@@ -539,7 +689,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.score += repPoints(perfect, GAME.combo, this.rw.ptsK(perfect));
     this.rw.onRep(perfect);
     if (GAME.combo % 10 === 0) {
-      this.message(`COMBO ×${GAME.combo}`, 1.5);
+      this.message(`COMBO ×${GAME.combo}`, 1.5, '#ffd166');
       SND.combo();
     }
   }
@@ -673,6 +823,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // (como en RepArena: onRep)
   private onRep(perfect: boolean, fast: boolean, powIn: number, side: Side | null = null): void {
     GAME.reps++;
+    this.waveDone++;
     this.repScore(perfect);
     if (perfect) {
       GAME.perfect++;
@@ -895,8 +1046,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // el marcador
     if (this.msgT > 0) {
       this.msgT -= dt;
-      if (this.msgT <= 0) this.setText(this.board, 'msg', GAME.phase === 'playing' ? IDLE[this.stCfg.ex] : 'Pulsa EMPEZAR');
     }
+    this.stepTrophy(dt);
     this.boardT -= dt;
     if (this.boardT <= 0) {
       this.boardT = 0.25;

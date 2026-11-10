@@ -124,7 +124,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [ ] **PR 9 · Armas y defensa** (aplazado por el usuario: se hará más adelante; después del 8d va el 10)
 - [x] **PR 10a · Oleadas, jefes, puntos y combo** — #14
 - [x] **PR 10b · Premios: cartas de mejora, enemigo dorado, relámpago, cofre y carrera contra tu récord** — #15
-- [ ] **PR 10c · El marcador elegido (C), celebraciones y trofeos dorados**
+- [x] **PR 10c · El marcador elegido (C), celebraciones y trofeos dorados** — #16
 - [ ] **PR 11 · Ejercicios de suelo**
 - [ ] **PR 12 · Menú de muñeca, resumen, carátula del duelo y caricatura**
 - [ ] **PR 13 · Carrera y progreso**
@@ -272,8 +272,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   las mismas cartas en el mismo momento, las mismas mejoras, escudos, combos salvados y vidas; y la carrera contra tu
   récord, el mismo texto); en la partida, `src/combat/rewards.ts`: las cartas en su panel (`perks.uikitml`), el halo del
   dorado, el relámpago, el cofre del Pirate Kit (`island.glb`: `Chest_Closed` y `Chest_Gold`) y el récord en el marcador.
-- **10c**: el marcador elegido (C: rosco doble, oleadas en puntos, la mecha del relámpago), las celebraciones
-  (`cheer`, solo en el marcador) y los trofeos dorados (`trophy`).
+- **10c (hecho)**: el marcador elegido (C: `board.uikitml`, con el rosco doble en un lienzo, `src/ui/board-ring.ts`), las
+  celebraciones en su hueco del marcador (`message`, con su color) y los trofeos dorados (`trophy.uikitml`,
+  `GameSystem.trophy`: el récord, el récord al fallo, el cofre).
 
 **PR 11 · Ejercicios de suelo** (L)
 - Flexiones, inchworm, fondos, plancha con un brazo, plancha lateral y superman, con los avisos en el suelo y el
@@ -329,6 +330,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `wave-panel`). Los puntos y el combo, en `GAME.score`/`GAME.combo` (`repScore`, `onFoeDown`, `HOOKS.score` para las
   piedras); los golpes recibidos, en `GAME.taken`. Las cartas de mejora tienen que hacer esperar al descanso (RepArena:
   `perkWaits`), y el dorado, el relámpago y el cofre multiplican los puntos (`perkPtsK`, `perkKillK`).
+- PR 10c → PR 11: el marcador (`refreshBoard`) y los avisos ya están; los de suelo usan el mismo flujo de oleadas, puntos
+  y premios. El marcador tumbado en el suelo de RepArena (flexiones, planchas, inchworm), sólido para los bichos, falta.
+  Las letras de los paneles no tienen ♥, ★, ∞, ▲, ⚡ ni el signo menos (−): o se dibujan con formas de UIKit (las vidas,
+  círculos) o se evitan (`minus()` cambia «−» por «-»); para tenerlos, hay que volver a generar las letras
+  (`public/fonts/LEEME.md`).
+- PR 10c → PR 12: los avisos de la vista (lo que pide hacer algo ya o colocarse: RepArena `say`) aún van al marcador; la
+  carátula, el resumen y la caricatura, con sus paneles. Los trofeos (`GameSystem.trophy`) ya tienen su cola.
 - PR 10b → PR 10c: lo que el marcador tiene que enseñar de los premios: el relámpago (`rw.rush`: `on` y `left`, la mecha
   de RepArena), la carrera contra tu récord (`rw.ghostText()`) y las mejoras que tienes (`rw.perks.has`). Los avisos de los
   premios (cofre, dorado, récord) van ahora al hueco de mensajes; en RepArena, los grandes son trofeos (`trophy`).
@@ -425,6 +433,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   PR 9) y su tamaño se ha probado en el navegador (el zombi verde a lo grande y el dragón); en las gafas, por ver que
   quepan bien por la compuerta. Los robots, drones, avispones y la nodriza (geométricos) no salen: en su lugar, zombis
   verdes, abejas y el dragón.
+- PR 10c: el marcador de RepArena se pintaba entero en un lienzo; aquí, con los paneles de UIKit (letras nítidas) y solo el
+  rosco en un lienzo. Diferencias: la mecha del relámpago es una barra que se consume en el borde de arriba (en RepArena,
+  todo el borde); las vidas, círculos rosas (las letras no tienen ♥); el rango, su nombre (sin el escudo con galones); en
+  el descanso no sale «Hoy: x de y min» (llega con el PR 13). «Marcador: Compuertas» y «Columna» lo dejan a la izquierda.
+- PR 10c: en la VR simulada se han visto el marcador (con el relámpago, las vidas, el rosco y el rango) y un trofeo dorado
+  arriba, por encima de las compuertas; en las gafas, por ver que se lea bien de lejos.
 - PR 10b: en la VR simulada se han pulsado las cartas con el rayo del mando y se ha abierto el cofre saltando (con las
   gafas emuladas: la cabeza sube deprisa); el dorado, el relámpago, la escarcha y la onda, en la partida simulada y por
   mirar en las gafas. Con ritmo marcado, el relámpago de RepArena esperaba a la frase de la canción (32 pulsos) con cuenta

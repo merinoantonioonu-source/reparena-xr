@@ -24,6 +24,8 @@ export interface RewardHost {
   message(text: string, secs: number): void;
   sparks(p: Vector3, n: number, color: number, speed?: number): void;
   addLife(): boolean;
+  /** Un logro en grande (trofeo dorado). */
+  trophy(title: string, sub?: string, color?: string): void;
 }
 
 // un halo de luz (una textura con un degradado redondo, una sola para todos)
@@ -191,11 +193,17 @@ export class Rewards {
     }
     if (playing && this.ghost.step(dt, GAME.reps, this.ghostOn())) {
       this.host.message('¡NUEVO RÉCORD!', 2.2);
+      this.host.trophy('¡NUEVO RÉCORD!', `Más repeticiones que en tu mejor ronda (${this.ghost.best?.n ?? 0})`);
       SND.combo();
       haptic('left', 0.6, 120);
       haptic('right', 0.6, 120);
       this.host.sparks(this.v.copy(head.p).addScaledVector(GAME.fwd, 1.2), 40, 0xffd14d, 3);
     }
+  }
+
+  /** Para el rosco: dónde ibas en tu mejor ronda en este momento. */
+  ghostAt(): { g: number; n: number; best: number; beat: boolean } | null {
+    return this.ghost.at(GAME.reps, this.ghostOn());
   }
 
   /** Para el marcador: cuántas llevas de más o de menos que tu récord. */
@@ -419,11 +427,15 @@ export class Rewards {
     if (pool.length) {
       const k = pool[Math.floor(Math.random() * pool.length)];
       this.perks.take(k);
-      this.host.message(`¡Cofre! Mejora extra: ${PERKS[k].name}. ${PERKS[k].desc}`, 3);
-    } else if (GAME.maxLives > 0 && this.host.addLife()) this.host.message(`¡Cofre! +1 vida: ahora tienes ${GAME.lives}`, 2.4);
-    else {
+      this.host.message(`¡Cofre! Mejora extra: ${PERKS[k].name}`, 2.4);
+      this.host.trophy('¡COFRE ABIERTO!', `Mejora extra para esta ronda: ${PERKS[k].name}. ${PERKS[k].desc}`, PERKS[k].col);
+    } else if (GAME.maxLives > 0 && this.host.addLife()) {
+      this.host.message('¡Cofre! +1 vida', 2.2);
+      this.host.trophy('¡COFRE ABIERTO!', `+1 vida: ahora tienes ${GAME.lives}`, '#ff4fa3');
+    } else {
       GAME.score += 300;
       this.host.message('¡Cofre! +300 puntos', 2.2);
+      this.host.trophy('¡COFRE ABIERTO!', '+300 puntos (ya tienes todas las mejoras)');
     }
   }
 }

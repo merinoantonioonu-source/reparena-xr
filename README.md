@@ -96,8 +96,13 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
   **nitidez en las gafas**: Normal ×1, Alta ×1,4 de serie o Máxima ×1,7, que se aplica al entrar en VR) y Ajustes (una
   pestaña por grupo). Los ajustes salen del esquema de RepArena, cada uno con − y + o sus opciones, y la tecla **«?»**
   enseña su explicación al lado del menú. Cada menú sale donde estaba el anterior.
-- **El marcador** a la izquierda (oleada, vidas, repeticiones, carga, derribados, perfectas, mensajes, tiempo y hora).
-  Letras de RepArena (Rubik y Bungee), con tildes.
+- **El marcador** (el diseño C de RepArena), a un lado (Entorno → «Marcador»: a la izquierda o a la derecha): arriba, la
+  oleada en puntos, los puntos (en el relámpago, «×2» y una mecha que se consume) y las vidas; debajo, lo que llevas
+  entrenando y la hora; a la izquierda, el **rosco doble** (fuera, lo que llevas de la oleada —en el descanso, la cuenta
+  atrás— con la muesca de tu récord; dentro, la racha en 10 tramos; en medio, tus repeticiones); a la derecha, un solo
+  hueco grande para lo que pasa ahora (celebraciones, el descanso con la oleada siguiente y tu récord); abajo, tu rango.
+  Los **logros importantes** (un récord, el récord al fallo, el cofre) salen además en grande, en un **trofeo dorado**
+  arriba, por encima de lo que llega. Letras de RepArena (Rubik y Bungee), con tildes.
 - **Sonido** con el de IWSDK (en 3D: se oye de dónde viene): los de RepArena (tus archivos de `sounds/`, sustituibles
   por nombre, y los que allí se fabricaban al vuelo, grabados como archivos), con la voz de cada zombi, la compuerta que
   suena y echa vapor al abrirse y el ambiente de la arena (a 0 mientras suena Spotify).
@@ -164,6 +169,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/audio/sound.ts` | El sonido sobre el de IWSDK (AudioSource): los efectos de RepArena (`SND`), volumen, ambiente y compresor |
 | `src/audio/catalog.ts` | Los sonidos por nombre: el archivo de cada uno (el tuyo o el de serie) y a qué distancia se oye |
 | `sounds/` | Tus sonidos (la lista, en su `LEEME.md`) y los de serie (`de-serie/`, grabados con `tests/sonidos.mjs`) |
+| `src/ui/board-ring.ts` | El rosco doble del marcador (la oleada, tu récord y la racha), pintado en un lienzo |
 | `src/ui/fonts.ts` | Pone las letras de RepArena (con tildes) en los paneles |
 | `src/ui/menu.ts` | Los menús en VR: el principal, Opciones y la explicación de cada ajuste; dónde salen y la nitidez |
 | `src/ui/fields.ts` | Lo que enseñan los menús de cada ajuste y lo que hace tocarlo, las pestañas y la ficha de la ronda, sin IWSDK |
@@ -175,7 +181,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
 | `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de arena, aro del jugador, cajas, rocas, compuertas, valle, nubes, zombis y paneles |
 | `public/scenes/main.iwsdk.scene.json` | La escena: cielo, neblina, suelo, compuertas, valle, nubes, cajas y rocas con su física, paneles y luces |
-| `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador, los dos del suelo (avisos y carga) el de entre oleadas y las cartas de mejora |
+| `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador, los dos del suelo (avisos y carga) el de entre oleadas, las cartas de mejora y el trofeo dorado |
 | `public/models/` | Los enemigos: zombis, velociraptor, piratas, monstruitos (también los que vuelan), diablillo y puglin, y las animaciones de la biblioteca (Quaternius; ver su `LEEME.md`) |
 | `public/retratos/` | El retrato de cada enemigo para su ficha en Rivales (cortados de la hoja de RepArena) |
 | `public/fonts/` | Las letras (Rubik y Bungee, OFL) |
