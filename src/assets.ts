@@ -4,6 +4,7 @@
 import { AssetType, defineAssets } from '@iwsdk/core';
 import { createArenaFloor, createCrate, createPlayerPad, createRock } from './scene-assets/arena.scene-asset.js';
 import { createGate } from './scene-assets/gate.scene-asset.js';
+import { createHatch } from './scene-assets/hatch.scene-asset.js';
 import { createComicClouds } from './scene-assets/comic-sky.scene-asset.js';
 import { createComicValley } from './scene-assets/comic-valley.scene-asset.js';
 import { SOUNDS, soundId, soundUrl } from './audio/catalog.js';
@@ -26,6 +27,7 @@ export default defineAssets({
   crate: createCrate(),
   rock: createRock(),
   gate: createGate(),
+  hatch: createHatch(),
   'comic-clouds': createComicClouds(),
   'comic-valley': createComicValley(),
   'zombie-basic': glb('zombie_basic.glb', 'Zombi verde'),
@@ -44,6 +46,9 @@ export default defineAssets({
   'foe-skull': foe('monstruitos/skull.glb', 'Calavera'),
   'foe-alien': foe('monstruitos/alien.glb', 'Alien'),
   'foe-alientall': foe('monstruitos/alien_tall.glb', 'Alien alto'),
+  // los de las trampillas (Cute Animated Monsters): el cangrejo y la seta (la calavera, la de las compuertas)
+  'foe-crab': foe('monstruitos/crab.glb', 'Cangrejo'),
+  'foe-mushroom': foe('monstruitos/mushroom.glb', 'Seta'),
   // los voladores (Cute Animated Monsters)
   'foe-bee': foe('monstruitos/bee.glb', 'Abeja'),
   'foe-bat': foe('monstruitos/bat.glb', 'Murciélago'),

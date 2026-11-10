@@ -21,7 +21,7 @@ interface RAFlyer {
   onHit(dmg: number, perfect: boolean, point: THREE.Vector3, pow: number): void;
 }
 
-function original(world: { HL: THREE.Vector3; state: string; bites: number; settings: Record<string, unknown>; DET: Record<string, Record<string, unknown>>; stats: { time: number } }, gate: FlyGate, random: () => number): (kind: string, hp: number) => RAFlyer {
+function original(world: { HL: THREE.Vector3; state: string; bites: number; settings: Record<string, unknown>; DET: Record<string, Record<string, unknown>>; stats: { time: number }; tiny?: boolean }, gate: FlyGate, random: () => number): (kind: string, hp: number) => RAFlyer {
   const code = [raSlice('70_game.js', 'const FLYER_KIND', 'function beastFlyer', false), raSlice('70_game.js', 'const MAT_DRONE', 'M.carbonStatic', false), raSlice('70_game.js', 'const FRONT_MIN'), raSlice('70_game.js', 'function frontKeep')].join('\n');
   const stubObj = () => {
     const position = new V3();
@@ -52,7 +52,8 @@ function original(world: { HL: THREE.Vector3; state: string; bites: number; sett
     stats: world.stats,
     DET: world.DET,
     dv: (k: string) => world.settings[k],
-    isTiny: () => false,
+    isTiny: () => !!world.tiny,
+    liveHatches: () => [{ x: gate.x, z: gate.z, openT: 0 }],
     isCombat: () => true,
     liveGates: () => [g],
     beastFlyer: () => {
@@ -84,21 +85,21 @@ function original(world: { HL: THREE.Vector3; state: string; bites: number; sett
 }
 
 describe.skipIf(!RA_DIR)('el vuelo de los voladores, como en RepArena', () => {
-  it('el mismo vuelo, los mismos mordiscos, en 90 vuelos al azar (de pie, en el superman y en la plancha lateral)', () => {
+  it('el mismo vuelo, los mismos mordiscos, en 120 vuelos al azar (de pie, en el superman, en la plancha lateral y diminutos en las flexiones)', () => {
     let frames = 0, bites = 0;
-    for (let seed = 1; seed <= 90; seed++) {
-      const ex = ['squat', 'superman', 'splank'][seed % 3];
+    for (let seed = 1; seed <= 120; seed++) {
+      const ex = ['squat', 'superman', 'splank', 'pushup'][seed % 4], tiny = ex === 'pushup';
       const r = rng(seed), kinds = Object.keys(FLYER_KIND), kind = kinds[Math.floor(r() * kinds.length)];
       const ga = (r() - 0.5) * 1.6, gate: FlyGate = { x: Math.sin(ga) * 11, z: -Math.cos(ga) * 11, ry: ga, scale: 1 };
       const flySpeed = 2 + r() * 8, erratic = 50 + r() * 130, hp = 2 + Math.floor(r() * 4);
       const supHold = 1 + Math.floor(r() * 3), supRange = 6 + Math.floor(r() * 10), refY = ex === 'splank' ? 0.45 : 0.2;
       const DET = { su: { state: 'down', ref: refY }, sp: { ref: refY } };
-      const world = { HL: new V3(0, 1.6, 0), state: 'play', bites: 0, settings: { flySpeed, erratic, exercise: ex, supHold, supRange } as Record<string, unknown>, DET, stats: { time: 0 } };
+      const world = { HL: new V3(0, 1.6, 0), state: 'play', bites: 0, settings: { flySpeed, erratic, exercise: ex, supHold, supRange } as Record<string, unknown>, DET, stats: { time: 0 }, tiny };
       const raR = rng(seed * 7919), ptR = rng(seed * 7919);
       const ra = original(world, gate, raR)(kind, hp);
       ptR(); // (RepArena elige ahí la compuerta: pick)
-      const low = ex !== 'squat', lowY = Math.max(0.3, Math.min(0.8, ex === 'splank' ? refY + 0.03 : refY + supRange / 100 + 0.08));
-      const pt = new Flight(kind, gate, flySpeed, erratic, hp, ptR, low);
+      const low = ex === 'superman' || ex === 'splank', lowY = Math.max(0.3, Math.min(0.8, ex === 'splank' ? refY + 0.03 : refY + supRange / 100 + 0.08));
+      const pt = new Flight(kind, gate, flySpeed, erratic, hp, ptR, low, tiny);
       const supNext = { t: 0 };
       const env = { head: world.HL, play: true, active: true, beat: true, low: low ? lowY : 0, sup: ex === 'superman' ? { hold: supHold, up: false, time: 0, next: supNext } : null };
       let t = 0, myBites = 0;
@@ -109,7 +110,7 @@ describe.skipIf(!RA_DIR)('el vuelo de los voladores, como en RepArena', () => {
         const up = ex === 'superman' && Math.sin(t * 0.8) > 0.5;
         DET.su.state = up ? 'up' : 'down';
         if (env.sup) Object.assign(env.sup, { up, time: t });
-        world.HL.set(Math.sin(t * 0.3) * 0.3, low ? refY + (up ? 0.1 : 0) : 1.6 - 0.35 * Math.max(0, Math.sin(t * 1.7)), Math.cos(t * 0.2) * 0.2);
+        world.HL.set(Math.sin(t * 0.3) * 0.3, tiny ? 0.4 - 0.1 * Math.max(0, Math.sin(t * 2)) : low ? refY + (up ? 0.1 : 0) : 1.6 - 0.35 * Math.max(0, Math.sin(t * 1.7)), Math.cos(t * 0.2) * 0.2);
         if (i % 200 === 199 && ra.hp > 1) {
           // un disparo (con su dirección, horizontal): el empujón, como lo calcula RepArena con su shoveDir sin dirección
           const pow = 1 + Math.floor(r() * 4), perfect = r() < 0.3;
@@ -128,7 +129,7 @@ describe.skipIf(!RA_DIR)('el vuelo de los voladores, como en RepArena', () => {
       expect(myBites, `semilla ${seed}`).toBe(world.bites);
       bites += myBites;
     }
-    expect(frames).toBeGreaterThan(130000);
+    expect(frames).toBeGreaterThan(170000);
     expect(bites).toBeGreaterThan(20);
   });
 });

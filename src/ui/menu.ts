@@ -48,7 +48,7 @@ const TABS = [
 type Tab = (typeof TABS)[number]['k'];
 // Lo que aún no está (se enciende con su PR): los modos y Sesiones, y los ejercicios de suelo
 const SOON_MODE: Record<string, string> = { arcs: 'Arcos llega con el PR 15', bars: 'Barras llega con el PR 17', touch: 'Toques llega con el PR 16', trek: 'La Travesía llega con el PR 18', ses: 'Las sesiones llegan con el PR 19' };
-const SOON_EX = 'Flexiones, plancha con un brazo e inchworm llegan con el PR 11b y 11c';
+const SOON_EX = 'El inchworm llega con el PR 11c';
 const KEY = { bg: '#2a2f3a', fg: '#e9eef7', off: '#1d212b', offFg: '#5d6577', dark: '#0d1016' };
 const ROWS_LOBBY = ['l1', 'l2', 'l3', 'l4'], ROWS_OPT = ['o1', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8', 'o9'], N_OPTS = 8, N_SUB = 10;
 const HINT_SECS = 9;

@@ -48,6 +48,7 @@ import { VOICE_PITCH } from '../audio/catalog.js';
 import { GAME, HOOKS } from '../core/state.js';
 import type { PunchTarget } from '../input/punch.js';
 import type { FlyerSystem } from './flyers.js';
+import type { HatchSystem } from './hatch-foes.js';
 
 // lo que pesa cada uno: más cuanto más ancho (el gordo, 1,6 veces el verde), y los pesados, más aún
 const massOf = (d: FoeDef): number => Math.max(0.8, (d.r / 0.32) ** 2) * (d.heavy ? 1.3 : 1);
@@ -165,6 +166,8 @@ export class EnemySystem extends createSystem(
   slowOf: (t: FoeTarget) => number = () => 1;
   /** Los voladores (src/combat/flyers.ts): se enganchan solos al arrancar. */
   flyers: FlyerSystem | null = null;
+  /** Los de las trampillas (src/combat/hatch-foes.ts): también se enganchan solos. */
+  hatches: HatchSystem | null = null;
 
   init(): void {
     this.physics = this.world.getSystem(PhysicsSystem)!;
@@ -191,7 +194,7 @@ export class EnemySystem extends createSystem(
 
   /** Cuántos quedan en pie (también los que vuelan). */
   aliveCount(): number {
-    let n = this.flyers?.aliveCount() ?? 0;
+    let n = (this.flyers?.aliveCount() ?? 0) + (this.hatches?.aliveCount() ?? 0);
     for (const e of this.queries.foes.entities) if (e.getValue(Foe, 'state') !== FoeState.Dead) n++;
     return n;
   }
@@ -303,6 +306,7 @@ export class EnemySystem extends createSystem(
   /** Al acabar la ronda: los que quedan en pie se desvanecen (no tapan el resumen). */
   vanishAll(): void {
     this.flyers?.vanishAll();
+    this.hatches?.vanishAll();
     for (const e of this.queries.foes.entities) {
       if (e.getValue(Foe, 'state') === FoeState.Dead) continue;
       e.setValue(Foe, 'state', FoeState.Dead);
@@ -314,6 +318,7 @@ export class EnemySystem extends createSystem(
   clear(): void {
     this.rocks.clear();
     this.flyers?.clear();
+    this.hatches?.clear();
     for (const e of [...this.queries.foes.entities]) this.remove(e);
   }
 
@@ -363,6 +368,7 @@ export class EnemySystem extends createSystem(
    */
   hit(e: Entity, dmg: number, power: number, dir: Vector3, perfect = false): void {
     if (e.object3D?.userData.fly) return this.flyers?.hit(e, dmg, perfect, power, dir);
+    if (e.object3D?.userData.hatch) return this.hatches?.hit(e, dmg, perfect, power, dir);
     const rt = e.object3D?.userData.rt as FoeRuntime | undefined;
     if (!rt || e.getValue(Foe, 'state') === FoeState.Dead) return;
     power = Math.max(1, Math.min(4, power));
@@ -410,6 +416,7 @@ export class EnemySystem extends createSystem(
    */
   shove(e: Entity, dist: number, stun: number, dir: Vector3): void {
     if (e.object3D?.userData.fly) return this.flyers?.shove(e, dist, dir);
+    if (e.object3D?.userData.hatch) return this.hatches?.shove(e, dist, dir);
     const rt = e.object3D?.userData.rt as FoeRuntime | undefined, o = e.object3D;
     if (!rt || !o || e.getValue(Foe, 'state') === FoeState.Dead || !(dist > 0)) return;
     const b = this.tmp.set(o.position.x - GAME.head.x, 0, o.position.z - GAME.head.z);

@@ -19,6 +19,8 @@ export const HOW: Record<string, [string, string]> = {
   dips: ['1. Manos en el borde de una silla estable: baja doblando los codos (90°).', '2. Aguanta abajo: ×2, ×3 y ×4. Al estirarlos, dispara.'],
   splank: ['1. De lado sobre el antebrazo, cadera arriba y cuerpo recto.', '2. Cada pocos segundos aguantados, un disparo (si cae la cadera, vuelve a empezar).'],
   superman: ['1. Boca abajo con los brazos estirados: sube el tronco y las piernas.', '2. Aguanta arriba los segundos que pidas: dispara solo al más cercano.'],
+  pushup: ['1. En plancha, baja el pecho casi al suelo: carga.', '2. Aguanta abajo: ×2, ×3 y ×4. Al subir, dispara.'],
+  plank1: ['1. En plancha, levanta un brazo: dispara a ese lado.', '2. Una flexión aguantada abajo carga ×2, ×3 y ×4 para el siguiente.'],
 };
 
 /** Cómo colocarse antes de empezar (los de suelo y sentado: se espera a que estés quieto en la postura). */
@@ -26,6 +28,8 @@ export const PLACE: Record<string, string> = {
   dips: 'Siéntate en el borde de la silla, manos detrás',
   splank: 'Ponte en plancha lateral',
   superman: 'Túmbate boca abajo, brazos estirados',
+  pushup: 'Ponte en plancha, mirando al suelo',
+  plank1: 'Ponte en plancha, mirando al suelo',
 };
 
 /** El recordatorio del marcador mientras no pasa nada. */
@@ -44,4 +48,6 @@ export const IDLE: Record<string, string> = {
   dips: 'Baja doblando los codos',
   splank: 'Aguanta con la cadera arriba',
   superman: 'Sube el tronco y aguanta',
+  pushup: 'Baja el pecho para cargar',
+  plank1: 'Levanta un brazo para disparar',
 };
