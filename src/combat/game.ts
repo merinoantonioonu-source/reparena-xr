@@ -23,12 +23,17 @@ import { EnemySystem } from './enemies.js';
 import { applyFonts } from '../ui/fonts.js';
 import { Effects, POW_COL } from './fx.js';
 import { Foe, FoeState } from './components.js';
-import { squatConfig, VertDetector, type VertEvent } from '../exercise/vertical.js';
+import { squatConfig, VertDetector, type VertConfig, type VertEvent } from '../exercise/vertical.js';
+import { deepOn } from '../core/rules.js';
+import { dv, nLives } from '../core/settings.js';
+import { num } from '../core/values.js';
 import { setListener, sfx, unlockAudio } from '../audio/sound.js';
 import { GAME, HOOKS } from '../core/state.js';
 
-// La sentadilla: el detector de RepArena (src/exercise/vertical.ts) con sus valores de serie
-const SQUAT = squatConfig();
+// La sentadilla: el detector de RepArena (src/exercise/vertical.ts), con tus ajustes (Tu cuerpo: profundidad, PERFECTA,
+// aguante para el ×2, más por nivel y recarga profunda); se leen al empezar cada oleada (la dificultad creciente puede
+// pedir bajar algo más)
+const SQUAT_SPAWN_DIST = 11; // (a cuánto salen los zombis, más o menos: con lo que tardan en llegar da su velocidad)
 
 /** Nitidez en las gafas: la resolución que se pide al entrar (×1 es la «nativa» del navegador de las Quest 3, que se
  * queda corta) y la foveación (cuánto se emborrona el borde de la vista para ir más ligero). */
@@ -37,6 +42,8 @@ const QUALITY = [
   { id: 'q-alta', scale: 1.4, foveation: 0.5 },
   { id: 'q-max', scale: 1.7, foveation: 0.2 },
 ];
+
+const QUALITY_KEY = 'reparenaxr-quality';
 
 type Side = 'left' | 'right';
 
@@ -65,6 +72,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private hurtT = 0;
   // la sentadilla
   private sq = new VertDetector();
+  private squatCfg: VertConfig = squatConfig();
+  private rampLvl = 0; // (oleadas superadas: la dificultad creciente de RepArena)
+  private maxAlive = 5;
   private sqEvents: VertEvent[] = [];
   private headSpeed = 0;
   private lastHead = new Vector3();
@@ -99,8 +109,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.world.createTransformEntity(this.hurt);
     // la nitidez guardada
     try {
-      const q = Number(localStorage.getItem('rx-quality'));
-      if (q >= 0 && q < QUALITY.length && localStorage.getItem('rx-quality') !== null) this.quality = q;
+      // (propia de RepArena XR: el motor es otro y pide otra resolución que RepArena, que guarda la suya en «quality»)
+      const raw = localStorage.getItem(QUALITY_KEY) ?? localStorage.getItem('rx-quality'), q = Number(raw);
+      if (raw !== null && q >= 0 && q < QUALITY.length) this.quality = q;
     } catch {
       /* (sin almacenamiento: la de serie) */
     }
@@ -112,6 +123,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (this.board) applyFonts(this.board);
     this.wireStartPanel();
     this.applyQuality();
+    GAME.maxLives = GAME.lives = nLives(); // (las de tu rango)
     HOOKS.playerHit = () => this.onPlayerHit();
     HOOKS.foeDown = () => this.onFoeDown();
     this.showMenu('menu');
@@ -167,7 +179,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       on(q.id, () => {
         this.quality = i;
         try {
-          localStorage.setItem('rx-quality', String(i));
+          localStorage.setItem(QUALITY_KEY, String(i));
+          localStorage.removeItem('rx-quality');
         } catch {
           /* */
         }
@@ -235,7 +248,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const b = this.board;
     if (!b) return;
     this.setText(b, 'wave', GAME.phase === 'menu' ? 'PREPARADO' : `OLEADA ${GAME.wave}`);
-    this.setText(b, 'lives', `VIDAS ${GAME.lives}/${GAME.maxLives}`);
+    this.setText(b, 'lives', GAME.maxLives > 0 ? `VIDAS ${GAME.lives}/${GAME.maxLives}` : 'VIDAS SIN FIN');
     this.setText(b, 'reps', String(GAME.reps));
     this.setText(b, 'kills', `Derribados: ${GAME.kills}`);
     this.setText(b, 'perfect', `Perfectas: ${GAME.perfect}`);
@@ -250,7 +263,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   private startRound(): void {
     this.enemies.clear();
+    // las vidas, las de tu rango (0: infinitas: los golpes no te eliminan)
+    GAME.maxLives = nLives();
     Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, startTime: this.clock });
+    this.rampLvl = 0;
     this.sq.reset(GAME.head.y); // (de pie: la referencia de la sentadilla)
     this.chargePow = 0;
     this.hands.left.charge = this.hands.right.charge = false;
@@ -264,8 +280,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.betweenT = GAME.wave === 1 ? 3 : 4;
     this.toSpawn = 3 + GAME.wave;
     this.spawnT = 0;
-    // (la dificultad sube poco a poco de una oleada a otra: algo más rápidos)
-    GAME.foeSpeed = Math.min(1.6, 0.85 + 0.07 * (GAME.wave - 1));
+    // la dificultad sube poco a poco de una oleada a otra (la «Dificultad creciente» de tu rango): llegan antes, más a la
+    // vez y hay que bajar algo más. (En RepArena solo cuentan las oleadas superadas con soltura: llega con el PR 10.)
+    this.rampLvl = GAME.wave - 1;
+    GAME.foeSpeed = Math.min(2.2, Math.max(0.4, SQUAT_SPAWN_DIST / Math.max(1, dv('walkTime', this.rampLvl))));
+    this.maxAlive = Math.max(1, Math.round(dv('maxAlive', this.rampLvl)));
+    this.squatCfg = squatConfig(dv('squatDepth', this.rampLvl), num('perfectTime'), num('powHold'), num('powHoldInc'), deepOn() ? num('deepDrop') : 0);
     this.message(`OLEADA ${GAME.wave}`, this.betweenT);
     sfx.wave();
   }
@@ -282,11 +302,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   private onPlayerHit(): void {
     if (GAME.phase !== 'playing') return;
-    GAME.lives--;
+    if (GAME.maxLives > 0) GAME.lives--;
     this.hurtT = 0.45;
     sfx.punch();
-    this.message(GAME.lives > 0 ? '¡Golpe! Quedan ' + GAME.lives : '¡Golpe!', 1.5);
-    if (GAME.lives <= 0) this.gameOver();
+    this.message(GAME.maxLives === 0 ? '¡Golpe!' : GAME.lives > 0 ? '¡Golpe! Quedan ' + GAME.lives : '¡Golpe!', 1.5);
+    if (GAME.maxLives > 0 && GAME.lives <= 0) this.gameOver();
   }
 
   private onFoeDown(): void {
@@ -316,7 +336,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private squat(y: number, t: number, dt: number): void {
     const ev = this.sqEvents;
     ev.length = 0;
-    this.sq.update(y, t, dt, this.headSpeed, SQUAT, ev);
+    this.sq.update(y, t, dt, this.headSpeed, this.squatCfg, ev);
     for (const e of ev) {
       if (e.type === 'charge') this.onCharge();
       else if (e.type === 'power') this.onPower(e.level);
@@ -514,7 +534,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         if (this.betweenT <= 0) GAME.between = false;
       } else {
         this.spawnT -= dt;
-        if (this.toSpawn > 0 && this.spawnT <= 0 && this.enemies.aliveCount() < 6) {
+        if (this.toSpawn > 0 && this.spawnT <= 0 && this.enemies.aliveCount() < this.maxAlive) {
           this.spawnOne();
           this.toSpawn--;
           this.spawnT = Math.max(1.2, 2.4 - 0.1 * GAME.wave);

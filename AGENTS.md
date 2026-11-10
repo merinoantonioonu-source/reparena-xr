@@ -17,7 +17,7 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
 | --- | --- |
 | `src/index.ts` | Arranca el mundo y registra los sistemas (detrás de la física: leen las posiciones ya calculadas) |
 | `src/assets.ts`, `src/components.ts`, `src/scene-assets/` | Los catálogos de IWSDK: recursos, componentes y objetos hechos en código |
-| `src/core/` | Lo común: el estado compartido de la partida (y, desde el PR 2, los ajustes) |
+| `src/core/` | Lo común: el estado compartido de la partida y los ajustes (los de RepArena: esquema, guardado, rangos) |
 | `src/input/` | Manos, mandos y gestos |
 | `src/exercise/` | Los detectores de repeticiones: lógica pura (sin IWSDK ni Three), con pruebas |
 | `src/combat/` | El modo Combate: la partida, los enemigos, los efectos y sus componentes |
@@ -37,6 +37,9 @@ pulsómetro, en `src/services/`. La tabla de `README.md` dice qué hace cada arc
   con pruebas en `tests/unit`.
 - **Datos**: RepArena guarda todo en el navegador con claves `reparena3-*`, y las dos versiones comparten esos datos (se
   publican en el mismo sitio): usa las mismas claves con el mismo formato; lo nuevo, con `reparenaxr-*`.
+- **Ajustes**: se leen con `num`, `str` u `on` (`src/core/values.ts`), con `dv` si les afecta la dificultad creciente, y
+  se cambian solo con `setSetting` (`src/core/settings.ts`). `initSettings()` se llama una vez al arrancar. Lo portado de
+  RepArena se compara con su código original (`tests/compare`, ver `MIGRACION.md` › Cómo probar).
 - Los campos de un componente con `min` no admiten valores por debajo: `setValue` lanza un error y para el sistema
   entero (pasó con la vida de los zombis).
 - La física (Havok) manda en la posición de los cuerpos dinámicos y cinemáticos: no se mueven escribiendo en su

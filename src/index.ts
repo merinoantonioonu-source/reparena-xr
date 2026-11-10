@@ -8,7 +8,10 @@ import projectOptions from 'virtual:iwsdk-project';
 import { EnemySystem } from './combat/enemies.js';
 import { GameSystem } from './combat/game.js';
 import { useLocalInputModels } from './input/input-models.js';
+import { initSettings } from './core/settings.js';
 
+// tus ajustes (los mismos que en RepArena: se comparten) y las manos y mandos desde el propio juego, antes de crear el mundo
+initSettings();
 useLocalInputModels();
 
 World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
