@@ -17,16 +17,23 @@ Por ahora, Combate con sentadillas, como en RepArena:
 - **La bola roja de energía**, a un metro del pecho: aparece al bajar (la carga del disparo, una por mano) y, aguantando
   abajo en la postura perfecta, sube a **×2** (1,5 s), **×3** (2 s más) y **×4** (2,5 s más), con su número encima y un
   destello al llegar a ×4.
-- **El rayo** se lanza con una **sacudida de la mano** hacia el zombi (la mano, a más de 1,6 m/s y hacia delante); con
-  mandos, apuntando y con el **gatillo**. Sale de la bola y va al zombi más cercano a esa dirección, sin puntería exacta.
-  Pellizcar no dispara.
+- **El rayo**, como en RepArena: al subir de la sentadilla, la bola estalla y la carga pasa a **las dos manos** (un orbe
+  en cada muñeca, uno por mano y sin acumular). Cada mano lanza el suyo con una **sacudida hacia el zombi** (la de
+  RepArena: puede salir de la cadera y hacerse subiendo o bajando; si las gafas pierden la mano a medias, sale igual).
+  Con **«El rayo va al que miras»** (de serie) va al zombi que llevas un momento mirando, marcado con su **diana** (líneas
+  de enfoque rojas); si no, al más cercano a la dirección de la mano. Con mandos, apuntando con la mano y con el
+  **gatillo** (gatillo y agarre a la vez es el puño: no dispara). Pellizcar no dispara. Daño de RepArena: 1 el normal, 2
+  el perfecto, y la carga suma (×2 +1, ×3 +2, ×4 +4). Con la puntería automática (o con la mirada), la repetición
+  dispara sola.
+- **Puñetazo**: un golpe rápido al zombi que tienes delante lo aparta y lo aturde un momento (sin quitarle vida).
 - **Zombis con física de verdad** (motor Havok): cada uno es un cuerpo que choca con el suelo, las cajas, las rocas, la
   bola y los demás zombis. Andan hacia ti dirigiendo su velocidad, **rodean la bola**, las cajas y las rocas y se apartan
   entre ellos; si chocan, se empujan. Un rayo los hace **retroceder**; el que los mata los **lanza por el aire dando
   vueltas** y caen tumbados al suelo; luego se desvanecen. Si te alcanzan, te golpean: pierdes una vida (velo rojo).
 - **Oleadas**: cada una con un zombi más y algo más rápidos; desde la segunda, también zombis gordos (más pesados y
   con más vida). Con cinco golpes se acaba la ronda: resumen y **OTRA RONDA**.
-- **Manos**: las de IWSDK (los modelos oficiales de Meta, con contorno), también con mandos (el mando de las Quest 3).
+- **Manos**: las de IWSDK tal cual (los modelos oficiales de Meta, con contorno). Con mandos y «Mandos como manos» (de
+  serie), la mano de IWSDK que agarra el mando: el índice se dobla con el gatillo y los demás dedos con el agarre.
 - **Paneles**: el de inicio, con **EMPEZAR** (se pulsa con el rayo de la mano y pellizco, con el dedo o con el gatillo), y
   el **marcador** a la izquierda (oleada, vidas, sentadillas, carga, derribados, perfectas, mensajes, tiempo y hora).
   Letras de RepArena (Rubik y Bungee), con tildes.
@@ -35,8 +42,8 @@ Por ahora, Combate con sentadillas, como en RepArena:
 - **Sonidos** sintetizados: carga, niveles, rayo, impactos, gruñidos de zombi (en 3D: se oye de dónde vienen), golpes y
   oleadas.
 
-En el ordenador (sin gafas) también se puede probar: flecha abajo (o S) para agacharse, espacio para lanzar y Enter
-para empezar.
+En el ordenador (sin gafas) también se puede probar: flecha abajo (o S) para agacharse (al subir, el rayo sale solo al
+zombi más cercano) y Enter para empezar.
 
 ## Construir y probar
 
@@ -64,9 +71,10 @@ Build and deployment → Source: **GitHub Actions**.
 | `AGENTS.md`, `CLAUDE.md` | Instrucciones para las IA (`CLAUDE.md` incluye las otras dos) |
 | `iwsdk.config.json` | El proyecto: escena, recursos, componentes, VR con seguimiento de manos y física |
 | `src/index.ts` | Arranca el mundo y registra los sistemas del juego |
-| `src/combat/game.ts` | La partida: carga ×2-×4, sacudida y gatillo, oleadas, vidas, paneles y nitidez |
+| `src/combat/game.ts` | La partida: carga ×2-×4, la carga en las manos, rayos y daño, puñetazos, oleadas, vidas, paneles y nitidez |
+| `src/combat/lockline.ts` | La diana: líneas de enfoque alrededor del zombi apuntado |
 | `src/combat/enemies.ts` | Los zombis: cuerpos de física, marcha rodeando obstáculos, ataque, retroceso y muerte |
-| `src/combat/fx.ts` | La bola de energía, los rayos, las chispas y los destellos |
+| `src/combat/fx.ts` | La bola de energía, la carga en cada mano, los rayos, las chispas y los destellos |
 | `src/combat/components.ts`, `src/components.ts` | Los componentes `Foe` (zombi) y `Obstacle` (lo que rodean), y su catálogo |
 | `src/exercise/vertical.ts` | El detector de la sentadilla (bajar y subir, carga, ×2-×4, PERFECTA), sin IWSDK |
 | `src/core/state.ts` | Lo que comparten los sistemas (fase, cabeza, bola, marcador) |
@@ -76,6 +84,11 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/core/catalog.ts`, `src/core/dev-state.ts` | Ejercicios, modos, enemigos y rangos; el modo desarrollador y su tabla |
 | `src/audio/sound.ts` | Los sonidos (WebAudio) |
 | `src/ui/fonts.ts` | Pone las letras de RepArena (con tildes) en los paneles |
+| `src/input/hand-system.ts` | Las manos y los mandos en cada fotograma (lo que da IWSDK, en `hands` y `head`), la vibración y «Mandos como manos» |
+| `src/input/hand-model.ts` | Lo que el juego sabe de cada mano (muñeca, articulaciones, pellizco, gatillo, agarre, rayo) y el puño |
+| `src/input/throw.ts` | La sacudida que lanza el rayo y el gatillo con mandos como manos (los de RepArena), sin IWSDK |
+| `src/input/gaze-lock.ts`, `src/input/punch.ts`, `src/input/target.ts` | La mirada que fija al enemigo, el puñetazo y lo que ven de cada enemigo (de RepArena, sin IWSDK) |
+| `src/input/controller-hand.ts` | La mano de IWSDK que agarra el mando, con sus fallos de esta versión arreglados |
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
 | `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de losas, aro del jugador, cajas, rocas, zombis y paneles |
 | `public/scenes/main.iwsdk.scene.json` | La escena: suelo, cajas y rocas con su física, paneles, luces y cielo |

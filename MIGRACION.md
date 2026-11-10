@@ -26,9 +26,16 @@ ella (una cada vez, nunca a la vez) y cada PR lo deja al día.
   (`merinoantonioonu-source.github.io`), así que **comparten esos datos**: usa las mismas claves con el mismo formato y lo
   del usuario aparece solo, sin exportar nada. Lo que solo exista aquí, con claves `reparenaxr-*`. La sincronización
   (Firebase) también es la misma: las dos versiones se sincronizan entre sí hasta el cambio de casa.
+- **Lo que resuelve IWSDK, como lo resuelve IWSDK** (pedido del usuario en el PR 3). Si IWSDK resuelve algo de forma
+  distinta a como lo hacía RepArena (pintar las manos y los mandos, el pellizco, los rayos y la pulsación de los paneles,
+  la física, las letras…), se usa su solución de serie, sin forzar la de RepArena: la migración es precisamente para ver
+  si las soluciones de IWSDK resuelven los problemas que tenía RepArena. Los apaños de RepArena para esas cosas no se
+  portan (en `docs/REGLAS.md`, marcados **[Con IWSDK, de serie]**); si en las gafas vuelve un problema, se le proponen al
+  usuario. Si la solución de IWSDK tiene un fallo, se arregla lo mínimo y se apunta en [Fallos de IWSDK](#fallos-de-iwsdk).
 - **Portar, no copiar.** Cada parte se rehace sobre IWSDK (sistemas y componentes, física Havok para los cuerpos,
-  paneles UIKit para los menús, las manos y mandos de IWSDK), conservando el comportamiento y los números de RepArena. La
-  lógica pura (detectores, ajustes, carrera, sesiones…) se pasa casi tal cual a módulos sin IWSDK, con pruebas.
+  paneles UIKit para los menús, las manos y mandos de IWSDK), conservando el comportamiento y los números de RepArena en lo
+  que IWSDK no trae (la lógica del juego). La lógica pura (detectores, ajustes, sacudida, carrera, sesiones…) se pasa casi
+  tal cual a módulos sin IWSDK, con pruebas y comparada con el código de RepArena.
 - **Las reglas de diseño siguen valiendo** (`docs/REGLAS.md`). Las marcadas **[A REVISAR]** se deciden con el usuario
   en el PR que dicen, con propuestas. Si algo no puede hacerse igual en IWSDK, se le pregunta; no se decide por él.
 - Con el usuario, en **español**; también los textos del juego, los comentarios, los commits y los PR. El usuario no
@@ -58,17 +65,22 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 
 - **Comparar con RepArena** (`tests/compare`): ejecuta trozos del código original de RepArena (con `RA_DIR` apuntando a
   un clon suyo en `main`) junto a lo portado, con los mismos datos y miles de cambios al azar, y comprueba que dan lo
-  mismo. Así se portaron los ajustes (`settings.compare.test.ts`: 24.000 cambios, idénticos). Úsalo para portar
-  cualquier lógica pura (detectores, carrera, sesiones…): `raSlice` saca las líneas entre dos marcas de un archivo de
-  RepArena y `raRun` las ejecuta aisladas. No va en la comprobación de GitHub (allí no está RepArena).
+  mismo. Así se portaron los ajustes (`settings.compare.test.ts`: 24.000 cambios, idénticos) y la sacudida y la mirada
+  (`throw.compare.test.ts`: manos al azar durante miles de fotogramas, los mismos rayos; `SEEDS=200` para más). Úsalo
+  para portar cualquier lógica pura (detectores, carrera, sesiones…): `raSlice` saca las líneas entre dos marcas de un
+  archivo de RepArena y `raRun` las ejecuta aisladas. No va en la comprobación de GitHub (allí no está RepArena).
 
-- **Modo ordenador** (la página sin gafas): flecha abajo (o S) para agacharse, espacio para lanzar y Enter para empezar.
-  `window.__rx.snapshot()` da el estado de la partida en datos simples (lo usa la partida simulada).
+- **Modo ordenador** (la página sin gafas): flecha abajo (o S) para agacharse (al subir, el rayo sale solo al zombi más
+  cercano, como en RepArena) y Enter para empezar. `window.__rx.snapshot()` da el estado de la partida en datos simples
+  (lo usa la partida simulada).
 - **VR simulada** (unas Quest 3 emuladas, IWER): `npx @iwsdk/cli dev up --ai-mode agent` y luego, por ejemplo,
   `xr enter`, `xr look-at` y `xr select` (apuntar y apretar el gatillo), `xr animate-to` con `headset` (bajar la cabeza
   = sentadilla) o con una mano (sacudidas), `xr set-input-mode` (`hand`/`controller`), `ecs find`/`ecs query` (el
   estado de los enemigos), `browser screenshot`, `browser logs` y `browser reload`. Todo con `npx @iwsdk/cli <dominio>
-  <acción> --input-json '{…}'`; `npx @iwsdk/cli xr --help` lista las acciones.
+  <acción> --input-json '{…}'`; `npx @iwsdk/cli xr --help` lista las acciones. Para las manos: `xr set-transform` o
+  `xr animate-to` con `"device":"hand-right","anchor":"wrist"` (una sacudida: de la cadera hacia el zombi en 0,15 s); para
+  los mandos, `xr set-gamepad-state` (botón 0 el gatillo, 1 el agarre). En desarrollo, el juego escribe en la consola
+  (`browser logs`) las repeticiones y los rayos que salen de las manos (`rxdbg`).
 - Sin tarjeta gráfica, el emulador va a unas 5 imágenes por segundo: todo pasa a cámara lenta y una pulsación con el dedo
   dura más de lo que IWSDK acepta como clic (en las gafas, no). Cambiar el código recarga la página y cierra la sesión de
   VR. Si la ventana del emulador se queda con un error viejo de Vite, `npx @iwsdk/cli dev restart`.
@@ -82,7 +94,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 0 · Prototipo** (Combate con sentadillas, para decidir) — #1
 - [x] **PR 1 · Plan, reglas y pruebas** — #2
 - [x] **PR 2 · Ajustes y datos** — #3
-- [ ] **PR 3 · Manos, mandos y gestos**
+- [x] **PR 3 · Manos, mandos y gestos** — #4
 - [ ] **PR 4 · Estilo Cómic y la arena**
 - [ ] **PR 5 · Sonido**
 - [ ] **PR 6 · Ejercicios de pie**
@@ -127,14 +139,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - Listo cuando: el prototipo usa los ajustes del usuario (profundidad de la sentadilla, PERFECTA, aguante del ×2…)
   leídos de los que ya tiene RepArena en el navegador, y guardar aquí no rompe RepArena (pruebas de ida y vuelta).
 
-**PR 3 · Manos, mandos y gestos** (M)
-- La lectura de las manos de RepArena tal cual (suavizado, filtro `HF` de las dos manos juntas, mano perdida `h.est`,
-  saltos imposibles), los mandos como manos (gatillo + agarre = puño; apuntar con la mano y gatillo), la **sacudida**
-  exacta (`THROW_*`: sustituye a la del prototipo, que es demasiado simple), el puñetazo y el pellizco.
-- De RepArena: `src/80_main.js` (entrada XR), `src/70_game.js` (lanzamiento, blanco), `src/77_guard.js` (puño).
-- Riesgo: «Manos con el cuerpo» necesita el seguimiento del cuerpo; puede que IWSDK no deje pedirlo.
-- Listo cuando: pruebas con trazas de manos grabadas o simuladas (sacudidas que sí y que no), y en las gafas el rayo sale
-  cuando y hacia donde se espera.
+**PR 3 · Manos, mandos y gestos** (M) — hecho
+- Las manos y los mandos, los de IWSDK de serie (se ven, se pierden y pellizcan como dice IWSDK; sin el suavizado, las
+  manos inventadas ni el seguimiento del cuerpo de RepArena); con «Mandos como manos», la mano de IWSDK que agarra el
+  mando (con sus fallos arreglados: `src/input/controller-hand.ts`).
+- De RepArena, lo que IWSDK no trae: la **sacudida** exacta (`THROW_*`), «al que miras» (la mirada que fija al enemigo),
+  el gatillo con mandos como manos (gatillo + agarre = puño, no dispara), el puñetazo, el puño (`isFist`), la diana de
+  líneas de enfoque y la vibración; y el flujo de RepArena: la bola estalla al subir y la carga pasa a las dos manos
+  (un orbe en cada muñeca), con el daño de RepArena.
+- Comparado con el código de RepArena (`tests/compare/throw.compare.test.ts`) y con pruebas de trayectorias simuladas
+  (`tests/unit/throw.test.ts`, `gestures.test.ts`).
 
 **PR 4 · Estilo Cómic y la arena** (L)
 - Sombreado plano con corte duro, contornos de tinta (finos de lejos, solo en el borde de verdad), cielo y suelo de
@@ -154,6 +168,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   antebrazos y elevación frontal, con sus cargas ×2-×4, PERFECTA, avisos de lo que se hace mal (grandes, en el suelo) y
   «Tu cuerpo (recorridos)»; un selector sencillo de ejercicio en el panel de inicio hasta el PR 7.
 - De RepArena: `src/70_game.js` (detectores, `CHAIN`, `topCue`…).
+- **Decisión del usuario**: el filtro de las dos manos juntas en una pesa (`HF`, `handFilter`: las gafas confunden las
+  manos pegadas). Siguiendo el criterio de usar IWSDK de serie, propuesta: probar primero los curls sin él y portarlo si
+  en las gafas vuelve el problema.
 
 **PR 7 · Menú principal y Opciones en VR** (L)
 - EMPEZAR, metas de hoy, columna HOY, modos, ejercicios, dificultad (galones, «Al fallo», la ficha de la ronda),
@@ -169,9 +186,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - De RepArena: `src/40_models.js`, `src/42_beasts.js`, `src/70_game.js`.
 
 **PR 9 · Armas y defensa** (L)
-- Rayos con el aspecto de RepArena, pistolas, espadas, puñetazos; escudo, guardia, esquiva, onda y burbuja; la diana de
-  líneas de enfoque; vibración de los mandos.
-- De RepArena: `src/52_bolt.js`, `src/54_suporb.js`, `src/76_sword.js`, `src/77_guard.js`, `src/78_lockline.js`.
+- Rayos con el aspecto de RepArena, pistolas, espadas; escudo, guardia, esquiva, onda y burbuja (el puñetazo, la diana y
+  la vibración ya están, del PR 3).
+- De RepArena: `src/52_bolt.js`, `src/54_suporb.js`, `src/76_sword.js`, `src/77_guard.js`.
 
 **PR 10 · Oleadas y premios** (M)
 - Dificultad entre oleadas, panel entre oleadas, «Al fallo», cartas de mejora (cada tres oleadas), enemigo dorado,
@@ -227,21 +244,37 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
-- PR 2 → PR 3: los ajustes ya son los de RepArena (`src/core/`): léelos con `num('clave')`, `str('clave')` u
-  `on('clave')` (`src/core/values.ts`), con `dv('clave', oleadas)` si les afecta la dificultad creciente, y cámbialos
-  solo con `setSetting` (guarda donde RepArena: lo verá también RepArena). Las reglas que dependen de los ajustes
-  (`handsFree`, `foes`, `autoAim`, `twoShots`…) están en `src/core/rules.ts`. Para la mano y el lanzamiento interesan
-  `aim`, `throwPick`, `padHands` y `bodyHands` (mira su explicación en `src/core/schema.ts`).
-- El prototipo juega siempre sentadillas, pero con los ajustes del modo y ejercicio que tenga elegidos el usuario (los
-  últimos de RepArena): si tenía elegido el curl, la dificultad es la del curl. Se arregla al portar los ejercicios (PR 6)
-  y el menú (PR 7). No elijas el ejercicio por código con `setSetting` antes: cambiaría también el de RepArena.
-- La nitidez del prototipo se guarda aparte (`reparenaxr-quality`): RepArena tiene la suya (`quality`, con otras
-  opciones) y este motor pide otra resolución. Se decide en el PR 7 si se unen.
+- PR 3 → PR 4: las manos, en `hands.left/right` y `head` (`src/input/hand-model.ts`), que llena `HandSystem` en cada
+  fotograma con lo que da IWSDK (la muñeca, las 25 articulaciones, el pellizco, el gatillo, el agarre, el rayo, `virt`
+  con mandos como manos). Los ejercicios del PR 6 leen de ahí. Lo que se lanza: `throwCharge`/`throwStep`
+  (`src/input/throw.ts`) con un `ThrowEnv` que da el juego; a quién se apunta, los enemigos como `Target` (en Combate,
+  `EnemySystem.targets`); la diana, `LockLines` (`src/combat/lockline.ts`).
+- Las manos se ven como las pinta IWSDK (su estilo: contorno blanco). Si el estilo Cómic (PR 4) las quiere de otra forma,
+  propónselo al usuario antes (son de IWSDK).
+- Los ajustes se leen con `num('clave')`, `str('clave')` u `on('clave')` (`src/core/values.ts`), con `dv('clave',
+  oleadas)` si les afecta la dificultad creciente, y se cambian solo con `setSetting` (guarda donde RepArena: lo verá
+  también RepArena). Las reglas que dependen de los ajustes (`handsFree`, `foes`, `autoAim`, `twoShots`…) están en
+  `src/core/rules.ts`.
+- El juego es siempre Combate con sentadillas, pero con los ajustes del modo y ejercicio que tenga elegidos el usuario
+  (los últimos de RepArena): si tenía elegido el curl, la dificultad es la del curl. Se arregla al portar los ejercicios
+  (PR 6) y el menú (PR 7). No elijas el ejercicio por código con `setSetting` antes: cambiaría también el de RepArena.
+- La nitidez se guarda aparte (`reparenaxr-quality`): RepArena tiene la suya (`quality`, con otras opciones) y este motor
+  pide otra resolución. Se decide en el PR 7 si se unen.
 
 ## Fallos conocidos
 
-- La sacudida del prototipo (`trackHand`, `src/combat/game.ts`) es una simplificación (1,6 m/s en 80 ms): en las gafas
-  falla a veces. La arregla el PR 3 con la de RepArena.
 - Pulsar los paneles con el dedo no se ha podido comprobar en el emulador (va demasiado lento); en las gafas, por ver.
 - La dificultad creciente sube con cada oleada; en RepArena solo con las superadas con soltura (pocos golpes): llega en el
   PR 10.
+- Sin pistolas ni espadas todavía (PR 9): si el usuario las tiene puestas en RepArena, aquí se lanza con las manos.
+- «Manos con el cuerpo» no hace nada aquí: IWSDK no pide el seguimiento del cuerpo (criterio de usar IWSDK de serie).
+
+## Fallos de IWSDK
+
+Los que se han encontrado en la versión que usamos (`@iwsdk/core` 1.1.0-rc.2) y cómo se sortean. Si una versión nueva los
+arregla, se quita el apaño.
+
+- **La mano que agarra el mando** (`AnimatedControllerHand`, para «Mandos como manos») no funciona tal cual: recibe los
+  datos en otro orden del que le pasa IWSDK (cogía la escena entera y fallaba al crearse), le carga el modelo del mando en
+  vez del de la mano, compartiría el modelo con la mano desnuda y, si una imagen tarda más de 0,1 s, los dedos se le
+  disparan (planos blancos enormes y luego la mano desaparece). Apaño: `src/input/controller-hand.ts`.

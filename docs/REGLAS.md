@@ -8,6 +8,11 @@ explica el porqué.
 Algunas eran soluciones a problemas del motor viejo (Three.js r128 hecho a mano) y van marcadas **[A REVISAR]** con el PR
 en que se decide: puede que con IWSDK ya no hagan falta, pero eso lo decide el usuario (con propuestas), no la IA.
 
+**Lo que resuelve IWSDK, como lo resuelve IWSDK** (pedido del usuario en el PR 3): si IWSDK resuelve algo de forma
+distinta a como lo hacía RepArena, se usa su solución de serie y no se fuerza la de RepArena: la migración es precisamente
+para ver si las soluciones de IWSDK resuelven los problemas que tenía RepArena. Los apaños de RepArena para esas cosas
+(van marcados **[Con IWSDK, de serie]**) no se portan; si en las gafas vuelve el problema, se le proponen al usuario.
+
 ## Lecciones del motor viejo que siguen valiendo
 
 - Dianas y marcas en las gafas: tiras planas de cara al jugador (como los corchetes y las líneas de enfoque). Las de
@@ -110,7 +115,7 @@ No las cambies sin preguntarle.
 - Arcos de semipuente (`arcLow`): inclinados tan bajos que hay que apartarse al lado alto y bajar hasta apoyar una mano en
   el suelo; llegan más despacio, con aviso grande y la huella de la mano en el suelo.
 - El marcador tumbado en el suelo (flexiones, planchas, inchworm) es sólido: los bichos lo rodean.
-- **[Vale; en el PR 3 se adapta a las manos que pinta IWSDK]** Manos perdidas (solo manos desnudas): la que iba deprisa sigue su gesto un instante (`h.est = 'pred'`) y, con «Manos
+- **[Con IWSDK, de serie (PR 3): las manos las lee y las pinta IWSDK tal cual: sin manos inventadas ni el seguimiento del cuerpo; la mano que se pierde, IWSDK la deja de pintar. La sacudida perdida a medias sí sale (es de la sacudida, `src/input/throw.ts`). «Manos con el cuerpo» no hace nada aquí: IWSDK no pide el seguimiento del cuerpo]** Manos perdidas (solo manos desnudas): la que iba deprisa sigue su gesto un instante (`h.est = 'pred'`) y, con «Manos
   con el cuerpo» (Ajustes → Menú, de serie) y si el navegador da el cuerpo, la perdida se coloca en la muñeca del
   cuerpo con su última forma (`h.est = 'body'`). Ninguna mano con `h.est` se pinta (salían volando hacia delante o delante
   de la cara): la que se ve se queda donde se la vio 0,3 s y desaparece. Un salto imposible de la muñeca (más de 30 cm entre
@@ -119,15 +124,15 @@ No las cambies sin preguntarle.
   ejercicios que se hacen con las manos (`handEx`: los de pesa —curl, curl con barra, elevación frontal…— y la plancha
   con un brazo) no se inventa ninguna mano: con los brazos abajo las gafas las pierden a menudo, y la inventada subía sola
   y contaba curls y disparos que no se habían hecho. Fuera de la partida (menús), tampoco.
-- **[A REVISAR en el PR 3: ahora las manos las pinta IWSDK]** La mano que se pinta usa la posición suavizada (`J.s`) y también el giro suavizado (`J.sq`, mismo filtro): con el giro
+- **[Con IWSDK, de serie (PR 3): la mano que se ve es la de IWSDK, sin suavizar]** La mano que se pinta usa la posición suavizada (`J.s`) y también el giro suavizado (`J.sq`, mismo filtro): con el giro
   tal cual, la palma y las falanges temblaban. Solo para pintar: el juego sigue con lo que dan las gafas.
-- La lectura de las manos (suavizado, filtro `HF` de las dos manos juntas, lanzamiento, puñetazo, pellizco) está como antes
+- **[PR 3: la sacudida y el puñetazo, los de RepArena tal cual (comparados con su código); el suavizado y el pellizco, los de IWSDK de serie; el filtro `HF`, con los ejercicios de pesa (PR 6)]** La lectura de las manos (suavizado, filtro `HF` de las dos manos juntas, lanzamiento, puñetazo, pellizco) está como antes
   de la auditoría externa: sus cambios (solo posturas nuevas, pellizco con puño, salto de la mano recuperada) empeoraron
   mucho los dos curls en las gafas y el usuario pidió quitarlos. No vuelvas a tocarla sin probarlo con él en las gafas.
 - Espada: corta solo con el brazo (la mano también a ≥ 0,6 m/s, `SWORD_ARM`); el bloqueo, con la hoja en la marca en los
   últimos 0,35 s (`BLOCK_LATE`), y la marca se pone turquesa al cubrirla. Arriba del curl y la elevación frontal, chispa y
   chasquido (`topCue`); el disparo sigue al bajar (por las cargas). Puñetazo y tajo empujan también hacia el lado del golpe.
-- Mandos como manos: con mandos se ven manos en todo el juego (en la partida, con pistolas o espada, el arma). En
+- **[PR 3: la mano que agarra el mando es la de IWSDK (`AnimatedControllerHand`, arreglada en `src/input/controller-hand.ts`); las armas, en el PR 9]** Mandos como manos: con mandos se ven manos en todo el juego (en la partida, con pistolas o espada, el arma). En
   sentadillas y zancadas: gatillo + agarre = puño; el rayo se lanza
   apuntando con la mano y con el gatillo. Con mando, la puntería por defecto es «con las manos».
 

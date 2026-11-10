@@ -123,5 +123,5 @@
   </div>
   <span id="q-note" class="note">Se aplica al entrar en VR</span>
   <button id="xr-button" class="xr"><span class="xr-label display">ENTRAR EN VR</span></button>
-  <span id="desk-hint" class="note">En el ordenador: flecha abajo (o S) para agacharte y espacio para lanzar.</span>
+  <span id="desk-hint" class="note">En el ordenador: flecha abajo (o S) para agacharte; al subir, el rayo sale solo.</span>
 </div>

@@ -10,6 +10,12 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
   usuario no programa: explícale los cambios por lo que se ve y se siente en las gafas, no por el código.
 - Cuando algo sea ambiguo o haya varias formas razonables de hacerlo, dale propuestas (o modelos visuales) y deja que
   elija. Cuando pregunte «¿entiendes lo que te digo?», resúmele lo que has entendido.
+- **Lo que resuelve IWSDK, como lo resuelve IWSDK** (lo pidió el usuario): si IWSDK hace algo de forma distinta a como lo
+  hacía RepArena (pintar las manos y los mandos, el pellizco, los rayos y la pulsación de los paneles, la física, las
+  letras…), se usa su solución de serie, sin forzar la de RepArena: la migración es precisamente para ver si así se van
+  los problemas que tenía RepArena. De RepArena se porta lo que IWSDK no trae (la lógica del juego). Si en las gafas un
+  problema vuelve, se le proponen al usuario los apaños de RepArena; si la solución de IWSDK tiene un fallo, se arregla lo
+  mínimo y se apunta en `MIGRACION.md` › Fallos de IWSDK.
 
 ## Dónde está cada cosa
 
@@ -18,7 +24,7 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
 | `src/index.ts` | Arranca el mundo y registra los sistemas (detrás de la física: leen las posiciones ya calculadas) |
 | `src/assets.ts`, `src/components.ts`, `src/scene-assets/` | Los catálogos de IWSDK: recursos, componentes y objetos hechos en código |
 | `src/core/` | Lo común: el estado compartido de la partida y los ajustes (los de RepArena: esquema, guardado, rangos) |
-| `src/input/` | Manos, mandos y gestos |
+| `src/input/` | Manos, mandos y gestos: lo que da IWSDK, pasado a `hands` y `head` (`hand-system.ts`), y la lógica pura de RepArena (sacudida, mirada, puñetazo), con pruebas |
 | `src/exercise/` | Los detectores de repeticiones: lógica pura (sin IWSDK ni Three), con pruebas |
 | `src/combat/` | El modo Combate: la partida, los enemigos, los efectos y sus componentes |
 | `src/ui/` | Paneles y letras |
@@ -34,7 +40,12 @@ pulsómetro, en `src/services/`. La tabla de `README.md` dice qué hace cada arc
 
 - TypeScript estricto. Comentarios cortos en español que explican el porqué. Nada de crear objetos en `update()`.
 - La lógica que no necesita IWSDK (detectores, ajustes, carrera…) va en módulos aparte, sin importar `@iwsdk/core`, y
-  con pruebas en `tests/unit`.
+  con pruebas en `tests/unit`. Si necesita cálculo en 3D (`Vector3`, `Quaternion`), lo importa de `'three'`: es el mismo
+  paquete que reexporta `@iwsdk/core` (super-three, uno solo en `node_modules`) y así se prueba sin arrancar IWSDK.
+- **Manos y mandos**: el juego lee `hands.left/right` y `head` (`src/input/hand-model.ts`): si se ve, la muñeca, las 25
+  articulaciones (tal como las dan las gafas), el pellizco, el gatillo, el agarre, el rayo de apuntar y si el mando va
+  como una mano (`virt`). Los llena `HandSystem` (`src/input/hand-system.ts`, justo detrás de la entrada de IWSDK) en cada
+  fotograma. La vibración, con `haptic(lado, fuerza, ms)`. Las manos y los mandos que se ven son los de IWSDK.
 - **Datos**: RepArena guarda todo en el navegador con claves `reparena3-*`, y las dos versiones comparten esos datos (se
   publican en el mismo sitio): usa las mismas claves con el mismo formato; lo nuevo, con `reparenaxr-*`.
 - **Ajustes**: se leen con `num`, `str` u `on` (`src/core/values.ts`), con `dv` si les afecta la dificultad creciente, y
