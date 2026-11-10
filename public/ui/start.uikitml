@@ -101,18 +101,52 @@
     font-size: 4;
     color: #ffffff;
   }
+  .exs {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.2;
+    width: 82;
+  }
+  .ex {
+    padding-top: 1.3;
+    padding-bottom: 1.3;
+    padding-left: 2.2;
+    padding-right: 2.2;
+    border-radius: 2;
+    background-color: #2a2f3a;
+    color: #e9eef7;
+    font-size: 2.5;
+    cursor: pointer;
+  }
+  .ex:hover {
+    background-color: #3b4252;
+  }
   .display {
     letter-spacing: 0.1;
   }
 </style>
 <div class="root">
   <span id="title" class="title display">REPARENA XR</span>
-  <span id="subtitle" class="subtitle">Prototipo · Combate con sentadillas</span>
+  <span id="subtitle" class="subtitle">Combate · Sentadillas</span>
+  <div class="exs">
+    <button id="ex-squat" class="ex">Sentadillas</button>
+    <button id="ex-lunge" class="ex">Zancadas</button>
+    <button id="ex-jsquat" class="ex">Sent. + salto</button>
+    <button id="ex-thruster" class="ex">Sent. + press</button>
+    <button id="ex-frontsq" class="ex">Sent. + elev.</button>
+    <button id="ex-swing" class="ex">Swing</button>
+    <button id="ex-dlrow" class="ex">Peso muerto</button>
+    <button id="ex-curl" class="ex">Curl</button>
+    <button id="ex-curl2" class="ex">Curl barra</button>
+    <button id="ex-fraise" class="ex">Elev. frontal</button>
+    <button id="ex-twist" class="ex">Antebrazos</button>
+  </div>
   <div class="how">
-    <span class="line">1. Baja en sentadilla: se enciende la bola roja de energía.</span>
-    <span class="line">2. Aguanta abajo en la postura perfecta: ×2, ×3 y ×4.</span>
-    <span class="line">3. Lanza el rayo con una sacudida de la mano hacia el zombi.</span>
-    <span class="line">Con mandos: apunta con la mano y aprieta el gatillo.</span>
+    <span id="how-1" class="line">1. Baja en sentadilla: se enciende la bola roja de energía.</span>
+    <span id="how-2" class="line">2. Aguanta abajo en la postura perfecta: ×2, ×3 y ×4.</span>
+    <span id="how-3" class="line">3. Lanza el rayo con una sacudida de la mano hacia el zombi.</span>
+    <span id="how-4" class="line">Con mandos: apunta con la mano y aprieta el gatillo.</span>
   </div>
   <button id="start-button" class="start"><span id="start-label" class="start-label display">EMPEZAR</span></button>
   <div class="row">

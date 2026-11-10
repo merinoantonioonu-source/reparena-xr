@@ -1,8 +1,11 @@
 /**
- * La partida: Combate con sentadillas, como en RepArena.
- *  - Al bajar en sentadilla se carga el disparo y aparece la bola roja de energía, a un metro del pecho.
- *  - Aguantando abajo en la postura perfecta, la carga sube a ×2, ×3 y ×4 (cada nivel pide aguantar más).
- *  - Al subir cuenta la repetición: la bola estalla y la carga pasa a las dos manos (un orbe en cada muñeca: uno por mano,
+ * La partida: Combate con los ejercicios de pie, como en RepArena (src/exercise/standing.ts: sentadilla, zancada, con
+ * salto, con press, con elevación, swing, peso muerto, curl, curl con barra, elevación frontal y antebrazos).
+ *  - Al cargar (bajar en la sentadilla, subir la pesa al hombro en el curl…) aparece la bola roja de energía, a un metro
+ *    del pecho.
+ *  - Aguantando en la postura más dura, la carga sube a ×2, ×3 y ×4 (cada nivel pide aguantar más; se ve también en el
+ *    suelo). Lo que se hace mal sale en grande, impreso en el suelo, unos 4 s.
+ *  - Al completar la repetición: la bola estalla y la carga pasa a las dos manos (un orbe en cada muñeca: uno por mano,
  *    sin acumular). Cada mano lanza el suyo con una sacudida hacia el zombi (la de RepArena, src/input/throw.ts); con
  *    «Mandos como manos», apuntando con el mando y con el gatillo. Con «El rayo va al que miras» (de serie), al zombi que
  *    llevas un momento mirando, que lleva su diana. Con la puntería automática (o con la mirada), la repetición dispara
@@ -14,6 +17,7 @@
 import {
   createSystem,
   Entity,
+  Euler,
   Mesh,
   MeshBasicMaterial,
   RayInteractable,
@@ -30,10 +34,12 @@ import { LockLines } from './lockline.js';
 import { applyFonts } from '../ui/fonts.js';
 import { boltColor, Effects, POW_COL } from './fx.js';
 import { Foe } from './components.js';
-import { squatConfig, VertDetector, type VertConfig, type VertEvent } from '../exercise/vertical.js';
-import { deepOn } from '../core/rules.js';
-import { dv, nLives } from '../core/settings.js';
-import { num, on, str } from '../core/values.js';
+import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
+import { HOW, IDLE } from '../exercise/how.js';
+import { aimForced, deepOn, handsFree } from '../core/rules.js';
+import { EX_NAMES } from '../core/catalog.js';
+import { dv, nLives, onSettingsChange, setSetting } from '../core/settings.js';
+import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
 import { GAME, HOOKS } from '../core/state.js';
 import { hands, head, headFwd, SIDES, type Side } from '../input/hand-model.js';
@@ -42,9 +48,9 @@ import { HTH, throwCharge, throwReset, throwStep, type Charge, type ThrowEnv } f
 import { gazeLock, gazeLockReset, gazeLockStep } from '../input/gaze-lock.js';
 import { PUNCH, punchReset, punchStep, type PunchTarget } from '../input/punch.js';
 
-// La sentadilla: el detector de RepArena (src/exercise/vertical.ts), con tus ajustes (Tu cuerpo: profundidad, PERFECTA,
-// aguante para el ×2, más por nivel y recarga profunda); se leen al empezar cada oleada (la dificultad creciente puede
-// pedir bajar algo más)
+// Los ejercicios: los detectores de RepArena (src/exercise/standing.ts), con tus ajustes (Tu cuerpo: los recorridos de
+// cada ejercicio, PERFECTA, aguante para el ×2, más por nivel y recarga profunda); se leen al empezar cada oleada (la
+// dificultad creciente puede pedir bajar algo más)
 const SQUAT_SPAWN_DIST = 11; // (a cuánto salen los zombis, más o menos: con lo que tardan en llegar da su velocidad)
 
 /** Lo que suma la carga al daño (RepArena: POW_DMG): ×1 nada, ×2 +1, ×3 +2, ×4 +4. */
@@ -62,12 +68,22 @@ const QUALITY = [
 
 const QUALITY_KEY = 'reparenaxr-quality';
 
-// La puntería (Opciones → Rivales y armas): automática, con las manos (de serie) o con la mirada. Por ahora se juega
-// siempre a sentadillas en Combate y sin pistolas ni espadas (llegan con los PR 6 y 9): las reglas, las de la sentadilla
+// La puntería (Opciones → Rivales y armas): automática, con las manos (de serie) o con la mirada, como en RepArena: con
+// la barra flexible, siempre automática (las dos manos están ocupadas); con pesas en las manos no se lanza con la mano,
+// el rayo va al que miras (aimSources). Sin pistolas ni espadas todavía (PR 9)
 const aimNow = (): 'auto' | 'hands' | 'gaze' => {
   const a = str('aim');
-  return a === 'auto' || a === 'gaze' ? a : 'hands';
+  if (aimForced() || a === 'auto') return 'auto';
+  return a === 'gaze' || !handsFree() ? 'gaze' : 'hands';
 };
+
+/** El ejercicio que se juega: el elegido, si es de pie y en Combate; si no, la sentadilla. */
+const curEx = (): string => (settings.mode === 'combat' && STAND_EX.includes(settings.exercise) ? settings.exercise : 'squat');
+
+// Avisos en el suelo (RepArena, src/60_ui.js: warnFloor y chargeFloor)
+const WARN_SECS = 4;
+const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
+const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
 
 export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) {
   private fx!: Effects;
@@ -81,12 +97,23 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private boardT = 0;
   private hurt!: Mesh;
   private hurtT = 0;
-  // la sentadilla
-  private sq = new VertDetector();
-  private squatCfg: VertConfig = squatConfig();
+  // el ejercicio
+  private st = new StandingDetector();
+  private stCfg: StandCfg = standDefaults();
+  private stIn!: StandInput;
+  private stEvents: StandEvent[] = [];
   private rampLvl = 0; // (oleadas superadas: la dificultad creciente de RepArena)
   private maxAlive = 5;
-  private sqEvents: VertEvent[] = [];
+  // los avisos en el suelo: lo que se hace mal (4 s) y la carga ×2-×4 mientras se aguanta
+  private warn: UIKitMLAsset | null = null;
+  private warnEntity: Entity | undefined;
+  private warnT = 0;
+  private warnText = '';
+  private chargeP: UIKitMLAsset | null = null;
+  private chargeEntity: Entity | undefined;
+  private chargeT = 0;
+  private chargeS = 1;
+  private floorE = new Euler(0, 0, 0, 'YXZ');
   private chargePow = 0; // nivel de la carga de la bola (0: ninguna)
   // el lanzamiento con las manos (src/input/throw.ts), la diana y lo que le pasa
   private env!: ThrowEnv;
@@ -134,6 +161,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       say: (text, _color, secs) => this.message(text, secs),
       lockShow: (e) => this.locks.show(e as FoeTarget),
     };
+    this.stIn = { hands, head, fwd: new Vector3(0, 0, -1), play: false }; // (delante, en la arena: hacia las compuertas)
     this.hurt = new Mesh(new SphereGeometry(0.3, 24, 16), new MeshBasicMaterial({ color: 0xff1030, transparent: true, opacity: 0, side: BackSide, depthTest: false, depthWrite: false, toneMapped: false }));
     this.hurt.renderOrder = 20;
     this.hurt.visible = false;
@@ -150,8 +178,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.start = this.world.getSceneObject<UIKitMLAsset>('start-panel') ?? null;
     this.board = this.world.getSceneObject<UIKitMLAsset>('board-panel') ?? null;
     this.startEntity = this.world.getSceneEntity('start-panel');
-    if (this.start) applyFonts(this.start);
-    if (this.board) applyFonts(this.board);
+    this.warn = this.world.getSceneObject<UIKitMLAsset>('warn-panel') ?? null;
+    this.warnEntity = this.world.getSceneEntity('warn-panel');
+    this.chargeP = this.world.getSceneObject<UIKitMLAsset>('charge-panel') ?? null;
+    this.chargeEntity = this.world.getSceneEntity('charge-panel');
+    for (const p of [this.start, this.board, this.warn, this.chargeP]) if (p) applyFonts(p);
+    for (const e of [this.warnEntity, this.chargeEntity]) if (e?.object3D) e.object3D.visible = false;
     this.wireStartPanel();
     this.applyQuality();
     GAME.maxLives = GAME.lives = nLives(); // (las de tu rango)
@@ -178,7 +210,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       foes.push({ state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
-    return { phase: GAME.phase, wave: GAME.wave, between: GAME.between, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
+    return { ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
@@ -206,6 +238,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.cleanupFuncs.push(() => el.removeEventListener('click', h));
     };
     on('start-button', () => this.startRound());
+    for (const ex of STAND_EX) on('ex-' + ex, () => this.chooseEx(ex));
+    this.cleanupFuncs.push(onSettingsChange((k) => {
+      if (k === 'exercise' || k === 'mode' || k === 'aim') this.refreshEx();
+    }));
+    this.refreshEx();
     on('xr-button', () => this.world.launchXR());
     QUALITY.forEach((q, i) =>
       on(q.id, () => {
@@ -249,6 +286,31 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.setText(p, 'q-note', xr.isPresenting ? 'La resolución nueva se aplica al volver a entrar en VR' : 'Se aplica al entrar en VR');
   }
 
+  // el selector de ejercicio (hasta el menú del PR 7): elegir uno es elegir Combate con ese ejercicio, como en RepArena
+  // (se guarda donde RepArena: lo verá también allí)
+  private chooseEx(ex: string): void {
+    if (settings.mode !== 'combat') setSetting('mode', 'combat');
+    if (settings.exercise !== ex) setSetting('exercise', ex);
+    if (import.meta.env.DEV) console.info(`rxdbg ejercicio ${settings.mode} ${settings.exercise}`); // (para probar en el emulador)
+    this.refreshEx();
+  }
+
+  private refreshEx(): void {
+    const p = this.start;
+    if (!p) return;
+    const ex = curEx(), mode = aimNow();
+    for (const e of STAND_EX) {
+      const sel = e === ex;
+      p.getElementById('ex-' + e)?.setProperties({ backgroundColor: sel ? '#3cf0c6' : '#2a2f3a', color: sel ? '#0d1016' : '#e9eef7' });
+    }
+    if (GAME.phase !== 'over') this.setText(p, 'subtitle', `Combate · ${EX_NAMES[ex]}`);
+    const [a, b] = HOW[ex];
+    this.setText(p, 'how-1', a);
+    this.setText(p, 'how-2', b);
+    this.setText(p, 'how-3', mode === 'hands' ? '3. Lanza el rayo con una sacudida de la mano hacia el zombi.' : mode === 'gaze' ? '3. El rayo va al zombi que miras.' : '3. El rayo sale solo hacia el zombi más cercano.');
+    p.getElementById('how-4')?.setProperties({ display: mode === 'hands' ? 'flex' : 'none' });
+  }
+
   private showMenu(kind: 'menu' | 'over'): void {
     const p = this.start;
     if (!p) return;
@@ -256,12 +318,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (this.startEntity && !this.startEntity.hasComponent(RayInteractable)) this.startEntity.addComponent(RayInteractable);
     if (kind === 'menu') {
       this.setText(p, 'title', 'REPARENA XR');
-      this.setText(p, 'subtitle', 'Prototipo · Combate con sentadillas');
+      this.setText(p, 'subtitle', `Combate · ${EX_NAMES[curEx()]}`);
       this.setText(p, 'start-label', 'EMPEZAR');
     } else {
       this.setText(p, 'title', 'FIN DE LA RONDA');
       const mins = Math.floor((this.clock - GAME.startTime) / 60), secs = Math.floor((this.clock - GAME.startTime) % 60);
-      this.setText(p, 'subtitle', `Oleada ${GAME.wave} · ${GAME.reps} sentadillas (${GAME.perfect} perfectas) · ${GAME.kills} derribados · ${mins}:${String(secs).padStart(2, '0')}`);
+      this.setText(p, 'subtitle', `Oleada ${GAME.wave} · ${GAME.reps} repeticiones (${GAME.perfect} perfectas) · ${GAME.kills} derribados · ${mins}:${String(secs).padStart(2, '0')}`);
       this.setText(p, 'start-label', 'OTRA RONDA');
     }
   }
@@ -274,6 +336,75 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private message(text: string, secs = 2.5): void {
     this.setText(this.board, 'msg', text);
     this.msgT = secs;
+  }
+
+  // ---------------------------------------------------------------- avisos en el suelo
+
+  // Lo que estás haciendo mal se escribe en grande en el suelo, delante, durante 4 s (RepArena: warnFloor): más lejos
+  // cuanto más alta la cabeza, tumbado y legible desde donde estás. Cada aviso nuevo sale delante; luego se queda quieto
+  private floorWarn(text: string, color = WARN_COL): void {
+    const p = this.warn, o = this.warnEntity?.object3D;
+    if (!p || !o) return;
+    if (text === this.warnText && this.warnT > 1) {
+      this.warnT = WARN_SECS;
+      return;
+    }
+    this.warnText = text;
+    this.warnT = WARN_SECS;
+    // en una o dos líneas, lo más grande que quepa (Bungee: unos 0,64 de ancho por letra; caben 1,4 m)
+    const one = 140 / (0.64 * Math.max(1, text.length)), fs = one >= 9 ? Math.min(14, one) : Math.min(9, (2 * 126) / (0.64 * text.length));
+    this.setText(p, 'text', text);
+    p.getElementById('text')?.setProperties({ color, fontSize: fs });
+    p.getElementById('box')?.setProperties({ borderColor: color });
+    const d = clamp(head.p.y * 1.1, 0.5, 2.1);
+    this.layFlat(o, d, 0.02, clamp(d * 0.85, 0.42, 1.7));
+    o.visible = true;
+  }
+
+  // Aguantando abajo (o arriba en el curl) el disparo se carga: ×2, ×3, ×4. Agachado lo que ves es el suelo, así que la carga
+  // se escribe ahí, más cerca que los avisos y latiendo con su color; a ×4 dice «¡ARRIBA!» (RepArena: chargeFloor)
+  private chargeText = '';
+  private chargeFloor(text: string, color: string): void {
+    const p = this.chargeP, o = this.chargeEntity?.object3D;
+    if (!p || !o) return;
+    this.chargeText = text;
+    this.setText(p, 'text', text);
+    p.getElementById('text')?.setProperties({ color, fontSize: text.length <= 9 ? 15 : 12 }); // (en una línea: «×4 · ¡ARRIBA!» es más largo)
+    p.getElementById('box')?.setProperties({ borderColor: color });
+    const d = clamp(head.p.y * 0.75, 0.4, 1.4);
+    this.chargeS = clamp(d * 0.8, 0.36, 1.1);
+    this.layFlat(o, d, 0.03, this.chargeS);
+    this.chargeT = 0;
+    o.visible = true;
+  }
+
+  // tumbado en el suelo a d metros por delante del cuerpo, con lo de arriba del texto hacia delante (se lee desde aquí)
+  private layFlat(o: { position: Vector3; quaternion: { setFromEuler(e: Euler): unknown }; scale: Vector3 }, d: number, y: number, s: number): void {
+    const f = GAME.fwd;
+    o.position.set(head.p.x + f.x * d, y, head.p.z + f.z * d);
+    this.floorE.set(-Math.PI / 2, Math.atan2(-f.x, -f.z), 0);
+    o.quaternion.setFromEuler(this.floorE);
+    o.scale.setScalar(s);
+  }
+
+  private stepFloor(dt: number): void {
+    const playing = GAME.phase === 'playing', w = this.warnEntity?.object3D, c = this.chargeEntity?.object3D;
+    if (w?.visible) {
+      this.warnT -= dt;
+      if (this.warnT <= 0 || !playing) {
+        w.visible = false;
+        this.warnText = '';
+      }
+    }
+    if (c?.visible) {
+      if (!playing || this.chargePow < 2) {
+        c.visible = false;
+        this.chargeText = '';
+      } else {
+        this.chargeT += dt;
+        c.scale.setScalar(this.chargeS * (1 + 0.06 * Math.max(0, Math.sin(this.chargeT * 9)) + 0.25 * Math.max(0, 1 - this.chargeT * 5))); // (sale con un golpe y late)
+      }
+    }
   }
 
   private refreshBoard(): void {
@@ -298,11 +429,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.enemies.clear();
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
+    // el ejercicio: Combate con uno de pie (si lo elegido en RepArena era otro modo u otro ejercicio, la sentadilla)
+    if (settings.mode !== 'combat' || !STAND_EX.includes(settings.exercise)) this.chooseEx(curEx());
     // las vidas, las de tu rango (0: infinitas: los golpes no te eliminan)
     GAME.maxLives = nLives();
     Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, startTime: this.clock });
     this.rampLvl = 0;
-    this.sq.reset(head.p.y); // (de pie: la referencia de la sentadilla)
+    this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla)
     this.chargePow = 0;
     throwReset();
     gazeLockReset();
@@ -323,9 +456,30 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.rampLvl = GAME.wave - 1;
     GAME.foeSpeed = Math.min(2.2, Math.max(0.4, SQUAT_SPAWN_DIST / Math.max(1, dv('walkTime', this.rampLvl))));
     this.maxAlive = Math.max(1, Math.round(dv('maxAlive', this.rampLvl)));
-    this.squatCfg = squatConfig(dv('squatDepth', this.rampLvl), num('perfectTime'), num('powHold'), num('powHoldInc'), deepOn() ? num('deepDrop') : 0);
+    this.stCfg = this.readCfg(this.rampLvl);
     this.message(`OLEADA ${GAME.wave}`, this.betweenT);
     SND.horn();
+  }
+
+  // lo que pide el ejercicio en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
+  private readCfg(lvl: number): StandCfg {
+    return {
+      ex: curEx(),
+      squatDepth: dv('squatDepth', lvl),
+      lungeDepth: dv('lungeDepth', lvl),
+      swingDrop: num('swingDrop'),
+      dlDepth: num('dlDepth'),
+      thrUp: num('thrUp'),
+      jsqJump: num('jsqJump'),
+      curlRange: num('curlRange'),
+      fraiseRange: num('fraiseRange'),
+      twistDeg: num('twistDeg'),
+      perfectTime: num('perfectTime'),
+      powHold: num('powHold'),
+      powHoldInc: num('powHoldInc'),
+      deepDrop: deepOn() ? num('deepDrop') : 0,
+      power: true, // (sin pistolas ni espadas todavía: PR 9)
+    };
   }
 
   private gameOver(): void {
@@ -398,18 +552,44 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     }
   }
 
-  // ---------------------------------------------------------------- la sentadilla
+  // ---------------------------------------------------------------- el ejercicio
 
-  private squat(y: number, t: number, dt: number): void {
-    const ev = this.sqEvents;
+  private exercise(t: number, dt: number): void {
+    const ev = this.stEvents;
     ev.length = 0;
-    this.sq.update(y, t, dt, head.speed, this.squatCfg, ev);
+    this.stIn.play = !GAME.between;
+    this.st.update(t, dt, this.stIn, this.stCfg, ev);
     for (const e of ev) {
       if (e.type === 'charge') this.onCharge();
-      else if (e.type === 'power') this.onPower(e.level);
-      else if (e.type === 'rep') this.onRep(e.perfect, e.fast, e.pow);
-      else this.onPartial('¡Baja más!');
+      else if (e.type === 'power') this.onPower(e.level, e.deep);
+      else if (e.type === 'rep') this.onRep(e.perfect, e.fast, e.pow, e.side);
+      else if (e.type === 'partial') this.onPartial(e.msg);
+      else if (e.type === 'top') this.topCue(e.side);
+      else {
+        this.message(e.msg, 1.4);
+        if (e.color === WARN_COL) this.floorWarn(e.msg, e.color);
+      }
     }
+  }
+
+  // Arriba del todo en el curl, la elevación frontal o el curl con barra la repetición ya vale; el disparo sale al empezar
+  // a bajar (para poder aguantar y cargar), pero aquí ya se nota: un chasquido de luz en las manos, su sonido y, con
+  // mandos, una vibración (RepArena: topCue)
+  private topCue(side: Side | null): void {
+    const p = this.tmpA.set(0, 0, 0);
+    let n = 0;
+    for (const s of SIDES)
+      if ((!side || s === side) && hands[s].ok) {
+        p.add(hands[s].wrist);
+        n++;
+      }
+    if (n) {
+      p.divideScalar(n);
+      this.fx.sparks.burst(p, 12, 0xffe073, 1.6, 0.025);
+      this.fx.flashes.at(p, 0xfff2b3, 0.3, 0.12);
+    }
+    SND.tick();
+    for (const s of SIDES) if (!side || s === side) haptic(s, 0.5, 40);
   }
 
   // al bajar: la bola de energía aparece con la carga
@@ -418,27 +598,31 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     SND.charge();
   }
 
-  // aguantando abajo: la carga sube un nivel
-  private onPower(p: number): void {
+  // aguantando: la carga sube un nivel (deep: la recarga profunda, al bajar mucho de golpe)
+  private onPower(p: number, deep = false): void {
+    if (this.chargePow <= 0) return;
     this.chargePow = p;
     SND.power(p);
+    if (deep) SND.perfect();
     if (p >= 4) {
       this.fx.ball.flashMax();
       this.fx.sparks.burst(this.fx.ball.pos, 60, 0xff4d70, 3.2, 0.03);
     }
-    this.message(`Carga ×${p}`, 1.2);
+    this.message(deep ? `¡RECARGA PROFUNDA! ×${p}` : `Carga ×${p}`, deep ? 1.3 : 1.2);
+    this.chargeFloor(p >= 4 ? '×4 · ¡ARRIBA!' : deep ? `RECARGA ×${p}` : `CARGA ×${p}`, hex(POW_COL[p - 1])); // (en el suelo: aguantando, es lo que ves)
   }
 
-  // subió sin bajar lo bastante: la carga se pierde
+  // a medias (no bajó o no subió lo bastante, le faltó el gesto…): la carga se pierde y el aviso sale en el suelo
   private onPartial(text: string): void {
     this.chargePow = 0;
     SND.partial();
     this.message(text, 1.2);
+    this.floorWarn(text);
   }
 
   // Al subir, la repetición: la bola estalla y de ella salen los rayos; lanzando con las manos, la carga pasa a ellas
   // (como en RepArena: onRep)
-  private onRep(perfect: boolean, fast: boolean, powIn: number): void {
+  private onRep(perfect: boolean, fast: boolean, powIn: number, side: Side | null = null): void {
     GAME.reps++;
     if (perfect) {
       GAME.perfect++;
@@ -455,7 +639,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     }
     const mode = aimNow(), inXR = this.world.visibilityState.peek() !== VisibilityState.NonImmersive;
     if (import.meta.env.DEV) console.info(`rxdbg repetición ${perfect ? 'perfecta' : 'normal'} ×${pow} (puntería ${mode})`);
-    const origin = bp ?? this.chestPoint(this.tmpD);
+    // (sin la bola, de la mano del brazo que hizo el curl, o del pecho)
+    const origin = bp ?? (side && hands[side].ok ? this.tmpD.copy(hands[side].wrist) : this.chestPoint(this.tmpD));
     if (mode === 'auto') this.fireOrb(origin, dmg, perfect, pow);
     else if (!throwCharge(dmg, perfect, pow, mode === 'hands', inXR, this.env.say)) {
       if (mode === 'hands') this.fireOrb(origin, dmg, perfect, pow); // (en el ordenador, sin manos: al más cercano)
@@ -592,7 +777,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
     const playing = GAME.phase === 'playing';
     if (playing) {
-      this.squat(head.p.y, time, dt);
+      this.exercise(time, dt);
       // oleadas: pausa con el aviso (no sale nadie); luego van saliendo de uno en uno
       if (GAME.between) {
         this.betweenT -= dt;
@@ -636,6 +821,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.fx.sparks.update(dt);
     this.fx.flashes.update(dt);
     this.cfx.update(dt);
+    this.stepFloor(dt);
     // el velo rojo de un golpe
     if (this.hurtT > 0) {
       this.hurtT -= dt;
@@ -646,7 +832,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // el marcador
     if (this.msgT > 0) {
       this.msgT -= dt;
-      if (this.msgT <= 0) this.setText(this.board, 'msg', GAME.phase === 'playing' ? 'Baja en sentadilla para cargar' : 'Pulsa EMPEZAR');
+      if (this.msgT <= 0) this.setText(this.board, 'msg', GAME.phase === 'playing' ? IDLE[this.stCfg.ex] : 'Pulsa EMPEZAR');
     }
     this.boardT -= dt;
     if (this.boardT <= 0) {

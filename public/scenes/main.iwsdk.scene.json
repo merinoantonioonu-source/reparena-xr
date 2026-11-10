@@ -464,6 +464,48 @@
       }
     },
     {
+      "id": "warn-panel",
+      "name": "Aviso en el suelo",
+      "content": {
+        "type": "asset",
+        "asset": "warn-floor"
+      },
+      "transform": {
+        "position": [
+          0,
+          0.02,
+          -1.8
+        ],
+        "rotationDeg": [
+          -90,
+          0,
+          0
+        ],
+        "scale": 1.4
+      }
+    },
+    {
+      "id": "charge-panel",
+      "name": "Carga en el suelo",
+      "content": {
+        "type": "asset",
+        "asset": "charge-floor"
+      },
+      "transform": {
+        "position": [
+          0,
+          0.03,
+          -1.2
+        ],
+        "rotationDeg": [
+          -90,
+          0,
+          0
+        ],
+        "scale": 1.0
+      }
+    },
+    {
       "id": "sun",
       "name": "Sol",
       "transform": {

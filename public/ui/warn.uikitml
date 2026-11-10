@@ -1,0 +1,29 @@
+<!--
+  Aviso grande impreso en el suelo (lo que se hace mal: «¡Baja más!», «Sube hasta el hombro»…), como en RepArena
+  (src/60_ui.js: warnFloor). 1,6 m de ancho; el juego lo tumba delante de ti y lo escala con tu altura. Medidas en
+  centímetros; letras: Bungee (clase «display»). El color del borde y del texto lo pone el juego.
+-->
+<style>
+  .root {
+    width: 160;
+    min-height: 42;
+    padding-top: 4;
+    padding-bottom: 4;
+    padding-left: 7;
+    padding-right: 7;
+    justify-content: center;
+    align-items: center;
+    background-color: #0e080a;
+    border-radius: 8;
+    border-width: 2;
+    border-color: #ff8a3d;
+  }
+  .text {
+    font-size: 12;
+    color: #ff8a3d;
+    text-align: center;
+  }
+</style>
+<div id="box" class="root">
+  <span id="text" class="text display">¡Baja más!</span>
+</div>

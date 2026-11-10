@@ -111,7 +111,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 3 · Manos, mandos y gestos** — #4
 - [x] **PR 4 · Estilo Cómic y la arena** — #5
 - [x] **PR 5 · Sonido** — #6
-- [ ] **PR 6 · Ejercicios de pie**
+- [x] **PR 6 · Ejercicios de pie** — #8
 - [ ] **PR 7 · Menú principal y Opciones en VR**
 - [ ] **PR 8 · Enemigos**
 - [ ] **PR 9 · Armas y defensa**
@@ -187,7 +187,7 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ### Fase 1 · Combate completo
 
-**PR 6 · Ejercicios de pie** (L)
+**PR 6 · Ejercicios de pie** (L) — hecho
 - Detectores de zancada, sentadilla con salto, con press y con elevación, swing, peso muerto, curl, curl con barra,
   antebrazos y elevación frontal, con sus cargas ×2-×4, PERFECTA, avisos de lo que se hace mal (grandes, en el suelo) y
   «Tu cuerpo (recorridos)»; un selector sencillo de ejercicio en el panel de inicio hasta el PR 7.
@@ -197,6 +197,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   Aquí los detectores leen las manos tal como las da IWSDK (`hands`, sin manos inventadas), y los apaños de RepArena para
   eso (el filtro `HF` de las dos manos juntas, `handEx`…) no se portan. Si en las gafas vuelven los rayos al azar, se
   busca primero lo que ofrezca IWSDK y, si no hay nada, se le propone al usuario.
+- Hecho: los detectores de RepArena, tal cual (`src/exercise/standing.ts`: `runDetectors` con `vertDetector`, `CHAIN`,
+  `chainStep`, `deadliftStep`, `armStep`, `barStep`, `fraiseStep`, `twistStep` y `jumpTrack`), comparados con su código
+  (`tests/compare/standing.compare.test.ts`: 40 partidas al azar por ejercicio, los mismos sucesos en el mismo fotograma).
+  Del curl con barra se queda lo que es del juego (las dos manos como una sola pesa: juntas, su media; separadas, la que
+  se mueve), pero no el filtro `HF`. Los avisos en el suelo y la carga ×N en el suelo, con dos paneles UIKit tumbados
+  (`warn.uikitml`, `charge.uikitml`). El selector, once botones en el panel de inicio.
 
 **PR 7 · Menú principal y Opciones en VR** (L)
 - EMPEZAR, metas de hoy, columna HOY, modos, ejercicios, dificultad (galones, «Al fallo», la ficha de la ronda),
@@ -272,6 +278,20 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 6 → PR 7: el ejercicio se elige con `chooseEx` (`src/combat/game.ts`): pone Combate y el ejercicio con `setSetting`
+  (lo ve también RepArena) y repinta el panel de inicio (`refreshEx`). El menú del PR 7 sustituye al selector: que llame a
+  lo mismo (o a `setSetting`; `onSettingsChange` ya repinta). Al pulsar EMPEZAR, si lo guardado es otro modo o un
+  ejercicio que aquí aún no hay (los del suelo, PR 11), se pasa a Combate con la sentadilla.
+- Los ejercicios de pie: `StandingDetector` (sucesos) y `readCfg` (lo que pide cada uno, leído al empezar cada oleada).
+  Los del suelo (PR 11) van en otro detector con la misma forma: `vertical.ts` sirve para las flexiones y los fondos.
+- Avisos en el suelo: `floorWarn(texto, color)` y `chargeFloor(texto, color)` (paneles `warn-panel` y `charge-panel` de
+  la escena, que el juego tumba delante de ti al enseñarlos). Mirando hacia arriba (remo, abdominales) RepArena los ponía
+  por encima de la cara: falta, para el PR 11 o el 17.
+- La puntería con pesas: `aimNow` hace lo de RepArena (`aimSources`): sin las manos libres (curl, swing…), la mirada; con
+  la barra flexible, automática.
+- La partida simulada (`tests/e2e/run.mjs`) juega la sentadilla; para el aviso en el suelo sube un momento la
+  profundidad pedida (`__rx.game.stCfg`). El estado (`__rx.snapshot()`) trae el ejercicio, el aviso y la carga del suelo.
+
 - PR 5 → PR 6: cada efecto, con su nombre de RepArena: `SND.bolt(pos, L)`, `SND.door(pos)`… (`src/audio/sound.ts`).
   Uno nuevo: `playSound('nombre', pos, volumen, tono)`, con su fila en `SOUNDS` (`src/audio/catalog.ts`), su archivo de
   serie en `sounds/de-serie/` y su línea en `sounds/LEEME.md` (la prueba lo exige). Los de Combate se preparan al arrancar
@@ -304,6 +324,20 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Fallos conocidos
 
 - Pulsar los paneles con el dedo no se ha podido comprobar en el emulador (va demasiado lento); en las gafas, por ver.
+- PR 6: el filtro de las manos de RepArena (`HF`: manos al alcance y sin saltos imposibles, en todo lo que va con las
+  dos manos en una pesa) no se porta, como pidió el usuario (IWSDK de serie). Si en las gafas vuelven los rayos al azar
+  (sobre todo en el curl con barra), se busca primero en IWSDK y, si no hay nada, se le propone el `HF` al usuario.
+- PR 6: en las gafas, por probar todos los ejercicios de pie; en la VR simulada se han probado la sentadilla (con el aviso
+  en el suelo y la carga hasta ×4) y el curl (carga arriba, chasquido, ×2-×4 y el rayo al bajar), elegidos en el
+  selector con el mando. En el emulador, al pasar a manos, aparecen a media altura: cuenta un curl que no se ha hecho
+  (en las gafas las manos aparecen donde están).
+- PR 6: la zancada dice qué pierna toca en el marcador (RepArena lo decía delante de la cara: los avisos de la vista
+  llegan con el PR 12), igual que PERFECTA y las celebraciones (PR 10).
+- PR 6: el aviso del suelo sale delante y se queda quieto; RepArena lo volvía a poner delante si te girabas mucho (más de
+  65°). En Combate no hace falta (se mira hacia las compuertas).
+- PR 6: al pulsar EMPEZAR con otro modo guardado (Arcos, Toques…) se guarda Combate también para RepArena (comparten
+  los ajustes): es lo único que se puede jugar aquí por ahora.
+- PR 6: en el ordenador solo se prueban los ejercicios de la cabeza (flecha abajo); los de brazos, en la VR simulada.
 - La dificultad creciente sube con cada oleada; en RepArena solo con las superadas con soltura (pocos golpes): llega en el
   PR 10.
 - Sin pistolas ni espadas todavía (PR 9): si el usuario las tiene puestas en RepArena, aquí se lanza con las manos.

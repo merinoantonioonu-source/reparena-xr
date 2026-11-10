@@ -4,9 +4,10 @@
 //   npm run test:e2e            (construye y juega)
 //   E2E_SHOTS=carpeta npm run test:e2e   (guarda capturas en esa carpeta)
 //
-// Juega: EMPEZAR (Enter) → sale el primer zombi → sentadilla aguantada (flecha abajo) hasta ×2 → arriba (cuenta la
-// repetición y, en el ordenador, sin manos, el rayo sale solo al zombi más cercano) → otra sentadilla si no le ha dado;
-// y comprueba que ha sonado lo de la partida (la oleada, la compuerta, la carga, el rayo y el impacto), ya cargado.
+// Juega: EMPEZAR (Enter) → sale el primer zombi → sentadilla aguantada (flecha abajo) hasta ×2 (la carga se escribe en el
+// suelo) → arriba (cuenta la repetición y, en el ordenador, sin manos, el rayo sale solo al zombi más cercano) → otra
+// sentadilla si no le ha dado; comprueba que ha sonado lo de la partida (la oleada, la compuerta, la carga, el rayo y el
+// impacto), ya cargado, y el vapor de las compuertas; y una sentadilla a medias saca «¡Baja más!» en grande en el suelo.
 // Falla si algo no pasa a tiempo o si la página da errores.
 // Necesita el Chromium de Playwright (npx playwright install chromium; ver MIGRACION.md › Cómo probar).
 import { createServer } from 'node:http';
@@ -82,13 +83,14 @@ try {
   await page.waitForFunction(() => !!window.__rx, null, { timeout: 90000 });
   await until('el juego carga y espera en el menú', (s) => s.phase === 'menu', 30);
   await shot('1-menu');
-  await page.mouse.click(200, 125);
+  await page.mouse.click(4, 4); // (abre el sonido; en una esquina, fuera del panel: en el centro hay botones)
   await page.keyboard.press('Enter');
   await until('EMPEZAR: empieza la ronda', (s) => s.phase === 'playing' && s.wave === 1, 15);
   await until('sale el primer zombi', (s) => s.foes.length > 0, 90);
   await page.keyboard.down('ArrowDown');
   await until('al bajar, la bola carga el disparo', (s) => s.charge >= 1 && s.ballOn, 30);
   await until('aguantando abajo, la carga sube a ×2', (s) => s.charge >= 2, 60);
+  await until('la carga, escrita en el suelo', (s) => s.chargeFloor === 'CARGA ×2', 10);
   await shot('2-bola');
   await page.keyboard.up('ArrowDown');
   await until('al subir, cuenta la sentadilla', (s) => s.reps >= 1, 30);
@@ -119,6 +121,16 @@ try {
   await shot('3-vapor');
   console.log(`  ✓ la compuerta echa vapor (${vap.steam.added} bocanadas, hasta ${vap.steam.peak} a la vez)`);
   await shot('3-rayo');
+  // a medias: la flecha baja 40 cm; con la sentadilla pidiendo 60 (solo para esta prueba) no llega y sale el aviso, en
+  // grande en el suelo
+  if (last.ex !== 'squat') throw new Error('la partida simulada espera la sentadilla, y es ' + last.ex);
+  await page.evaluate(() => (window.__rx.game.stCfg.squatDepth = 60));
+  await page.keyboard.down('ArrowDown');
+  await until('bajando del todo con la flecha', (s) => s.head[1] < 1.25, 20);
+  await page.keyboard.up('ArrowDown');
+  await until('a medias: «¡Baja más!» en grande en el suelo', (s) => s.warn === '¡Baja más!', 20);
+  await page.evaluate(() => (window.__rx.game.stCfg.squatDepth = 26));
+  await shot('4-aviso');
   if (missing.length) throw new Error('faltan archivos: ' + missing.join(', '));
   if (errors.length) throw new Error('errores en la página:\n' + errors.join('\n'));
   ok = true;
