@@ -35,7 +35,8 @@ import { boltColor, Effects, POW_COL } from './fx.js';
 import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
 import { IDLE } from '../exercise/how.js';
-import { aimForced, deepOn, handsFree } from '../core/rules.js';
+import { aimForced, deepOn, groundList, handsFree } from '../core/rules.js';
+import { deal, devFoe, gateFoes } from './foes.js';
 import { curEx } from '../ui/fields.js';
 import { dv, nLives, setSetting } from '../core/settings.js';
 import { num, on, settings, str } from '../core/values.js';
@@ -157,7 +158,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     for (const p of [this.board, this.warn, this.chargeP]) if (p) applyFonts(p);
     for (const e of [this.warnEntity, this.chargeEntity]) if (e?.object3D) e.object3D.visible = false;
     GAME.maxLives = GAME.lives = nLives(); // (las de tu rango)
-    HOOKS.playerHit = () => this.onPlayerHit();
+    HOOKS.playerHit = (str) => this.onPlayerHit(str ?? 1);
     HOOKS.foeDown = () => this.onFoeDown();
     HOOKS.startRound = () => this.startRound();
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
@@ -177,10 +178,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     for (const e of this.queries.foes.entities) {
       const o = e.object3D;
       if (!o) continue;
-      foes.push({ state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
+      foes.push({ kind: (o.userData.rt as { kind?: string } | undefined)?.kind, state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
-    return { menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
+    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
@@ -303,6 +304,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     punchReset();
     this.locks.clear();
     HOOKS.hideMenu();
+    this.dealFoes();
     this.nextWave();
   }
 
@@ -360,9 +362,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     HOOKS.showMenu(`Oleada ${GAME.wave} · ${GAME.reps} repeticiones (${GAME.perfect} perfectas) · ${GAME.kills} derribados · ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`);
   }
 
-  private onPlayerHit(): void {
+  // te han dado: pierdes las vidas de su fuerza (la de la tabla del desarrollador; RepArena: hurtPlayer)
+  private onPlayerHit(str: number): void {
     if (GAME.phase !== 'playing') return;
-    if (GAME.maxLives > 0) GAME.lives--;
+    if (GAME.maxLives > 0) GAME.lives = Math.max(0, GAME.lives - Math.max(1, str));
     this.hurtT = 0.45;
     SND.hurt();
     this.message(GAME.maxLives === 0 ? '¡Golpe!' : GAME.lives > 0 ? '¡Golpe! Quedan ' + GAME.lives : '¡Golpe!', 1.5);
@@ -394,15 +397,24 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         if (o && Math.hypot(o.position.x - x, o.position.z - z) < 1.2) ok = false;
       }
       if (!ok) continue;
-      this.enemies.spawn(this.foeKind(), x, z);
+      this.spawnFoe(x, z);
       return true;
     }
     return false;
   }
 
   // el zombi que toca: desde la segunda oleada, también gordos
-  private foeKind(): 'basic' | 'chubby' {
-    return GAME.wave >= 2 && Math.random() < Math.min(0.45, 0.15 * GAME.wave) ? 'chubby' : 'basic';
+  // Quién sale: repartidos entre los que eliges en Rivales (RepArena: buildWave → deal), bien mezclados; los que aún no
+  // están (PR 8b) o no han acabado de cargarse, zombis verdes. Su resistencia, la de la tabla del desarrollador, y sube un
+  // disparo cada cuatro oleadas (la escalera y los jefes llegan con el PR 10)
+  private nextFoe: () => string = () => 'zgreen';
+  private dealFoes(): void {
+    this.nextFoe = deal(gateFoes(groundList()));
+  }
+  private spawnFoe(x: number, z: number): void {
+    let k = this.nextFoe();
+    if (!this.enemies.ready(k)) k = 'zgreen';
+    this.enemies.spawn(k, x, z, devFoe('g:' + k).hp + Math.floor((GAME.wave - 1) / 4));
   }
 
   // los que salen por su compuerta, cuando ya está abierta
@@ -410,7 +422,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     for (const p of this.pending) {
       if (!p.gate || (p.t -= dt) > 0) continue;
       const at = this.gates!.spawnPoint(p.gate, this.tmpC);
-      this.enemies.spawn(this.foeKind(), at.x, at.z);
+      this.spawnFoe(at.x, at.z);
       p.gate = null;
     }
   }

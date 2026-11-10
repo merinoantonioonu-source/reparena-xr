@@ -3,7 +3,8 @@
   con su color (Rivales y armas, Progreso, Sonido, Entorno y Ajustes); en Ajustes, una pestaña por grupo del esquema. Cada
   ajuste en una fila: su nombre, − y + (o sus opciones en teclas) y la tecla «?» con su explicación al lado del menú.
   Salen del esquema de ajustes (src/core/schema.ts); las filas (o1-o9) y las pestañas (s0-s9) las llena el juego
-  (src/ui/menu.ts), de nueve en nueve con ◂ ▸ si no caben. Medidas en centímetros (90 cm de ancho).
+  (src/ui/menu.ts), de nueve en nueve con ◂ ▸ si no caben. En Rivales y armas, una ficha por enemigo de las compuertas
+  (c-*: su retrato, su nombre, su resistencia y su fuerza; al tocarla, sale o deja de salir). Medidas en centímetros.
 -->
 <style>
   .root {
@@ -160,6 +161,43 @@
     text-align: center;
     width: 82;
   }
+  .cards {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.8;
+    width: 82;
+  }
+  .card {
+    flex-direction: column;
+    align-items: center;
+    width: 10.9;
+    padding-top: 0.6;
+    padding-bottom: 0.6;
+    gap: 0.3;
+    border-radius: 1.6;
+    border-width: 0.3;
+    border-color: #2a2f3a;
+    background-color: #1b2030;
+    cursor: pointer;
+  }
+  .card:hover {
+    background-color: #262c3d;
+  }
+  .pic {
+    width: 7.6;
+    height: 7.6;
+    border-radius: 1.2;
+  }
+  .cname {
+    font-size: 1.45;
+    color: #e9eef7;
+    text-align: center;
+  }
+  .cstat {
+    font-size: 1.3;
+    color: #a49fc8;
+  }
   .display {
     letter-spacing: 0.1;
   }
@@ -184,6 +222,103 @@
     <button id="s7" class="tab"><span id="s7t" class="tabt">Grupo</span></button>
     <button id="s8" class="tab"><span id="s8t" class="tabt">Grupo</span></button>
     <button id="s9" class="tab"><span id="s9t" class="tabt">Grupo</span></button>
+  </div>
+  <div id="cards" class="cards">
+    <button id="c-robot" class="card">
+      <img id="c-roboti" class="pic" src="retratos/robot.png" />
+      <span id="c-robotn" class="cname">Robots</span>
+      <span id="c-robots" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-imp" class="card">
+      <img id="c-impi" class="pic" src="retratos/imp.png" />
+      <span id="c-impn" class="cname">Diablillo</span>
+      <span id="c-imps" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-puglin" class="card">
+      <img id="c-puglini" class="pic" src="retratos/puglin.png" />
+      <span id="c-puglinn" class="cname">Puglin</span>
+      <span id="c-puglins" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-thrower" class="card">
+      <img id="c-throweri" class="pic" src="retratos/thrower.png" />
+      <span id="c-throwern" class="cname">Lanzador</span>
+      <span id="c-throwers" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-zombie" class="card">
+      <img id="c-zombiei" class="pic" src="retratos/zombie.png" />
+      <span id="c-zombien" class="cname">Zombi</span>
+      <span id="c-zombies" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-zgreen" class="card">
+      <img id="c-zgreeni" class="pic" src="retratos/zgreen.png" />
+      <span id="c-zgreenn" class="cname">Zombi verde</span>
+      <span id="c-zgreens" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-zchubby" class="card">
+      <img id="c-zchubbyi" class="pic" src="retratos/zchubby.png" />
+      <span id="c-zchubbyn" class="cname">Zombi gordo</span>
+      <span id="c-zchubbys" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-raptor" class="card">
+      <img id="c-raptori" class="pic" src="retratos/raptor.png" />
+      <span id="c-raptorn" class="cname">Velociraptor</span>
+      <span id="c-raptors" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-skeleton" class="card">
+      <img id="c-skeletoni" class="pic" src="retratos/skeleton.png" />
+      <span id="c-skeletonn" class="cname">Esqueleto pirata</span>
+      <span id="c-skeletons" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-captain" class="card">
+      <img id="c-captaini" class="pic" src="retratos/captain.png" />
+      <span id="c-captainn" class="cname">Capitán Barbarroja</span>
+      <span id="c-captains" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-sharky" class="card">
+      <img id="c-sharkyi" class="pic" src="retratos/sharky.png" />
+      <span id="c-sharkyn" class="cname">Tiburón</span>
+      <span id="c-sharkys" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-mako" class="card">
+      <img id="c-makoi" class="pic" src="retratos/mako.png" />
+      <span id="c-makon" class="cname">Tiburón gris</span>
+      <span id="c-makos" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-demon" class="card">
+      <img id="c-demoni" class="pic" src="retratos/demon.png" />
+      <span id="c-demonn" class="cname">Demonio</span>
+      <span id="c-demons" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-greendemon" class="card">
+      <img id="c-greendemoni" class="pic" src="retratos/greendemon.png" />
+      <span id="c-greendemonn" class="cname">Demonio verde</span>
+      <span id="c-greendemons" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-cyclops" class="card">
+      <img id="c-cyclopsi" class="pic" src="retratos/cyclops.png" />
+      <span id="c-cyclopsn" class="cname">Cíclope</span>
+      <span id="c-cyclopss" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-yeti" class="card">
+      <img id="c-yetii" class="pic" src="retratos/yeti.png" />
+      <span id="c-yetin" class="cname">Yeti</span>
+      <span id="c-yetis" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-skull" class="card">
+      <img id="c-skulli" class="pic" src="retratos/skull.png" />
+      <span id="c-skulln" class="cname">Calavera</span>
+      <span id="c-skulls" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-alien" class="card">
+      <img id="c-alieni" class="pic" src="retratos/alien.png" />
+      <span id="c-alienn" class="cname">Alien</span>
+      <span id="c-aliens" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
+    <button id="c-alientall" class="card">
+      <img id="c-alientalli" class="pic" src="retratos/alientall.png" />
+      <span id="c-alientalln" class="cname">Alien alto</span>
+      <span id="c-alientalls" class="cstat">Resiste 2 · Fuerza 1</span>
+    </button>
   </div>
   <div class="body">
     <span id="o-note" class="note">Nota</span>

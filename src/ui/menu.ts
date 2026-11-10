@@ -11,7 +11,9 @@
  * Lo que se enseña de cada ajuste y lo que hace tocarlo, sin IWSDK, en src/ui/fields.ts.
  */
 import { createSystem, Entity, Euler, PokeInteractable, RayInteractable, UIKitMLAsset, Vector3, VisibilityState } from '@iwsdk/core';
-import { BODY_NOTE, EX_NAMES, EX_SHORT, MODE_EX, MODE_NAMES, RANKS } from '../core/catalog.js';
+import { BODY_NOTE, EX_NAMES, EX_SHORT, FOE_GATE, MODE_EX, MODE_NAMES, RANKS } from '../core/catalog.js';
+import { foeList } from '../core/rules.js';
+import { devFoe, foeReady } from '../combat/foes.js';
 import { FIELD, type FieldDef } from '../core/schema.js';
 import { fieldVisible, onSettingsChange, rankIdx, setSetting } from '../core/settings.js';
 import { isCombat } from '../core/rules.js';
@@ -304,13 +306,15 @@ export class MenuSystem extends createSystem({}, {}) {
     this.on(p, 'pg-prev', () => (this.page = Math.max(0, this.page - 1)));
     this.on(p, 'pg-next', () => this.page++);
     this.on(p, 'o-back', () => this.show('lobby'));
+    // las fichas de los rivales: al tocar una, sale o deja de salir (Ajustes → Enemigos → De las compuertas)
+    for (const [k] of FOE_GATE) this.on(p, 'c-' + k, () => fieldPick(FIELD.foesGate, k));
     for (const r of ROWS_OPT) this.wireRow(p, r);
   }
 
   private optRows(): { rows: Row[]; note: string } {
     if (this.tab === 'foes') {
       const rows: Row[] = [FIELD.foeKind, ...groupFields('armas')].filter((f) => fieldHere(f));
-      return { rows, note: 'Las fichas de cada rival, con su retrato, llegan con los enemigos (PR 8)' };
+      return { rows, note: 'Toca una ficha para que salga o no · Resiste: los disparos que aguanta · Fuerza: las vidas que te quita' };
     }
     if (this.tab === 'prog') return { rows: [], note: 'Tu progreso (nivel, misiones del día, tu semana y tu mejor ronda) llega con el PR 13' };
     if (this.tab === 'sound') return { rows: groupFields('sonido'), note: 'Spotify y el compás de la música llegan con el PR 22' };
@@ -339,6 +343,17 @@ export class MenuSystem extends createSystem({}, {}) {
       this.text(p, `s${i}t`, groupName(g));
       this.key(p, 's' + i, g === this.group ? '#ffd166' : KEY.bg, g === this.group ? KEY.dark : KEY.fg);
     }
+    // las fichas de los rivales (en Rivales y armas): su retrato, su nombre, su resistencia y su fuerza; los elegidos, con
+    // el borde de su color; los que aún no están (PR 8b), apagados
+    const cards = this.tab === 'foes' && fieldVisible(FIELD.foesGate), chosen = foeList('foesGate');
+    this.shown(p, 'cards', cards);
+    if (cards)
+      for (const [k] of FOE_GATE) {
+        const on = chosen.includes(k), ok = foeReady(k), f = devFoe('g:' + k);
+        this.set(p, 'c-' + k, { borderColor: on ? '#ff8a3d' : KEY.bg, backgroundColor: on ? '#2b2130' : '#1b2030' });
+        this.set(p, `c-${k}n`, { color: ok ? KEY.fg : KEY.offFg });
+        this.text(p, `c-${k}s`, ok ? `Resiste ${f.hp} · Fuerza ${f.str}` : 'Llega con el PR 8b');
+      }
     const { rows, note } = this.optRows(), per = ROWS_OPT.length, pages = Math.max(1, Math.ceil(rows.length / per));
     this.page = Math.min(this.page, pages - 1);
     this.shown(p, 'o-note', !!note);

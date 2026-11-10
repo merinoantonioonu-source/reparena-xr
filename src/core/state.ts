@@ -33,8 +33,8 @@ export const GAME = {
 
 /** Avisos entre sistemas (los pone el sistema del juego al arrancar). */
 export const HOOKS = {
-  /** Un zombi te ha dado. */
-  playerHit: (): void => {},
+  /** Un enemigo te ha dado (str: las vidas que quita, su fuerza). */
+  playerHit: (_str?: number): void => {},
   /** Ha caído un zombi. */
   foeDown: (): void => {},
   /** Empezar la ronda (EMPEZAR, o Enter en el ordenador): lo pone la partida. */

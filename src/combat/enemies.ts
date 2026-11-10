@@ -1,11 +1,17 @@
 /**
- * Los zombis, con física de verdad (Havok): cada uno es una cápsula dinámica que choca con el suelo, las cajas, las
- * rocas, la bola de energía y los demás zombis. Andan hacia ti dirigiendo su velocidad (no se teletransportan): rodean
- * la bola y los obstáculos, se separan entre ellos y, si chocan, se empujan. Un disparo los hace retroceder; el último
- * los lanza por el aire dando vueltas y caen al suelo como un cuerpo suelto.
+ * Los enemigos de las compuertas (la tabla, en src/combat/foes.ts), con física de verdad (Havok): cada uno es una cápsula
+ * dinámica que choca con el suelo, las cajas, las rocas, la bola de energía y los demás. Andan dirigiendo su velocidad (no
+ * se teletransportan) hacia su puesto de ataque, en un arco delante de ti (RepArena: robotSlot): rodean la bola y los
+ * obstáculos, se separan entre ellos y, si chocan, se empujan; si la primera fila está llena, esperan en la de atrás y,
+ * con ritmo marcado, bailan al compás. En su puesto preparan el golpe y golpean (con ritmo, en el pulso): te quitan su
+ * fuerza en vidas (la de la tabla del desarrollador); luego retroceden un poco. Un disparo los hace retroceder; el último
+ * los lanza por el aire dando vueltas y caen al suelo como un cuerpo suelto. Encima, sus cuentas de vida (src/combat/life.ts).
  */
 import {
   AnimationAction,
+  MeshStandardMaterial,
+  NearestFilter,
+  SRGBColorSpace,
   AnimationMixer,
   AssetManager,
   createSystem,
@@ -27,20 +33,17 @@ import {
   Vector3,
 } from '@iwsdk/core';
 import { Foe, FoeState, Obstacle } from './components.js';
+import { devFoe, FOE_DEF, foeSlot, type FoeDef, type FoeClips, type SlotFoe } from './foes.js';
+import { LifeBeads } from './life.js';
+import { num } from '../core/values.js';
 import type { LockTarget } from './lockline.js';
 import { SND } from '../audio/sound.js';
 import { VOICE_PITCH } from '../audio/catalog.js';
 import { GAME, HOOKS } from '../core/state.js';
 import type { PunchTarget } from '../input/punch.js';
 
-type FoeKind = 'basic' | 'chubby';
-
-/** Cada tipo: su modelo, su tamaño (alto de la cápsula y radio), su escala, su vida (la resistencia de RepArena: disparos
- * normales que aguanta; el verde, 2, y el gordo, 3) y su voz (la de RepArena: VOICE en src/audio/catalog.ts). */
-const KIND: Record<FoeKind, { asset: string; height: number; radius: number; scale: number; hp: number; voice: string; mass: number }> = {
-  basic: { asset: 'zombie-basic', height: 1.62, radius: 0.27, scale: 1.2, hp: 2, voice: 'zgreen', mass: 1 },
-  chubby: { asset: 'zombie-chubby', height: 1.8, radius: 0.38, scale: 1.1, hp: 3, voice: 'zchubby', mass: 1.6 },
-};
+// lo que pesa cada uno: más cuanto más ancho (el gordo, 1,6 veces el verde), y los pesados, más aún
+const massOf = (d: FoeDef): number => Math.max(0.8, (d.r / 0.32) ** 2) * (d.heavy ? 1.3 : 1);
 
 // su voz, con su tono (RepArena: Beast.roar; al morir, más grave)
 const roar = (at: Vector3, who: string, k = 1): void => SND.roar(at, (VOICE_PITCH[who] ?? 1.4) * k, who);
@@ -65,10 +68,15 @@ export class FoeTarget implements LockTarget, PunchTarget {
 
 /** Lo que no cabe en el componente: el modelo, sus animaciones y los relojes de cada zombi. */
 interface FoeRuntime {
-  kind: FoeKind;
+  kind: string;
+  def: FoeDef;
+  mass: number;
+  /** Su vida al salir y lo que quita cada golpe (en vidas). */
+  maxHp: number;
+  str: number;
   model: Object3D;
   mixer: AnimationMixer;
-  actions: Map<string, AnimationAction>;
+  actions: Map<keyof FoeClips, AnimationAction>;
   current: string;
   yaw: number;
   /** Ya te ha rugido al llegar (RepArena: una vez, al cargar contra ti). */
@@ -81,12 +89,15 @@ interface FoeRuntime {
   stun: number;
   fade: Material[] | null;
   target: FoeTarget;
+  /** Su puesto de ataque (y cada cuánto busca uno mejor), y desde dónde estabas al buscarlo. */
+  sf: SlotFoe;
+  slotT: number;
+  slotAt: Vector3;
 }
 
-const ATTACK_RANGE = 0.65; // a esta distancia (del jugador al borde del zombi) se para y golpea
 const STAGGER = 0.8; // segundos que se queda encajando el golpe
-const PUNCH_HIT = 0.42; // segundos del puñetazo en que llega el golpe
-const PUNCH_EVERY = 2.2;
+// el golpe (RepArena: windup 0,75 s, strike 0,18 s y lo que recoge, 0,5 s; luego retrocede de espaldas)
+const WINDUP = 0.75, STRIKE = 0.18, RECOVER = 0.5, BACK_V = 0.9;
 
 const wrap = (a: number): number => {
   while (a > Math.PI) a -= Math.PI * 2;
@@ -118,6 +129,11 @@ export class EnemySystem extends createSystem(
   private playerPose = { position: new Vector3(), quaternion: new Quaternion() };
   /** Los zombis, como blancos (sacudida, mirada, puñetazo y diana). */
   readonly targets: FoeTarget[] = [];
+  /** Las cuentas de vida, encima de cada uno. */
+  readonly life = new LifeBeads();
+  private slots: SlotFoe[] = [];
+  private beatK = -1;
+  private beatHit = false;
 
   init(): void {
     this.physics = this.world.getSystem(PhysicsSystem)!;
@@ -138,6 +154,7 @@ export class EnemySystem extends createSystem(
     ball.addComponent(PhysicsShape, { shape: PhysicsShapeType.Sphere, dimensions: [GAME.ballR, 0, 0], friction: 0.3, restitution: 0.3 });
     ball.addComponent(PhysicsBody, { state: PhysicsState.Kinematic });
     this.ballBody = ball;
+    this.world.createTransformEntity(this.life.points);
   }
 
   /** Cuántos zombis quedan en pie. */
@@ -147,16 +164,30 @@ export class EnemySystem extends createSystem(
     return n;
   }
 
-  /** Saca un zombi de un tipo en (x, z), mirando hacia el jugador. */
-  spawn(kind: FoeKind, x: number, z: number): void {
-    const K = KIND[kind];
-    const gltf = AssetManager.getGLTF(K.asset);
-    if (!gltf) return;
+  /** ¿Está ya cargado su modelo? (los que no son los de siempre, IWSDK los carga después de arrancar) */
+  ready(kind: string): boolean {
+    const d = FOE_DEF[kind];
+    return !!d && !!AssetManager.getGLTF(d.asset);
+  }
+
+  /** Saca uno de la tabla (kind: zgreen, raptor, captain…) en (x, z), mirando hacia ti, con hp de vida. */
+  spawn(kind: string, x: number, z: number, hp: number): void {
+    const d = FOE_DEF[kind];
+    const gltf = d && AssetManager.getGLTF(d.asset);
+    if (!d || !gltf) return;
     const root = new Group();
-    root.name = `zombi-${kind}`;
+    root.name = `enemigo-${kind}`;
     const model = gltf.scene;
-    model.scale.setScalar(K.scale);
-    model.position.y = -K.height / 2; // los pies, en la base de la cápsula
+    model.scale.setScalar(d.k);
+    model.position.y = -d.h / 2; // los pies, en la base de la cápsula
+    const palette = d.palette ? AssetManager.getTexture(d.palette) : null;
+    if (palette) {
+      // (el zombi de 2017: sus colores, de una paleta pequeña, sin suavizar)
+      palette.flipY = false;
+      palette.colorSpace = SRGBColorSpace;
+      palette.magFilter = palette.minFilter = NearestFilter;
+      palette.generateMipmaps = false;
+    }
     model.traverse((o) => {
       const m = o as Mesh;
       if (m.isMesh) {
@@ -164,25 +195,40 @@ export class EnemySystem extends createSystem(
         m.receiveShadow = false;
         // (animado, se sale de su caja de reposo: sin esto, desaparecía a ratos por el borde de la vista)
         if ((o as SkinnedMesh).isSkinnedMesh) m.frustumCulled = false;
+        if (palette) {
+          const mat = m.material as MeshStandardMaterial;
+          if (mat.map !== palette) {
+            mat.map = palette;
+            mat.color?.set(0xffffff);
+            mat.needsUpdate = true;
+          }
+        }
       }
     });
     root.add(model);
     const yaw = Math.atan2(GAME.head.x - x, GAME.head.z - z);
-    root.position.set(x, K.height / 2 + 0.02, z);
+    root.position.set(x, d.h / 2 + 0.02, z);
     root.quaternion.setFromAxisAngle(this.up.set(0, 1, 0), yaw);
     const mixer = new AnimationMixer(model);
-    const actions = new Map<string, AnimationAction>();
-    for (const clip of gltf.animations) actions.set(clip.name, mixer.clipAction(clip));
+    const actions = new Map<keyof FoeClips, AnimationAction>();
+    for (const [k, name] of Object.entries(d.clips) as [keyof FoeClips, string][]) {
+      const clip = name && gltf.animations.find((c) => c.name === name);
+      if (clip) actions.set(k, mixer.clipAction(clip));
+    }
     const e = this.world.createTransformEntity(root);
-    const target = new FoeTarget(e, root, K.radius, K.height * 0.15);
-    const rt: FoeRuntime = { kind, model, mixer, actions, current: '', yaw, charged: false, attackT: 0.6, struck: false, kick: false, stun: STAGGER, fade: null, target };
+    const target = new FoeTarget(e, root, d.r, d.h * (d.ctr - 0.5));
+    const sf: SlotFoe = { pos: new Vector3(x, 0, z), radius: d.r, stop: d.stop, slot: new Vector3(), slotOk: false, row: 0 };
+    foeSlot(sf, this.slots, GAME.head);
+    this.slots.push(sf);
+    const str = devFoe('g:' + kind).str;
+    const rt: FoeRuntime = { kind, def: d, mass: massOf(d), maxHp: hp, str, model, mixer, actions, current: '', yaw, charged: false, attackT: 0, struck: false, kick: false, stun: STAGGER, fade: null, target, sf, slotT: 0.6, slotAt: GAME.head.clone() };
     root.userData.rt = rt;
     this.targets.push(target);
-    e.addComponent(Foe, { hp: K.hp, speed: GAME.foeSpeed * (kind === 'chubby' ? 0.8 : 1) * (0.9 + Math.random() * 0.2), state: FoeState.Walk, timer: 0, side: Math.random() < 0.5 ? -1 : 1, radius: K.radius });
-    e.addComponent(PhysicsShape, { shape: PhysicsShapeType.Capsules, dimensions: [K.radius, K.height, 0], density: K.mass * 60, friction: 0.15, restitution: 0.05 });
+    e.addComponent(Foe, { hp, speed: GAME.foeSpeed * d.speedF * (0.9 + Math.random() * 0.2), state: FoeState.Walk, timer: 0, side: Math.random() < 0.5 ? -1 : 1, radius: d.r });
+    e.addComponent(PhysicsShape, { shape: PhysicsShapeType.Capsules, dimensions: [d.r, d.h, 0], density: rt.mass * 60, friction: 0.15, restitution: 0.05 });
     e.addComponent(PhysicsBody, { state: PhysicsState.Dynamic, linearDamping: 0.2, angularDamping: 6 });
-    this.anim(rt, 'Walk', 0);
-    if (kind === 'chubby' || Math.random() < 0.5) roar(root.position, K.voice); // (al salir: la mitad de las veces; el gordo, siempre)
+    this.anim(rt, 'walk', 0);
+    if (d.heavy || hp >= 3 || Math.random() < 0.5) roar(root.position, d.voice); // (al salir: la mitad de las veces; los fuertes, siempre)
   }
 
   /** Al acabar la ronda: los que quedan en pie se desvanecen (no tapan el resumen). */
@@ -207,18 +253,26 @@ export class EnemySystem extends createSystem(
       rt.target.removed = true;
       const i = this.targets.indexOf(rt.target);
       if (i >= 0) this.targets.splice(i, 1);
+      this.freeSlot(rt);
     }
     // (los modelos comparten mallas, materiales y texturas: no se liberan al quitar uno)
     e.dispose({ disposeResources: false });
   }
 
-  // cambia de animación con un fundido
-  private anim(rt: FoeRuntime, name: string, fade = 0.25, once = false, timeScale = 1): void {
+  // deja su puesto (al morir o al quitarlo): los de atrás avanzan
+  private freeSlot(rt: FoeRuntime): void {
+    const j = this.slots.indexOf(rt.sf);
+    if (j >= 0) this.slots.splice(j, 1);
+    rt.sf.slotOk = false;
+  }
+
+  // cambia de animación con un fundido (por su nombre en la tabla: idle, walk, run, attack, hit, dance)
+  private anim(rt: FoeRuntime, name: keyof FoeClips, fade = 0.25, once = false, timeScale = 1): void {
     const a = rt.actions.get(name);
     if (!a) return;
     a.timeScale = timeScale;
     if (rt.current === name && !once) return;
-    const prev = rt.actions.get(rt.current);
+    const prev = rt.current ? rt.actions.get(rt.current as keyof FoeClips) : undefined;
     a.reset();
     a.setLoop(once ? LoopOnce : LoopRepeat, once ? 1 : Infinity);
     a.clampWhenFinished = once;
@@ -241,7 +295,7 @@ export class EnemySystem extends createSystem(
     power = Math.max(1, Math.min(4, power));
     const hp = Math.max(0, (e.getValue(Foe, 'hp') ?? 1) - dmg); // (el campo no admite negativos: lanzaría un error)
     e.setValue(Foe, 'hp', hp);
-    const mass = KIND[rt.kind].mass;
+    const mass = rt.mass;
     if (hp > 0) {
       e.setValue(Foe, 'state', FoeState.Stagger);
       e.setValue(Foe, 'timer', 0);
@@ -249,10 +303,11 @@ export class EnemySystem extends createSystem(
       const kb = (1.6 + 0.9 * power) / mass;
       this.setVel(e, dir.x * kb, 0.6 + 0.3 * power, dir.z * kb, null);
       rt.kick = true;
-      this.anim(rt, 'HitReact', 0.08, true, 1.3);
-      if (Math.random() < 0.3) roar(e.object3D!.position, KIND[rt.kind].voice);
+      this.anim(rt, 'hit', 0.08, true, 1.3);
+      if (Math.random() < 0.3) roar(e.object3D!.position, rt.def.voice);
       return;
     }
+    this.freeSlot(rt);
     // muerto: cuerpo suelto (sin enderezarse), lanzado hacia atrás y hacia arriba, girando
     e.setValue(Foe, 'state', FoeState.Dead);
     e.setValue(Foe, 'timer', 0);
@@ -264,13 +319,13 @@ export class EnemySystem extends createSystem(
     this.setVel(e, dir.x * kb, 2.4 + 0.6 * power, dir.z * kb, this.tmp.multiplyScalar(spin));
     rt.kick = true;
     // la postura del golpe, congelada: cae como un cuerpo rígido
-    this.anim(rt, 'HitReact', 0.05, true, 1);
-    const a = rt.actions.get('HitReact');
+    this.anim(rt, 'hit', 0.05, true, 1);
+    const a = rt.actions.get('hit');
     if (a) {
       a.time = a.getClip().duration * 0.35;
       a.paused = true;
     }
-    roar(e.object3D!.position, KIND[rt.kind].voice, 0.8);
+    roar(e.object3D!.position, rt.def.voice, 0.8);
     SND.squish(e.object3D!.position);
     HOOKS.foeDown();
   }
@@ -289,10 +344,10 @@ export class EnemySystem extends createSystem(
     e.setValue(Foe, 'state', FoeState.Stagger);
     e.setValue(Foe, 'timer', 0);
     rt.stun = stun;
-    const kb = (3 * dist) / Math.sqrt(KIND[rt.kind].mass);
+    const kb = (3 * dist) / Math.sqrt(rt.mass);
     this.setVel(e, b.x * kb, 0.4, b.z * kb, null);
     rt.kick = true;
-    this.anim(rt, 'HitReact', 0.08, true, 1.4);
+    this.anim(rt, 'hit', 0.08, true, 1.4);
   }
 
   // pide a la física una velocidad (y un giro) para el siguiente paso; vx NaN: la velocidad no se toca (empujado, la
@@ -317,8 +372,8 @@ export class EnemySystem extends createSystem(
 
   // Dirección deseada (horizontal, en des) para ir hacia el jugador rodeando la bola, las cajas, las rocas y a los
   // demás zombis
-  private steer(e: Entity, p: Vector3, r: number, side: number): void {
-    const tx = GAME.head.x - p.x, tz = GAME.head.z - p.z;
+  private steer(e: Entity, p: Vector3, r: number, side: number, to: Vector3): void {
+    const tx = to.x - p.x, tz = to.z - p.z;
     const dist = Math.hypot(tx, tz) || 1;
     const dx = tx / dist, dz = tz / dist;
     this.des.set(dx, 0, dz);
@@ -365,7 +420,7 @@ export class EnemySystem extends createSystem(
     this.des.z /= l;
   }
 
-  update(delta: number): void {
+  update(delta: number, time: number): void {
     const dt = Math.min(delta, 0.05);
     // tu cápsula, donde estás (solo si te has movido algo)
     if (this.playerBody?.object3D) {
@@ -391,6 +446,11 @@ export class EnemySystem extends createSystem(
       }
     }
     const playing = GAME.phase === 'playing';
+    // el pulso (con «Ritmo» marcado: Opciones → Sonido): golpean en el pulso y, esperando, bailan a su compás (RepArena:
+    // beatP, BEAT.hit; el de la canción de Spotify llega con el PR 22)
+    const P = num('bpm') > 0 ? 60 / num('bpm') : 0, bk = P ? Math.floor(time / P) : -1;
+    this.beatHit = P > 0 && bk !== this.beatK && this.beatK >= 0;
+    this.beatK = bk;
     for (const e of this.queries.foes.entities) {
       const o = e.object3D;
       const rt = o?.userData.rt as FoeRuntime | undefined;
@@ -428,50 +488,81 @@ export class EnemySystem extends createSystem(
         this.remove(e);
         continue;
       }
-      const toX = GAME.head.x - p.x, toZ = GAME.head.z - p.z, dist = Math.hypot(toX, toZ);
-      let wantYaw = Math.atan2(toX, toZ);
+      const toX = GAME.head.x - p.x, toZ = GAME.head.z - p.z, dist = Math.hypot(toX, toZ), faceP = Math.atan2(toX, toZ);
+      let wantYaw = faceP;
       let vx = NaN, vz = NaN; // (NaN: la velocidad la lleva la física)
       let newState = state;
+      const sf = rt.sf, d = rt.def;
+      sf.pos.set(p.x, 0, p.z);
       if (!playing) {
-        this.anim(rt, 'Idle'); // fuera de la partida: quietos (la física los frena)
+        this.anim(rt, 'idle'); // fuera de la partida: quietos (la física los frena)
       } else if (state === FoeState.Stagger) {
-        if (timer > rt.stun) newState = FoeState.Walk; // (empujado: no se dirige; la física lo frena)
+        if (timer > rt.stun) newState = FoeState.Walk; // (empujado o retrocediendo: no se dirige; la física lo frena)
       } else if (state === FoeState.Walk) {
-        const speed = e.getValue(Foe, 'speed') ?? 1;
-        this.steer(e, p, r, e.getValue(Foe, 'side') ?? 1);
-        const slow = Math.min(1, Math.max(0.3, (dist - r - ATTACK_RANGE) / 1.0)); // (frena al llegar)
-        const ax = this.des.x * speed * slow, az = this.des.z * speed * slow;
-        const blend = Math.min(1, dt * 12); // (no del todo: así los choques también lo mueven)
-        vx = vel[0] + (ax - vel[0]) * blend;
-        vz = vel[2] + (az - vel[2]) * blend;
-        if (Math.hypot(vx, vz) > 0.15) wantYaw = Math.atan2(vx, vz);
-        if (speed > 1.35) this.anim(rt, 'Run', 0.3, false, speed / 2.6);
-        else this.anim(rt, 'Walk', 0.3, false, Math.max(0.6, Math.hypot(vx, vz) / 0.9));
-        if (dist < ATTACK_RANGE + r) {
-          newState = FoeState.Attack;
-          rt.attackT = 0.35;
-          if (!rt.charged) {
+        // cada poco busca un puesto mejor: si espera detrás (al morir otro, avanza) o si te has movido
+        rt.slotT -= dt;
+        if (!sf.slotOk || (rt.slotT <= 0 && (sf.row > 0 || Math.hypot(GAME.head.x - rt.slotAt.x, GAME.head.z - rt.slotAt.z) > 0.5))) {
+          sf.slotOk = false;
+          foeSlot(sf, this.slots, GAME.head);
+          rt.slotAt.copy(GAME.head);
+          rt.slotT = 0.6;
+        }
+        const sd = Math.hypot(sf.slot.x - p.x, sf.slot.z - p.z);
+        if (sd < 0.3) {
+          // en su puesto: quieto, de cara a ti; en la primera fila, golpea (con ritmo, en el pulso); detrás, espera su turno
+          // (con ritmo, bailando a su compás: una vuelta de su baile cada dos pulsos)
+          const keep = 1 - Math.min(1, dt * 10);
+          vx = vel[0] * keep;
+          vz = vel[2] * keep;
+          if (sf.row === 0 && !GAME.between && (!P || this.beatHit)) {
+            newState = FoeState.Attack;
+            rt.struck = false;
+            this.anim(rt, 'attack', 0.25, true, 0);
+            roar(p, d.voice, d.heavy ? 0.8 : 1);
+          } else if (P && rt.actions.get('dance')) this.anim(rt, 'dance', 0.3, false, rt.actions.get('dance')!.getClip().duration / (2 * P));
+          else this.anim(rt, 'idle', 0.3);
+        } else {
+          const speed = e.getValue(Foe, 'speed') ?? 1;
+          this.steer(e, p, r, e.getValue(Foe, 'side') ?? 1, sf.slot);
+          const slow = Math.min(1, Math.max(0.3, sd / 0.7)); // (frena al llegar)
+          // los últimos metros, corriendo y rugiendo (RepArena: la carga)
+          if (!rt.charged && dist < sf.stop + 3) {
             rt.charged = true;
-            roar(p, KIND[rt.kind].voice);
+            roar(p, d.voice, d.heavy ? 0.7 : 1.2);
           }
+          const v = speed * slow * (rt.charged ? 1.25 : 1);
+          const ax = this.des.x * v, az = this.des.z * v;
+          const blend = Math.min(1, dt * 12); // (no del todo: así los choques también lo mueven)
+          vx = vel[0] + (ax - vel[0]) * blend;
+          vz = vel[2] + (az - vel[2]) * blend;
+          const sp = Math.hypot(vx, vz);
+          if (sp > 0.15) wantYaw = Math.atan2(vx, vz);
+          if (sp > 1.35 && rt.actions.get('run')) this.anim(rt, 'run', 0.3, false, Math.min(d.maxTs, Math.max(d.minTs, sp / d.run)));
+          else this.anim(rt, 'walk', 0.3, false, Math.min(d.maxTs, Math.max(d.minTs, sp / d.walk)));
         }
       } else if (state === FoeState.Attack) {
-        // quieto, de cara a ti; cada poco, un puñetazo (si sigues cerca, te da)
+        // prepara el golpe (la animación, de su principio a cuando empieza el golpe), lo da (de ahí a cuando llega: si sigues
+        // a su alcance, te quita su fuerza en vidas) y lo recoge; luego retrocede de espaldas, sin dejar de mirarte
         const keep = 1 - Math.min(1, dt * 10);
         vx = vel[0] * keep;
         vz = vel[2] * keep;
-        rt.attackT -= dt;
-        if (rt.attackT <= 0) {
-          rt.attackT = PUNCH_EVERY;
-          rt.struck = false;
-          this.anim(rt, 'Punch', 0.12, true, 1.1);
-        }
-        if (rt.current === 'Punch' && !rt.struck && PUNCH_EVERY - rt.attackT > PUNCH_HIT) {
+        const a = rt.actions.get('attack'), [t0, t1] = d.atk, sm = (x: number): number => x * x * (3 - 2 * x);
+        if (a) a.time = timer < WINDUP ? t0 * sm(timer / WINDUP) : timer < WINDUP + STRIKE ? t0 + (t1 - t0) * ((timer - WINDUP) / STRIKE) : t1 + 0.35 * Math.min(1, (timer - WINDUP - STRIKE) / RECOVER);
+        if (!rt.struck && timer >= WINDUP + STRIKE) {
           rt.struck = true;
-          if (dist < ATTACK_RANGE + r + 0.35) HOOKS.playerHit();
+          if (dist < sf.stop + r + 0.6) HOOKS.playerHit(rt.str);
+          SND.step(p, true);
         }
-        if (rt.current === 'Punch' && PUNCH_EVERY - rt.attackT > 1.0) this.anim(rt, 'Idle', 0.3);
-        if (dist > ATTACK_RANGE + r + 0.5) newState = FoeState.Walk;
+        if (Math.hypot(sf.slot.x - p.x, sf.slot.z - p.z) > 0.45 && !rt.struck) newState = FoeState.Walk; // (lo apartaron: vuelve a acercarse)
+        else if (timer > WINDUP + STRIKE + RECOVER) {
+          // retrocede de espaldas (RepArena: knock), a paso tranquilo
+          newState = FoeState.Stagger;
+          rt.stun = 1.0;
+          this.setVel(e, (-toX / (dist || 1)) * BACK_V, vel[1], (-toZ / (dist || 1)) * BACK_V, null);
+          rt.kick = true;
+          rt.charged = false;
+          this.anim(rt, 'walk', 0.25, false, -Math.max(d.minTs, BACK_V / d.walk));
+        }
       }
       if (newState !== state) {
         e.setValue(Foe, 'state', newState);
@@ -491,5 +582,12 @@ export class EnemySystem extends createSystem(
       this.w.y += Math.max(-5, Math.min(5, yawErr * 7)) + 1e-5; // (nunca todo a cero: sería «no cambies»)
       this.setVel(e, vx, vel[1], vz, this.w);
     }
+    // las cuentas de vida, encima de cada uno
+    this.life.begin();
+    for (const t of this.targets) {
+      const rt = t.root.userData.rt as FoeRuntime | undefined;
+      if (rt && t.alive) this.life.add(rt, t.root.position.x, t.root.position.y + rt.def.h / 2 + 0.22, t.root.position.z, t.entity.getValue(Foe, 'hp') ?? 0, rt.maxHp);
+    }
+    this.life.end(dt, GAME.head, this.world.renderer);
   }
 }

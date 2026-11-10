@@ -11,6 +11,8 @@ import { SOUNDS, soundId, soundUrl } from './audio/catalog.js';
 const publicAssetUrl = (filePath: string): string => `${import.meta.env.BASE_URL}${filePath.replace(/^\/+/u, '')}`;
 const uikitml = (fileName: string, name: string) => ({ url: publicAssetUrl(`ui/${fileName}`), type: AssetType.UIKitML, name });
 const glb = (fileName: string, name: string) => ({ url: publicAssetUrl(`models/${fileName}`), type: AssetType.GLTF, name, priority: 'critical' as const });
+// los enemigos que no son los de siempre: los carga IWSDK después de arrancar, sin hacer esperar al menú
+const foe = (fileName: string, name: string) => ({ url: publicAssetUrl(`models/${fileName}`), type: AssetType.GLTF, name, priority: 'background' as const });
 // los sonidos (tuyos o de serie, ver src/audio/catalog.ts): IWSDK los carga cuando hacen falta (los de la partida, al arrancar)
 const sounds: Record<string, { url: string; type: AssetType; name: string; priority: 'lazy' }> = {};
 for (const n of Object.keys(SOUNDS)) {
@@ -28,6 +30,20 @@ export default defineAssets({
   'comic-valley': createComicValley(),
   'zombie-basic': glb('zombie_basic.glb', 'Zombi verde'),
   'zombie-chubby': glb('zombie_chubby.glb', 'Zombi gordo'),
+  'foe-zombie': foe('zombie.glb', 'Zombi'),
+  'foe-zombie-palette': { url: publicAssetUrl('models/tex/zombie.png'), type: AssetType.Texture, name: 'Zombi: su paleta de colores', priority: 'background' as const },
+  'foe-raptor': foe('raptor.glb', 'Velociraptor'),
+  'foe-skeleton': foe('piratas/esqueleto.glb', 'Esqueleto pirata'),
+  'foe-captain': foe('piratas/capitan.glb', 'Capitán Barbarroja'),
+  'foe-sharky': foe('piratas/sharky.glb', 'Tiburón'),
+  'foe-mako': foe('piratas/mako.glb', 'Tiburón gris'),
+  'foe-demon': foe('monstruitos/demon.glb', 'Demonio'),
+  'foe-greendemon': foe('monstruitos/greendemon.glb', 'Demonio verde'),
+  'foe-cyclops': foe('monstruitos/cyclops.glb', 'Cíclope'),
+  'foe-yeti': foe('monstruitos/yeti.glb', 'Yeti'),
+  'foe-skull': foe('monstruitos/skull.glb', 'Calavera'),
+  'foe-alien': foe('monstruitos/alien.glb', 'Alien'),
+  'foe-alientall': foe('monstruitos/alien_tall.glb', 'Alien alto'),
   'lobby-panel': uikitml('lobby.uikitml', 'Menú principal'),
   'options-panel': uikitml('options.uikitml', 'Opciones'),
   'hint-panel': uikitml('hint.uikitml', 'Explicación de un ajuste'),
