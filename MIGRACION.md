@@ -98,6 +98,10 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - Sin tarjeta gráfica, el emulador va a unas 5 imágenes por segundo: todo pasa a cámara lenta y una pulsación con el dedo
   dura más de lo que IWSDK acepta como clic (en las gafas, no). Cambiar el código recarga la página y cierra la sesión de
   VR. Si la ventana del emulador se queda con un error viejo de Vite, `npx @iwsdk/cli dev restart`.
+- **Preparar el escenario en la VR simulada** (adelantar un descanso, sacar las cartas o el cofre): arranca el servidor con
+  `npx @iwsdk/cli dev up --headless --allow-browser-automation` y ejecuta, por ejemplo,
+  `RX_EVAL='(__rx.game.rw.perks.offerT = 0.2, 1)' npx @iwsdk/cli browser run tests/vr/eval.mjs`. Solo para preparar: lo
+  que se prueba, con las gafas y los mandos emulados (`xr look-at`, `xr select`, `xr animate-to`).
 - **Chromium de Playwright**: la partida simulada y el emulador usan el Chromium de Playwright 1.65 (versión 1254).
   Instálalo con `npx playwright install chromium`; si no se puede descargar pero hay otro Chromium en el sistema, crea
   una carpeta con `chromium-1254/chrome-linux64` enlazada a la carpeta de ese Chromium (más los archivos vacíos
@@ -119,7 +123,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 8d · Amenazas, formas de moverse, rapidez de gestos y esquivas** — #13
 - [ ] **PR 9 · Armas y defensa** (aplazado por el usuario: se hará más adelante; después del 8d va el 10)
 - [x] **PR 10a · Oleadas, jefes, puntos y combo** — #14
-- [ ] **PR 10b · Premios: cartas de mejora, enemigo dorado, relámpago, cofre y carrera contra tu récord**
+- [x] **PR 10b · Premios: cartas de mejora, enemigo dorado, relámpago, cofre y carrera contra tu récord** — #15
 - [ ] **PR 10c · El marcador elegido (C), celebraciones y trofeos dorados**
 - [ ] **PR 11 · Ejercicios de suelo**
 - [ ] **PR 12 · Menú de muñeca, resumen, carátula del duelo y caricatura**
@@ -263,8 +267,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   (la resistencia de los que salen las suma); «Oleadas» (o «Al fallo», sin fin y con jefe cada 5); el descanso entre
   oleadas; el panel entre oleadas con el fundido leve; los jefes (el de tu clase a lo grande, el capitán, el dragón);
   la dificultad creciente solo con las oleadas superadas con soltura; los puntos y el combo; la victoria.
-- **10b**: los premios de `src/79_perks.js` (cartas de mejora cada tres oleadas y solo ganadas, dorado, relámpago, cofre
-  que se abre saltando, carrera contra tu récord).
+- **10b (hecho)**: los premios de `src/79_perks.js`, su lógica tal cual (`src/combat/perks.ts`: `Perks`, `Ghost`,
+  `goldRoll`, `rushPlan`, `chestRoll`), comparada con su código (`tests/compare/perks.compare.test.ts`: 150 rondas al azar,
+  las mismas cartas en el mismo momento, las mismas mejoras, escudos, combos salvados y vidas; y la carrera contra tu
+  récord, el mismo texto); en la partida, `src/combat/rewards.ts`: las cartas en su panel (`perks.uikitml`), el halo del
+  dorado, el relámpago, el cofre del Pirate Kit (`island.glb`: `Chest_Closed` y `Chest_Gold`) y el récord en el marcador.
 - **10c**: el marcador elegido (C: rosco doble, oleadas en puntos, la mecha del relámpago), las celebraciones
   (`cheer`, solo en el marcador) y los trofeos dorados (`trophy`).
 
@@ -322,6 +329,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `wave-panel`). Los puntos y el combo, en `GAME.score`/`GAME.combo` (`repScore`, `onFoeDown`, `HOOKS.score` para las
   piedras); los golpes recibidos, en `GAME.taken`. Las cartas de mejora tienen que hacer esperar al descanso (RepArena:
   `perkWaits`), y el dorado, el relámpago y el cofre multiplican los puntos (`perkPtsK`, `perkKillK`).
+- PR 10b → PR 10c: lo que el marcador tiene que enseñar de los premios: el relámpago (`rw.rush`: `on` y `left`, la mecha
+  de RepArena), la carrera contra tu récord (`rw.ghostText()`) y las mejoras que tienes (`rw.perks.has`). Los avisos de los
+  premios (cofre, dorado, récord) van ahora al hueco de mensajes; en RepArena, los grandes son trofeos (`trophy`).
+- Para preparar pruebas en la VR simulada: `tests/vr/eval.mjs` ejecuta en la página lo que pongas en `RX_EVAL` (con
+  `__rx`), con el servidor arrancado con `--allow-browser-automation` (ver Cómo probar).
 - PR 10a → PR 10c: los mensajes de la partida van todos al hueco del marcador (`message`); RepArena separa las
   celebraciones (`cheer`) de lo que pide hacer algo (`say`).
 - PR 8d → PR 10: cada enemigo de tierra lleva su marcha (`rt.gait`: `Gait`, con su `plan` de velocidades y su `pace`); su
@@ -413,6 +425,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   PR 9) y su tamaño se ha probado en el navegador (el zombi verde a lo grande y el dragón); en las gafas, por ver que
   quepan bien por la compuerta. Los robots, drones, avispones y la nodriza (geométricos) no salen: en su lugar, zombis
   verdes, abejas y el dragón.
+- PR 10b: en la VR simulada se han pulsado las cartas con el rayo del mando y se ha abierto el cofre saltando (con las
+  gafas emuladas: la cabeza sube deprisa); el dorado, el relámpago, la escarcha y la onda, en la partida simulada y por
+  mirar en las gafas. Con ritmo marcado, el relámpago de RepArena esperaba a la frase de la canción (32 pulsos) con cuenta
+  atrás y la luz de la compuerta latía con el pulso: llega con la música (PR 22).
+- PR 10b: el halo del dorado se ve a través del cuerpo (como en RepArena: «también por delante del cuerpo»).
 - PR 10a: entre oleadas, mientras descansas, las repeticiones no cargan la bola (como antes); en RepArena sí contaban.
 - PR 8a: el baile al compás, con el ritmo
   marcado (Opciones → Sonido); el de la canción de Spotify, con el PR 22.

@@ -160,16 +160,28 @@ try {
     window.__rx.game.queue.length = 0;
     window.__rx.enemies.clear();
   });
-  await until('oleada superada: el descanso', (s) => s.between && s.wave === 1, 20);
-  await page.evaluate(() => (window.__rx.game.restT = 1));
+  await until('oleada superada: el descanso', (s) => s.between && s.wave === 1 && s.resting, 20);
+  // las cartas de mejora (adelantadas: salen cada tres oleadas superadas): la oleada siguiente espera a que elijas
+  await page.evaluate(() => {
+    window.__rx.game.rw.perks.offerT = 0.2;
+    window.__rx.game.restT = 1;
+  });
+  await until('salen las cartas de mejora', (s) => s.cards && s.resting, 20);
+  await shot('6-cartas');
+  await page.waitForTimeout(2500);
+  last = await snap();
+  if (last.wave !== 1 || !last.resting) throw new Error('la oleada no espera a que elijas\núltimo estado: ' + JSON.stringify(last));
+  console.log('  ✓ la oleada siguiente espera a que elijas');
+  await page.evaluate(() => window.__rx.game.rw.pick(0));
+  await until('elegida: la mejora es tuya', (s) => s.perks.length === 1 && !s.cards, 10);
   await until('el panel de la oleada 2', (s) => s.wave === 2 && s.intro && s.foes.length === 0 && s.queue > 0, 20);
-  await shot('6-oleada');
+  await shot('7-oleada');
   await until('se va el panel y siguen saliendo', (s) => !s.intro && s.foes.length > 0, 60);
   // los jefes: el de una clase (el zombi verde, a lo grande) y el de los voladores (el dragón), los primeros de la cola
   await page.evaluate(() => window.__rx.game.queue.unshift({ kind: 'zgreenboss', hp: 4 }, { kind: 'dragon', hp: 4 }));
   await until('sale el jefe zombi verde, a lo grande', (s) => s.foes.some((f) => f.kind === 'zgreen' && f.boss && f.y > 1.2), 60);
   await until('sale el dragón, el jefe de los voladores', (s) => s.foes.some((f) => f.kind === 'dragon' && f.boss), 60);
-  await shot('7-jefes');
+  await shot('8-jefes');
   if (missing.length) throw new Error('faltan archivos: ' + missing.join(', '));
   if (errors.length) throw new Error('errores en la página:\n' + errors.join('\n'));
   ok = true;

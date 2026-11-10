@@ -66,9 +66,9 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
 
   /** Saca uno (kind: bee, bat, cthulhu, dragon) por el hueco de gate, con hp de vida. flySpeed y erratic: «Velocidad de
    * vuelo» y «Vuelo errático» de esta oleada. */
-  spawn(kind: string, gate: FlyGate, hp: number, flySpeed: number, erratic: number): void {
+  spawn(kind: string, gate: FlyGate, hp: number, flySpeed: number, erratic: number): FoeTarget | null {
     const d = FOE_DEF[kind], gltf = d && AssetManager.getGLTF(d.asset);
-    if (!d || !gltf || !this.enemies) return;
+    if (!d || !gltf || !this.enemies) return null;
     const flight = new Flight(kind, gate, flySpeed, erratic, hp);
     // (como en RepArena: el balanceo y el alabeo del vuelo van en un grupo aparte, y el centro del bicho queda donde vuela)
     const root = new Group(), body = new Group(), model = gltf.scene;
@@ -111,6 +111,7 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
     e.addComponent(Flyer, { kind });
     e.addComponent(Foe, { hp, speed: flight.speed, state: FoeState.Walk, timer: 0, side: 1, radius: flight.radius });
     rt.buzz?.set(flight.pos);
+    return target;
   }
 
   /** Un disparo le da (dir: hacia dónde va el rayo, horizontal); si se queda sin vida, cae. */
@@ -140,7 +141,7 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
     HOOKS.sparks(c, big ? 30 : 18, ICHOR);
     SND.squish(c);
     if (big) SND.explosion(c, true);
-    HOOKS.foeDown(rt.kind, !!rt.flight.K.boss);
+    HOOKS.foeDown(rt.kind, !!rt.flight.K.boss, rt.target);
     if (rt.death) {
       rt.mixer.stopAllAction();
       rt.death.setLoop(LoopOnce, 1);
@@ -195,13 +196,14 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
     for (const e of this.queries.flyers.entities) {
       const o = e.object3D, rt = o?.userData.fly as FlyRt | undefined;
       if (!o || !rt) continue;
-      rt.mixer.update(dt);
+      const sl = this.enemies?.slowOf(rt.target) ?? 1; // (escarcha y calma)
+      rt.mixer.update(dt * sl);
       if (e.getValue(Foe, 'state') === FoeState.Dead) {
         this.dead(e, o, rt, dt);
         continue;
       }
       const f = rt.flight;
-      f.step(dt, env);
+      f.step(dt * sl, env);
       if (f.evRoar) SND.roar(f.pos, VOICE_PITCH[rt.kind] ?? 1.4, rt.kind);
       if (f.evWhoosh) SND.whoosh(f.pos);
       if (f.evBite) HOOKS.playerHit(rt.str);

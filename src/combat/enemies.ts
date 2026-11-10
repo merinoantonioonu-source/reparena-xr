@@ -161,6 +161,8 @@ export class EnemySystem extends createSystem(
   private slots: SlotFoe[] = [];
   private beatK = -1;
   private beatHit = false;
+  /** Lo que se frena cada uno (las mejoras: escarcha y calma); lo pone la partida. */
+  slowOf: (t: FoeTarget) => number = () => 1;
   /** Los voladores (src/combat/flyers.ts): se enganchan solos al arrancar. */
   flyers: FlyerSystem | null = null;
 
@@ -228,10 +230,10 @@ export class EnemySystem extends createSystem(
   }
 
   /** Saca uno de la tabla (kind: zgreen, raptor, captain…) en (x, z), mirando hacia ti, con hp de vida; boss: su jefe. */
-  spawn(kind: string, x: number, z: number, hp: number, boss = false): void {
+  spawn(kind: string, x: number, z: number, hp: number, boss = false): FoeTarget | null {
     const d = FOE_DEF[kind] && boss ? bossDef(kind) : FOE_DEF[kind];
     const gltf = d && AssetManager.getGLTF(d.asset);
-    if (!d || !gltf) return;
+    if (!d || !gltf) return null;
     const root = new Group();
     root.name = `enemigo-${kind}`;
     const model = gltf.scene;
@@ -294,7 +296,8 @@ export class EnemySystem extends createSystem(
     e.addComponent(PhysicsShape, { shape: PhysicsShapeType.Capsules, dimensions: [d.r, d.h, 0], density: rt.mass * 60, friction: 0.15, restitution: 0.05 });
     e.addComponent(PhysicsBody, { state: PhysicsState.Dynamic, linearDamping: 0.2, angularDamping: 6 });
     this.anim(rt, 'walk', 0);
-    if (d.heavy || hp >= 3 || Math.random() < 0.5) roar(root.position, d.voice, boss ? 0.65 : 1); // (al salir: la mitad de las veces; los fuertes, siempre)
+    if (d.heavy || hp >= 3 || Math.random() < 0.5) roar(root.position, d.voice, boss ? 0.65 : 1);
+    return target; // (al salir: la mitad de las veces; los fuertes, siempre)
   }
 
   /** Al acabar la ronda: los que quedan en pie se desvanecen (no tapan el resumen). */
@@ -398,7 +401,7 @@ export class EnemySystem extends createSystem(
     }
     roar(e.object3D!.position, rt.def.voice, 0.8);
     SND.squish(e.object3D!.position);
-    HOOKS.foeDown(rt.kind, !!rt.def.boss);
+    HOOKS.foeDown(rt.kind, !!rt.def.boss, rt.target);
   }
 
   /**
@@ -527,10 +530,11 @@ export class EnemySystem extends createSystem(
       const o = e.object3D;
       const rt = o?.userData.rt as FoeRuntime | undefined;
       if (!o || !rt) continue;
-      rt.mixer.update(dt);
+      const sl = this.slowOf(rt.target); // (escarcha y calma: sus gestos, su paso y sus animaciones)
+      rt.mixer.update(dt * sl);
       const state: string = e.getValue(Foe, 'state') ?? FoeState.Walk;
       // sus gestos (amenazar, preparar y dar el golpe, retroceder, encajar) van a su ritmo (RepArena: pace, gd)
-      const timer = (e.getValue(Foe, 'timer') ?? 0) + (state === FoeState.Walk || state === FoeState.Dead ? dt : dt * rt.pace);
+      const timer = (e.getValue(Foe, 'timer') ?? 0) + (state === FoeState.Walk || state === FoeState.Dead ? dt : dt * rt.pace) * (state === FoeState.Dead ? 1 : sl);
       e.setValue(Foe, 'timer', timer);
       if (state === FoeState.Dead) {
         // tumbado un rato; luego se desvanece y desaparece
@@ -623,6 +627,7 @@ export class EnemySystem extends createSystem(
           g.march(dt, sd, rt.out, rt.charged);
           let v = g.wantV;
           if (v > 0) v = Math.max(v, 0.25); // (nunca a paso de caracol: o anda, o se para)
+          v *= sl;
           const tl = sd || 1, tx = (sf.slot.x - p.x) / tl, tz = (sf.slot.z - p.z) / tl;
           let ax = this.des.x * v + tz * g.lat, az = this.des.z * v - tx * g.lat;
           // la esquiva: se aparta de golpe de lado (respecto a ti), con voltereta si la tiene

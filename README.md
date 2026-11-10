@@ -78,6 +78,12 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
   jefe cada cinco. **Puntos** por cada repetición (más con combo y perfecta) y cada derribo (el jefe, 1500), y **combo**
   (cada 10 seguidas, ¡COMBO!; un golpe o un fallo lo rompe). Superada la última, **¡Victoria!**; sin vidas, se acaba la
   ronda; en los dos casos vuelve el menú con **OTRA RONDA** y cómo fue.
+- **Premios** (Ajustes → Partida), como en RepArena, sin pedir menos ejercicio: cada tres oleadas superadas con pocos
+  golpes, en el descanso salen **tres cartas de mejora** (escudo, escarcha, onda, corazón, doble o nada, combo de hierro,
+  calma) y eliges una con el dedo o el rayo; la oleada siguiente espera a que elijas. **Sorpresas**: a veces un enemigo
+  **dorado** (con su halo, ×3 puntos), un **relámpago** (20 s en los que llegan seguidos y todo vale el doble) y, en el
+  descanso, un **cofre** (el del Pirate Kit) que se abre **saltando**: una mejora más, una vida o 300 puntos. Y la
+  **carrera contra tu récord**: el marcador dice cuántas llevas de más o de menos que en tu mejor ronda (la de RepArena).
 - **Manos**: las de IWSDK tal cual (los modelos oficiales de Meta, con contorno). Con mandos y «Mandos como manos» (de
   serie), la mano de IWSDK que agarra el mando: el índice se dobla con el gatillo y los demás dedos con el agarre.
 - **El menú principal**, como el de RepArena: en las gafas sale delante de ti y a tu alcance («Distancia del menú»),
@@ -138,6 +144,8 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/retarget.ts` | Las animaciones de la biblioteca de Quaternius, pasadas al esqueleto del diablillo y el puglin |
 | `src/combat/rocks.ts`, `src/combat/rock-path.ts` | Las piedras del lanzador: la parábola, la parada con la mano y lo que pasa al llegar |
 | `src/combat/waves.ts` | Las oleadas (de RepArena): quién sale en cada una, la escalera, los jefes, cada cuánto salen, la dificultad creciente y los puntos, sin IWSDK |
+| `src/combat/perks.ts`, `src/combat/rewards.ts` | Los premios (de RepArena): cartas de mejora, dorado, relámpago, cofre y carrera contra tu récord; su lógica, sin IWSDK, y en la partida |
+| `tests/vr/eval.mjs` | Para preparar pruebas en la VR simulada (ejecuta algo en la página) |
 | `src/combat/gait.ts` | Cómo andan los de tierra (de RepArena): el ritmo de la marcha, recto, zigzag, rachas, la amenaza y las esquivas, sin IWSDK |
 | `src/combat/flight.ts` | El vuelo de los voladores (el de RepArena: acercarse, bandazos, lanzarse a morder, empujones, salir por la compuerta), sin IWSDK |
 | `src/combat/flyers.ts` | Los voladores: su modelo, el aleteo, el mordisco, el zumbido y la caída al morir |
@@ -167,7 +175,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
 | `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de arena, aro del jugador, cajas, rocas, compuertas, valle, nubes, zombis y paneles |
 | `public/scenes/main.iwsdk.scene.json` | La escena: cielo, neblina, suelo, compuertas, valle, nubes, cajas y rocas con su física, paneles y luces |
-| `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador, los dos del suelo (avisos y carga) y el de entre oleadas |
+| `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador, los dos del suelo (avisos y carga) el de entre oleadas y las cartas de mejora |
 | `public/models/` | Los enemigos: zombis, velociraptor, piratas, monstruitos (también los que vuelan), diablillo y puglin, y las animaciones de la biblioteca (Quaternius; ver su `LEEME.md`) |
 | `public/retratos/` | El retrato de cada enemigo para su ficha en Rivales (cortados de la hoja de RepArena) |
 | `public/fonts/` | Las letras (Rubik y Bungee, OFL) |

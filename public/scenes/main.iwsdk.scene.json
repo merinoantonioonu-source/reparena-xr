@@ -621,6 +621,27 @@
         ],
         "scale": 1
       }
+    },
+    {
+      "id": "perks-panel",
+      "name": "Cartas de mejora",
+      "content": {
+        "type": "asset",
+        "asset": "perks-cards"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.42,
+          -0.7
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1
+      }
     }
   ],
   "authoring": {

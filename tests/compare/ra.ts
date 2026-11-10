@@ -45,8 +45,9 @@ export function raRun<T>(code: string, ret: string, globals: Record<string, unkn
     console: { ...console, warn: () => {} },
     performance,
     URLSearchParams,
-    ...globals,
   };
+  // (con sus «get» y «set»: así el código de RepArena ve los valores de la prueba en cada momento, no una copia)
+  Object.defineProperties(ctx, Object.getOwnPropertyDescriptors(globals));
   vm.createContext(ctx);
   return vm.runInContext(`(function(){\n${code}\n;return (${ret});})()`, ctx) as T;
 }
