@@ -20,30 +20,15 @@ import {
   VisibilityState,
 } from '@iwsdk/core';
 import { EnemySystem } from './enemies.js';
-import { applyFonts } from './fonts.js';
+import { applyFonts } from '../ui/fonts.js';
 import { Effects, POW_COL } from './fx.js';
-import { Foe, FoeState } from './game-components.js';
-import { setListener, sfx, unlockAudio } from './sound.js';
-import { GAME, HOOKS } from './state.js';
+import { Foe, FoeState } from './components.js';
+import { squatConfig, VertDetector, type VertEvent } from '../exercise/vertical.js';
+import { setListener, sfx, unlockAudio } from '../audio/sound.js';
+import { GAME, HOOKS } from '../core/state.js';
 
-// La sentadilla (los valores de serie de RepArena)
-const SQ_DEPTH = 0.26; // cuánto baja la cabeza para que cuente
-const SQ_START = Math.min(0.08, SQ_DEPTH * 0.5);
-const SQ_BACK = 0.05;
-const PERFECT_TIME = 1.2; // duración mínima de una PERFECTA
-const POW_HOLD = 1.5; // aguantar abajo para ×2…
-const POW_HOLD_INC = 0.5; // …y cada nivel siguiente pide medio segundo más
-
-/** El nivel de carga tras aguantar h segundos abajo: ×2 a los 1,5 s, ×3 a los 3,5 s, ×4 a los 6 s. */
-const powLevel = (h: number): number => {
-  let p = 1, need = POW_HOLD, acc = 0;
-  while (p < 4 && h >= acc + need) {
-    acc += need;
-    need += POW_HOLD_INC;
-    p++;
-  }
-  return p;
-};
+// La sentadilla: el detector de RepArena (src/exercise/vertical.ts) con sus valores de serie
+const SQUAT = squatConfig();
 
 /** Nitidez en las gafas: la resolución que se pide al entrar (×1 es la «nativa» del navegador de las Quest 3, que se
  * queda corta) y la foveación (cuánto se emborrona el borde de la vista para ir más ligero). */
@@ -79,7 +64,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private hurt!: Mesh;
   private hurtT = 0;
   // la sentadilla
-  private sq = { state: 'up', ref: 1.6, peak: 1.6, min: 1.6, t0: 0, charged: false, stillT: 0, holdT: 0, pow: 1 };
+  private sq = new VertDetector();
+  private sqEvents: VertEvent[] = [];
   private headSpeed = 0;
   private lastHead = new Vector3();
   private chargePow = 0; // nivel de la carga que hay (0: ninguna)
@@ -130,7 +116,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     HOOKS.foeDown = () => this.onFoeDown();
     this.showMenu('menu');
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
-    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe };
+    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, snapshot: () => this.snapshot() };
     // la letra de la ×N de la bola (Bungee, para el lienzo)
     try {
       const face = new FontFace('Bungee', `url(${import.meta.env.BASE_URL}fonts/Bungee-Regular.ttf)`);
@@ -138,6 +124,17 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     } catch {
       /* (sin FontFace: letra del sistema) */
     }
+  }
+
+  /** Para las pruebas: el estado de la partida en datos simples (window.__rx.snapshot()). */
+  snapshot(): Record<string, unknown> {
+    const foes: Record<string, unknown>[] = [];
+    for (const e of this.queries.foes.entities) {
+      const o = e.object3D;
+      if (!o) continue;
+      foes.push({ state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
+    }
+    return { phase: GAME.phase, wave: GAME.wave, between: GAME.between, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, ballOn: GAME.ballOn, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
@@ -254,9 +251,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private startRound(): void {
     this.enemies.clear();
     Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, startTime: this.clock });
-    this.sq.state = 'up';
-    this.sq.ref = GAME.head.y; // (de pie: la referencia de la sentadilla)
-    this.sq.peak = GAME.head.y;
+    this.sq.reset(GAME.head.y); // (de pie: la referencia de la sentadilla)
     this.chargePow = 0;
     this.hands.left.charge = this.hands.right.charge = false;
     this.hideMenu();
@@ -316,56 +311,17 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     }
   }
 
-  // ---------------------------------------------------------------- la sentadilla (como vertDetector de RepArena)
+  // ---------------------------------------------------------------- la sentadilla
 
   private squat(y: number, t: number, dt: number): void {
-    const d = this.sq;
-    const req = SQ_DEPTH;
-    const still = this.headSpeed < 0.06;
-    if (d.state === 'up') {
-      // la referencia de arriba sube enseguida y baja despacio: se ajusta a tu postura real
-      d.ref += (y - d.ref) * Math.min(1, dt * (y > d.ref ? 1.5 : 0.25));
-      d.peak = Math.max(d.peak, y);
-      if (y < d.ref - SQ_START && y < d.peak - SQ_START * 0.6) {
-        d.state = 'down';
-        d.min = y;
-        d.t0 = t;
-        d.charged = false;
-        d.stillT = 0;
-        d.holdT = 0;
-        d.pow = 1;
-      }
-      return;
-    }
-    if (y < d.min) d.min = y;
-    const drop = d.ref - d.min;
-    if (!d.charged && drop >= req) {
-      d.charged = true;
-      this.onCharge();
-    }
-    // aguantando abajo en la postura perfecta (lo pedido y 3 cm más, con 1,5 cm de margen) sube el nivel de la carga
-    if (d.charged && y <= d.ref - req - 0.015) {
-      d.holdT += dt;
-      const p = powLevel(d.holdT);
-      if (p > d.pow) {
-        d.pow = p;
-        this.onPower(p);
-      }
-    }
-    d.stillT = still ? d.stillT + dt : 0;
-    const upAt = Math.min(d.ref - SQ_BACK, d.min + Math.max(req * 0.9, drop * 0.6));
-    const stuck = d.charged && d.stillT > 0.8 && y - d.min >= req * 0.7;
-    if (y > upAt || stuck) {
-      const dur = t - d.t0;
-      if (d.charged) this.onRep(dur >= PERFECT_TIME && dur < 12 && drop >= req + 0.03);
-      else if (drop > req * 0.4) this.message('¡Baja más!', 1.5);
-      if (stuck) d.ref = y;
-      d.state = 'up';
-      d.peak = y;
-    } else if (!d.charged && d.stillT > 3) {
-      d.ref = y + SQ_BACK * 0.5;
-      d.state = 'up';
-      d.stillT = 0;
+    const ev = this.sqEvents;
+    ev.length = 0;
+    this.sq.update(y, t, dt, this.headSpeed, SQUAT, ev);
+    for (const e of ev) {
+      if (e.type === 'charge') this.onCharge();
+      else if (e.type === 'power') this.onPower(e.level);
+      else if (e.type === 'rep') this.onRep(e.perfect);
+      else this.message('¡Baja más!', 1.5);
     }
   }
 

@@ -1,3 +1,54 @@
+# RepArena XR — léelo primero
+
+Juego de ejercicio físico para **Meta Quest 3**, en el navegador de las gafas, hecho con el Immersive Web SDK de Meta
+(IWSDK): es la migración de RepArena (`merinoantonioonu-source/reparena`). Cada repetición bien hecha es un disparo; el
+objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real del cuerpo, no solo de los dedos.
+
+- **Antes de nada**, lee [`MIGRACION.md`](MIGRACION.md) (el plan, en qué PR vamos, cómo se trabaja y cómo se prueba) y
+  [`docs/REGLAS.md`](docs/REGLAS.md) (las reglas de diseño que ha fijado el usuario: no se cambian sin preguntarle).
+- Con el usuario, en **español**; también los textos del juego, los comentarios del código, los commits y los PR. El
+  usuario no programa: explícale los cambios por lo que se ve y se siente en las gafas, no por el código.
+- Cuando algo sea ambiguo o haya varias formas razonables de hacerlo, dale propuestas (o modelos visuales) y deja que
+  elija. Cuando pregunte «¿entiendes lo que te digo?», resúmele lo que has entendido.
+
+## Dónde está cada cosa
+
+| Ruta | Qué es |
+| --- | --- |
+| `src/index.ts` | Arranca el mundo y registra los sistemas (detrás de la física: leen las posiciones ya calculadas) |
+| `src/assets.ts`, `src/components.ts`, `src/scene-assets/` | Los catálogos de IWSDK: recursos, componentes y objetos hechos en código |
+| `src/core/` | Lo común: el estado compartido de la partida (y, desde el PR 2, los ajustes) |
+| `src/input/` | Manos, mandos y gestos |
+| `src/exercise/` | Los detectores de repeticiones: lógica pura (sin IWSDK ni Three), con pruebas |
+| `src/combat/` | El modo Combate: la partida, los enemigos, los efectos y sus componentes |
+| `src/ui/` | Paneles y letras |
+| `src/audio/` | El sonido |
+| `public/` | Escena (`scenes/`), paneles (`ui/`), modelos, letras y manos (cada carpeta con su `LEEME.md` y licencia) |
+| `tests/unit/` | Pruebas de la lógica pura (Vitest: `npm test`) |
+| `tests/e2e/` | La partida simulada en un navegador sin gafas (`npm run test:e2e`) |
+
+Los modos que vengan después, en `src/modes/<modo>/`; el estilo Cómic, en `src/style/`; Spotify, la sincronización y el
+pulsómetro, en `src/services/`. La tabla de `README.md` dice qué hace cada archivo.
+
+## Cómo está hecho
+
+- TypeScript estricto. Comentarios cortos en español que explican el porqué. Nada de crear objetos en `update()`.
+- La lógica que no necesita IWSDK (detectores, ajustes, carrera…) va en módulos aparte, sin importar `@iwsdk/core`, y
+  con pruebas en `tests/unit`.
+- **Datos**: RepArena guarda todo en el navegador con claves `reparena3-*`, y las dos versiones comparten esos datos (se
+  publican en el mismo sitio): usa las mismas claves con el mismo formato; lo nuevo, con `reparenaxr-*`.
+- Los campos de un componente con `min` no admiten valores por debajo: `setValue` lanza un error y para el sistema
+  entero (pasó con la vida de los zombis).
+- La física (Havok) manda en la posición de los cuerpos dinámicos y cinemáticos: no se mueven escribiendo en su
+  `object3D` (se pisa en cada paso). Los zombis se mueven pidiendo velocidad (`PhysicsManipulation`); la bola y tu
+  cuerpo, teletransportándolos (`setBodyTransform`). Una `PhysicsManipulation` con todo a cero significa «no cambies».
+- La letra que trae IWSDK (Inter) no tiene tildes: los paneles usan las de `public/fonts` (ver su `LEEME.md`), que se
+  ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
+  `display` y el código les pone Bungee.
+- Los modelos de las manos y los mandos se sirven desde el juego (`public/input-profiles`, `src/input/input-models.ts`).
+
+---
+
 # IWSDK project
 
 A Vite + TypeScript or JavaScript app, but several things do **not** work the way
