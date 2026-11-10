@@ -88,6 +88,13 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
   `xr animate-to` con `"device":"hand-right","anchor":"wrist"` (una sacudida: de la cadera hacia el zombi en 0,15 s); para
   los mandos, `xr set-gamepad-state` (botón 0 el gatillo, 1 el agarre). En desarrollo, el juego escribe en la consola
   (`browser logs`) las repeticiones y los rayos que salen de las manos (`rxdbg`).
+- **Una ronda completa en la VR simulada** (comprobada al cerrar la fase 0; `rxdbg sonido`, `rxdbg rayo` y `rxdbg repetición`
+  en `browser logs`; los registros se acumulan entre recargas, mira la hora): `browser reload`, `xr enter`, `xr look-at`
+  del mando derecho al botón EMPEZAR (0, 1.31, -1.5) y `xr select` (con `--timeout 60000`); luego `xr set-input-mode`
+  `hand`, las dos muñecas a la cadera con `xr set-transform` (`anchor: wrist`, x ±0,25, y 0,95, z -0,1), `xr animate-to`
+  de `headset` a y 1,0 y de vuelta a 1,6 (la sentadilla, 1 s cada una) y, para la sacudida, `xr animate-to` de cada
+  muñeca a (0, 1,2, -0,6) en 0,3 s (más deprisa, el emulador la ve como un salto del seguimiento y no cuenta). Hay que
+  hacerlo seguido: los zombis tardan unos 40 s en llegar y, si no, se pierde la ronda.
 - Sin tarjeta gráfica, el emulador va a unas 5 imágenes por segundo: todo pasa a cámara lenta y una pulsación con el dedo
   dura más de lo que IWSDK acepta como clic (en las gafas, no). Cambiar el código recarga la página y cierra la sesión de
   VR. Si la ventana del emulador se queda con un error viejo de Vite, `npx @iwsdk/cli dev restart`.
@@ -291,6 +298,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - La nitidez se guarda aparte (`reparenaxr-quality`): RepArena tiene la suya (`quality`, con otras opciones) y este motor
   pide otra resolución. Se decide en el PR 7 si se unen.
 
+- Fase 0 cerrada (PR 1-5 + el cierre de la comprobación del sonido en la VR simulada): `window.__rx.snapshot().steam`
+  cuenta el vapor de las compuertas (lanzado y visto a la vez) y la partida simulada lo exige.
+
 ## Fallos conocidos
 
 - Pulsar los paneles con el dedo no se ha podido comprobar en el emulador (va demasiado lento); en las gafas, por ver.
@@ -302,8 +312,8 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   hay que mirarlo en las gafas. Para aligerar: sin sombras en tiempo real y lo fijo de cada compuerta en pocas mallas.
 - Los zombis no tienen sombra (sin sombras en tiempo real; la de contacto de IWSDK pide el origen a ras de suelo, y el de
   los zombis está en el centro de su cuerpo): por ver en las gafas si hace falta.
-- PR 5: la ronda con sonido no se ha comprobado en la VR simulada (el gatillo sobre EMPEZAR no llegó a contar: el
-  emulador va muy lento); sí en la partida simulada del ordenador (se abre, carga sus archivos y suena lo de la partida).
+- Los avisos «Missing glyph info» de la consola (tildes y ×) salen una sola vez, al cargar, antes de que los paneles
+  reciban Rubik y Bungee (con el panel aún oculto): son inofensivos, no vuelven durante la partida.
 - Los sonidos del usuario suenan sin el eco de sala que les añadía RepArena (IWSDK no lo tiene); los de serie lo llevan.
 - El combo (cada 10 repeticiones seguidas) aún no suena: llega con el PR 10.
 
