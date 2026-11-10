@@ -21,6 +21,9 @@ export interface FoeClips {
   hit: string;
   death: string;
   dance: string;
+  /** La de amenazar (si no, la de bailar) y la voltereta de las esquivas (si la tiene). */
+  taunt?: string;
+  roll?: string;
 }
 
 export interface FoeDef {
@@ -71,10 +74,10 @@ const cute = (asset: string, nat: number, h: number, voice: string): FoeDef => (
 
 /** Los de las compuertas que ya están (RepArena: BEAST_DEF y ROBOT_KIND, con sus mismos números). */
 export const FOE_DEF: Record<string, FoeDef> = {
-  zombie: { asset: 'foe-zombie', h: 1.8, k: 0.27, r: 0.4, stop: 1.05, speedF: 0.9, heavy: false, walk: 0.35, run: 2.4, minTs: 0.5, maxTs: 2.6, clips: { idle: 'Zombie|ZombieIdle', walk: 'Zombie|ZombieWalk', run: 'Zombie|ZombieRun', attack: 'Zombie|ZombieBite', hit: '', death: '', dance: 'Zombie|ZombieIdle' }, atk: [1.0, 2.5], voice: 'zombie', grp: 'zombie', palette: 'foe-zombie-palette', ctr: 0.62 },
+  zombie: { asset: 'foe-zombie', h: 1.8, k: 0.27, r: 0.4, stop: 1.05, speedF: 0.9, heavy: false, walk: 0.35, run: 2.4, minTs: 0.5, maxTs: 2.6, clips: { idle: 'Zombie|ZombieIdle', walk: 'Zombie|ZombieWalk', run: 'Zombie|ZombieRun', attack: 'Zombie|ZombieBite', hit: '', death: '', dance: 'Zombie|ZombieIdle', taunt: 'Zombie|ZombieIdle' }, atk: [1.0, 2.5], voice: 'zombie', grp: 'zombie', palette: 'foe-zombie-palette', ctr: 0.62 },
   zgreen: zombie2('zombie-basic', 1.36, 'zgreen'),
   zchubby: zombie2('zombie-chubby', 1.64, 'zchubby'),
-  raptor: { asset: 'foe-raptor', h: 1.4, k: 0.3, r: 0.5, stop: 1.45, speedF: 1.2, heavy: false, walk: 1.3, run: 4.3, minTs: 0.6, maxTs: 2.2, clips: { idle: 'Armature|Velociraptor_Idle', walk: 'Armature|Velociraptor_Walk', run: 'Armature|Velociraptor_Run', attack: 'Armature|Velociraptor_Attack', hit: '', death: 'Armature|Velociraptor_Death', dance: 'Armature|Velociraptor_Idle' }, atk: [0.21, 0.42], voice: 'raptor', grp: 'dino', ctr: 0.55 },
+  raptor: { asset: 'foe-raptor', h: 1.4, k: 0.3, r: 0.5, stop: 1.45, speedF: 1.2, heavy: false, walk: 1.3, run: 4.3, minTs: 0.6, maxTs: 2.2, clips: { idle: 'Armature|Velociraptor_Idle', walk: 'Armature|Velociraptor_Walk', run: 'Armature|Velociraptor_Run', attack: 'Armature|Velociraptor_Attack', hit: '', death: 'Armature|Velociraptor_Death', dance: 'Armature|Velociraptor_Idle', taunt: 'Armature|Velociraptor_Idle' }, atk: [0.21, 0.42], voice: 'raptor', grp: 'dino', ctr: 0.55 },
   skeleton: pirate('foe-skeleton', 1.5, 'skeleton'),
   captain: pirate('foe-captain', 1.85, 'captain'),
   sharky: pirate('foe-sharky', 1.56, 'sharky'),
@@ -95,13 +98,15 @@ FOE_DEF.zchubby.h = 1.8;
 FOE_DEF.zchubby.r = 0.45;
 
 // El diablillo y el puglin (Bestiary, de Quaternius): las animaciones de la biblioteca (RepArena: BEAST_CLIPS, BEAST_PUNCH)
-const UAL_CLIPS: FoeClips = { idle: 'Idle_Loop', walk: 'Walk_Loop', run: 'Jog_Fwd_Loop', attack: 'Punch_Cross', hit: 'Hit_Chest', death: 'Death01', dance: 'Dance_Loop' };
+const UAL_CLIPS: FoeClips = { idle: 'Idle_Loop', walk: 'Walk_Loop', run: 'Jog_Fwd_Loop', attack: 'Punch_Cross', hit: 'Hit_Chest', death: 'Death01', dance: 'Dance_Loop', roll: 'Roll' };
+// (el diablillo amenaza con un hechizo; el puglin, bailando: RepArena, pickAnim)
+const IMP_CLIPS: FoeClips = { ...UAL_CLIPS, taunt: 'Spell_Simple_Shoot' };
 const texOf = (k: string): string[] => [1, 2, 3].map((v) => `foe-${k}-color${v}`);
 Object.assign(FOE_DEF, {
-  imp: { asset: 'foe-imp', h: 1.68, k: 1, r: 0.4, stop: 1.2, speedF: 1, heavy: false, walk: 1.25, run: 2.9, minTs: 0.5, maxTs: 1.8, clips: UAL_CLIPS, atk: [0.15, 0.3], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp') },
+  imp: { asset: 'foe-imp', h: 1.68, k: 1, r: 0.4, stop: 1.2, speedF: 1, heavy: false, walk: 1.25, run: 2.9, minTs: 0.5, maxTs: 1.8, clips: IMP_CLIPS, atk: [0.15, 0.3], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp') },
   puglin: { asset: 'foe-puglin', h: 1.07, k: 1.15, r: 0.4, stop: 1.0, speedF: 1.25, heavy: false, walk: 0.92, run: 2.2, minTs: 0.5, maxTs: 1.8, clips: UAL_CLIPS, atk: [0.15, 0.3], voice: 'puglin', grp: 'beast', ctr: 0.6, ual: true, tex: texOf('puglin') },
   // el lanzador: un diablillo algo más pequeño que se queda lejos (a 4,2 m) y te tira piedras (RepArena: impthrow)
-  thrower: { asset: 'foe-imp', h: 1.6, k: 0.95, r: 0.38, stop: 4.2, speedF: 1, heavy: false, walk: 1.19, run: 2.75, minTs: 0.5, maxTs: 1.8, clips: { ...UAL_CLIPS, attack: 'OverhandThrow' }, atk: [0.25, 0.35], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp'), thrower: true },
+  thrower: { asset: 'foe-imp', h: 1.6, k: 0.95, r: 0.38, stop: 4.2, speedF: 1, heavy: false, walk: 1.19, run: 2.75, minTs: 0.5, maxTs: 1.8, clips: { ...IMP_CLIPS, attack: 'OverhandThrow' }, atk: [0.25, 0.35], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp'), thrower: true },
 } satisfies Record<string, FoeDef>);
 
 // Los monstruitos que vuelan (Cute Animated Monsters): solo su vuelo, su mordisco, su golpe y su muerte; el tamaño, el de

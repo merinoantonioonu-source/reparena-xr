@@ -29,6 +29,8 @@ export const GAME = {
   ballR: 0.26,
   /** La rapidez de los zombis de esta oleada (m/s). */
   foeSpeed: 1.0,
+  /** Lo que ha subido la dificultad creciente (oleadas superadas): lo leen los enemigos (dv). */
+  ramp: 0,
 };
 
 /** Avisos entre sistemas (los pone el sistema del juego al arrancar). */
