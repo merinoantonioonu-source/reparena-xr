@@ -34,6 +34,10 @@ export const GAME = {
   ballR: 0.26,
   /** La rapidez de los zombis de esta oleada (m/s). */
   foeSpeed: 1.0,
+  /** Tumbado (superman, plancha lateral): la altura a la que vienen los voladores (0: de pie). */
+  lowFly: 0,
+  /** El superman: lo que aguantas arriba, si estás arriba, el tiempo de la ronda y cuándo puede lanzarse el siguiente. */
+  sup: null as { hold: number; up: boolean; time: number; next: { t: number } } | null,
   /** Lo que ha subido la dificultad creciente (oleadas superadas): lo leen los enemigos (dv). */
   ramp: 0,
 };

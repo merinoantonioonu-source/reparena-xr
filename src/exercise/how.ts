@@ -1,5 +1,5 @@
 /**
- * Cómo se hace cada ejercicio de pie, en pocas palabras: las dos líneas del panel de inicio y el recordatorio del marcador
+ * Cómo se hace cada ejercicio (de pie, sentado y en el suelo), en pocas palabras: las dos líneas del panel de inicio y el recordatorio del marcador
  * mientras no pasa nada. (Lo que se hace mal lo dicen los propios detectores: src/exercise/standing.ts.)
  */
 
@@ -16,6 +16,16 @@ export const HOW: Record<string, [string, string]> = {
   curl2: ['1. Sube la barra o la kettlebell, con las dos manos, al hombro.', '2. Aguanta arriba: ×2, ×3 y ×4. Al bajarla, dispara.'],
   fraise: ['1. Sube la pesa al frente, brazos estirados, hasta los hombros.', '2. Aguanta arriba: ×2, ×3 y ×4. Al bajarla, dispara.'],
   twist: ['1. Escurre la barra flexible girando las muñecas: carga.', '2. Aguanta escurrida (×2, ×3, ×4) y gira al revés: dispara.'],
+  dips: ['1. Manos en el borde de una silla estable: baja doblando los codos (90°).', '2. Aguanta abajo: ×2, ×3 y ×4. Al estirarlos, dispara.'],
+  splank: ['1. De lado sobre el antebrazo, cadera arriba y cuerpo recto.', '2. Cada pocos segundos aguantados, un disparo (si cae la cadera, vuelve a empezar).'],
+  superman: ['1. Boca abajo con los brazos estirados: sube el tronco y las piernas.', '2. Aguanta arriba los segundos que pidas: dispara solo al más cercano.'],
+};
+
+/** Cómo colocarse antes de empezar (los de suelo y sentado: se espera a que estés quieto en la postura). */
+export const PLACE: Record<string, string> = {
+  dips: 'Siéntate en el borde de la silla, manos detrás',
+  splank: 'Ponte en plancha lateral',
+  superman: 'Túmbate boca abajo, brazos estirados',
 };
 
 /** El recordatorio del marcador mientras no pasa nada. */
@@ -31,4 +41,7 @@ export const IDLE: Record<string, string> = {
   curl2: 'Sube la barra al hombro',
   fraise: 'Sube la pesa al frente',
   twist: 'Escurre la barra para cargar',
+  dips: 'Baja doblando los codos',
+  splank: 'Aguanta con la cadera arriba',
+  superman: 'Sube el tronco y aguanta',
 };

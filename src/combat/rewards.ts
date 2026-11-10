@@ -18,6 +18,7 @@ import { head } from '../input/hand-model.js';
 import { SND, unlockAudio } from '../audio/sound.js';
 import { haptic } from '../input/hand-system.js';
 import { applyFonts } from '../ui/fonts.js';
+import { STAND_EX } from '../exercise/standing.js';
 
 /** Lo que los premios piden a la partida. */
 export interface RewardHost {
@@ -144,7 +145,7 @@ export class Rewards {
   /** Oleada superada (con descanso por delante): las cartas, si te las has ganado, y quizá el cofre. */
   waveCleared(): void {
     this.note(this.perks.waveCleared(GAME.taken, this.perksOn(), GAME.maxLives > 0), 1.6);
-    if (chestRoll(this.surpriseOn())) this.chestShow();
+    if (chestRoll(this.surpriseOn() && STAND_EX.includes(settings.exercise))) this.chestShow(); // (de pie: se abre saltando)
   }
 
   /** ¿La oleada siguiente espera? (cartas por elegir) */

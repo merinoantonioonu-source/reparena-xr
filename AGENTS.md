@@ -62,7 +62,8 @@ tabla de `README.md` dice qué hace cada archivo.
   la bola, el sonido, el rayo y los avisos. Lo que se hace mal (los `partial` y los `say` naranjas, `WARN_COL`) sale además
   en grande en el suelo (`floorWarn`). Lo que pide cada ejercicio (`StandCfg`) se lee de los ajustes al empezar cada
   oleada. Un ejercicio nuevo: su paso en el detector, su comparación en `tests/compare/standing.compare.test.ts` y sus
-  líneas en `src/exercise/how.ts`.
+  líneas en `src/exercise/how.ts`. Los de suelo y sentado, en `FloorDetector` (`src/exercise/floor.ts`, misma forma; su
+  comparación, `floor.compare.test.ts`); los que se pueden elegir, en `PLAY_EX` (`src/ui/fields.ts`).
 - Los campos de un componente con `min` no admiten valores por debajo: `setValue` lanza un error y para el sistema
   entero (pasó con la vida de los zombis).
 - La física (Havok) manda en la posición de los cuerpos dinámicos y cinemáticos: no se mueven escribiendo en su

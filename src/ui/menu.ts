@@ -21,9 +21,8 @@ import { num, settings } from '../core/values.js';
 import { GAME, HOOKS } from '../core/state.js';
 import { head } from '../input/hand-model.js';
 import { SND, unlockAudio } from '../audio/sound.js';
-import { STAND_EX } from '../exercise/standing.js';
 import { HOW } from '../exercise/how.js';
-import { curEx, eyeFields, fieldHere, fieldPick, fieldStep, fieldView, groupFields, groupName, roundInfo, settingsGroups, type FieldView } from './fields.js';
+import { curEx, PLAY_EX, eyeFields, fieldHere, fieldPick, fieldStep, fieldView, groupFields, groupName, roundInfo, settingsGroups, type FieldView } from './fields.js';
 import { applyFonts } from './fonts.js';
 
 /** Nitidez en las gafas (la del juego nuevo: decisión del usuario en el PR 7): la resolución que se pide al entrar (×1
@@ -49,7 +48,7 @@ const TABS = [
 type Tab = (typeof TABS)[number]['k'];
 // Lo que aún no está (se enciende con su PR): los modos y Sesiones, y los ejercicios de suelo
 const SOON_MODE: Record<string, string> = { arcs: 'Arcos llega con el PR 15', bars: 'Barras llega con el PR 17', touch: 'Toques llega con el PR 16', trek: 'La Travesía llega con el PR 18', ses: 'Las sesiones llegan con el PR 19' };
-const SOON_EX = 'Los ejercicios de suelo llegan con el PR 11';
+const SOON_EX = 'Flexiones, plancha con un brazo e inchworm llegan con el PR 11b y 11c';
 const KEY = { bg: '#2a2f3a', fg: '#e9eef7', off: '#1d212b', offFg: '#5d6577', dark: '#0d1016' };
 const ROWS_LOBBY = ['l1', 'l2', 'l3', 'l4'], ROWS_OPT = ['o1', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8', 'o9'], N_OPTS = 8, N_SUB = 10;
 const HINT_SECS = 9;
@@ -232,7 +231,7 @@ export class MenuSystem extends createSystem({}, {}) {
     this.on(p, 'opt-button', () => this.show('options'));
     for (const m of Object.keys(MODE_NAMES)) this.on(p, 'm-' + m, () => (m === 'combat' ? this.pickMode() : this.note(SOON_MODE[m])));
     this.on(p, 'm-ses', () => this.note(SOON_MODE.ses));
-    for (const ex of MODE_EX.combat) this.on(p, 'e-' + ex, () => (STAND_EX.includes(ex) ? this.pickEx(ex) : this.note(SOON_EX)));
+    for (const ex of MODE_EX.combat) this.on(p, 'e-' + ex, () => (PLAY_EX.includes(ex) ? this.pickEx(ex) : this.note(SOON_EX)));
     RANKS.forEach(([v], i) => this.on(p, 'r-' + i, () => setSetting('rank', v)));
     this.on(p, 'fail', () => setSetting('toFail', num('toFail') ? 0 : 1));
     for (const r of ROWS_LOBBY) this.wireRow(p, r);
@@ -241,7 +240,7 @@ export class MenuSystem extends createSystem({}, {}) {
   // Combate con el ejercicio elegido (si lo guardado en RepArena era otro modo, o uno que aún no hay, la sentadilla)
   private pickMode(): void {
     if (settings.mode !== 'combat') setSetting('mode', 'combat');
-    if (!STAND_EX.includes(settings.exercise)) setSetting('exercise', curEx());
+    if (!PLAY_EX.includes(settings.exercise)) setSetting('exercise', curEx());
   }
   private pickEx(ex: string): void {
     this.pickMode();
@@ -265,7 +264,7 @@ export class MenuSystem extends createSystem({}, {}) {
     this.set(p, 'ex-how', { color: EX_COL });
     this.set(p, 'box-ex', { borderColor: EX_COL });
     for (const e of MODE_EX.combat) {
-      const ok = STAND_EX.includes(e), sel = e === ex;
+      const ok = PLAY_EX.includes(e), sel = e === ex;
       this.key(p, 'e-' + e, !ok ? KEY.off : sel ? EX_COL : KEY.bg, !ok ? KEY.offFg : sel ? KEY.dark : KEY.fg);
     }
     // la dificultad: los galones de cada rango, «Al fallo», la ficha de la ronda y lo del ojo
