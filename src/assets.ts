@@ -3,6 +3,9 @@
  */
 import { AssetType, defineAssets } from '@iwsdk/core';
 import { createArenaFloor, createCrate, createPlayerPad, createRock } from './scene-assets/arena.scene-asset.js';
+import { createGate } from './scene-assets/gate.scene-asset.js';
+import { createComicClouds } from './scene-assets/comic-sky.scene-asset.js';
+import { createComicValley } from './scene-assets/comic-valley.scene-asset.js';
 
 const publicAssetUrl = (filePath: string): string => `${import.meta.env.BASE_URL}${filePath.replace(/^\/+/u, '')}`;
 const uikitml = (fileName: string, name: string) => ({ url: publicAssetUrl(`ui/${fileName}`), type: AssetType.UIKitML, name });
@@ -13,6 +16,9 @@ export default defineAssets({
   'player-pad': createPlayerPad(),
   crate: createCrate(),
   rock: createRock(),
+  gate: createGate(),
+  'comic-clouds': createComicClouds(),
+  'comic-valley': createComicValley(),
   'zombie-basic': glb('zombie_basic.glb', 'Zombi verde'),
   'zombie-chubby': glb('zombie_chubby.glb', 'Zombi gordo'),
   'start-panel': uikitml('start.uikitml', 'Panel de inicio'),

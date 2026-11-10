@@ -24,6 +24,8 @@ import {
   VisibilityState,
 } from '@iwsdk/core';
 import { EnemySystem, type FoeTarget } from './enemies.js';
+import { GateSystem } from './gates.js';
+import { ComicFx } from '../style/comic-fx.js';
 import { LockLines } from './lockline.js';
 import { applyFonts } from '../ui/fonts.js';
 import { boltColor, Effects, POW_COL } from './fx.js';
@@ -87,9 +89,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // el lanzamiento con las manos (src/input/throw.ts), la diana y lo que le pasa
   private env!: ThrowEnv;
   private locks = new LockLines();
+  private cfx!: ComicFx;
   private gaze = new Vector3(0, 0, -1);
   // oleadas
   private toSpawn = 0;
+  // los que van a salir por una compuerta que se está abriendo (a cada uno le falta «t» para salir)
+  private gates: GateSystem | null = null;
+  private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0 }));
   private spawnT = 0;
   private betweenT = 0;
   private msgT = 0;
@@ -105,10 +111,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   init(): void {
     this.enemies = this.world.getSystem(EnemySystem)!;
+    this.gates = this.world.getSystem(GateSystem) ?? null;
     // los efectos (bola, rayos, chispas, la carga en las manos), la diana y el velo rojo de los golpes
     this.fx = new Effects();
     this.world.createTransformEntity(this.fx.group);
     this.world.createTransformEntity(this.locks.group);
+    this.cfx = new ComicFx();
+    this.world.createTransformEntity(this.cfx.group);
     this.env = {
       on: false,
       playing: false,
@@ -285,6 +294,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   private startRound(): void {
     this.enemies.clear();
+    this.gates?.closeAll();
+    for (const p of this.pending) p.gate = null;
     // las vidas, las de tu rango (0: infinitas: los golpes no te eliminan)
     GAME.maxLives = nLives();
     Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, startTime: this.clock });
@@ -322,6 +333,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.locks.clear();
     sfx.over();
     this.enemies.vanishAll();
+    this.gates?.closeAll();
+    for (const p of this.pending) p.gate = null;
     this.message('¡Te han derribado!', 4);
     this.showMenu('over');
   }
@@ -339,8 +352,17 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.kills++;
   }
 
-  // dónde aparece cada zombi: delante, en abanico, a 9-13 m, fuera de las cajas y las rocas
-  private spawnOne(): void {
+  // Cada zombi sale por una compuerta (como en RepArena): se abre y, al medio segundo, sale de dentro del túnel. Sin
+  // compuertas libres, espera. (Si la escena no tiene compuertas, aparece delante, en abanico, a 9-13 m.)
+  private spawnOne(): boolean {
+    if (this.gates && this.gates.queries.gates.entities.size > 0) {
+      const slot = this.pending.find((p) => !p.gate), g = slot ? this.gates.freeGate() : null;
+      if (!slot || !g) return false;
+      this.gates.openGate(g, 3.2);
+      slot.gate = g;
+      slot.t = 0.55;
+      return true;
+    }
     for (let tries = 0; tries < 12; tries++) {
       const a = (Math.random() - 0.5) * (Math.PI * 0.75); // (±67°)
       const d = 9 + Math.random() * 4;
@@ -351,9 +373,24 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         if (o && Math.hypot(o.position.x - x, o.position.z - z) < 1.2) ok = false;
       }
       if (!ok) continue;
-      const chubby = GAME.wave >= 2 && Math.random() < Math.min(0.45, 0.15 * GAME.wave);
-      this.enemies.spawn(chubby ? 'chubby' : 'basic', x, z);
-      return;
+      this.enemies.spawn(this.foeKind(), x, z);
+      return true;
+    }
+    return false;
+  }
+
+  // el zombi que toca: desde la segunda oleada, también gordos
+  private foeKind(): 'basic' | 'chubby' {
+    return GAME.wave >= 2 && Math.random() < Math.min(0.45, 0.15 * GAME.wave) ? 'chubby' : 'basic';
+  }
+
+  // los que salen por su compuerta, cuando ya está abierta
+  private stepPending(dt: number): void {
+    for (const p of this.pending) {
+      if (!p.gate || (p.t -= dt) > 0) continue;
+      const at = this.gates!.spawnPoint(p.gate, this.tmpC);
+      this.enemies.spawn(this.foeKind(), at.x, at.z);
+      p.gate = null;
     }
   }
 
@@ -490,6 +527,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     sfx.hit(tp, pow);
     const d = this.tmpC.copy(tp).sub(from).setY(0).normalize();
     this.enemies.hit(e.entity, dmg, pow, d);
+    if (e.alive) this.cfx.hit(tp); // (en cómic: líneas de impacto; y si cae, la estrella)
+    else this.cfx.kill(tp);
   }
 
   // sin nadie a quien dar: el rayo se pierde (apuntando tú, «Fallo»)
@@ -550,12 +589,14 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         if (this.betweenT <= 0) GAME.between = false;
       } else {
         this.spawnT -= dt;
-        if (this.toSpawn > 0 && this.spawnT <= 0 && this.enemies.aliveCount() < this.maxAlive) {
-          this.spawnOne();
+        this.stepPending(dt);
+        let coming = 0;
+        for (const p of this.pending) if (p.gate) coming++;
+        if (this.toSpawn > 0 && this.spawnT <= 0 && this.enemies.aliveCount() + coming < this.maxAlive && this.spawnOne()) {
           this.toSpawn--;
           this.spawnT = Math.max(1.2, 2.4 - 0.1 * GAME.wave);
         }
-        if (this.toSpawn <= 0 && this.enemies.aliveCount() === 0) this.nextWave();
+        if (this.toSpawn <= 0 && coming === 0 && this.enemies.aliveCount() === 0) this.nextWave();
       }
     }
     // las manos: lanzar el rayo (la sacudida o el gatillo), la mirada y el puñetazo
@@ -584,6 +625,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.fx.bolts.update(dt, GAME.head);
     this.fx.sparks.update(dt);
     this.fx.flashes.update(dt);
+    this.cfx.update(dt);
     // el velo rojo de un golpe
     if (this.hurtT > 0) {
       this.hurtT -= dt;

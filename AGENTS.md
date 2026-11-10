@@ -13,11 +13,13 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
 - **Lo que resuelve IWSDK, como lo resuelve IWSDK** (lo pidió el usuario: primarán siempre las soluciones de IWSDK de
   serie): si IWSDK hace algo de forma distinta a como lo hacía RepArena (leer y pintar las manos y los mandos —RepArena, en
   el curl con barra, a veces disparaba rayos al azar porque detectaba mal las manos—, los movimientos del cuerpo, la física
-  de pulsar los menús, el pellizco, los rayos de apuntar, la física, las letras…), se usa su solución de serie, sin forzar
-  la de RepArena: la migración es precisamente para ver si así se van los problemas que tenía RepArena. De RepArena se
-  porta lo que IWSDK no trae (la lógica del juego). Si en las gafas un problema vuelve, se busca primero lo que ofrezca
-  IWSDK y, si no hay nada, se le proponen al usuario los apaños de RepArena; si la solución de IWSDK tiene un fallo, se
-  arregla lo mínimo y se apunta en `MIGRACION.md` › Fallos de IWSDK.
+  de pulsar los menús, el pellizco, los rayos de apuntar, la física, las letras…, y también cómo se pintan las estructuras,
+  las formas y los elementos de la escena: compuertas, armas… o las piezas para hacerlas, como sus objetos de escena, el
+  JSON de la escena, su entorno, luces y sombras y sus habilidades `iwsdk-*`), se usa su solución de serie, sin forzar la
+  de RepArena: la migración es precisamente para ver si así se van los problemas que tenía RepArena. IWSDK prima en todas
+  las soluciones. De RepArena se porta lo que IWSDK no trae (la lógica del juego). Si en las gafas un problema vuelve, se
+  busca primero lo que ofrezca IWSDK y, si no hay nada, se le proponen al usuario los apaños de RepArena; si la solución
+  de IWSDK tiene un fallo, se arregla lo mínimo y se apunta en `MIGRACION.md` › Fallos de IWSDK.
 
 ## Dónde está cada cosa
 
@@ -28,15 +30,16 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
 | `src/core/` | Lo común: el estado compartido de la partida y los ajustes (los de RepArena: esquema, guardado, rangos) |
 | `src/input/` | Manos, mandos y gestos: lo que da IWSDK, pasado a `hands` y `head` (`hand-system.ts`), y la lógica pura de RepArena (sacudida, mirada, puñetazo), con pruebas |
 | `src/exercise/` | Los detectores de repeticiones: lógica pura (sin IWSDK ni Three), con pruebas |
-| `src/combat/` | El modo Combate: la partida, los enemigos, los efectos y sus componentes |
+| `src/combat/` | El modo Combate: la partida, los enemigos, las compuertas, los efectos y sus componentes |
+| `src/style/` | El estilo Cómic: sombreado, contornos de tinta y efectos (se aplica solo a lo que aparece en la escena) |
 | `src/ui/` | Paneles y letras |
 | `src/audio/` | El sonido |
 | `public/` | Escena (`scenes/`), paneles (`ui/`), modelos, letras y manos (cada carpeta con su `LEEME.md` y licencia) |
 | `tests/unit/` | Pruebas de la lógica pura (Vitest: `npm test`) |
 | `tests/e2e/` | La partida simulada en un navegador sin gafas (`npm run test:e2e`) |
 
-Los modos que vengan después, en `src/modes/<modo>/`; el estilo Cómic, en `src/style/`; Spotify, la sincronización y el
-pulsómetro, en `src/services/`. La tabla de `README.md` dice qué hace cada archivo.
+Los modos que vengan después, en `src/modes/<modo>/`; Spotify, la sincronización y el pulsómetro, en `src/services/`. La
+tabla de `README.md` dice qué hace cada archivo.
 
 ## Cómo está hecho
 
@@ -62,6 +65,9 @@ pulsómetro, en `src/services/`. La tabla de `README.md` dice qué hace cada arc
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee.
 - Los modelos de las manos y los mandos se sirven desde el juego (`public/input-profiles`, `src/input/input-models.ts`).
+- **Estilo Cómic** (el de serie): `ComicSystem` (`src/style/`) prepara todo lo que aparece con material estándar: su
+  sombreado de cómic y su contorno de tinta. Lo nuevo, con `MeshStandardMaterial` de colores claros y lisos; sin contorno,
+  `userData.noInk`. Los objetos de escena, con las habilidades de IWSDK (`iwsdk-build-model`, `iwsdk-compose-scene`).
 
 ---
 

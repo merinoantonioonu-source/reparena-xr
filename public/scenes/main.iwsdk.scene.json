@@ -4,54 +4,58 @@
   "components": {
     "com.iwsdk.components.DomeGradient": {
       "sky": [
-        0.32,
-        0.52,
-        0.86,
+        0.5,
+        0.71,
+        1.0,
         1
       ],
       "equator": [
-        0.93,
-        0.84,
+        1.0,
+        0.85,
         0.72,
         1
       ],
       "ground": [
-        0.55,
-        0.47,
-        0.38,
+        0.88,
+        0.75,
+        0.62,
         1
       ],
-      "elevationDeg": 18,
-      "azimuthDeg": -35,
+      "elevationDeg": 0,
+      "azimuthDeg": 0,
       "dither": true
     },
     "com.iwsdk.components.IBLGradient": {
       "sky": [
-        0.55,
-        0.65,
-        0.85,
+        0.78,
+        0.84,
+        0.98,
         1
       ],
       "equator": [
-        0.85,
-        0.8,
-        0.72,
+        1.0,
+        0.9,
+        0.84,
         1
       ],
       "ground": [
-        0.45,
-        0.4,
-        0.34,
+        0.86,
+        0.76,
+        0.66,
         1
       ],
-      "intensity": 0.35
+      "intensity": 0.6
     }
   },
   "environment": {
-    "toneMapping": "aces",
-    "exposure": 1.1,
-    "shadows": true,
-    "shadowMapType": "pcf"
+    "fog": {
+      "type": "exponential",
+      "color": "#f6dfe4",
+      "density": 0.011
+    },
+    "toneMapping": "none",
+    "exposure": 1.0,
+    "shadows": false
   },
   "resources": {},
   "nodes": [
@@ -61,13 +65,12 @@
       "framingRole": "support",
       "content": {
         "type": "asset",
-        "asset": "arena-floor",
-        "receiveShadow": true
+        "asset": "arena-floor"
       },
       "components": {
         "DomeFade": {
-          "start": 12,
-          "end": 28
+          "start": 32,
+          "end": 66
         }
       }
     },
@@ -85,6 +88,105 @@
           0.004,
           0
         ]
+      }
+    },
+    {
+      "id": "gate-left",
+      "name": "Compuerta izquierda",
+      "content": {
+        "type": "asset",
+        "asset": "gate"
+      },
+      "transform": {
+        "position": [
+          -4.62,
+          0,
+          -11
+        ],
+        "rotationDeg": [
+          0,
+          22.78,
+          0
+        ]
+      },
+      "components": {
+        "Gate": {
+          "open": 0,
+          "want": 0,
+          "busy": 0
+        },
+        "ContactShadow": {
+          "size": [
+            6.2,
+            3.0
+          ]
+        }
+      }
+    },
+    {
+      "id": "gate-center",
+      "name": "Compuerta central",
+      "content": {
+        "type": "asset",
+        "asset": "gate"
+      },
+      "transform": {
+        "position": [
+          0.0,
+          0,
+          -11
+        ],
+        "rotationDeg": [
+          0,
+          -0.0,
+          0
+        ]
+      },
+      "components": {
+        "Gate": {
+          "open": 0,
+          "want": 0,
+          "busy": 0
+        },
+        "ContactShadow": {
+          "size": [
+            6.2,
+            3.0
+          ]
+        }
+      }
+    },
+    {
+      "id": "gate-right",
+      "name": "Compuerta derecha",
+      "content": {
+        "type": "asset",
+        "asset": "gate"
+      },
+      "transform": {
+        "position": [
+          4.62,
+          0,
+          -11
+        ],
+        "rotationDeg": [
+          0,
+          -22.78,
+          0
+        ]
+      },
+      "components": {
+        "Gate": {
+          "open": 0,
+          "want": 0,
+          "busy": 0
+        },
+        "ContactShadow": {
+          "size": [
+            6.2,
+            3.0
+          ]
+        }
       }
     },
     {
@@ -125,6 +227,12 @@
         },
         "Obstacle": {
           "radius": 0.6
+        },
+        "ContactShadow": {
+          "size": [
+            1.2,
+            1.2
+          ]
         }
       }
     },
@@ -166,6 +274,12 @@
         },
         "Obstacle": {
           "radius": 0.6
+        },
+        "ContactShadow": {
+          "size": [
+            1.2,
+            1.2
+          ]
         }
       }
     },
@@ -207,6 +321,12 @@
         },
         "Obstacle": {
           "radius": 0.6
+        },
+        "ContactShadow": {
+          "size": [
+            1.2,
+            1.2
+          ]
         }
       }
     },
@@ -248,6 +368,12 @@
         },
         "Obstacle": {
           "radius": 0.62
+        },
+        "ContactShadow": {
+          "size": [
+            1.5,
+            1.5
+          ]
         }
       }
     },
@@ -289,6 +415,12 @@
         },
         "Obstacle": {
           "radius": 0.62
+        },
+        "ContactShadow": {
+          "size": [
+            1.5,
+            1.5
+          ]
         }
       }
     },
@@ -354,15 +486,7 @@
             0.86,
             1
           ],
-          "intensity": 2.4,
-          "castShadow": true,
-          "shadowMapSize": "2048",
-          "shadowCameraSize": 18,
-          "shadowCameraNear": 1,
-          "shadowCameraFar": 40,
-          "shadowRadius": 4,
-          "shadowBias": -0.0004,
-          "shadowNormalBias": 0.02
+          "intensity": 2.4
         }
       }
     },
@@ -386,6 +510,44 @@
           "intensity": 1.0
         }
       }
+    },
+    {
+      "id": "comic-valley",
+      "name": "Valle de cómic",
+      "framingRole": "support",
+      "content": {
+        "type": "asset",
+        "asset": "comic-valley"
+      }
+    },
+    {
+      "id": "comic-clouds",
+      "name": "Nubes de cómic",
+      "framingRole": "support",
+      "content": {
+        "type": "asset",
+        "asset": "comic-clouds"
+      }
     }
-  ]
+  ],
+  "authoring": {
+    "views": [
+      {
+        "id": "hero",
+        "role": "hero",
+        "projection": "perspective",
+        "position": [
+          0,
+          1.7,
+          1.5
+        ],
+        "target": [
+          0,
+          1.5,
+          -11
+        ],
+        "fov": 70
+      }
+    ]
+  }
 }
