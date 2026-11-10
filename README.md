@@ -26,6 +26,12 @@ Por ahora, Combate con sentadillas, como en RepArena:
   el perfecto, y la carga suma (×2 +1, ×3 +2, ×4 +4). Con la puntería automática (o con la mirada), la repetición
   dispara sola.
 - **Puñetazo**: un golpe rápido al zombi que tienes delante lo aparta y lo aturde un momento (sin quitarle vida).
+- **Estilo Cómic** (el de serie, como en RepArena): sombreado plano con un corte duro entre luz y sombra (la sombra,
+  violácea), contornos de tinta finos, colores claros y vivos, cielo de dibujo con nubes de borde entintado, neblina clara
+  rosada y un valle de dibujo alrededor (mesetas de colores, ruinas, rocas que flotan y montañas lavanda); al acertar,
+  líneas de impacto y, al derribar, una estrella. «Estilo visual: Realista» lo quita.
+- **La arena**: suelo de arena con grietas a tinta y tres **compuertas** en arco a 11 m: cada zombi sale por una (se abre,
+  su interior es oscuro y la baliza gira); son sólidas y los zombis las rodean.
 - **Zombis con física de verdad** (motor Havok): cada uno es un cuerpo que choca con el suelo, las cajas, las rocas, la
   bola y los demás zombis. Andan hacia ti dirigiendo su velocidad, **rodean la bola**, las cajas y las rocas y se apartan
   entre ellos; si chocan, se empujan. Un rayo los hace **retroceder**; el que los mata los **lanza por el aire dando
@@ -73,6 +79,12 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/index.ts` | Arranca el mundo y registra los sistemas del juego |
 | `src/combat/game.ts` | La partida: carga ×2-×4, la carga en las manos, rayos y daño, puñetazos, oleadas, vidas, paneles y nitidez |
 | `src/combat/lockline.ts` | La diana: líneas de enfoque alrededor del zombi apuntado |
+| `src/combat/gates.ts` | Las compuertas: abrirse para sacar a un zombi, la baliza y sus cuerpos de física |
+| `src/style/comic.ts`, `src/style/comic-system.ts` | El estilo Cómic: el sombreado, los colores y los contornos de tinta, y el sistema que lo aplica a todo |
+| `src/style/comic-fx.ts` | Los efectos de cómic: líneas de impacto y estrella al derribar |
+| `src/scene-assets/gate.scene-asset.ts` | La compuerta (hecha en código) |
+| `src/scene-assets/comic-valley.scene-asset.ts`, `src/scene-assets/comic-sky.scene-asset.ts` | El valle de dibujo y las nubes |
+| `src/scene-assets/lib/hardsurface.ts` | Piezas de IWSDK para construir modelos (cajas biseladas…) |
 | `src/combat/enemies.ts` | Los zombis: cuerpos de física, marcha rodeando obstáculos, ataque, retroceso y muerte |
 | `src/combat/fx.ts` | La bola de energía, la carga en cada mano, los rayos, las chispas y los destellos |
 | `src/combat/components.ts`, `src/components.ts` | Los componentes `Foe` (zombi) y `Obstacle` (lo que rodean), y su catálogo |
@@ -90,8 +102,8 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/gaze-lock.ts`, `src/input/punch.ts`, `src/input/target.ts` | La mirada que fija al enemigo, el puñetazo y lo que ven de cada enemigo (de RepArena, sin IWSDK) |
 | `src/input/controller-hand.ts` | La mano de IWSDK que agarra el mando, con sus fallos de esta versión arreglados |
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
-| `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de losas, aro del jugador, cajas, rocas, zombis y paneles |
-| `public/scenes/main.iwsdk.scene.json` | La escena: suelo, cajas y rocas con su física, paneles, luces y cielo |
+| `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de arena, aro del jugador, cajas, rocas, compuertas, valle, nubes, zombis y paneles |
+| `public/scenes/main.iwsdk.scene.json` | La escena: cielo, neblina, suelo, compuertas, valle, nubes, cajas y rocas con su física, paneles y luces |
 | `public/ui/*.uikitml` | Los paneles (inicio y marcador) |
 | `public/models/` | Los zombis (Quaternius, CC0) |
 | `public/fonts/` | Las letras (Rubik y Bungee, OFL) |

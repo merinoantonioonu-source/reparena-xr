@@ -11,10 +11,11 @@ en que se decide: puede que con IWSDK ya no hagan falta, pero eso lo decide el u
 **Lo que resuelve IWSDK, como lo resuelve IWSDK** (pedido del usuario en el PR 3): si IWSDK resuelve algo de forma
 distinta a como lo hacía RepArena, se usa su solución de serie y no se fuerza la de RepArena: la migración es precisamente
 para ver si las soluciones de IWSDK resuelven los problemas que tenía RepArena (por ejemplo, los rayos al azar del curl con
-barra, que salían porque RepArena detectaba mal las manos; los movimientos del cuerpo; la física de pulsar los menús).
-Primarán siempre las soluciones de IWSDK de serie. Los apaños de RepArena para esas cosas (van marcados **[Con IWSDK, de
-serie]**) no se portan; si en las gafas vuelve el problema, se busca primero lo que ofrezca IWSDK y, si no hay nada, se le
-proponen al usuario.
+barra, que salían porque RepArena detectaba mal las manos; los movimientos del cuerpo; la física de pulsar los menús; y
+cómo se pintan las estructuras, las formas y los elementos de la escena: si IWSDK trae compuertas, armas… o las piezas para
+hacerlas, primará IWSDK). Primarán siempre las soluciones de IWSDK de serie, en todo. Los apaños de RepArena para esas
+cosas (van marcados **[Con IWSDK, de serie]**) no se portan; si en las gafas vuelve el problema, se busca primero lo que
+ofrezca IWSDK y, si no hay nada, se le proponen al usuario.
 
 ## Lecciones del motor viejo que siguen valiendo
 

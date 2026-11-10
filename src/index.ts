@@ -7,7 +7,9 @@ import { World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
 import { EnemySystem } from './combat/enemies.js';
 import { GameSystem } from './combat/game.js';
+import { GateSystem } from './combat/gates.js';
 import { HandSystem } from './input/hand-system.js';
+import { ComicSystem } from './style/comic-system.js';
 import { useLocalInputModels } from './input/input-models.js';
 import { initSettings } from './core/settings.js';
 
@@ -17,6 +19,8 @@ useLocalInputModels();
 
 World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
   world.registerSystem(HandSystem, { priority: 4 });
+  world.registerSystem(GateSystem, { priority: 4 });
   world.registerSystem(EnemySystem, { priority: 5 });
   world.registerSystem(GameSystem, { priority: 6 });
+  world.registerSystem(ComicSystem, { priority: 7 });
 });

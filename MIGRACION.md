@@ -31,7 +31,11 @@ ella (una cada vez, nunca a la vez) y cada PR lo deja al día.
   forzar la de RepArena: la migración es precisamente para ver si las soluciones de IWSDK resuelven los problemas que
   tenía RepArena. Por ejemplo: la lectura de las manos (RepArena, sobre todo en el curl con barra, a veces disparaba rayos
   al azar porque detectaba mal las manos), los movimientos del cuerpo, la física de pulsar los menús, pintar las manos y
-  los mandos, el pellizco, los rayos de apuntar, la física de los cuerpos, las letras… Los apaños de RepArena para esas
+  los mandos, el pellizco, los rayos de apuntar, la física de los cuerpos, las letras… Y también **cómo se pintan las
+  estructuras, las formas y los elementos de la escena**: si IWSDK trae compuertas propias (o algo parecido), armas,
+  etc., o las piezas para hacerlas (sus modelos, los objetos de escena hechos en código de `src/scene-assets/`, la
+  composición en el JSON de la escena, el entorno, las luces y las sombras de IWSDK, y sus habilidades para construir
+  modelos y componer escenas), primará IWSDK. IWSDK prima en todas las soluciones. Los apaños de RepArena para esas
   cosas no se portan (en `docs/REGLAS.md`, marcados **[Con IWSDK, de serie]**); si en las gafas vuelve un problema, se
   busca primero lo que ofrezca IWSDK y, si no hay nada, se le proponen al usuario los de RepArena. Si la solución de
   IWSDK tiene un fallo, se arregla lo mínimo y se apunta en [Fallos de IWSDK](#fallos-de-iwsdk).
@@ -98,7 +102,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 1 · Plan, reglas y pruebas** — #2
 - [x] **PR 2 · Ajustes y datos** — #3
 - [x] **PR 3 · Manos, mandos y gestos** — #4
-- [ ] **PR 4 · Estilo Cómic y la arena**
+- [x] **PR 4 · Estilo Cómic y la arena** — #5
 - [ ] **PR 5 · Sonido**
 - [ ] **PR 6 · Ejercicios de pie**
 - [ ] **PR 7 · Menú principal y Opciones en VR**
@@ -153,11 +157,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - Comparado con el código de RepArena (`tests/compare/throw.compare.test.ts`) y con pruebas de trayectorias simuladas
   (`tests/unit/throw.test.ts`, `gestures.test.ts`).
 
-**PR 4 · Estilo Cómic y la arena** (L)
-- Sombreado plano con corte duro, contornos de tinta (finos de lejos, solo en el borde de verdad), cielo y suelo de
-  dibujo; la arena con sus compuertas (interior oscuro al abrirse). Queda como el estilo de serie.
-- De RepArena: `src/38_comic.js`, `src/30_env.js`, `src/20_render.js`.
-- Listo cuando: se ve como RepArena en Cómic, a 72 imágenes por segundo en las gafas.
+**PR 4 · Estilo Cómic y la arena** (L) — hecho
+- De IWSDK, de serie: el cielo (DomeGradient, melocotón y azul claro), la neblina rosada, sin tono de cine, sin sombras en
+  tiempo real (sombras de contacto, ContactShadow, bajo lo que pisa el suelo), el suelo que se funde a lo lejos
+  (DomeFade), la física de las compuertas; y todo hecho con sus piezas: objetos de escena en código
+  (`src/scene-assets/`, con su habilidad de construir modelos) y la composición en el JSON de la escena.
+- De RepArena, lo que IWSDK no trae: el sombreado de cómic (corte duro, sombra violácea, brillo y rayado) y los contornos
+  de tinta (`src/style/comic.ts`), las nubes de borde entintado, el suelo de arena con grietas, el valle de dibujo (mesetas,
+  ruinas, rocas que flotan y montañas, con el mismo azar que allí), las tres compuertas (puertas que se deslizan, interior
+  oscuro, baliza) y los efectos de cómic (líneas de impacto y estrella al derribar). Los zombis salen por las compuertas.
+- «Estilo visual: Realista» quita el sombreado y los contornos; el paisaje realista llega con los entornos (PR 20).
 
 **PR 5 · Sonido** (M)
 - El motor de sonido de RepArena (sintetizado, en 3D, reverberación), los archivos de `sounds/` (sustituibles, con su
@@ -251,20 +260,25 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
-- PR 3 → PR 4: las manos, en `hands.left/right` y `head` (`src/input/hand-model.ts`), que llena `HandSystem` en cada
-  fotograma con lo que da IWSDK (la muñeca, las 25 articulaciones, el pellizco, el gatillo, el agarre, el rayo, `virt`
-  con mandos como manos). Los ejercicios del PR 6 leen de ahí. Lo que se lanza: `throwCharge`/`throwStep`
-  (`src/input/throw.ts`) con un `ThrowEnv` que da el juego; a quién se apunta, los enemigos como `Target` (en Combate,
-  `EnemySystem.targets`); la diana, `LockLines` (`src/combat/lockline.ts`).
-- Las manos se ven como las pinta IWSDK (su estilo: contorno blanco). Si el estilo Cómic (PR 4) las quiere de otra forma,
-  propónselo al usuario antes (son de IWSDK).
+- PR 4 → PR 5: el sonido de las compuertas (RepArena: `SND.door` al abrirse, y vapor a los lados) no está: engánchalo en
+  `GateSystem` (`src/combat/gates.ts`), cuando una pasa a abrirse. Los gruñidos y golpes siguen en `src/audio/sound.ts`.
+- Estilo Cómic: todo lo que aparece en la escena se prepara solo (`ComicSystem`): los materiales estándar
+  (`MeshStandardMaterial`) se pintan en cómic y reciben su contorno de tinta. Para que algo nuevo se vea en cómic, dale un
+  material estándar con colores claros y lisos (sin texturas de relieve). `userData.noInk` en una malla: sin contorno;
+  `userData.comicSoft` en un material: degradado suave (orbes, diamantes). Los paneles de UIKit no se tocan.
+- Objetos de escena nuevos: con la habilidad `iwsdk-build-model` (en `src/scene-assets/`, deterministas, registrados en
+  `src/assets.ts`) y colocados en `public/scenes/main.iwsdk.scene.json` con `iwsdk-compose-scene`. Un id de recurso nuevo
+  no lo ve el editor de IWSDK hasta `npx @iwsdk/cli dev restart --headless`. En el JSON de la escena, los colores de la
+  neblina van como texto (`"#f6dfe4"`). `tests/unit/scene-assets.test.ts` comprueba que salen iguales cada vez.
+- Las manos, en `hands.left/right` y `head` (`src/input/hand-model.ts`), que llena `HandSystem` con lo que da IWSDK. Lo que
+  se lanza: `throwCharge`/`throwStep` (`src/input/throw.ts`); los enemigos como `Target` (`EnemySystem.targets`); la
+  diana, `LockLines` (`src/combat/lockline.ts`).
 - Los ajustes se leen con `num('clave')`, `str('clave')` u `on('clave')` (`src/core/values.ts`), con `dv('clave',
   oleadas)` si les afecta la dificultad creciente, y se cambian solo con `setSetting` (guarda donde RepArena: lo verá
-  también RepArena). Las reglas que dependen de los ajustes (`handsFree`, `foes`, `autoAim`, `twoShots`…) están en
-  `src/core/rules.ts`.
+  también RepArena). Para enterarse de un cambio, `onSettingsChange` (`src/core/settings.ts`).
 - El juego es siempre Combate con sentadillas, pero con los ajustes del modo y ejercicio que tenga elegidos el usuario
-  (los últimos de RepArena): si tenía elegido el curl, la dificultad es la del curl. Se arregla al portar los ejercicios
-  (PR 6) y el menú (PR 7). No elijas el ejercicio por código con `setSetting` antes: cambiaría también el de RepArena.
+  (los últimos de RepArena). Se arregla al portar los ejercicios (PR 6) y el menú (PR 7). No elijas el ejercicio por
+  código con `setSetting` antes: cambiaría también el de RepArena.
 - La nitidez se guarda aparte (`reparenaxr-quality`): RepArena tiene la suya (`quality`, con otras opciones) y este motor
   pide otra resolución. Se decide en el PR 7 si se unen.
 
@@ -275,6 +289,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   PR 10.
 - Sin pistolas ni espadas todavía (PR 9): si el usuario las tiene puestas en RepArena, aquí se lanza con las manos.
 - «Manos con el cuerpo» no hace nada aquí: IWSDK no pide el seguimiento del cuerpo (criterio de usar IWSDK de serie).
+- Las 72 imágenes por segundo del estilo Cómic y la arena no se han podido medir (el emulador no tiene tarjeta gráfica):
+  hay que mirarlo en las gafas. Para aligerar: sin sombras en tiempo real y lo fijo de cada compuerta en pocas mallas.
+- Los zombis no tienen sombra (sin sombras en tiempo real; la de contacto de IWSDK pide el origen a ras de suelo, y el de
+  los zombis está en el centro de su cuerpo): por ver en las gafas si hace falta.
+- Sin el sonido ni el vapor de las compuertas al abrirse (PR 5).
 
 ## Fallos de IWSDK
 

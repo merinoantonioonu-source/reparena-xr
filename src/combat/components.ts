@@ -25,3 +25,13 @@ export const Foe = createComponent('Foe', {
 export const Obstacle = createComponent('Obstacle', {
   radius: { type: Types.Float32, default: 0.6, min: 0.1, step: 0.05, help: 'Radio del círculo que rodean, en metros' },
 });
+
+/**
+ * Una compuerta de la arena (como en RepArena): de ella salen los zombis. Se abre cuando sale uno y, abierta, su interior
+ * es oscuro. Es sólida (su física): los zombis nunca la atraviesan.
+ */
+export const Gate = createComponent('Gate', {
+  open: { type: Types.Float32, default: 0, min: 0, max: 1, step: 0.05, help: 'Lo abierta que está (0: cerrada; 1: abierta del todo)' },
+  want: { type: Types.Float32, default: 0, min: 0, max: 1, step: 1, help: 'Hacia dónde va: 1, abrirse; 0, cerrarse' },
+  busy: { type: Types.Float32, default: 0, min: 0, help: 'Segundos que le quedan sacando a un zombi (mientras, no sale otro por ella)' },
+});
