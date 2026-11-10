@@ -304,7 +304,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // las vidas, las de tu rango (0: infinitas: los golpes no te eliminan)
     GAME.maxLives = nLives();
     Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, startTime: this.clock });
-    this.rampLvl = 0;
+    this.rampLvl = GAME.ramp = 0;
     this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla)
     this.chargePow = 0;
     throwReset();
@@ -324,7 +324,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.spawnT = 0;
     // la dificultad sube poco a poco de una oleada a otra (la «Dificultad creciente» de tu rango): llegan antes, más a la
     // vez y hay que bajar algo más. (En RepArena solo cuentan las oleadas superadas con soltura: llega con el PR 10.)
-    this.rampLvl = GAME.wave - 1;
+    this.rampLvl = GAME.ramp = GAME.wave - 1;
     GAME.foeSpeed = Math.min(2.2, Math.max(0.4, SQUAT_SPAWN_DIST / Math.max(1, dv('walkTime', this.rampLvl))));
     this.maxAlive = Math.max(1, Math.round(dv('maxAlive', this.rampLvl)));
     this.stCfg = this.readCfg(this.rampLvl);

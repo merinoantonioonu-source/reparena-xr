@@ -6,6 +6,7 @@ import { createComponent, Types } from '@iwsdk/core';
 /** Estados de un zombi. */
 export const FoeState = {
   Walk: 'walk', // va hacia el jugador, rodeando la bola, las cajas, las rocas y a los demás
+  Taunt: 'taunt', // a media distancia: se planta y te ruge (una vez por avance)
   Attack: 'attack', // ha llegado: golpea
   Stagger: 'stagger', // le han dado: retrocede empujado por la física y no se dirige
   Dead: 'dead', // muerto: cuerpo suelto de física; se hunde en el suelo y desaparece

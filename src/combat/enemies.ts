@@ -39,8 +39,9 @@ import { LifeBeads } from './life.js';
 import { Rocks } from './rocks.js';
 import { retarget } from './retarget.js';
 import { throwK } from './foes.js';
-import { rankIdx } from '../core/settings.js';
-import { num } from '../core/values.js';
+import { dv, rankIdx } from '../core/settings.js';
+import { num, str } from '../core/values.js';
+import { Gait, gaitPlan, paceOf, travelOf } from './gait.js';
 import type { LockTarget } from './lockline.js';
 import { SND } from '../audio/sound.js';
 import { VOICE_PITCH } from '../audio/catalog.js';
@@ -106,6 +107,13 @@ interface FoeRuntime {
   sf: SlotFoe;
   slotT: number;
   slotAt: Vector3;
+  /** Su marcha (src/combat/gait.ts): su forma de moverse, su ritmo y la rapidez de sus gestos; dónde salió y si ya ha
+   * salido de la compuerta; si le acaban de dar (para esquivar). */
+  gait: Gait;
+  pace: number;
+  from: Vector3;
+  out: boolean;
+  hitNow: boolean;
 }
 
 const STAGGER = 0.8; // segundos que se queda encajando el golpe
@@ -272,11 +280,17 @@ export class EnemySystem extends createSystem(
     const sf: SlotFoe = { pos: new Vector3(x, 0, z), radius: d.r, stop: d.stop, slot: new Vector3(), slotOk: false, row: 0 };
     foeSlot(sf, this.slots, GAME.head);
     this.slots.push(sf);
-    const str = devFoe('g:' + kind).str;
-    const rt: FoeRuntime = { kind, def: d, mass: massOf(d), maxHp: hp, str, model, mixer, actions, current: '', yaw, charged: false, attackT: 0, throwCD: 0, struck: false, kick: false, stun: STAGGER, fade: null, target, sf, slotT: 0.6, slotAt: GAME.head.clone() };
+    const strength = devFoe('g:' + kind).str;
+    // su marcha (RepArena: el constructor de Robot): la forma de moverse de su clase (una de las marcadas), la rapidez de
+    // sus gestos y su ritmo, para llegar a su puesto cuando pide «Tiempo llegada»
+    const pace = paceOf(dv('pace_' + d.grp, GAME.ramp), false), travel = travelOf(num('spd_' + d.grp));
+    const plan = gaitPlan(Math.hypot(sf.slot.x - x, sf.slot.z - z), dv('walkTime', GAME.ramp), d.speedF, d.heavy, travel);
+    const gait = new Gait(Gait.pick(str('move_' + d.grp)), plan, pace);
+    if (import.meta.env.DEV) console.info(`rxdbg marcha ${kind}: ${gait.style}, ${plan.vWalk.toFixed(2)} m/s andando, ${plan.vMove.toFixed(2)} desplazándose, gestos ×${pace.toFixed(2)}`); // (para probar en el emulador)
+    const rt: FoeRuntime = { kind, def: d, mass: massOf(d), maxHp: hp, str: strength, model, mixer, actions, current: '', yaw, charged: false, attackT: 0, throwCD: 0, struck: false, kick: false, stun: STAGGER, fade: null, target, sf, slotT: 0.6, slotAt: GAME.head.clone(), gait, pace, from: new Vector3(x, 0, z), out: false, hitNow: false };
     root.userData.rt = rt;
     this.targets.push(target);
-    e.addComponent(Foe, { hp, speed: GAME.foeSpeed * d.speedF * (0.9 + Math.random() * 0.2), state: FoeState.Walk, timer: 0, side: Math.random() < 0.5 ? -1 : 1, radius: d.r });
+    e.addComponent(Foe, { hp, speed: plan.vWalk, state: FoeState.Walk, timer: 0, side: Math.random() < 0.5 ? -1 : 1, radius: d.r });
     e.addComponent(PhysicsShape, { shape: PhysicsShapeType.Capsules, dimensions: [d.r, d.h, 0], density: rt.mass * 60, friction: 0.15, restitution: 0.05 });
     e.addComponent(PhysicsBody, { state: PhysicsState.Dynamic, linearDamping: 0.2, angularDamping: 6 });
     this.anim(rt, 'walk', 0);
@@ -353,6 +367,7 @@ export class EnemySystem extends createSystem(
     e.setValue(Foe, 'hp', hp);
     const mass = rt.mass;
     if (hp > 0) {
+      rt.hitNow = true; // (a veces, esquiva: Gait.dodgeStep)
       e.setValue(Foe, 'state', FoeState.Stagger);
       e.setValue(Foe, 'timer', 0);
       rt.stun = STAGGER;
@@ -514,7 +529,8 @@ export class EnemySystem extends createSystem(
       if (!o || !rt) continue;
       rt.mixer.update(dt);
       const state: string = e.getValue(Foe, 'state') ?? FoeState.Walk;
-      const timer = (e.getValue(Foe, 'timer') ?? 0) + dt;
+      // sus gestos (amenazar, preparar y dar el golpe, retroceder, encajar) van a su ritmo (RepArena: pace, gd)
+      const timer = (e.getValue(Foe, 'timer') ?? 0) + (state === FoeState.Walk || state === FoeState.Dead ? dt : dt * rt.pace);
       e.setValue(Foe, 'timer', timer);
       if (state === FoeState.Dead) {
         // tumbado un rato; luego se desvanece y desaparece
@@ -556,8 +572,18 @@ export class EnemySystem extends createSystem(
         this.anim(rt, 'idle'); // fuera de la partida: quietos (la física los frena)
       } else if (state === FoeState.Stagger) {
         if (timer > rt.stun) newState = FoeState.Walk; // (empujado o retrocediendo: no se dirige; la física lo frena)
+      } else if (state === FoeState.Taunt) {
+        // la amenaza: se planta, de cara a ti, y te ruge (1,1 s a su ritmo; RepArena: 'taunt')
+        const keep = 1 - Math.min(1, dt * 10);
+        vx = vel[0] * keep;
+        vz = vel[2] * keep;
+        this.anim(rt, rt.actions.has('taunt') ? 'taunt' : 'dance', 0.2);
+        if (timer > 1.1) newState = FoeState.Walk;
       } else if (state === FoeState.Walk) {
-        // cada poco busca un puesto mejor: si espera detrás (al morir otro, avanza) o si te has movido
+        const g = rt.gait;
+        // ya fuera de la compuerta (RepArena: out): dentro del túnel va recto a la velocidad de desplazarse
+        if (!rt.out && Math.hypot(p.x - rt.from.x, p.z - rt.from.z) > 2.4) rt.out = true;
+        // cada poco busca un puesto mejor: si espera detrás (al morir otro, avanza), si te has movido o al acabar una esquiva
         rt.slotT -= dt;
         if (!sf.slotOk || (rt.slotT <= 0 && (sf.row > 0 || Math.hypot(GAME.head.x - rt.slotAt.x, GAME.head.z - rt.slotAt.z) > 0.5))) {
           sf.slotOk = false;
@@ -566,7 +592,7 @@ export class EnemySystem extends createSystem(
           rt.slotT = 0.6;
         }
         const sd = Math.hypot(sf.slot.x - p.x, sf.slot.z - p.z);
-        if (sd < 0.3) {
+        if (sd < 0.3 && !(g.dodge > 0)) {
           // en su puesto: quieto, de cara a ti; en la primera fila, golpea (con ritmo, en el pulso); detrás, espera su turno
           // (con ritmo, bailando a su compás: una vuelta de su baile cada dos pulsos)
           const keep = 1 - Math.min(1, dt * 10);
@@ -579,23 +605,46 @@ export class EnemySystem extends createSystem(
             roar(p, d.voice, d.heavy ? 0.8 : 1);
           } else if (P && rt.actions.get('dance')) this.anim(rt, 'dance', 0.3, false, rt.actions.get('dance')!.getClip().duration / (2 * P));
           else this.anim(rt, 'idle', 0.3);
+        } else if (playing && !GAME.between && g.tauntNow(dt, dv('walkTime', GAME.ramp), dist)) {
+          // la amenaza a media distancia (una vez por avance, si hay tiempo)
+          newState = FoeState.Taunt;
+          roar(p, d.voice, d.heavy ? 0.8 : 1.1);
+          if (import.meta.env.DEV) console.info(`rxdbg amenaza ${rt.kind} a ${dist.toFixed(1)} m`); // (para probar en el emulador)
+          vx = vel[0];
+          vz = vel[2];
         } else {
-          const speed = e.getValue(Foe, 'speed') ?? 1;
           this.steer(e, p, r, e.getValue(Foe, 'side') ?? 1, sf.slot);
-          const slow = Math.min(1, Math.max(0.3, sd / 0.7)); // (frena al llegar)
           // los últimos metros, corriendo y rugiendo (RepArena: la carga)
-          if (!rt.charged && dist < sf.stop + 3) {
+          if (!rt.charged && sd < g.plan.chargeD + 0.3) {
             rt.charged = true;
             roar(p, d.voice, d.heavy ? 0.7 : 1.2);
           }
-          const v = speed * slow * (rt.charged ? 1.25 : 1);
-          const ax = this.des.x * v, az = this.des.z * v;
-          const blend = Math.min(1, dt * 12); // (no del todo: así los choques también lo mueven)
+          // su forma de moverse: a su ritmo, con zigzag o con paradas en guardia (RepArena: wantV y lat)
+          g.march(dt, sd, rt.out, rt.charged);
+          let v = g.wantV;
+          if (v > 0) v = Math.max(v, 0.25); // (nunca a paso de caracol: o anda, o se para)
+          const tl = sd || 1, tx = (sf.slot.x - p.x) / tl, tz = (sf.slot.z - p.z) / tl;
+          let ax = this.des.x * v + tz * g.lat, az = this.des.z * v - tx * g.lat;
+          // la esquiva: se aparta de golpe de lado (respecto a ti), con voltereta si la tiene
+          const was = g.dodge > 0, side = g.dodgeStep(dt, rt.out && !rt.charged && playing && !GAME.between, rt.hitNow, !!rt.actions.get('roll'));
+          rt.hitNow = false;
+          if (import.meta.env.DEV && !was && g.dodge > 0) console.info(`rxdbg esquiva ${rt.kind}${g.roll ? ' con voltereta' : ''}`); // (para probar en el emulador)
+          if (side) {
+            const sv = side / Math.max(dt, 1e-3);
+            ax += Math.cos(faceP) * sv;
+            az -= Math.sin(faceP) * sv;
+          }
+          if (g.dodge > 0 && g.roll && rt.current !== 'roll') this.anim(rt, 'roll', 0.08, true, rt.actions.get('roll')!.getClip().duration / g.dodgeDur);
+          const blend = Math.min(1, dt * (g.dodge > 0 ? 20 : 3 + (3 * g.plan.vMove) / g.plan.vWalk)); // (con inercia: arranca y frena como un cuerpo pesado)
           vx = vel[0] + (ax - vel[0]) * blend;
           vz = vel[2] + (az - vel[2]) * blend;
           const sp = Math.hypot(vx, vz);
-          if (sp > 0.15) wantYaw = Math.atan2(vx, vz);
-          if (sp > 1.35 && rt.actions.get('run')) this.anim(rt, 'run', 0.3, false, Math.min(d.maxTs, Math.max(d.minTs, sp / d.run)));
+          if (g.dodge > 0) wantYaw = g.roll ? faceP + (side > 0 ? -1 : 1) * Math.PI / 2 : faceP;
+          else if (sp > 0.15) wantYaw = Math.atan2(vx, vz);
+          if (g.dodge > 0 && g.roll) {
+            /* (la voltereta sigue su animación) */
+          } else if (sp < 0.12) this.anim(rt, 'idle', 0.3); // (parado en guardia, a rachas)
+          else if (sp > 1.35 && rt.actions.get('run')) this.anim(rt, 'run', 0.3, false, Math.min(d.maxTs, Math.max(d.minTs, sp / d.run)));
           else this.anim(rt, 'walk', 0.3, false, Math.min(d.maxTs, Math.max(d.minTs, sp / d.walk)));
         }
       } else if (state === FoeState.Attack) {
@@ -616,7 +665,7 @@ export class EnemySystem extends createSystem(
             if (hb) hb.getWorldPosition(this.hand);
             else this.hand.copy(p).setY(p.y + d.h * 0.3);
             this.rocks.throw(this.hand, k);
-            rt.throwCD = (3.5 + Math.random() * 2) / k;
+            rt.throwCD = (3.5 + Math.random() * 2) / Math.sqrt(Math.max(0.7, rt.pace)) / k; // (RepArena: más a menudo con más rapidez de gestos)
           } else {
             if (dist < sf.stop + r + 0.6) HOOKS.playerHit(rt.str);
             SND.step(p, true);
@@ -628,10 +677,11 @@ export class EnemySystem extends createSystem(
           // retrocede de espaldas (RepArena: knock), a paso tranquilo
           newState = FoeState.Stagger;
           rt.stun = 1.0;
-          this.setVel(e, (-toX / (dist || 1)) * BACK_V, vel[1], (-toZ / (dist || 1)) * BACK_V, null);
+          const bv = BACK_V * Math.sqrt(rt.pace); // (RepArena: backV · √pace)
+          this.setVel(e, (-toX / (dist || 1)) * bv, vel[1], (-toZ / (dist || 1)) * bv, null);
           rt.kick = true;
           rt.charged = false;
-          this.anim(rt, 'walk', 0.25, false, -Math.max(d.minTs, BACK_V / d.walk));
+          this.anim(rt, 'walk', 0.25, false, -Math.max(d.minTs, bv / d.walk));
         }
       }
       if (newState !== state) {

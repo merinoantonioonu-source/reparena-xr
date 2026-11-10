@@ -55,6 +55,12 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
   atrás, **se lanzan a morderte** (con su voz y un silbido) y se alejan; un disparo los empuja hacia atrás y les quita el
   impulso. Al derribarlos, estallan en baba y **caen al suelo**. Con los de tierra, uno de cada; se eligen en sus fichas
   de Rivales (los drones y los avispones, geométricos, por ahora no; el dragón, el jefe, con el PR 10).
+- **Su forma de moverse**, la de su clase (Ajustes → Cada enemigo), como en RepArena: cada uno elige una de las marcadas
+  (recto, zigzag de lado a lado, a rachas con paradas en guardia, o con **esquivas**: se aparta de golpe hacia un lado,
+  el diablillo y el puglin con una voltereta, de vez en cuando y a veces al recibir un disparo). Acechan andando y cargan
+  corriendo los últimos metros, llegando cuando pide «Tiempo llegada»; con más «velocidad al desplazarse», lo que les
+  sobra lo gastan en zigzags o paradas. A media distancia, una vez, **se plantan y te amenazan** con un rugido. Sus gestos
+  (amenazar, preparar y dar el golpe, retroceder, encajar) van a su «rapidez de gestos».
 - **Con física de verdad** (motor Havok): cada uno es un cuerpo que choca con el suelo, las cajas, las rocas, la bola y
   los demás. Van a **su puesto de ataque**, en un arco delante de ti (como en RepArena): **rodean la bola**, las cajas y
   las rocas y se apartan entre ellos; si la primera fila está llena, **esperan en la de atrás** y, con ritmo marcado
@@ -123,6 +129,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/foes.ts` | La tabla de los enemigos (modelo, tamaño, animaciones, golpe, voz), su resistencia y fuerza, el reparto y los puestos de ataque, sin IWSDK |
 | `src/combat/retarget.ts` | Las animaciones de la biblioteca de Quaternius, pasadas al esqueleto del diablillo y el puglin |
 | `src/combat/rocks.ts`, `src/combat/rock-path.ts` | Las piedras del lanzador: la parábola, la parada con la mano y lo que pasa al llegar |
+| `src/combat/gait.ts` | Cómo andan los de tierra (de RepArena): el ritmo de la marcha, recto, zigzag, rachas, la amenaza y las esquivas, sin IWSDK |
 | `src/combat/flight.ts` | El vuelo de los voladores (el de RepArena: acercarse, bandazos, lanzarse a morder, empujones, salir por la compuerta), sin IWSDK |
 | `src/combat/flyers.ts` | Los voladores: su modelo, el aleteo, el mordisco, el zumbido y la caída al morir |
 | `src/combat/life.ts` | Las cuentas de vida sobre cada enemigo (bolitas doradas, en un solo dibujo) |

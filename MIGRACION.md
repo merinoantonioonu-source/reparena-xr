@@ -116,7 +116,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 8a · Enemigos de las compuertas con su modelo** — #10
 - [x] **PR 8b · Diablillo, puglin y lanzador** — #11
 - [x] **PR 8c · Voladores con modelo (abeja, murciélago, Cthulhu y dragón)** — #12
-- [ ] **PR 8d · Amenazas, formas de moverse, rapidez de gestos y esquivas**
+- [x] **PR 8d · Amenazas, formas de moverse, rapidez de gestos y esquivas** — #13
 - [ ] **PR 9 · Armas y defensa** (aplazado por el usuario: se hará más adelante; después del 8d va el 10)
 - [ ] **PR 10 · Oleadas y premios**
 - [ ] **PR 11 · Ejercicios de suelo**
@@ -240,8 +240,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   en cada fotograma y los mismos mordiscos); el modelo, el aleteo a su ritmo, el mordisco, el zumbido (`loopSound`) y la
   caída al morir, en `src/combat/flyers.ts` (`FlyerSystem`). Con los de tierra, uno de cada (como en RepArena); los
   drones y avispones (geométricos) no salen: si solo están ellos, abejas y murciélagos. Sus fichas, en Rivales.
-- **8d** (partido del 8c): las amenazas a media distancia (`taunt`), las formas de moverse de cada clase (Ajustes → Cada
-  enemigo: `move_*`, `spd_*`, `pace_*`) y las esquivas. Los de las trampillas con modelo (cangrejo, seta, calavera), con
+- **8d (hecho; partido del 8c)**: las amenazas a media distancia (`taunt`), las formas de moverse de cada clase (Ajustes →
+  Cada enemigo: `move_*`, `spd_*`, `pace_*`) y las esquivas. La lógica de RepArena tal cual (`src/combat/gait.ts`:
+  `gaitPlan`, `Gait`), comparada con su código (`tests/compare/gait.compare.test.ts`: el ritmo de la marcha, el zigzag,
+  las rachas, la amenaza y las esquivas, con el mismo azar); en `EnemySystem` se aplica pidiendo velocidad a la física. Los de las trampillas con modelo (cangrejo, seta, calavera), con
   los ejercicios de suelo (PR 11).
 
 **PR 9 · Armas y defensa** (L)
@@ -303,13 +305,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
-- PR 8c → PR 8d: los de tierra se mueven con la física (velocidad pedida a Havok: `EnemySystem.update`), no como en
-  RepArena (que movía `pos` a mano): las formas de moverse (`move_*`: recto, zigzag, a rachas, esquivas), las velocidades
-  (`spd_*`: `vWalk`, `vRun`, `vMove`, `chargeD` del constructor de `Robot`), la rapidez de gestos (`pace_*`: el `gd` y el
-  `st` de `Robot.update`) y la amenaza (`taunt`) se portan como lógica pura comparada con RepArena y se aplican pidiendo
-  velocidad. Los voladores tienen su `Foe` (y `Flyer`), pero no `PhysicsBody` mientras vuelan: no entran en la consulta
-  de `EnemySystem`. Los blancos (`targets`) son de todos: cada uno, un `FoeTarget` con su vida al salir y la altura de
-  sus cuentas de vida; el disparo y el puñetazo se reparten en `EnemySystem.hit`/`shove`.
+- PR 8d → PR 10: cada enemigo de tierra lleva su marcha (`rt.gait`: `Gait`, con su `plan` de velocidades y su `pace`); su
+  reloj (`Foe.timer`) corre a su ritmo en todo menos andando (como el `st` de RepArena). Los jefes (PR 10) van algo más
+  pausados (`paceOf(…, true)`). La dificultad creciente de la oleada, en `GAME.ramp` (la lee `dv` en los enemigos). En
+  desarrollo, la consola apunta la marcha de cada uno, sus amenazas y sus esquivas (`rxdbg marcha`, `amenaza`, `esquiva`).
+- Los voladores tienen su `Foe` (y `Flyer`), pero no `PhysicsBody` mientras vuelan: no entran en la consulta de
+  `EnemySystem`. Los blancos (`targets`) son de todos: cada uno, un `FoeTarget` con su vida al salir y la altura de sus
+  cuentas de vida; el disparo y el puñetazo se reparten en `EnemySystem.hit`/`shove`.
 - PR 8c → PR 10: el dragón solo sale de jefe (RepArena: `isBossWave`, el jefe de los voladores; si no lo has elegido, la
   nodriza, que era geométrica). Está en la tabla (`FOE_DEF.dragon`) y en `FLYER_KIND` (`boss`: el empujón, a un 30 %).
 - PR 8c → PR 11: el vuelo de los voladores diminutos (flexiones) y bajos (superman, plancha lateral) no está portado: en
@@ -382,7 +384,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - PR 8b: los robots no salen (eran geométricos: decisión del usuario); si solo eliges robots, salen zombis verdes.
 - PR 8b: las piedras se paran con la mano (muñeca o dedos); con la espada, en el PR 9. El lanzador se ha probado en la
   VR simulada (tira desde la mano y la piedra da si no te apartas); esquivarla y pararla, por mirar en las gafas.
-- PR 8a: los enemigos no hacen amenazas a media distancia ni zigzag o rachas (Ajustes → Cada enemigo): PR 8b. Los jefes,
+- PR 8d: las esquivas se hacen con la física (de lado, pidiendo velocidad): si chocan con algo, se paran contra ello (en
+  RepArena la esquiva se cortaba sin moverse). La voltereta, solo el diablillo, el puglin y el lanzador (los que la traen
+  en su biblioteca de animaciones). En la VR simulada se han visto la amenaza (diablillo, puglin, velociraptor), las
+  esquivas con voltereta y las formas de moverse elegidas; el zigzag y las paradas en guardia, por mirar en las gafas.
+- PR 8d: con la «rapidez de gestos» de serie (150 %), el golpe se prepara y se da algo más deprisa que en el PR 8a (como en
+  RepArena: antes iba al 100 %).
+- PR 8a: los jefes,
   la escalera de dureza y la resistencia que sube por oleadas superadas, con el PR 10. El baile al compás, con el ritmo
   marcado (Opciones → Sonido); el de la canción de Spotify, con el PR 22.
 - PR 8a: el golpe no se puede parar todavía (la guardia y las espadas, PR 9).
