@@ -34,7 +34,7 @@ import {
   Vector3,
 } from '@iwsdk/core';
 import { Foe, FoeState, Obstacle } from './components.js';
-import { devFoe, FOE_DEF, foeSlot, type FoeDef, type FoeClips, type SlotFoe } from './foes.js';
+import { bossDef, devFoe, FOE_DEF, foeSlot, type FoeDef, type FoeClips, type SlotFoe } from './foes.js';
 import { LifeBeads } from './life.js';
 import { Rocks } from './rocks.js';
 import { retarget } from './retarget.js';
@@ -227,9 +227,9 @@ export class EnemySystem extends createSystem(
     return m;
   }
 
-  /** Saca uno de la tabla (kind: zgreen, raptor, captain…) en (x, z), mirando hacia ti, con hp de vida. */
-  spawn(kind: string, x: number, z: number, hp: number): void {
-    const d = FOE_DEF[kind];
+  /** Saca uno de la tabla (kind: zgreen, raptor, captain…) en (x, z), mirando hacia ti, con hp de vida; boss: su jefe. */
+  spawn(kind: string, x: number, z: number, hp: number, boss = false): void {
+    const d = FOE_DEF[kind] && boss ? bossDef(kind) : FOE_DEF[kind];
     const gltf = d && AssetManager.getGLTF(d.asset);
     if (!d || !gltf) return;
     const root = new Group();
@@ -283,7 +283,7 @@ export class EnemySystem extends createSystem(
     const strength = devFoe('g:' + kind).str;
     // su marcha (RepArena: el constructor de Robot): la forma de moverse de su clase (una de las marcadas), la rapidez de
     // sus gestos y su ritmo, para llegar a su puesto cuando pide «Tiempo llegada»
-    const pace = paceOf(dv('pace_' + d.grp, GAME.ramp), false), travel = travelOf(num('spd_' + d.grp));
+    const pace = paceOf(dv('pace_' + d.grp, GAME.ramp), boss), travel = travelOf(num('spd_' + d.grp));
     const plan = gaitPlan(Math.hypot(sf.slot.x - x, sf.slot.z - z), dv('walkTime', GAME.ramp), d.speedF, d.heavy, travel);
     const gait = new Gait(Gait.pick(str('move_' + d.grp)), plan, pace);
     if (import.meta.env.DEV) console.info(`rxdbg marcha ${kind}: ${gait.style}, ${plan.vWalk.toFixed(2)} m/s andando, ${plan.vMove.toFixed(2)} desplazándose, gestos ×${pace.toFixed(2)}`); // (para probar en el emulador)
@@ -294,7 +294,7 @@ export class EnemySystem extends createSystem(
     e.addComponent(PhysicsShape, { shape: PhysicsShapeType.Capsules, dimensions: [d.r, d.h, 0], density: rt.mass * 60, friction: 0.15, restitution: 0.05 });
     e.addComponent(PhysicsBody, { state: PhysicsState.Dynamic, linearDamping: 0.2, angularDamping: 6 });
     this.anim(rt, 'walk', 0);
-    if (d.heavy || hp >= 3 || Math.random() < 0.5) roar(root.position, d.voice); // (al salir: la mitad de las veces; los fuertes, siempre)
+    if (d.heavy || hp >= 3 || Math.random() < 0.5) roar(root.position, d.voice, boss ? 0.65 : 1); // (al salir: la mitad de las veces; los fuertes, siempre)
   }
 
   /** Al acabar la ronda: los que quedan en pie se desvanecen (no tapan el resumen). */
@@ -398,7 +398,7 @@ export class EnemySystem extends createSystem(
     }
     roar(e.object3D!.position, rt.def.voice, 0.8);
     SND.squish(e.object3D!.position);
-    HOOKS.foeDown();
+    HOOKS.foeDown(rt.kind, !!rt.def.boss);
   }
 
   /**

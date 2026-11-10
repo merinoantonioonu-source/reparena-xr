@@ -319,7 +319,8 @@ export const hangSecs = (i: number): number => num('hangTime') + num('hangInc') 
 // Dificultad creciente: el valor efectivo de un ajuste en la oleada en curso. Sube un ramp % por cada oleada superada con
 // soltura (lvl, en el juego), hasta +60 %: llegan antes y hay menos tiempo para tocarlos o reventarlos; y, a la mitad de
 // ese ritmo, más enemigos a la vez, sus gestos y el vuelo errático; más recorrido, a un 40 % (hasta +24 %)
-const RAMP_CAP = 0.6, RAMP_SLOWER = ['walkTime', 'tchArrive', 'barArrive', 'tchGap', 'tchWindow', 'barWait'], RAMP_DEEPER = ['squatDepth', 'pushDepth', 'lungeDepth', 'dipDepth', 'arcMin', 'arcMax'];
+export const RAMP_CAP = 0.6;
+const RAMP_SLOWER = ['walkTime', 'tchArrive', 'barArrive', 'tchGap', 'tchWindow', 'barWait'], RAMP_DEEPER = ['squatDepth', 'pushDepth', 'lungeDepth', 'dipDepth', 'arcMin', 'arcMax'];
 /** El valor de un ajuste en la oleada de ahora; lvl: las oleadas superadas con soltura (0 fuera de la partida). */
 export function dv(key: string, lvl = 0): number {
   const v = num(key), k = num('ramp') > 0 && lvl > 0 ? Math.min(RAMP_CAP, (num('ramp') / 100) * lvl) : 0;

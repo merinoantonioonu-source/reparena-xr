@@ -20,6 +20,7 @@ import {
   Euler,
   Mesh,
   MeshBasicMaterial,
+  PlaneGeometry,
   SphereGeometry,
   BackSide,
   UIKitMLAsset,
@@ -35,12 +36,13 @@ import { boltColor, Effects, POW_COL } from './fx.js';
 import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
 import { IDLE } from '../exercise/how.js';
-import { aimForced, deepOn, flyList, foes, groundList, handsFree } from '../core/rules.js';
-import { deal, devFoe, flyFoes, FOE_DEF, gateFoes } from './foes.js';
+import { aimForced, deepOn, flyList, foes, groundList, handsFree, twoShots } from '../core/rules.js';
+import { devFoe, flyFoes, FOE_DEF, foeName, gateFoes } from './foes.js';
+import { buildWave, foeTierOf, killPoints, rampAfter, rampK, REP_TIME, repPoints, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
 import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
 import { curEx } from '../ui/fields.js';
-import { dv, nLives, setSetting } from '../core/settings.js';
+import { dv, nLives, nWaves, RAMP_CAP, rankIdx, setSetting, waveReps } from '../core/settings.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
 import { GAME, HOOKS } from '../core/state.js';
@@ -68,6 +70,9 @@ const aimNow = (): 'auto' | 'hands' | 'gaze' => {
   if (aimForced() || a === 'auto') return 'auto';
   return a === 'gaze' || !handsFree() ? 'gaze' : 'hands';
 };
+
+// El panel entre oleadas: lo que dura (s) (RepArena: WIN.dur)
+const WAVE_INTRO = 2.4;
 
 // Avisos en el suelo (RepArena, src/60_ui.js: warnFloor y chargeFloor)
 const WARN_SECS = 4;
@@ -100,19 +105,29 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private chargeS = 1;
   private floorE = new Euler(0, 0, 0, 'YXZ');
   private chargePow = 0; // nivel de la carga de la bola (0: ninguna)
+  // el panel entre oleadas y el fundido leve detrás (una cortina oscura grande, por detrás del panel: la escena se ve)
+  private waveP: UIKitMLAsset | null = null;
+  private waveE: Entity | undefined;
+  private veil!: Mesh;
+  private introT = -1;
   // el lanzamiento con las manos (src/input/throw.ts), la diana y lo que le pasa
   private env!: ThrowEnv;
   private locks = new LockLines();
   private cfx!: ComicFx;
   private gaze = new Vector3(0, 0, -1);
   // oleadas
-  private toSpawn = 0;
+  private queue: WaveSpec[] = [];
+  private seen = new Set<string>();
+  private gap = 2;
+  private restT = 0;
+  private waveTarget = 0;
+  private taken0 = 0;
+  private beatK = -1;
   // los que van a salir por una compuerta que se está abriendo (a cada uno le falta «t» para salir)
   private gates: GateSystem | null = null;
-  private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0, kind: '' }));
+  private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0, kind: '', boss: false, hp: 1 }));
   private fg: FlyGate = { x: 0, z: 0, ry: 0, scale: 1 };
   private spawnT = 0;
-  private betweenT = 0;
   private msgT = 0;
   private clock = 0;
   private desktopDrop = 0;
@@ -158,11 +173,25 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.warnEntity = this.world.getSceneEntity('warn-panel');
     this.chargeP = this.world.getSceneObject<UIKitMLAsset>('charge-panel') ?? null;
     this.chargeEntity = this.world.getSceneEntity('charge-panel');
-    for (const p of [this.board, this.warn, this.chargeP]) if (p) applyFonts(p);
+    this.waveP = this.world.getSceneObject<UIKitMLAsset>('wave-panel') ?? null;
+    this.waveE = this.world.getSceneEntity('wave-panel');
+    if (this.waveE?.object3D) this.waveE.object3D.visible = false;
+    this.veil = new Mesh(new PlaneGeometry(14, 9), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false }));
+    this.veil.userData.noInk = true;
+    this.veil.visible = false;
+    this.world.createTransformEntity(this.veil);
+    for (const p of [this.board, this.warn, this.chargeP, this.waveP]) if (p) applyFonts(p);
     for (const e of [this.warnEntity, this.chargeEntity]) if (e?.object3D) e.object3D.visible = false;
     GAME.maxLives = GAME.lives = nLives(); // (las de tu rango)
     HOOKS.playerHit = (str) => this.onPlayerHit(str ?? 1);
-    HOOKS.foeDown = () => this.onFoeDown();
+    HOOKS.foeDown = (k, b) => this.onFoeDown(k, b);
+    HOOKS.score = (pts, combo) => {
+      GAME.score += pts;
+      if (combo) {
+        GAME.combo++;
+        GAME.bestCombo = Math.max(GAME.bestCombo, GAME.combo);
+      }
+    };
     HOOKS.startRound = () => this.startRound();
     HOOKS.say = (text, color, secs) => {
       this.message(text, secs);
@@ -186,10 +215,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     for (const e of this.queries.foes.entities) {
       const o = e.object3D;
       if (!o) continue;
-      foes.push({ kind: ((o.userData.rt ?? o.userData.fly) as { kind?: string } | undefined)?.kind, fly: !!o.userData.fly, state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
+      const ud = o.userData as { rt?: { kind: string; def: { boss?: boolean } }; fly?: { kind: string; flight: { K: { boss?: boolean } } } };
+      foes.push({ kind: (ud.rt ?? ud.fly)?.kind, fly: !!ud.fly, boss: !!(ud.rt?.def.boss || ud.fly?.flight.K.boss), state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
-    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
+    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
@@ -279,10 +309,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private refreshBoard(): void {
     const b = this.board;
     if (!b) return;
-    this.setText(b, 'wave', GAME.phase === 'menu' ? 'PREPARADO' : `OLEADA ${GAME.wave}`);
+    const N = nWaves();
+    this.setText(b, 'wave', GAME.phase === 'menu' || !GAME.wave ? 'PREPARADO' : N ? `OLEADA ${GAME.wave}/${N}` : `OLEADA ${GAME.wave}`);
     this.setText(b, 'lives', GAME.maxLives > 0 ? `VIDAS ${GAME.lives}/${GAME.maxLives}` : 'VIDAS SIN FIN');
     this.setText(b, 'reps', String(GAME.reps));
-    this.setText(b, 'kills', `Derribados: ${GAME.kills}`);
+    this.setText(b, 'kills', `${GAME.score} puntos · Derribados: ${GAME.kills}`);
     this.setText(b, 'perfect', `Perfectas: ${GAME.perfect}`);
     const pow = Math.max(this.chargePow, HTH.left.c?.pow ?? 0, HTH.right.c?.pow ?? 0); // (en la bola o en las manos)
     this.setText(b, 'charge', pow > 0 ? `Carga ×${pow}` : 'Sin carga');
@@ -301,9 +332,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // el ejercicio: Combate con uno de pie (si lo elegido en RepArena era otro modo u otro ejercicio, la sentadilla)
     if (settings.mode !== 'combat') setSetting('mode', 'combat');
     if (!STAND_EX.includes(settings.exercise)) setSetting('exercise', curEx());
-    // las vidas, las de tu rango (0: infinitas: los golpes no te eliminan)
+    // las vidas, las de tu rango (0: infinitas: los golpes no te eliminan; al fallo, al menos una)
     GAME.maxLives = nLives();
-    Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, startTime: this.clock });
+    Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, score: 0, combo: 0, bestCombo: 0, taken: 0, startTime: this.clock });
     this.rampLvl = GAME.ramp = 0;
     this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla)
     this.chargePow = 0;
@@ -312,24 +343,96 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     punchReset();
     this.locks.clear();
     HOOKS.hideMenu();
-    this.dealFoes();
-    this.nextWave();
+    this.seen.clear();
+    this.queue.length = 0;
+    // antes de la primera oleada, 3 s para colocarte (RepArena: 'ready')
+    GAME.between = true;
+    this.restT = 3;
+    this.message(nWaves() ? `PREPÁRATE · ${nWaves()} OLEADAS` : 'PREPÁRATE · AL FALLO', 3);
+    this.stCfg = this.readCfg(0);
   }
 
-  private nextWave(): void {
-    GAME.wave++;
-    GAME.between = true;
-    this.betweenT = GAME.wave === 1 ? 3 : 4;
-    this.toSpawn = 3 + GAME.wave;
-    this.spawnT = 0;
-    // la dificultad sube poco a poco de una oleada a otra (la «Dificultad creciente» de tu rango): llegan antes, más a la
-    // vez y hay que bajar algo más. (En RepArena solo cuentan las oleadas superadas con soltura: llega con el PR 10.)
-    this.rampLvl = GAME.ramp = GAME.wave - 1;
-    GAME.foeSpeed = Math.min(2.2, Math.max(0.4, SQUAT_SPAWN_DIST / Math.max(1, dv('walkTime', this.rampLvl))));
+  // Empieza la oleada i (desde 0): quién sale (RepArena: buildWave), cada cuánto, cuántos a la vez y lo que pide el
+  // ejercicio (con la dificultad creciente de las oleadas superadas con soltura); desde la segunda, el panel entre oleadas
+  private startWave(i: number): void {
+    GAME.wave = i + 1;
+    GAME.between = false;
+    GAME.ramp = this.rampLvl;
+    const ground = gateFoes(groundList()), fly = flyFoes(flyList());
+    const env: WaveEnv = { reps: waveReps(i), twoShots: twoShots(), foes: foes() as WaveEnv['foes'], ground, fly: flyList().includes('dragon') ? [...fly, 'dragon'] : fly, waves: nWaves(), rank: rankIdx(), ladder: on('foeLadder'), hp: (k) => devFoe(k).hp, tier: (k) => foeTierOf((key) => devFoe(key).tier, k) };
+    const w = buildWave(i, env, this.seen);
+    this.queue = w.list;
+    this.waveTarget = env.reps;
+    const rk = rampK(num('ramp'), this.rampLvl, RAMP_CAP);
+    this.gap = spawnGap(this.queue, REP_TIME[settings.exercise] ?? 2.4, env.foes === 'flyers', env.twoShots, num('spawnGap'), rk);
+    this.spawnT = 0.6;
     this.maxAlive = Math.max(1, Math.round(dv('maxAlive', this.rampLvl)));
+    GAME.foeSpeed = Math.min(2.2, Math.max(0.4, SQUAT_SPAWN_DIST / Math.max(1, dv('walkTime', this.rampLvl))));
     this.stCfg = this.readCfg(this.rampLvl);
-    this.message(`OLEADA ${GAME.wave}`, this.betweenT);
+    this.taken0 = GAME.taken;
+    if (i > 0) {
+      this.waveIntro(i, w.fresh, rk);
+      this.spawnT += WAVE_INTRO; // (llegan cuando se va el panel)
+    }
+    const W1 = `OLEADA ${i + 1}`;
+    this.message(rk ? `${W1} · +${Math.round(rk * 100)} % DIFICULTAD` : W1, 1.6);
     SND.horn();
+  }
+
+  // El panel entre oleadas (RepArena: waveIntro): la oleada que empieza, tus puntos y lo nuevo, grande delante de ti
+  // (donde salen los avisos), con la escena algo oscurecida detrás; mientras se ve, no sale nadie
+  private waveIntro(i: number, fresh: string[], rk: number): void {
+    const p = this.waveP, o = this.waveE?.object3D;
+    if (!p || !o) return;
+    const N = nWaves(), last = N > 0 && i >= N - 1;
+    this.setText(p, 't1', last ? '¡ÚLTIMA OLEADA!' : N ? `OLEADA ${i + 1} DE ${N}` : `OLEADA ${i + 1}`);
+    this.setText(p, 't2', `${GAME.score} puntos`);
+    const nw = fresh.map((k) => foeName(xrFoe(k).k)).join(', ');
+    const t3 = nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
+    this.setText(p, 't3', t3);
+    p.getElementById('t3')?.setProperties({ color: nw ? '#ff8a3d' : '#3cf0c6', display: t3 ? 'flex' : 'none' });
+    // delante de ti, a la altura de los ojos y de cara (derecho: nunca se ladea con la cabeza)
+    const f = GAME.fwd;
+    o.position.set(head.p.x + f.x * 1.6, head.p.y + 0.02, head.p.z + f.z * 1.6);
+    o.rotation.set(0, Math.atan2(-f.x, -f.z), 0);
+    this.veil.position.set(head.p.x + f.x * 1.75, head.p.y, head.p.z + f.z * 1.75);
+    this.veil.rotation.set(0, Math.atan2(-f.x, -f.z), 0);
+    this.introT = 0;
+  }
+
+  private stepIntro(dt: number): void {
+    const o = this.waveE?.object3D;
+    if (this.introT < 0 || !o) return;
+    this.introT += dt;
+    const t = this.introT, a = t < 0.35 ? (t / 0.35) * (t / 0.35) * (3 - 2 * (t / 0.35)) : Math.max(0, Math.min(1, (WAVE_INTRO - t) / 0.5));
+    (this.veil.material as MeshBasicMaterial).opacity = 0.45 * a;
+    this.veil.visible = a > 0.01;
+    o.visible = a > 0.05;
+    o.scale.setScalar(1 + 0.08 * Math.max(0, 1 - t / 0.5));
+    if (t >= WAVE_INTRO) this.hideIntro();
+  }
+
+  private hideIntro(): void {
+    this.introT = -1;
+    this.veil.visible = false;
+    if (this.waveE?.object3D) this.waveE.object3D.visible = false;
+  }
+
+  // Oleada superada: la dificultad creciente sube si ha sido con soltura; la última gana la ronda; si no, el descanso
+  // (Ajustes → Partida: «Descanso entre oleadas») y la siguiente (RepArena: el final de 'play' en gameStep)
+  private waveCleared(): void {
+    const r = rampAfter(true, GAME.taken - this.taken0, this.waveTarget, num('ramp'), this.rampLvl, RAMP_CAP);
+    if (r.up) this.rampLvl++;
+    const N = nWaves();
+    if (N && GAME.wave >= N) {
+      this.endRound(true);
+      return;
+    }
+    GAME.between = true;
+    this.restT = num('rest');
+    SND.victory();
+    this.message(r.note ? `¡Oleada superada! ${r.note}` : '¡Oleada superada!', 2.5);
+    if (this.restT <= 0) this.startWave(GAME.wave);
   }
 
   // lo que pide el ejercicio en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
@@ -353,21 +456,26 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     };
   }
 
-  private gameOver(): void {
+  // Se acaba la ronda: al perder todas las vidas (win: false) o al superar la última oleada (RepArena: endRun)
+  private endRound(win: boolean): void {
     GAME.phase = 'over';
+    GAME.between = false;
     this.chargePow = 0;
+    this.queue.length = 0;
     throwReset();
     this.locks.clear();
-    SND.defeat();
+    this.hideIntro();
+    if (win) SND.victory();
+    else SND.defeat();
     haptic('left', 1, 450);
     haptic('right', 1, 450);
     this.enemies.vanishAll();
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
-    this.message('¡Te han derribado!', 4);
+    this.message(win ? '¡Victoria!' : '¡Te han derribado!', 4);
     // el menú principal, delante de ti, con cómo fue la ronda (el resumen de RepArena llega con el PR 12)
     const t = Math.floor(this.clock - GAME.startTime);
-    HOOKS.showMenu(`Oleada ${GAME.wave} · ${GAME.reps} repeticiones (${GAME.perfect} perfectas) · ${GAME.kills} derribados · ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`);
+    HOOKS.showMenu(`${win ? '¡Victoria!' : `Oleada ${GAME.wave}`} · ${GAME.score} puntos · ${GAME.reps} repeticiones (${GAME.perfect} perfectas) · ${GAME.kills} derribados · ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`);
   }
 
   // te han dado: pierdes las vidas de su fuerza (la de la tabla del desarrollador; RepArena: hurtPlayer)
@@ -376,23 +484,44 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (GAME.maxLives > 0) GAME.lives = Math.max(0, GAME.lives - Math.max(1, str));
     this.hurtT = 0.45;
     SND.hurt();
+    GAME.combo = 0; // (te han dado: se rompe el combo)
+    GAME.taken++;
     this.message(GAME.maxLives === 0 ? '¡Golpe!' : GAME.lives > 0 ? '¡Golpe! Quedan ' + GAME.lives : '¡Golpe!', 1.5);
-    if (GAME.maxLives > 0 && GAME.lives <= 0) this.gameOver();
+    if (GAME.maxLives > 0 && GAME.lives <= 0) this.endRound(false);
   }
 
-  private onFoeDown(): void {
+  // derribado: sus puntos (el jefe, 1500) (RepArena: onKilled)
+  private onFoeDown(kind = '', boss = false): void {
     GAME.kills++;
+    GAME.score += killPoints(kind, boss);
+    if (boss) {
+      this.message('¡JEFE DESTRUIDO!', 2.2);
+      SND.combo();
+    }
+  }
+
+  // la repetición suma al combo y da sus puntos (más cuanto más combo; la perfecta, el doble); cada 10 seguidas, ¡COMBO!
+  // (RepArena: registerRep)
+  private repScore(perfect: boolean): void {
+    GAME.combo++;
+    GAME.bestCombo = Math.max(GAME.bestCombo, GAME.combo);
+    GAME.score += repPoints(perfect, GAME.combo);
+    if (GAME.combo % 10 === 0) {
+      this.message(`COMBO ×${GAME.combo}`, 1.5);
+      SND.combo();
+    }
   }
 
   // Cada uno sale por una compuerta (como en RepArena): se abre y, al medio segundo, sale de dentro del túnel (los
   // voladores, volando por su hueco; la compuerta se queda abierta lo que tarden en salir). Sin compuertas libres, espera.
   // (Si la escena no tiene compuertas, aparece delante, en abanico, a 9-13 m.)
-  private spawnOne(): boolean {
+  private spawnOne(spec: WaveSpec): boolean {
+    const who = xrFoe(spec.kind);
     if (this.gates && this.gates.queries.gates.entities.size > 0) {
-      const slot = this.pending.find((p) => !p.gate), g = slot ? this.gates.freeGate() : null;
+      const slot = this.pending.find((p) => !p.gate), g = slot ? (who.boss && this.gates.centerGate()) || this.gates.freeGate() : null;
       if (!slot || !g) return false;
-      slot.kind = this.whoNext();
-      this.gates.openGate(g, FOE_DEF[slot.kind]?.fly ? Math.max(3.2, Flight.gateTime(slot.kind, dv('flySpeed', this.rampLvl))) : 3.2);
+      Object.assign(slot, { kind: who.k, boss: who.boss, hp: spec.hp });
+      this.gates.openGate(g, FOE_DEF[who.k]?.fly ? Math.max(3.2, Flight.gateTime(who.k, dv('flySpeed', this.rampLvl))) : 3.2);
       slot.gate = g;
       slot.t = 0.55;
       return true;
@@ -410,39 +539,24 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.fg.x = x;
       this.fg.z = z;
       this.fg.ry = Math.atan2(GAME.head.x - x, GAME.head.z - z);
-      this.spawnFoe(this.whoNext(), this.fg, x, z);
+      this.spawnFoe(who.k, who.boss, spec.hp, this.fg, x, z);
       return true;
     }
     return false;
   }
 
-  // Quién sale: repartidos entre los que eliges en Rivales (RepArena: buildWave → deal), bien mezclados; con los de tierra
-  // y los voladores, uno de cada (en la mezcla, alternando). Los que aún no están (los robots y los drones, geométricos)
-  // o no han acabado de cargarse, zombis verdes (y abejas y murciélagos). Su resistencia, la de la tabla del desarrollador:
-  // los de tierra suben un disparo cada cuatro oleadas; los voladores no (la escalera y los jefes llegan con el PR 10)
-  private nextG: () => string = () => 'zgreen';
-  private nextF: () => string = () => 'bee';
-  private dealN = 0;
-  private dealFoes(): void {
-    this.nextG = deal(gateFoes(groundList()));
-    this.nextF = deal(flyFoes(flyList()));
-    this.dealN = 0;
-  }
-  private whoNext(): string {
-    const F = foes(), k = this.dealN++;
-    return F === 'robots' || (F === 'mix' && k % 2 === 0) ? this.nextG() : this.nextF();
-  }
-  private spawnFoe(k: string, gate: FlyGate, x: number, z: number): void {
-    const fly = FOE_DEF[k]?.fly, flyers = this.world.getSystem(FlyerSystem);
-    if (fly) {
+  // Sale uno: los voladores, con su vuelo; si su modelo aún no ha cargado, un zombi verde
+  private spawnFoe(k: string, boss: boolean, hp: number, gate: FlyGate, x: number, z: number): void {
+    const flyers = this.world.getSystem(FlyerSystem);
+    if (FOE_DEF[k]?.fly) {
       if (flyers?.ready(k)) {
-        flyers.spawn(k, gate, devFoe('f:' + k).hp, dv('flySpeed', this.rampLvl), dv('erratic', this.rampLvl));
+        flyers.spawn(k, gate, hp, dv('flySpeed', this.rampLvl), dv('erratic', this.rampLvl));
         return;
       }
       k = 'zgreen';
     }
     if (!this.enemies.ready(k)) k = 'zgreen';
-    this.enemies.spawn(k, x, z, devFoe('g:' + k).hp + Math.floor((GAME.wave - 1) / 4));
+    this.enemies.spawn(k, x, z, hp, boss);
   }
 
   // los que salen por su compuerta, cuando ya está abierta
@@ -450,7 +564,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     for (const p of this.pending) {
       if (!p.gate || (p.t -= dt) > 0) continue;
       const at = this.gates!.spawnPoint(p.gate, this.tmpC);
-      this.spawnFoe(p.kind, this.gates!.frame(p.gate, this.fg), at.x, at.z);
+      this.spawnFoe(p.kind, p.boss, p.hp, this.gates!.frame(p.gate, this.fg), at.x, at.z);
       p.gate = null;
     }
   }
@@ -527,6 +641,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // (como en RepArena: onRep)
   private onRep(perfect: boolean, fast: boolean, powIn: number, side: Side | null = null): void {
     GAME.reps++;
+    this.repScore(perfect);
     if (perfect) {
       GAME.perfect++;
       SND.perfect();
@@ -634,6 +749,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     SND.bolt(from, boltLevel(perfect, pow));
     if (say) {
       SND.miss();
+      GAME.combo = 0; // (un rayo perdido rompe el combo)
       this.message('Fallo', 0.6);
     }
   }
@@ -681,20 +797,24 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const playing = GAME.phase === 'playing';
     if (playing) {
       this.exercise(time, dt);
-      // oleadas: pausa con el aviso (no sale nadie); luego van saliendo de uno en uno
-      if (GAME.between) {
-        this.betweenT -= dt;
-        if (this.betweenT <= 0) GAME.between = false;
-      } else {
+      // oleadas: el descanso (no sale nadie); luego van saliendo de la cola, de uno en uno (con ritmo, en el pulso), sin
+      // pasar de «Máximo a la vez»; cuando no queda nadie, oleada superada
+      this.stepIntro(dt);
+      if (this.restT > 0) {
+        this.restT -= dt;
+        if (this.restT <= 0) this.startWave(GAME.wave);
+      } else if (!GAME.between) {
         this.spawnT -= dt;
         this.stepPending(dt);
         let coming = 0;
         for (const p of this.pending) if (p.gate) coming++;
-        if (this.toSpawn > 0 && this.spawnT <= 0 && this.enemies.aliveCount() + coming < this.maxAlive && this.spawnOne()) {
-          this.toSpawn--;
-          this.spawnT = Math.max(1.2, 2.4 - 0.1 * GAME.wave);
+        const P = num('bpm') > 0 ? 60 / num('bpm') : 0, bk = P ? Math.floor(time / P) : -1, beat = !P || bk !== this.beatK;
+        this.beatK = bk;
+        if (this.queue.length && this.spawnT <= 0 && this.enemies.aliveCount() + coming < this.maxAlive && beat && this.spawnOne(this.queue[0])) {
+          this.queue.shift();
+          this.spawnT = this.gap * (0.8 + Math.random() * 0.4);
         }
-        if (this.toSpawn <= 0 && coming === 0 && this.enemies.aliveCount() === 0) this.nextWave();
+        if (!this.queue.length && coming === 0 && this.enemies.aliveCount() === 0 && !this.enemies.rocks.flying()) this.waveCleared();
       }
     }
     // las manos: lanzar el rayo (la sacudida o el gatillo), la mirada y el puñetazo

@@ -118,7 +118,9 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 8c · Voladores con modelo (abeja, murciélago, Cthulhu y dragón)** — #12
 - [x] **PR 8d · Amenazas, formas de moverse, rapidez de gestos y esquivas** — #13
 - [ ] **PR 9 · Armas y defensa** (aplazado por el usuario: se hará más adelante; después del 8d va el 10)
-- [ ] **PR 10 · Oleadas y premios**
+- [x] **PR 10a · Oleadas, jefes, puntos y combo** — #14
+- [ ] **PR 10b · Premios: cartas de mejora, enemigo dorado, relámpago, cofre y carrera contra tu récord**
+- [ ] **PR 10c · El marcador elegido (C), celebraciones y trofeos dorados**
 - [ ] **PR 11 · Ejercicios de suelo**
 - [ ] **PR 12 · Menú de muñeca, resumen, carátula del duelo y caricatura**
 - [ ] **PR 13 · Carrera y progreso**
@@ -251,10 +253,20 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   la vibración ya están, del PR 3).
 - De RepArena: `src/52_bolt.js`, `src/54_suporb.js`, `src/76_sword.js`, `src/77_guard.js`.
 
-**PR 10 · Oleadas y premios** (M)
+**PR 10 · Oleadas y premios** (L: partido en 10a, 10b y 10c)
 - Dificultad entre oleadas, panel entre oleadas, «Al fallo», cartas de mejora (cada tres oleadas), enemigo dorado,
   relámpago y cofre; celebraciones en el marcador y trofeos dorados; el marcador elegido (C).
 - De RepArena: `src/79_perks.js`, `src/70_game.js`, `src/60_ui.js` (`cheer`, `trophy`).
+- **10a (hecho)**: las oleadas de RepArena (`src/combat/waves.ts`: `buildWave` con la escalera de enemigos y los jefes,
+  `spawnGap`, `rampAfter`, los puntos), comparadas con su código (`tests/compare/waves.compare.test.ts`: 400 rondas al
+  azar, los mismos enemigos con la misma resistencia y los mismos «entra en juego»). Cada oleada pide sus repeticiones
+  (la resistencia de los que salen las suma); «Oleadas» (o «Al fallo», sin fin y con jefe cada 5); el descanso entre
+  oleadas; el panel entre oleadas con el fundido leve; los jefes (el de tu clase a lo grande, el capitán, el dragón);
+  la dificultad creciente solo con las oleadas superadas con soltura; los puntos y el combo; la victoria.
+- **10b**: los premios de `src/79_perks.js` (cartas de mejora cada tres oleadas y solo ganadas, dorado, relámpago, cofre
+  que se abre saltando, carrera contra tu récord).
+- **10c**: el marcador elegido (C: rosco doble, oleadas en puntos, la mecha del relámpago), las celebraciones
+  (`cheer`, solo en el marcador) y los trofeos dorados (`trophy`).
 
 **PR 11 · Ejercicios de suelo** (L)
 - Flexiones, inchworm, fondos, plancha con un brazo, plancha lateral y superman, con los avisos en el suelo y el
@@ -305,6 +317,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 10a → PR 10b: la ronda va por oleadas (`GameSystem.startWave`, `waveCleared`, `endRound`): la cola de la oleada
+  (`queue`, de `buildWave`), el descanso (`restT`, con `GAME.between`) y el panel entre oleadas (`waveIntro`, panel
+  `wave-panel`). Los puntos y el combo, en `GAME.score`/`GAME.combo` (`repScore`, `onFoeDown`, `HOOKS.score` para las
+  piedras); los golpes recibidos, en `GAME.taken`. Las cartas de mejora tienen que hacer esperar al descanso (RepArena:
+  `perkWaits`), y el dorado, el relámpago y el cofre multiplican los puntos (`perkPtsK`, `perkKillK`).
+- PR 10a → PR 10c: los mensajes de la partida van todos al hueco del marcador (`message`); RepArena separa las
+  celebraciones (`cheer`) de lo que pide hacer algo (`say`).
 - PR 8d → PR 10: cada enemigo de tierra lleva su marcha (`rt.gait`: `Gait`, con su `plan` de velocidades y su `pace`); su
   reloj (`Foe.timer`) corre a su ritmo en todo menos andando (como el `st` de RepArena). Los jefes (PR 10) van algo más
   pausados (`paceOf(…, true)`). La dificultad creciente de la oleada, en `GAME.ramp` (la lee `dv` en los enemigos). En
@@ -390,8 +409,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   esquivas con voltereta y las formas de moverse elegidas; el zigzag y las paradas en guardia, por mirar en las gafas.
 - PR 8d: con la «rapidez de gestos» de serie (150 %), el golpe se prepara y se da algo más deprisa que en el PR 8a (como en
   RepArena: antes iba al 100 %).
-- PR 8a: los jefes,
-  la escalera de dureza y la resistencia que sube por oleadas superadas, con el PR 10. El baile al compás, con el ritmo
+- PR 10a: los jefes no se derriban con un disparo cargado (RepArena: `knockDown`, que aquí aún no está: con las armas,
+  PR 9) y su tamaño se ha probado en el navegador (el zombi verde a lo grande y el dragón); en las gafas, por ver que
+  quepan bien por la compuerta. Los robots, drones, avispones y la nodriza (geométricos) no salen: en su lugar, zombis
+  verdes, abejas y el dragón.
+- PR 10a: entre oleadas, mientras descansas, las repeticiones no cargan la bola (como antes); en RepArena sí contaban.
+- PR 8a: el baile al compás, con el ritmo
   marcado (Opciones → Sonido); el de la canción de Spotify, con el PR 22.
 - PR 8a: el golpe no se puede parar todavía (la guardia y las espadas, PR 9).
 - PR 8a: en la VR simulada se han visto el capitán, el yeti, el zombi y el velociraptor saliendo, yendo a su puesto,
@@ -402,8 +425,7 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - PR 7: los números se cambian con − y + (paso a paso); RepArena tenía además el deslizador y el teclado numérico.
 - PR 7: algunos ajustes de Opciones aún no hacen nada aquí (los guarda y los usa RepArena): los del entorno (escenario,
   fondo, luciérnagas, fotogramas), el ritmo de la música, «Manos con el cuerpo», los de las pistolas y espadas… Se
-  encienden con su PR. La ficha de la ronda dice las oleadas y repeticiones de RepArena: aquí las oleadas aún son las del
-  prototipo (PR 10).
+  encienden con su PR.
 - PR 7: los galones de los rangos son su nombre abreviado (RepArena los dibujaba); «Restablecer» una pestaña, «A otro
   aparato» y la sincronización, con el PR 23.
 - PR 6: el filtro de las manos de RepArena (`HF`: manos al alcance y sin saltos imposibles, en todo lo que va con las
@@ -420,8 +442,6 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - PR 6: al pulsar EMPEZAR con otro modo guardado (Arcos, Toques…) se guarda Combate también para RepArena (comparten
   los ajustes): es lo único que se puede jugar aquí por ahora.
 - PR 6: en el ordenador solo se prueban los ejercicios de la cabeza (flecha abajo); los de brazos, en la VR simulada.
-- La dificultad creciente sube con cada oleada; en RepArena solo con las superadas con soltura (pocos golpes): llega en el
-  PR 10.
 - Sin pistolas ni espadas todavía (PR 9): si el usuario las tiene puestas en RepArena, aquí se lanza con las manos.
 - «Manos con el cuerpo» no hace nada aquí: IWSDK no pide el seguimiento del cuerpo (criterio de usar IWSDK de serie).
 - Las 72 imágenes por segundo del estilo Cómic y la arena no se han podido medir (el emulador no tiene tarjeta gráfica):
@@ -431,7 +451,6 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - Los avisos «Missing glyph info» de la consola (tildes y ×) salen una sola vez, al cargar, antes de que los paneles
   reciban Rubik y Bungee (con el panel aún oculto): son inofensivos, no vuelven durante la partida.
 - Los sonidos del usuario suenan sin el eco de sala que les añadía RepArena (IWSDK no lo tiene); los de serie lo llevan.
-- El combo (cada 10 repeticiones seguidas) aún no suena: llega con el PR 10.
 
 ## Fallos de IWSDK
 

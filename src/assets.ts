@@ -60,5 +60,6 @@ export default defineAssets({
   'board-panel': uikitml('board.uikitml', 'Marcador'),
   'warn-floor': uikitml('warn.uikitml', 'Aviso en el suelo'),
   'charge-floor': uikitml('charge.uikitml', 'Carga en el suelo'),
+  'wave-intro': uikitml('wave.uikitml', 'Panel entre oleadas'),
   ...sounds,
 });

@@ -600,6 +600,27 @@
         "type": "asset",
         "asset": "comic-clouds"
       }
+    },
+    {
+      "id": "wave-panel",
+      "name": "Panel entre oleadas",
+      "content": {
+        "type": "asset",
+        "asset": "wave-intro"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.6,
+          -1.6
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1
+      }
     }
   ],
   "authoring": {

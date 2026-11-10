@@ -10,7 +10,7 @@
  */
 import { Vector3 } from 'three';
 import { DEV, DEV_FACTORY } from '../core/dev-state.js';
-import { FOE_GATE } from '../core/catalog.js';
+import { FOE_FLY, FOE_GATE } from '../core/catalog.js';
 
 /** Cómo se llama cada animación en su modelo: reposo, andar, correr, atacar, recibir, morir y la de esperar bailando. */
 export interface FoeClips {
@@ -61,6 +61,8 @@ export interface FoeDef {
   thrower?: boolean;
   /** Vuela (src/combat/flight.ts): no va a un puesto ni pisa el suelo. */
   fly?: boolean;
+  /** El jefe de la ronda (bossDef). */
+  boss?: boolean;
 }
 
 const ZOMBIE2_CLIPS: FoeClips = { idle: 'Idle', walk: 'Walk', run: 'Run', attack: 'Punch', hit: 'HitReact', death: 'Death', dance: 'Idle_Attack' };
@@ -127,11 +129,23 @@ export const flyFoes = (chosen: string[]): string[] => {
   return ok.length ? ok : ['bee', 'bat'];
 };
 
+// Los jefes: el mismo, más grande, más lento y pesado (RepArena: ROBOT_KIND, los «…boss»: 1,6-1,7 veces más grandes; el
+// capitán, 1,45, que ya es alto y tiene que caber por la compuerta)
+const BOSS: Record<string, [number, number, number]> = { imp: [1.6, 0.75, 1.8], puglin: [1.6, 0.75, 1.8], thrower: [1.6, 0.75, 1.8], zombie: [1.6, 0.7, 1.7], raptor: [1.7, 0.8, 2.0], captain: [1.45, 0.72, 1.8] };
+const bossDefs: Record<string, FoeDef> = {};
+/** El jefe de esa clase (su fila de la tabla, a lo grande). El del lanzador es el diablillo (RepArena: impboss). */
+export function bossDef(k: string): FoeDef {
+  if (k === 'thrower') k = 'imp';
+  if (bossDefs[k]) return bossDefs[k];
+  const d = FOE_DEF[k], [sc, speedF, stop] = BOSS[k] ?? [1.65, 0.72, 1.8];
+  return (bossDefs[k] = { ...d, k: d.k * sc, h: d.h * sc, r: d.r * sc, walk: d.walk * sc, run: d.run * sc, speedF, stop, heavy: true, boss: true });
+}
+
 /** ¿Ya se puede sacar? (los robots, que eran geométricos, por ahora no: decisión del usuario en el PR 8b) */
 export const foeReady = (k: string): boolean => !!FOE_DEF[k];
 
 /** Su nombre (el de Rivales). */
-export const foeName = (k: string): string => FOE_GATE.find((o) => o[0] === k)?.[1] ?? k;
+export const foeName = (k: string): string => [...FOE_GATE, ...FOE_FLY].find((o) => o[0] === k)?.[1] ?? k;
 
 // ---------------------------------------------------------------- resistencia, fuerza y dureza
 

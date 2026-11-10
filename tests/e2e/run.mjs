@@ -86,7 +86,7 @@ try {
   await shot('1-menu');
   await page.mouse.click(4, 4); // (abre el sonido; en una esquina, fuera del panel: en el centro hay botones)
   await page.keyboard.press('Enter');
-  await until('EMPEZAR: empieza la ronda y se quita el menú', (s) => s.phase === 'playing' && s.wave === 1 && s.menu === 'none', 15);
+  await until('EMPEZAR: empieza la ronda y se quita el menú', (s) => s.phase === 'playing' && s.wave <= 1 && s.menu === 'none', 15);
   await until('sale el primer enemigo, con sus cuentas de vida encima', (s) => s.foes.length > 0 && s.life > 0, 90);
   await page.keyboard.down('ArrowDown');
   await until('al bajar, la bola carga el disparo', (s) => s.charge >= 1 && s.ballOn, 30);
@@ -151,6 +151,25 @@ try {
   }
   if (!down) throw new Error('no ha caído ningún volador\núltimo estado: ' + JSON.stringify(last));
   await until('el volador derribado cae al suelo', (s) => s.foes.some((f) => f.fly && f.state === 'dead' && f.y < 0.6), 20);
+  // los puntos: cada repetición y cada derribo suman (RepArena: registerRep y onKilled)
+  if (!(last.score > 0)) throw new Error('no hay puntos\núltimo estado: ' + JSON.stringify(last));
+  console.log(`  ✓ los puntos suben (${last.score})`);
+  // la oleada superada: se vacía la cola y se quitan los que quedan (para no jugarla entera); sale «¡Oleada superada!», el
+  // descanso (acortado a 1 s) y el panel de la oleada siguiente, con la escena algo oscurecida; mientras, no sale nadie
+  await page.evaluate(() => {
+    window.__rx.game.queue.length = 0;
+    window.__rx.enemies.clear();
+  });
+  await until('oleada superada: el descanso', (s) => s.between && s.wave === 1, 20);
+  await page.evaluate(() => (window.__rx.game.restT = 1));
+  await until('el panel de la oleada 2', (s) => s.wave === 2 && s.intro && s.foes.length === 0 && s.queue > 0, 20);
+  await shot('6-oleada');
+  await until('se va el panel y siguen saliendo', (s) => !s.intro && s.foes.length > 0, 60);
+  // los jefes: el de una clase (el zombi verde, a lo grande) y el de los voladores (el dragón), los primeros de la cola
+  await page.evaluate(() => window.__rx.game.queue.unshift({ kind: 'zgreenboss', hp: 4 }, { kind: 'dragon', hp: 4 }));
+  await until('sale el jefe zombi verde, a lo grande', (s) => s.foes.some((f) => f.kind === 'zgreen' && f.boss && f.y > 1.2), 60);
+  await until('sale el dragón, el jefe de los voladores', (s) => s.foes.some((f) => f.kind === 'dragon' && f.boss), 60);
+  await shot('7-jefes');
   if (missing.length) throw new Error('faltan archivos: ' + missing.join(', '));
   if (errors.length) throw new Error('errores en la página:\n' + errors.join('\n'));
   ok = true;

@@ -18,6 +18,11 @@ export const GAME = {
   kills: 0,
   reps: 0,
   perfect: 0,
+  /** Los puntos, el combo (repeticiones seguidas sin que te den ni falles) y el mejor, y los golpes recibidos. */
+  score: 0,
+  combo: 0,
+  bestCombo: 0,
+  taken: 0,
   best: 0,
   startTime: 0,
   /** Dónde está la cabeza (mundo) y hacia dónde mira el cuerpo (horizontal, unitario). */
@@ -37,8 +42,10 @@ export const GAME = {
 export const HOOKS = {
   /** Un enemigo te ha dado (str: las vidas que quita, su fuerza). */
   playerHit: (_str?: number): void => {},
-  /** Ha caído un zombi. */
-  foeDown: (): void => {},
+  /** Ha caído uno (kind: el que es; boss: el jefe). */
+  foeDown: (_kind?: string, _boss?: boolean): void => {},
+  /** Puntos de más (una piedra parada o esquivada) y si suman al combo. */
+  score: (_pts: number, _combo?: boolean): void => {},
   /** Empezar la ronda (EMPEZAR, o Enter en el ordenador): lo pone la partida. */
   startRound: (): void => {},
   /** Abrir el menú principal delante de ti (last: cómo fue la ronda que acaba; vacío, ninguna) y quitarlo: lo pone el menú. */

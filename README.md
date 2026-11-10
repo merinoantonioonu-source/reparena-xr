@@ -68,8 +68,16 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
   retroceden un paso. Un rayo los hace **retroceder**; el que los mata los **lanza por el aire dando vueltas** y caen
   tumbados al suelo; luego se desvanecen. Encima de cada uno, sus **cuentas de vida**: bolitas doradas, una por disparo
   normal que le queda (los que aguantan más de 8, bolitas grandes de 5), que desaparecen al perderlas.
-- **Oleadas**: cada una con un enemigo más y algo más rápidos (la dificultad entre oleadas, los jefes y el panel entre
-  oleadas llegan con el PR 10). Sin vidas, se acaba la ronda y vuelve el menú con **OTRA RONDA**.
+- **Oleadas**, como en RepArena: cada una pide sus repeticiones («Repeticiones por oleada», y unas más en cada una): los
+  que salen aguantan justo eso entre todos. Salen de uno en uno (con ritmo, en el pulso) sin pasar de «Máximo a la vez».
+  Con la **escalera**, en las primeras oleadas solo los fáciles, y cada pocas entra uno más duro. Al superar una,
+  «¡Oleada superada!» y el **descanso**; luego, el **panel de la oleada** que empieza («OLEADA 3 DE 5», «¡ÚLTIMA
+  OLEADA!»), con tus puntos y quién entra en juego, grande delante de ti y la escena algo oscurecida detrás; mientras se
+  ve, no sale nadie. La **dificultad creciente** solo sube si la superas con soltura. La última trae un **jefe** (el de tu
+  clase a lo grande, el capitán Barbarroja si está, o el dragón si son voladores); **«Al fallo»**, oleadas sin fin con
+  jefe cada cinco. **Puntos** por cada repetición (más con combo y perfecta) y cada derribo (el jefe, 1500), y **combo**
+  (cada 10 seguidas, ¡COMBO!; un golpe o un fallo lo rompe). Superada la última, **¡Victoria!**; sin vidas, se acaba la
+  ronda; en los dos casos vuelve el menú con **OTRA RONDA** y cómo fue.
 - **Manos**: las de IWSDK tal cual (los modelos oficiales de Meta, con contorno). Con mandos y «Mandos como manos» (de
   serie), la mano de IWSDK que agarra el mando: el índice se dobla con el gatillo y los demás dedos con el agarre.
 - **El menú principal**, como el de RepArena: en las gafas sale delante de ti y a tu alcance («Distancia del menú»),
@@ -129,6 +137,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/foes.ts` | La tabla de los enemigos (modelo, tamaño, animaciones, golpe, voz), su resistencia y fuerza, el reparto y los puestos de ataque, sin IWSDK |
 | `src/combat/retarget.ts` | Las animaciones de la biblioteca de Quaternius, pasadas al esqueleto del diablillo y el puglin |
 | `src/combat/rocks.ts`, `src/combat/rock-path.ts` | Las piedras del lanzador: la parábola, la parada con la mano y lo que pasa al llegar |
+| `src/combat/waves.ts` | Las oleadas (de RepArena): quién sale en cada una, la escalera, los jefes, cada cuánto salen, la dificultad creciente y los puntos, sin IWSDK |
 | `src/combat/gait.ts` | Cómo andan los de tierra (de RepArena): el ritmo de la marcha, recto, zigzag, rachas, la amenaza y las esquivas, sin IWSDK |
 | `src/combat/flight.ts` | El vuelo de los voladores (el de RepArena: acercarse, bandazos, lanzarse a morder, empujones, salir por la compuerta), sin IWSDK |
 | `src/combat/flyers.ts` | Los voladores: su modelo, el aleteo, el mordisco, el zumbido y la caída al morir |
@@ -158,7 +167,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
 | `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de arena, aro del jugador, cajas, rocas, compuertas, valle, nubes, zombis y paneles |
 | `public/scenes/main.iwsdk.scene.json` | La escena: cielo, neblina, suelo, compuertas, valle, nubes, cajas y rocas con su física, paneles y luces |
-| `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador y los dos del suelo (avisos y carga) |
+| `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador, los dos del suelo (avisos y carga) y el de entre oleadas |
 | `public/models/` | Los enemigos: zombis, velociraptor, piratas, monstruitos (también los que vuelan), diablillo y puglin, y las animaciones de la biblioteca (Quaternius; ver su `LEEME.md`) |
 | `public/retratos/` | El retrato de cada enemigo para su ficha en Rivales (cortados de la hoja de RepArena) |
 | `public/fonts/` | Las letras (Rubik y Bungee, OFL) |

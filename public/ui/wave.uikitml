@@ -1,0 +1,42 @@
+<!--
+  El panel entre oleadas, como en RepArena (src/70_game.js: waveIntro): grande, delante de ti, con la oleada que empieza
+  («OLEADA 3 DE 8», «¡ÚLTIMA OLEADA!»), tus puntos y una línea con lo nuevo (quién entra en juego, cuánto sube la
+  dificultad o cuántas llevas). 1,2 m de ancho (medidas en centímetros); letras: Bungee (clase «display»). Lo llena y lo
+  enseña el juego unos 2,4 s; mientras se ve, no sale nadie.
+-->
+<style>
+  .root {
+    width: 120;
+    padding-top: 5;
+    padding-bottom: 5;
+    padding-left: 6;
+    padding-right: 6;
+    gap: 2.5;
+    flex-direction: column;
+    align-items: center;
+    background-color: #0e0a1c;
+    border-radius: 6;
+    border-width: 0.8;
+    border-color: #ffd166;
+  }
+  .t1 {
+    font-size: 11;
+    color: #ffd166;
+    text-align: center;
+  }
+  .t2 {
+    font-size: 7.5;
+    color: #eeeaff;
+    text-align: center;
+  }
+  .t3 {
+    font-size: 4.4;
+    color: #3cf0c6;
+    text-align: center;
+  }
+</style>
+<div id="box" class="root">
+  <span id="t1" class="t1 display">OLEADA 2</span>
+  <span id="t2" class="t2 display">0 puntos</span>
+  <span id="t3" class="t3">Entra en juego: Yeti</span>
+</div>
