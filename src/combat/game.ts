@@ -37,7 +37,8 @@ import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
 import { IDLE, PLACE } from '../exercise/how.js';
 import { FLOOR_EX, FloorDetector, floorDefaults, type FloorCfg, type FloorInput } from '../exercise/floor.js';
-import { aimForced, deepOn, flyList, foes, groundList, handsFree, twoShots } from '../core/rules.js';
+import { aimForced, deepOn, flyList, foes, groundList, handsFree, isTiny, oneArm, twoShots } from '../core/rules.js';
+import { HatchSystem, hatchFoes } from './hatch-foes.js';
 import { devFoe, flyFoes, FOE_DEF, foeName, gateFoes } from './foes.js';
 import { Rewards } from './rewards.js';
 import { RUSH_SECS } from './perks.js';
@@ -264,8 +265,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     for (const e of this.queries.foes.entities) {
       const o = e.object3D;
       if (!o) continue;
-      const ud = o.userData as { rt?: { kind: string; def: { boss?: boolean } }; fly?: { kind: string; flight: { K: { boss?: boolean } } } };
-      foes.push({ kind: (ud.rt ?? ud.fly)?.kind, fly: !!ud.fly, boss: !!(ud.rt?.def.boss || ud.fly?.flight.K.boss), state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
+      const ud = o.userData as { rt?: { kind: string; def: { boss?: boolean } }; fly?: { kind: string; flight: { K: { boss?: boolean } } }; hatch?: { beast: string; foe: { boss: boolean } } };
+      foes.push({ kind: (ud.rt ?? ud.fly)?.kind ?? (ud.hatch ? 'h' + ud.hatch.beast : undefined), fly: !!ud.fly, hatch: !!ud.hatch, boss: !!(ud.rt?.def.boss || ud.fly?.flight.K.boss || ud.hatch?.foe.boss), state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
     return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
@@ -439,12 +440,21 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private placeBoard(): void {
     const o = this.world.getSceneEntity('board-panel')?.object3D;
     if (!o) return;
-    if (!this.boardHome) this.boardHome = { x: o.position.x, ry: o.rotation.y };
+    if (!this.boardHome) this.boardHome = { x: o.position.x, y: o.position.y, z: o.position.z, ry: o.rotation.y, k: o.scale.x };
+    const hs = this.world.getSystem(HatchSystem);
+    if (hs?.on) {
+      // en la batalla diminuta, tumbado en el suelo delante de tus manos (76 cm, como en RepArena), sólido para ellos
+      o.position.set(hs.origin.x, 0.02, hs.origin.z - 0.95);
+      o.rotation.set(-Math.PI / 2, 0, 0);
+      o.scale.setScalar(0.76 / 0.64);
+      return;
+    }
     const right = str('board') === 'right';
-    o.position.x = right ? -this.boardHome.x : this.boardHome.x;
-    o.rotation.y = right ? -this.boardHome.ry : this.boardHome.ry;
+    o.position.set(right ? -this.boardHome.x : this.boardHome.x, this.boardHome.y, this.boardHome.z);
+    o.rotation.set(0, right ? -this.boardHome.ry : this.boardHome.ry, 0);
+    o.scale.setScalar(this.boardHome.k);
   }
-  private boardHome: { x: number; ry: number } | null = null;
+  private boardHome: { x: number; y: number; z: number; ry: number; k: number } | null = null;
 
   private boardSet(p: UIKitMLAsset, id: string, props: Record<string, unknown>): void {
     const k = id + '#' + p.assetId, v = JSON.stringify(props);
@@ -512,6 +522,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.queue.length = 0;
     this.rw.roundStart();
     this.resting = false;
+    this.world.getSystem(HatchSystem)?.layout(false, head.p, false);
     this.placeBoard();
     // al fallo: la oleada más lejana a la que llegaste nunca con este ejercicio (para el trofeo al pasarla)
     const hist = store<{ ex?: string; mode?: string; fail?: number }[]>('reparena3-history') ?? [];
@@ -539,8 +550,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.wave = i + 1;
     GAME.between = false;
     GAME.ramp = this.rampLvl;
-    const ground = gateFoes(groundList()), fly = flyFoes(flyList());
-    const env: WaveEnv = { reps: waveReps(i), twoShots: twoShots(), foes: foes() as WaveEnv['foes'], ground, fly: flyList().includes('dragon') ? [...fly, 'dragon'] : fly, waves: nWaves(), rank: rankIdx(), ladder: on('foeLadder'), hp: (k) => devFoe(k).hp, tier: (k) => foeTierOf((key) => devFoe(key).tier, k) };
+    const tiny = isTiny(), ground = tiny ? hatchFoes(groundList()) : gateFoes(groundList()), fly = flyFoes(flyList());
+    const env: WaveEnv = { reps: waveReps(i), twoShots: twoShots(), foes: foes() as WaveEnv['foes'], ground, fly: flyList().includes('dragon') ? [...fly, 'dragon'] : fly, waves: nWaves(), rank: rankIdx(), ladder: on('foeLadder'), tiny, hp: (k) => devFoe(k).hp, tier: (k) => foeTierOf((key) => devFoe(key).tier, k) };
     const w = buildWave(i, env, this.seen);
     this.queue = w.list;
     this.waveTarget = env.reps;
@@ -647,6 +658,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.calibT = -1;
     this.fl.reset(y, { left: hands.left.ok ? hands.left.wrist.y : null, right: hands.right.ok ? hands.right.wrist.y : null });
     this.rw.standY = 1.6;
+    this.world.getSystem(HatchSystem)?.layout(isTiny(), head.p, oneArm()); // (las trampillas, delante de tus manos)
+    this.placeBoard();
     this.restT = 3;
     SND.charge();
     this.message('¡Bien! A punto', 3);
@@ -738,7 +751,23 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // voladores, volando por su hueco; la compuerta se queda abierta lo que tarden en salir). Sin compuertas libres, espera.
   // (Si la escena no tiene compuertas, aparece delante, en abanico, a 9-13 m.)
   private spawnOne(spec: WaveSpec): boolean {
-    const who = xrFoe(spec.kind);
+    const tiny = isTiny(), who = xrFoe(spec.kind, tiny);
+    if (tiny) {
+      // la batalla diminuta: sale de una trampilla del suelo (los voladores, pequeños; los demás, los de las trampillas)
+      const hs = this.world.getSystem(HatchSystem), at = hs?.nextTrap(this.tmpC);
+      if (!hs || !at) return false;
+      if (FOE_DEF[who.k]?.fly) {
+        const flyers = this.world.getSystem(FlyerSystem);
+        if (!flyers?.ready(who.k)) return true; // (aún cargando: este no sale)
+        Object.assign(this.fg, { x: at.x, z: at.z, ry: 0, scale: 1 });
+        this.rw.onSpawn(flyers.spawn(who.k, this.fg, spec.hp, dv('flySpeed', this.rampLvl), dv('erratic', this.rampLvl), true), who.boss);
+        return true;
+      }
+      let beast = who.k.startsWith('h') ? who.k.slice(1) : who.k;
+      if (!hs.ready(beast)) beast = hs.ready('crab') ? 'crab' : beast;
+      this.rw.onSpawn(hs.spawn(beast, who.boss, at, spec.hp), who.boss);
+      return true;
+    }
     if (this.gates && this.gates.queries.gates.entities.size > 0) {
       const slot = this.pending.find((p) => !p.gate), g = slot ? (who.boss && this.gates.centerGate()) || this.gates.freeGate() : null;
       if (!slot || !g) return false;
@@ -886,7 +915,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (import.meta.env.DEV) console.info(`rxdbg repetición ${perfect ? 'perfecta' : 'normal'} ×${pow} (puntería ${mode})`);
     // (sin la bola, de la mano del brazo que hizo el curl, o del pecho)
     const origin = bp ?? (side && hands[side].ok ? this.tmpD.copy(hands[side].wrist) : this.chestPoint(this.tmpD));
-    if (mode === 'auto') this.fireOrb(origin, dmg, perfect, pow);
+    if (mode === 'auto') this.fireOrb(origin, dmg, perfect, pow, side);
     else if (!throwCharge(dmg, perfect, pow, mode === 'hands', inXR, this.env.say)) {
       if (mode === 'hands') this.fireOrb(origin, dmg, perfect, pow); // (en el ordenador, sin manos: al más cercano)
       else this.fireBolt(origin, headFwd(this.tmpC), head.p, dmg, perfect, gazeLock() as FoeTarget | null, pow); // con la mirada
@@ -901,10 +930,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // ---------------------------------------------------------------- el disparo
 
   /** El zombi en pie más cercano (la puntería automática). */
-  private nearest(): FoeTarget | null {
+  private nearest(side: Side | null = null): FoeTarget | null {
     let best: FoeTarget | null = null, bd = Infinity;
     for (const e of this.enemies.targets) {
       if (!e.alive) continue;
+      // (en la plancha con un brazo, cada brazo dispara a su lado: RepArena, pickNearest)
+      if (side && oneArm() && (side === 'left' ? e.root.position.x - head.p.x > 0.05 : e.root.position.x - head.p.x < -0.05)) continue;
       const d = e.root.position.distanceToSquared(head.p);
       if (d < bd) {
         bd = d;
@@ -932,8 +963,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   }
 
   /** Puntería automática: el rayo sale de la bola (o del pecho) hacia el zombi más cercano. */
-  private fireOrb(origin: Vector3, dmg: number, perfect: boolean, pow: number): void {
-    const e = this.nearest();
+  private fireOrb(origin: Vector3, dmg: number, perfect: boolean, pow: number, side: Side | null = null): void {
+    const e = this.nearest(side);
     if (e) this.strike(origin, e, dmg, perfect, pow);
     else this.miss(origin, this.tmpB.copy(origin).addScaledVector(GAME.fwd, 5), perfect, pow, false);
     if (pow > 1) SND.power(pow, origin);

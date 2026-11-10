@@ -7,7 +7,8 @@
  *
  * Tumbado (superman, plancha lateral) vienen bajos, a la altura de la cabeza; en el superman, además, esperan a la vista y
  * solo pican después de dar tiempo a una repetición entera y nunca mientras aguantas arriba (RepArena: lowFly, SUP_ATK).
- * Sin los voladores pequeños de las flexiones (llegan con la batalla diminuta).
+ * En la batalla diminuta (flexiones, plancha con un brazo) son pequeños (0,42), lentos (0,27) y salen de una trampilla
+ * (RepArena: isTiny, push).
  */
 import { Vector3 } from 'three';
 
@@ -98,21 +99,25 @@ export class Flight {
 
   /** kind: bee, bat…; gate: la compuerta por la que sale (ya elegida); flySpeed: «Velocidad de vuelo» (km/h, con la
    * dificultad creciente); erratic: «Vuelo errático» (%). Devuelve también cuánto tiene que estar abierta la compuerta. */
-  constructor(kind: string, readonly gate: FlyGate, flySpeed: number, erratic: number, hp: number, private rnd: () => number = Math.random, low = false) {
+  /** En la batalla diminuta: sale de una trampilla (gate es la trampilla), pequeño y lento. */
+  readonly tiny: boolean;
+
+  constructor(kind: string, readonly gate: FlyGate, flySpeed: number, erratic: number, hp: number, private rnd: () => number = Math.random, low = false, tiny = false) {
     const K = (this.K = FLYER_KIND[kind]);
-    const sp = flySpeed / 3.6, r = gate.ry;
-    const start = new Vector3(gate.x - 0.6 * Math.sin(r), (low ? 0.6 : 1.5) * gate.scale, gate.z - 0.6 * Math.cos(r));
+    this.tiny = tiny;
+    const sp = (flySpeed / 3.6) * (tiny ? 0.27 : 1), r = gate.ry;
+    const start = tiny ? new Vector3(gate.x, 0.05, gate.z) : new Vector3(gate.x - 0.6 * Math.sin(r), (low ? 0.6 : 1.5) * gate.scale, gate.z - 0.6 * Math.cos(r));
     this.base = start.clone();
     this.pos = start.clone();
     this.last = start.clone();
-    this.dartT = new Vector3(0, this.rand(1.8, 3.6), 0);
+    this.dartT = new Vector3(0, tiny ? 0.25 : this.rand(1.8, 3.6), 0);
     this.speed = sp * K.speed * this.rand(0.85, 1.15);
     this.erratic = (K.erratic * erratic) / 100;
     this.w1 = this.rand(0.6, 1.6);
     this.w2 = this.rand(0.8, 1.8);
     this.ph1 = this.rand(0, TAU);
     this.ph2 = this.rand(0, TAU);
-    this.radius = 0.24 * K.scale;
+    this.radius = 0.24 * K.scale * (tiny ? 0.42 : 1);
     this.hp = hp;
   }
 
@@ -130,10 +135,10 @@ export class Flight {
     this.evRoar = this.evWhoosh = this.evBite = false;
     this.t += dt;
     const HL = env.head;
-    const low = env.low > 0;
+    const low = env.low > 0, push = this.tiny;
     if (env.active) {
-      const tgt = _a.set(HL.x * 0.6, low ? env.low : Math.max(1.0, HL.y - 0.12), HL.z * 0.6);
-      const S = env.sup, to = _b.subVectors(tgt, this.base), d = to.length(), reach = S ? 1.4 : 0.85;
+      const tgt = _a.set(HL.x * 0.6, low ? env.low : Math.max(push ? 0.2 : 1.0, HL.y - (push ? 0.05 : 0.12)), HL.z * 0.6);
+      const S = env.sup, to = _b.subVectors(tgt, this.base), d = to.length(), reach = push ? 0.32 : S ? 1.4 : 0.85;
       if (d > reach || this.retreat > 0) this.waitT = 0;
       else this.waitT += dt;
       if (this.retreat > 0) {
@@ -161,7 +166,7 @@ export class Flight {
         }
       }
       if (this.t > this.nextDart && !this.windT && env.beat) {
-        const A = clamp(d * 0.2, 0.4, 2.4) * this.erratic;
+        const A = clamp(d * (push ? 0.25 : 0.2), push ? 0.06 : 0.4, push ? 0.35 : 2.4) * this.erratic;
         this.dartT.set(this.rand(-1, 1) * A, this.rand(-0.4, 0.6) * A * (low ? 0.2 : 0.7), this.rand(-0.5, 0.5) * A * 0.4);
         this.nextDart = this.t + this.rand(0.8, 3.0) / Math.sqrt(Math.max(0.2, this.erratic));
       }
@@ -175,20 +180,20 @@ export class Flight {
     const dir = _b.set(-this.base.x, 0, -this.base.z);
     if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1);
     dir.normalize();
-    const right = _c.set(dir.z, 0, -dir.x), wob = 0.25 * this.erratic;
+    const right = _c.set(dir.z, 0, -dir.x), wob = (push ? 0.04 : 0.25) * this.erratic;
     this.last.copy(this.pos);
     this.pos.copy(this.base).addScaledVector(right, this.dart.x + Math.sin(this.t * this.w1 + this.ph1) * wob).addScaledVector(dir, this.dart.z);
     this.pos.y += this.dart.y + Math.sin(this.t * this.w2 * 1.7 + this.ph2) * wob * 0.6;
-    this.pos.y = Math.max(low ? 0.2 : 0.45, this.pos.y);
+    this.pos.y = Math.max(push ? 0.06 : low ? 0.2 : 0.45, this.pos.y);
     if (low) this.pos.y = Math.min(this.pos.y, 1.0);
     if (this.windT > 0) {
       // echarse atrás y lanzarse hacia tu cara
-      const to = _a.subVectors(HL, this.pos), d = to.length(), w = this.windT;
-      const k = w < 0.45 ? -0.1 * smooth(w / 0.45) : -0.1 + (Math.max(0, d - 0.12) + 0.1) * smooth(Math.min(1, (w - 0.45) / 0.25));
+      const to = _a.subVectors(HL, this.pos), d = to.length(), w = this.windT, s = push ? 0.42 : 1;
+      const k = w < 0.45 ? -0.1 * s * smooth(w / 0.45) : -0.1 * s + (Math.max(0, d - 0.12 * s) + 0.1 * s) * smooth(Math.min(1, (w - 0.45) / 0.25));
       if (d > 1e-3) this.pos.addScaledVector(to, k / d);
     }
-    this.gateKeep();
-    const lim = HL.z - FRONT_MIN - 0.15; // (tampoco se van detrás de ti)
+    if (!push) this.gateKeep();
+    const lim = HL.z - FRONT_MIN - (push ? 0.05 : 0.15); // (tampoco se van detrás de ti)
     if (this.pos.z > lim) this.pos.z = lim;
     const lat = ((this.pos.x - this.last.x) * right.x + (this.pos.z - this.last.z) * right.z) / Math.max(dt, 1e-3);
     this.bank += (clamp(-lat * 0.25, -0.7, 0.7) - this.bank) * Math.min(1, dt * 5);
@@ -228,7 +233,7 @@ export class Flight {
     this.dartT.multiplyScalar(-1);
     const k = knock * (this.K.boss ? 0.3 : 1);
     if (k && this.hp > 0) {
-      this.shove((0.25 + 0.12 * (pow - 1) + (perfect ? 0.08 : 0)) * k, head, dir);
+      this.shove((0.25 + 0.12 * (pow - 1) + (perfect ? 0.08 : 0)) * k * (this.tiny ? 0.42 : 1), head, dir);
       if (this.windT > 0 && this.windT < 0.45 && !this.K.boss) {
         this.windT = 0;
         this.retreat = Math.max(this.retreat, 0.5);

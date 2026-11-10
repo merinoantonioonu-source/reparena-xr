@@ -126,7 +126,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 10b · Premios: cartas de mejora, enemigo dorado, relámpago, cofre y carrera contra tu récord** — #15
 - [x] **PR 10c · El marcador elegido (C), celebraciones y trofeos dorados** — #16
 - [x] **PR 11a · Fondos, plancha lateral y superman** — #17
-- [ ] **PR 11b · La batalla diminuta: flexiones y plancha con un brazo**
+- [x] **PR 11b · La batalla diminuta: flexiones y plancha con un brazo** — #18
 - [ ] **PR 11c · Inchworm**
 - [ ] **PR 12 · Menú de muñeca, resumen, carátula del duelo y caricatura**
 - [ ] **PR 13 · Carrera y progreso**
@@ -288,9 +288,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   juegan los fondos en silla, la plancha lateral y el superman: antes de empezar, quieto en la postura (RepArena:
   `calib`); tumbado, los voladores vienen bajos y, en el superman, esperan a que aguantes (`Flight` con `low` y `sup`,
   comparado con RepArena en `flight.compare.test.ts`).
-- **11b**: la batalla diminuta bajo tu cara (flexiones y plancha con un brazo): las trampillas, los bichos pequeños con
-  modelo (cangrejo, seta, calavera; las arañas, geométricas, no: decisión del usuario), los voladores a escala y el
-  marcador tumbado sólido.
+- **11b (hecho)**: la batalla diminuta bajo tu cara (flexiones y plancha con un brazo): los bichos de las trampillas de
+  RepArena tal cual (`src/combat/hatch.ts`: `HatchFoe`, `floorDetour`, `floorBoardKeep`; comparados con su `Spider` y
+  `HatchBeast` en `tests/compare/hatch.compare.test.ts`), en la partida en `src/combat/hatch-foes.ts` (`HatchSystem`: las
+  cuatro trampillas, `hatch.scene-asset.ts`, y el cangrejo, la seta y la calavera con su modelo); los voladores
+  diminutos (`Flight` con `tiny`) y las oleadas de la batalla diminuta (`buildWave` con `tiny`), comparados también; el
+  marcador tumbado en el suelo, que rodean; en la plancha con un brazo, cada brazo dispara a su lado.
 - **11c**: el inchworm (la cabeza hasta la línea del suelo y vuelta; la onda).
 
 ### Fase 2 · Alrededor de la partida
@@ -342,6 +345,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `wave-panel`). Los puntos y el combo, en `GAME.score`/`GAME.combo` (`repScore`, `onFoeDown`, `HOOKS.score` para las
   piedras); los golpes recibidos, en `GAME.taken`. Las cartas de mejora tienen que hacer esperar al descanso (RepArena:
   `perkWaits`), y el dorado, el relámpago y el cofre multiplican los puntos (`perkPtsK`, `perkKillK`).
+- PR 11b → PR 11c: el inchworm también es de la batalla diminuta (RepArena: `isTiny`, con los bichos más lentos: `IW_SLOW`
+  en `walkT` de `HatchFoe`) y tiene su onda que los manda a su trampilla (`HatchFoe.flung`: el modo `recoil` ya lo
+  admite; falta `sendHome`). La arena diminuta (`HatchSystem.layout`, origen donde te colocas) y el marcador del suelo
+  (`placeBoard`) ya están.
 - PR 11a → PR 11b: `FloorDetector` ya hace las flexiones (`pushup`) y la plancha con un brazo (`plank1`, con su carga ×N
   para el brazo que se levanta: el suceso `rep` trae `side`); falta la batalla diminuta (RepArena: `isTiny`, `HATCH_KIND`,
   `HatchBeast`, las trampillas, los voladores a 0,42 y `Flight` con `push`). Para que se puedan elegir, añádelos a
@@ -450,6 +457,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   PR 9) y su tamaño se ha probado en el navegador (el zombi verde a lo grande y el dragón); en las gafas, por ver que
   quepan bien por la compuerta. Los robots, drones, avispones y la nodriza (geométricos) no salen: en su lugar, zombis
   verdes, abejas y el dragón.
+- PR 11b: las arañas de RepArena (geométricas) no salen: en su lugar, cangrejos y setas (y la calavera si la eliges). En la
+  VR simulada se han visto las trampillas, el marcador tumbado, cangrejos, setas y abejas diminutas saliendo, y una
+  flexión que cuenta y dispara; la plancha con un brazo, comparada con RepArena y por probar en las gafas. La arena
+  diminuta mira siempre hacia las compuertas (en RepArena, hacia donde mirabas al colocarte).
 - PR 11a: probado en la VR simulada el superman (elegido y empezado con el mando; tumbado, la postura se toma sola; los
   voladores vienen bajos; subir el tronco y aguantar dispara solo al más cercano, perfecta). Los fondos y la plancha
   lateral, comparados con RepArena; en las gafas, por probar los tres. En RepArena, la caricatura enseñaba cómo colocarse

@@ -112,7 +112,12 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
   arriba, un disparo; si cae la cadera, vuelve a empezar) y **superman** (boca abajo, sube el tronco y aguanta: el rayo
   sale solo al más cercano). Antes de empezar, el marcador dice cómo colocarte y, quieto dos segundos en la postura, la
   toma. Tumbado, los **voladores vienen bajos**, a la altura de tu cabeza; en el superman esperan a la vista y no pican
-  mientras aguantas arriba. Flexiones, plancha con un brazo e inchworm, con los PR 11b y 11c.
+  mientras aguantas arriba.
+- **La batalla diminuta** (flexiones y plancha con un brazo), como en RepArena: bajo tu cara, cuatro **trampillas** en el
+  suelo de las que salen **cangrejos, setas y calaveras** de unos 20 cm (y abejas y murciélagos pequeños) que corretean
+  hacia tus manos, amenazan dando un saltito y saltan a morderte; el **marcador, tumbado en el suelo** delante de tus
+  manos, y lo rodean. En la plancha con un brazo salen a los lados y cada brazo dispara a su lado; una flexión aguantada
+  abajo carga ×2-×4 para el brazo que levantes. El inchworm, con el PR 11c.
 
 En el ordenador (sin gafas) también se puede probar lo que se hace con la cabeza (sentadilla, zancada, peso muerto…):
 flecha abajo (o S) para agacharse (al subir, el rayo sale solo al
@@ -155,6 +160,8 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/foes.ts` | La tabla de los enemigos (modelo, tamaño, animaciones, golpe, voz), su resistencia y fuerza, el reparto y los puestos de ataque, sin IWSDK |
 | `src/combat/retarget.ts` | Las animaciones de la biblioteca de Quaternius, pasadas al esqueleto del diablillo y el puglin |
 | `src/combat/rocks.ts`, `src/combat/rock-path.ts` | Las piedras del lanzador: la parábola, la parada con la mano y lo que pasa al llegar |
+| `src/combat/hatch.ts`, `src/combat/hatch-foes.ts` | La batalla diminuta: los bichos de las trampillas (de RepArena, sin IWSDK) y en la partida, con las trampillas |
+| `src/scene-assets/hatch.scene-asset.ts` | La trampilla del suelo (hecha en código) |
 | `src/combat/waves.ts` | Las oleadas (de RepArena): quién sale en cada una, la escalera, los jefes, cada cuánto salen, la dificultad creciente y los puntos, sin IWSDK |
 | `src/combat/perks.ts`, `src/combat/rewards.ts` | Los premios (de RepArena): cartas de mejora, dorado, relámpago, cofre y carrera contra tu récord; su lógica, sin IWSDK, y en la partida |
 | `tests/vr/eval.mjs` | Para preparar pruebas en la VR simulada (ejecuta algo en la página) |

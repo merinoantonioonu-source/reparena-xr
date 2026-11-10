@@ -37,6 +37,8 @@ export interface WaveEnv {
   hp: (key: string) => number;
   tier: (kind: string) => number;
   rnd?: () => number;
+  /** La batalla diminuta (flexiones, plancha con un brazo): los de las trampillas (isTiny). */
+  tiny?: boolean;
 }
 
 /** Su dureza de serie, de 1 (los fáciles y lentos) a 4 (RepArena: FOE_TIER). */
@@ -48,7 +50,10 @@ export const foeTierOf = (devTier: (key: string) => number, k: string): number =
 /** Lo que sale aquí de cada uno de RepArena: el lanzador es «thrower»; los jefes («…boss»), el mismo a lo grande; la
  * nodriza (geométrica), el dragón; los robots, drones y avispones (geométricos, por ahora no: decisión del usuario), un
  * zombi verde o una abeja. */
-export function xrFoe(kind: string): { k: string; boss: boolean } {
+export function xrFoe(kind: string, tiny = false): { k: string; boss: boolean } {
+  // la batalla diminuta: los de las trampillas («hcrab», «hcrabboss»…); las arañas (geométricas), un cangrejo
+  if (tiny && (kind === 'scout' || kind === 'heavy')) return { k: 'hcrab', boss: false };
+  if (tiny && kind === 'titan') return { k: 'hcrab', boss: true };
   if (kind === 'impthrow') return { k: 'thrower', boss: false };
   if (kind === 'dragon' || kind === 'carrier') return { k: 'dragon', boss: true };
   if (kind === 'titan') return { k: 'zgreen', boss: true };
@@ -81,7 +86,7 @@ export function ladderPick(list: string[], i: number, env: WaveEnv): string[] {
 }
 
 // el jefe de cada clase (RepArena: gb)
-const bossOf = (k: string): string => ({ robot: 'titan', imp: 'impboss', puglin: 'impboss', thrower: 'impboss', zombie: 'zombieboss', raptor: 'raptorboss' })[k] || k + 'boss';
+const bossOf = (k: string, tiny = false): string => (tiny ? (k === 'spider' ? 'titan' : 'h' + k + 'boss') : ({ robot: 'titan', imp: 'impboss', puglin: 'impboss', thrower: 'impboss', zombie: 'zombieboss', raptor: 'raptorboss' })[k] || k + 'boss');
 
 /** Quién sale en la oleada i (RepArena: buildWave, en Combate de pie). fresh: los que entran en juego por primera vez
  * (seen: los que ya han salido en la ronda; se vacía en la primera). */
@@ -91,7 +96,7 @@ export function buildWave(i: number, env: WaveEnv, seen: Set<string>): { list: W
   if (env.twoShots) total *= 2;
   let boss: WaveSpec | null = null;
   const F = env.foes;
-  const G0 = env.ground.length ? env.ground : ['robot'], FL = env.fly.filter((k) => k !== 'dragon');
+  const tiny = !!env.tiny, G0 = env.ground.length ? env.ground : [tiny ? 'spider' : 'robot'], FL = env.fly.filter((k) => k !== 'dragon');
   const G = ladderPick(G0, i, env), FK = ladderPick(FL.length ? FL : ['drone', 'hornet'], i, env), W = (k: string): number => (k === 'drone' ? 2 : 1);
   const heavyOk = !env.ladder || ladderTop(i, env.rank, env.waves) >= 2;
   if (i === 0) seen.clear();
@@ -117,7 +122,7 @@ export function buildWave(i: number, env: WaveEnv, seen: Set<string>): { list: W
   const nextG = deal(G), nextF = deal(FK);
   if (isBossWave(i, env.waves)) {
     const b = Math.max(4, Math.round(total * 0.3)), ground = F === 'robots' || (F === 'mix' && Math.floor(i / 5) % 2 === 0);
-    const kind = !ground ? (env.fly.includes('dragon') ? 'dragon' : 'carrier') : G0.includes('captain') ? 'captainboss' : G0.length === 1 ? bossOf(G0[0]) : G0.includes('robot') ? 'titan' : bossOf(G[Math.floor(rnd() * G.length)]);
+    const kind = !ground ? (env.fly.includes('dragon') ? 'dragon' : 'carrier') : !tiny && G0.includes('captain') ? 'captainboss' : G0.length === 1 ? bossOf(G0[0], tiny) : G0.includes(tiny ? 'spider' : 'robot') ? 'titan' : bossOf(G[Math.floor(rnd() * G.length)], tiny);
     boss = { kind, hp: b };
     total -= b;
   }
@@ -129,7 +134,15 @@ export function buildWave(i: number, env: WaveEnv, seen: Set<string>): { list: W
     const R = (key: string): number => env.hp((fk = key));
     if (F === 'robots' || (F === 'mix' && k % 2 === 0)) {
       const g = nextG();
-      if (g === 'imp' || g === 'puglin') {
+      if (tiny) {
+        if (g === 'spider') {
+          kind = k % 3 === 2 && heavyOk ? 'heavy' : 'scout';
+          hp = kind === 'heavy' ? R('h:spider_h') + Math.floor(i / 3) : R('h:spider') + Math.floor(i / 4);
+        } else {
+          kind = 'h' + g;
+          hp = R('h:' + g) + Math.floor(i / 4);
+        }
+      } else if (g === 'imp' || g === 'puglin') {
         kind = g;
         hp = R('g:' + g) + Math.floor(i / (kind === 'puglin' ? 4 : 3));
       } else if (g === 'thrower') {

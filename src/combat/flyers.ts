@@ -66,10 +66,10 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
 
   /** Saca uno (kind: bee, bat, cthulhu, dragon) por el hueco de gate, con hp de vida. flySpeed y erratic: «Velocidad de
    * vuelo» y «Vuelo errático» de esta oleada. */
-  spawn(kind: string, gate: FlyGate, hp: number, flySpeed: number, erratic: number): FoeTarget | null {
+  spawn(kind: string, gate: FlyGate, hp: number, flySpeed: number, erratic: number, tiny = false): FoeTarget | null {
     const d = FOE_DEF[kind], gltf = d && AssetManager.getGLTF(d.asset);
     if (!d || !gltf || !this.enemies) return null;
-    const flight = new Flight(kind, gate, flySpeed, erratic, hp, Math.random, GAME.lowFly > 0); // (tumbado, salen bajos)
+    const flight = new Flight(kind, gate, flySpeed, erratic, hp, Math.random, GAME.lowFly > 0, tiny); // (tumbado, salen bajos; en la batalla diminuta, pequeños y de una trampilla)
     // (como en RepArena: el balanceo y el alabeo del vuelo van en un grupo aparte, y el centro del bicho queda donde vuela)
     const root = new Group(), body = new Group(), model = gltf.scene;
     root.name = `volador-${kind}`;
@@ -77,7 +77,7 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
     model.scale.setScalar(d.k);
     model.position.y = -d.h * d.ctr;
     body.add(model);
-    root.scale.setScalar(flight.K.scale);
+    root.scale.setScalar(flight.K.scale * (tiny ? 0.42 : 1));
     root.position.copy(flight.pos);
     model.traverse((o) => {
       const m = o as Mesh;
@@ -104,7 +104,7 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
     }
     const e = this.world.createTransformEntity(root);
     const str = devFoe('f:' + kind).str;
-    const target = new FoeTarget(e, root, flight.radius, 0, hp, 0.34 * flight.K.scale + 0.12, true);
+    const target = new FoeTarget(e, root, flight.radius, 0, hp, (0.34 * flight.K.scale + 0.12) * (tiny ? 0.42 : 1), true);
     const rt: FlyRt = { kind, flight, maxHp: hp, str, body, mixer, fly, bite, death, biting: false, buzz: loopSound('zumbido-dron', 0.55, 130 / 135), target, launch: null, fade: null };
     root.userData.fly = rt;
     this.enemies.targets.push(target);

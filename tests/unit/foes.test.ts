@@ -88,3 +88,11 @@ describe('los puestos de ataque', () => {
     expect(r.slot.x).toBeGreaterThan(0);
   });
 });
+
+import { hatchFoes } from '../../src/combat/hatch-foes.js';
+describe('la batalla diminuta', () => {
+  it('los de las trampillas: los elegidos con modelo; las arañas (geométricas), no: si solo ellas, cangrejo y seta', () => {
+    expect(hatchFoes(['spider'])).toEqual(['crab', 'mushroom']);
+    expect(hatchFoes(['spider', 'skull'])).toEqual(['skull']);
+  });
+});

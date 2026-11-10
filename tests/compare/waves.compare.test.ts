@@ -4,7 +4,7 @@
 // mismos «entra en juego». (Se salta sin RA_DIR: ver tests/compare/ra.ts.)
 import { describe, expect, it } from 'vitest';
 import { buildWave, FOE_TIER, type WaveEnv } from '../../src/combat/waves.js';
-import { FOE_FLY, FOE_GATE } from '../../src/core/catalog.js';
+import { FOE_FLY, FOE_GATE, FOE_HATCH } from '../../src/core/catalog.js';
 import { RA_DIR, raRun, raSlice } from './ra.js';
 
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
@@ -16,7 +16,7 @@ describe.skipIf(!RA_DIR)('las oleadas, como en RepArena', () => {
     let n = 0, bosses = 0, fresh = 0;
     for (let seed = 1; seed <= 400; seed++) {
       const r = rng(seed), pickN = (l: string[], m: number) => l.filter(() => r() < m / l.length);
-      const ground = pickN(FOE_GATE.map((o) => o[0]), 3), fly = pickN(FOE_FLY.map((o) => o[0]), 2);
+      const tiny = r() < 0.3, ground = pickN((tiny ? FOE_HATCH : FOE_GATE).map((o) => o[0]), 3), fly = pickN(FOE_FLY.map((o) => o[0]), 2);
       const F = !ground.length ? 'flyers' : !fly.length ? 'robots' : (['robots', 'flyers', 'mix'] as const)[Math.floor(r() * 3)];
       const waves = r() < 0.3 ? 0 : 3 + Math.floor(r() * 8), rank = Math.floor(r() * 7), ladder = r() < 0.6, two = r() < 0.3;
       const repsWave = 6 + Math.floor(r() * 14), repsInc = Math.floor(r() * 3);
@@ -32,7 +32,7 @@ describe.skipIf(!RA_DIR)('las oleadas, como en RepArena', () => {
         waveReps: (i: number) => Math.max(1, Math.round(repsWave + repsInc * i)),
         twoShots: () => two,
         foes: () => F,
-        isTiny: () => false,
+        isTiny: () => tiny,
         groundList: () => ground,
         flyList: () => fly,
         isCombat: () => true,
@@ -45,7 +45,7 @@ describe.skipIf(!RA_DIR)('las oleadas, como en RepArena', () => {
       const seen = new Set<string>();
       for (let i = 0; i < (waves || 11); i++) {
         const a = ra(i);
-        const env: WaveEnv = { reps: Math.max(1, Math.round(repsWave + repsInc * i)), twoShots: two, foes: F, ground, fly, waves, rank, ladder, hp, tier, rnd: ptR };
+        const env: WaveEnv = { reps: Math.max(1, Math.round(repsWave + repsInc * i)), twoShots: two, foes: F, ground, fly, waves, rank, ladder, hp, tier, rnd: ptR, tiny };
         const b = buildWave(i, env, seen);
         expect(b.list.map((s) => [s.kind, s.hp, s.fk ?? '']), `semilla ${seed}, oleada ${i}`).toEqual(a.list.map((s) => [s.kind, s.hp, s.fk ?? '']));
         expect(b.fresh, `semilla ${seed}, oleada ${i}`).toEqual(a.fresh);
