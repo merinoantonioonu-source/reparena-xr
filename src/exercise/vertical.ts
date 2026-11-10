@@ -61,7 +61,8 @@ export class VertDetector {
   state: 'up' | 'down' = 'up';
   /** La altura de referencia (de pie). */
   ref = 1.6;
-  private peak = 1.6;
+  /** Lo más alto desde la última repetición (la plancha con un brazo lo pone al levantar un brazo). */
+  peak = 1.6;
   private min = 1.6;
   private t0 = 0;
   /** ¿Ha llegado abajo (carga dada) en la bajada de ahora? */

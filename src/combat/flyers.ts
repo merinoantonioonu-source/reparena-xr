@@ -8,7 +8,7 @@
  */
 import { AnimationAction, AnimationMixer, AssetManager, createSystem, DoubleSide, Entity, Group, LoopOnce, LoopRepeat, Material, Mesh, Object3D, PhysicsBody, PhysicsManipulation, PhysicsShape, PhysicsShapeType, PhysicsState, SkinnedMesh, Vector3 } from '@iwsdk/core';
 import { Flyer, Foe, FoeState } from './components.js';
-import { FLAP_HZ, Flight, type FlyGate } from './flight.js';
+import { FLAP_HZ, Flight, type FlyEnv, type FlyGate } from './flight.js';
 import { devFoe, FOE_DEF } from './foes.js';
 import { EnemySystem, FoeTarget } from './enemies.js';
 import { num } from '../core/values.js';
@@ -38,7 +38,7 @@ const ICHOR = 0x525c0f; // (la baba de los bichos de RepArena: fx.ichor)
 
 export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe] } }, {}) {
   private enemies: EnemySystem | null = null;
-  private env = { head: GAME.head, play: false, active: false, beat: true };
+  private env: FlyEnv = { head: GAME.head, play: false, active: false, beat: true, low: 0, sup: null };
   private p = new Vector3();
   private look = new Vector3();
   private manip = { force: [0, 0, 0] as [number, number, number], linearVelocity: [0, 0, 0] as [number, number, number], angularVelocity: [0, 0, 0] as [number, number, number] };
@@ -69,7 +69,7 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
   spawn(kind: string, gate: FlyGate, hp: number, flySpeed: number, erratic: number): FoeTarget | null {
     const d = FOE_DEF[kind], gltf = d && AssetManager.getGLTF(d.asset);
     if (!d || !gltf || !this.enemies) return null;
-    const flight = new Flight(kind, gate, flySpeed, erratic, hp);
+    const flight = new Flight(kind, gate, flySpeed, erratic, hp, Math.random, GAME.lowFly > 0); // (tumbado, salen bajos)
     // (como en RepArena: el balanceo y el alabeo del vuelo van en un grupo aparte, y el centro del bicho queda donde vuela)
     const root = new Group(), body = new Group(), model = gltf.scene;
     root.name = `volador-${kind}`;
@@ -189,6 +189,8 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
     const env = this.env;
     env.active = GAME.phase === 'playing';
     env.play = env.active && !GAME.between;
+    env.low = GAME.lowFly;
+    env.sup = GAME.sup;
     // con ritmo marcado, los bandazos van en el pulso (RepArena: beatP, BEAT.hit)
     const P = num('bpm') > 0 ? 60 / num('bpm') : 0, bk = P ? Math.floor(time / P) : -1;
     env.beat = !P || (bk !== this.beatK && this.beatK >= 0);

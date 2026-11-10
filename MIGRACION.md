@@ -125,7 +125,9 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 10a · Oleadas, jefes, puntos y combo** — #14
 - [x] **PR 10b · Premios: cartas de mejora, enemigo dorado, relámpago, cofre y carrera contra tu récord** — #15
 - [x] **PR 10c · El marcador elegido (C), celebraciones y trofeos dorados** — #16
-- [ ] **PR 11 · Ejercicios de suelo**
+- [x] **PR 11a · Fondos, plancha lateral y superman** — #17
+- [ ] **PR 11b · La batalla diminuta: flexiones y plancha con un brazo**
+- [ ] **PR 11c · Inchworm**
 - [ ] **PR 12 · Menú de muñeca, resumen, carátula del duelo y caricatura**
 - [ ] **PR 13 · Carrera y progreso**
 - [ ] **PR 14 · Página web y app del móvil**
@@ -276,10 +278,20 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   celebraciones en su hueco del marcador (`message`, con su color) y los trofeos dorados (`trophy.uikitml`,
   `GameSystem.trophy`: el récord, el récord al fallo, el cofre).
 
-**PR 11 · Ejercicios de suelo** (L)
+**PR 11 · Ejercicios de suelo** (L: partido en 11a, 11b y 11c)
 - Flexiones, inchworm, fondos, plancha con un brazo, plancha lateral y superman, con los avisos en el suelo y el
   marcador tumbado sólido.
 - De RepArena: `src/70_game.js`.
+- **11a (hecho)**: los detectores de suelo y sentado de RepArena tal cual (`src/exercise/floor.ts`: `FloorDetector`, también
+  con las flexiones y la plancha con un brazo, ya listos para el 11b), comparados con su código
+  (`tests/compare/floor.compare.test.ts`: 40 partidas al azar por ejercicio, los mismos sucesos en el mismo fotograma). Se
+  juegan los fondos en silla, la plancha lateral y el superman: antes de empezar, quieto en la postura (RepArena:
+  `calib`); tumbado, los voladores vienen bajos y, en el superman, esperan a que aguantes (`Flight` con `low` y `sup`,
+  comparado con RepArena en `flight.compare.test.ts`).
+- **11b**: la batalla diminuta bajo tu cara (flexiones y plancha con un brazo): las trampillas, los bichos pequeños con
+  modelo (cangrejo, seta, calavera; las arañas, geométricas, no: decisión del usuario), los voladores a escala y el
+  marcador tumbado sólido.
+- **11c**: el inchworm (la cabeza hasta la línea del suelo y vuelta; la onda).
 
 ### Fase 2 · Alrededor de la partida
 
@@ -330,6 +342,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `wave-panel`). Los puntos y el combo, en `GAME.score`/`GAME.combo` (`repScore`, `onFoeDown`, `HOOKS.score` para las
   piedras); los golpes recibidos, en `GAME.taken`. Las cartas de mejora tienen que hacer esperar al descanso (RepArena:
   `perkWaits`), y el dorado, el relámpago y el cofre multiplican los puntos (`perkPtsK`, `perkKillK`).
+- PR 11a → PR 11b: `FloorDetector` ya hace las flexiones (`pushup`) y la plancha con un brazo (`plank1`, con su carga ×N
+  para el brazo que se levanta: el suceso `rep` trae `side`); falta la batalla diminuta (RepArena: `isTiny`, `HATCH_KIND`,
+  `HatchBeast`, las trampillas, los voladores a 0,42 y `Flight` con `push`). Para que se puedan elegir, añádelos a
+  `PLAY_EX` (`src/ui/fields.ts`). La colocación antes de empezar (`calibStep` en `game.ts`) ya admite cualquiera de
+  `FLOOR_EX` (en RepArena, flexiones: cabeza entre 0,15 y 1 m).
 - PR 10c → PR 11: el marcador (`refreshBoard`) y los avisos ya están; los de suelo usan el mismo flujo de oleadas, puntos
   y premios. El marcador tumbado en el suelo de RepArena (flexiones, planchas, inchworm), sólido para los bichos, falta.
   Las letras de los paneles no tienen ♥, ★, ∞, ▲, ⚡ ni el signo menos (−): o se dibujan con formas de UIKit (las vidas,
@@ -433,6 +450,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   PR 9) y su tamaño se ha probado en el navegador (el zombi verde a lo grande y el dragón); en las gafas, por ver que
   quepan bien por la compuerta. Los robots, drones, avispones y la nodriza (geométricos) no salen: en su lugar, zombis
   verdes, abejas y el dragón.
+- PR 11a: probado en la VR simulada el superman (elegido y empezado con el mando; tumbado, la postura se toma sola; los
+  voladores vienen bajos; subir el tronco y aguantar dispara solo al más cercano, perfecta). Los fondos y la plancha
+  lateral, comparados con RepArena; en las gafas, por probar los tres. En RepArena, la caricatura enseñaba cómo colocarse
+  (PR 12); aquí, el marcador dice cómo («Túmbate boca abajo, brazos estirados»).
+- PR 11a: los avisos de lo que se hace mal, tumbado, salen en el suelo delante (como de pie); en RepArena, «en el suelo
+  bajo la cara»: con el PR 12 (los avisos de la vista).
 - PR 10c: el marcador de RepArena se pintaba entero en un lienzo; aquí, con los paneles de UIKit (letras nítidas) y solo el
   rosco en un lienzo. Diferencias: la mecha del relámpago es una barra que se consume en el borde de arriba (en RepArena,
   todo el borde); las vidas, círculos rosas (las letras no tienen ♥); el rango, su nombre (sin el escudo con galones); en

@@ -35,7 +35,8 @@ import { applyFonts } from '../ui/fonts.js';
 import { boltColor, Effects, POW_COL } from './fx.js';
 import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
-import { IDLE } from '../exercise/how.js';
+import { IDLE, PLACE } from '../exercise/how.js';
+import { FLOOR_EX, FloorDetector, floorDefaults, type FloorCfg, type FloorInput } from '../exercise/floor.js';
 import { aimForced, deepOn, flyList, foes, groundList, handsFree, twoShots } from '../core/rules.js';
 import { devFoe, flyFoes, FOE_DEF, foeName, gateFoes } from './foes.js';
 import { Rewards } from './rewards.js';
@@ -44,7 +45,7 @@ import { BoardRing } from '../ui/board-ring.js';
 import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, REP_TIME, repPoints, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
 import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
-import { curEx } from '../ui/fields.js';
+import { curEx, PLAY_EX } from '../ui/fields.js';
 import { dv, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, waveReps } from '../core/settings.js';
 import { EX_NAMES, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
@@ -96,6 +97,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private stCfg: StandCfg = standDefaults();
   private stIn!: StandInput;
   private stEvents: StandEvent[] = [];
+  // los de suelo y sentado (fondos, plancha lateral, superman) y la colocación antes de empezar (RepArena: 'calib')
+  private fl = new FloorDetector();
+  private flCfg: FloorCfg = floorDefaults();
+  private flIn!: FloorInput;
+  private calibT = -1;
+  private supNext = { t: 0 };
   private rampLvl = 0; // (oleadas superadas: la dificultad creciente de RepArena)
   private maxAlive = 5;
   // los avisos en el suelo: lo que se hace mal (4 s) y la carga ×2-×4 mientras se aguanta
@@ -184,6 +191,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       lockShow: (e) => this.locks.show(e as FoeTarget),
     };
     this.stIn = { hands, head, fwd: new Vector3(0, 0, -1), play: false }; // (delante, en la arena: hacia las compuertas)
+    this.flIn = { ...this.stIn, headQ: head.q, wave: false };
     this.hurt = new Mesh(new SphereGeometry(0.3, 24, 16), new MeshBasicMaterial({ color: 0xff1030, transparent: true, opacity: 0, side: BackSide, depthTest: false, depthWrite: false, toneMapped: false }));
     this.hurt.renderOrder = 20;
     this.hurt.visible = false;
@@ -488,7 +496,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     for (const p of this.pending) p.gate = null;
     // el ejercicio: Combate con uno de pie (si lo elegido en RepArena era otro modo u otro ejercicio, la sentadilla)
     if (settings.mode !== 'combat') setSetting('mode', 'combat');
-    if (!STAND_EX.includes(settings.exercise)) setSetting('exercise', curEx());
+    if (!PLAY_EX.includes(settings.exercise)) setSetting('exercise', curEx());
     // las vidas, las de tu rango (0: infinitas: los golpes no te eliminan; al fallo, al menos una)
     GAME.maxLives = nLives();
     Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, score: 0, combo: 0, bestCombo: 0, taken: 0, startTime: this.clock });
@@ -508,11 +516,21 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // al fallo: la oleada más lejana a la que llegaste nunca con este ejercicio (para el trofeo al pasarla)
     const hist = store<{ ex?: string; mode?: string; fail?: number }[]>('reparena3-history') ?? [];
     this.failBest = num('toFail') ? hist.filter((r) => r.ex === settings.exercise && r.mode === settings.mode && r.fail).reduce((a, r) => Math.max(a, r.fail ?? 0), 0) : 0;
-    // antes de la primera oleada, 3 s para colocarte (RepArena: 'ready')
+    // antes de la primera oleada, 3 s para colocarte (RepArena: 'ready'); en el suelo o sentado, antes, quieto en la postura
+    // (RepArena: 'calib')
     GAME.between = true;
-    this.restT = 3;
-    this.message(nWaves() ? `PREPÁRATE · ${nWaves()} OLEADAS` : 'PREPÁRATE · AL FALLO', 3);
     this.stCfg = this.readCfg(0);
+    this.flCfg = this.readFloorCfg(0);
+    this.supNext.t = 0;
+    if (FLOOR_EX.includes(settings.exercise)) {
+      this.calibT = 0;
+      this.restT = 0;
+      this.message(PLACE[settings.exercise] ?? 'Colócate', 3600);
+    } else {
+      this.calibT = -1;
+      this.restT = 3;
+      this.message(nWaves() ? `PREPÁRATE · ${nWaves()} OLEADAS` : 'PREPÁRATE · AL FALLO', 3);
+    }
   }
 
   // Empieza la oleada i (desde 0): quién sale (RepArena: buildWave), cada cuánto, cuántos a la vez y lo que pide el
@@ -532,6 +550,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.maxAlive = Math.max(1, Math.round(dv('maxAlive', this.rampLvl)));
     GAME.foeSpeed = Math.min(2.2, Math.max(0.4, SQUAT_SPAWN_DIST / Math.max(1, dv('walkTime', this.rampLvl))));
     this.stCfg = this.readCfg(this.rampLvl);
+    this.flCfg = this.readFloorCfg(this.rampLvl);
     this.taken0 = GAME.taken;
     this.waveDone = 0;
     this.rw.waveStart(i, isBossWave(i, nWaves()));
@@ -610,6 +629,27 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (this.resting) this.rw.restEnd();
     this.resting = false;
     this.startWave(GAME.wave);
+  }
+
+  // lo que piden los de suelo y sentado en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
+  private readFloorCfg(lvl: number): FloorCfg {
+    return { ex: settings.exercise, dipDepth: dv('dipDepth', lvl), pushDepth: dv('pushDepth', lvl), splDrop: num('splDrop'), splHold: num('splHold'), supRange: num('supRange'), supHold: num('supHold'), supArms: str('supArms') || 'yes', perfectTime: num('perfectTime'), powHold: num('powHold'), powHoldInc: num('powHoldInc'), deepDrop: 0, power: true };
+  }
+
+  // ¿Quieto en la postura? (RepArena: calib) La cabeza, a su altura: sentado, entre 0,55 y 1,5 m; tumbado o en plancha
+  // lateral, por debajo de 1 m. Dos segundos quieto y se toma esa postura
+  private calibStep(dt: number): void {
+    const y = head.p.y, ex = settings.exercise;
+    const ok = ex === 'dips' ? y > 0.55 && y < 1.5 : y < 1.0 && y > (ex === 'superman' ? 0.04 : 0.15);
+    if (ok && head.speed < 0.07) this.calibT += dt;
+    else this.calibT = Math.max(0, this.calibT - dt * 2);
+    if (this.calibT < 2) return;
+    this.calibT = -1;
+    this.fl.reset(y, { left: hands.left.ok ? hands.left.wrist.y : null, right: hands.right.ok ? hands.right.wrist.y : null });
+    this.rw.standY = 1.6;
+    this.restT = 3;
+    SND.charge();
+    this.message('¡Bien! A punto', 3);
   }
 
   // lo que pide el ejercicio en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
@@ -757,7 +797,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const ev = this.stEvents;
     ev.length = 0;
     this.stIn.play = !GAME.between;
-    this.st.update(t, dt, this.stIn, this.stCfg, ev);
+    if (FLOOR_EX.includes(this.flCfg.ex)) {
+      this.flIn.play = this.stIn.play;
+      this.flIn.wave = !GAME.between && !this.resting;
+      if (this.calibT < 0) this.fl.update(t, dt, this.flIn, this.flCfg, ev);
+    } else this.st.update(t, dt, this.stIn, this.stCfg, ev);
     for (const e of ev) {
       if (e.type === 'charge') this.onCharge();
       else if (e.type === 'power') this.onPower(e.level, e.deep);
@@ -985,7 +1029,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       // pasar de «Máximo a la vez»; cuando no queda nadie, oleada superada
       this.stepIntro(dt);
       this.rw.playStep(dt, time, !GAME.between);
-      if (this.resting || this.restT > 0) {
+      // tumbado, los voladores vienen bajos, a la altura de la cabeza (RepArena: lowFly, lowFlyY, SUP_ATK)
+      const ex = this.flCfg.ex, cl = (v: number): number => Math.max(0.3, Math.min(0.8, v));
+      GAME.lowFly = ex === 'splank' ? cl(this.fl.sp.ref + 0.03) : ex === 'superman' ? cl(this.fl.su.ref + this.flCfg.supRange / 100 + 0.08) : 0;
+      GAME.sup = ex === 'superman' ? { hold: this.flCfg.supHold, up: this.fl.su.state === 'up', time: this.clock - GAME.startTime, next: this.supNext } : null;
+      if (this.calibT >= 0) this.calibStep(dt);
+      else if (this.resting || this.restT > 0) {
         // el descanso (o los 3 s antes de la primera): las cartas, que hacen esperar; el cofre
         if (this.resting) this.rw.restStep(dt, time, this.restT <= 0);
         if (this.rw.lateStart) {

@@ -5,7 +5,9 @@
  * se lanzan a morderte; luego se alejan y vuelven. Un disparo los empuja hacia atrás (y, si estaban cogiendo impulso, se
  * lo quita). Sin IWSDK: se compara con el código de RepArena en tests/compare/flight.compare.test.ts.
  *
- * Sin los voladores pequeños de las flexiones ni los bajos del superman y la plancha lateral (llegan con el PR 11).
+ * Tumbado (superman, plancha lateral) vienen bajos, a la altura de la cabeza; en el superman, además, esperan a la vista y
+ * solo pican después de dar tiempo a una repetición entera y nunca mientras aguantas arriba (RepArena: lowFly, SUP_ATK).
+ * Sin los voladores pequeños de las flexiones (llegan con la batalla diminuta).
  */
 import { Vector3 } from 'three';
 
@@ -46,6 +48,11 @@ export interface FlyEnv {
   active: boolean;
   /** Con ritmo marcado, ¿es el pulso? (sin ritmo, siempre) */
   beat: boolean;
+  /** Tumbado: la altura a la que vienen (0: de pie, a tu cara). */
+  low: number;
+  /** El superman: lo que aguantas arriba (s), si estás arriba ahora, el tiempo de la ronda y cuándo puede lanzarse el
+   * siguiente (lo comparten todos: nunca dos seguidos). null: no es el superman. */
+  sup: { hold: number; up: boolean; time: number; next: { t: number } } | null;
 }
 
 const TAU = Math.PI * 2;
@@ -81,6 +88,8 @@ export class Flight {
   parryT = 0;
   hp: number;
   readonly pushV = new Vector3();
+  /** Lo que lleva esperando cerca de ti (el superman). */
+  waitT = 0;
   gateOut = false;
   /** Lo que ha pasado en el último paso: empieza a lanzarse (su voz), se lanza (el silbido) y te muerde. */
   evRoar = false;
@@ -89,10 +98,10 @@ export class Flight {
 
   /** kind: bee, bat…; gate: la compuerta por la que sale (ya elegida); flySpeed: «Velocidad de vuelo» (km/h, con la
    * dificultad creciente); erratic: «Vuelo errático» (%). Devuelve también cuánto tiene que estar abierta la compuerta. */
-  constructor(kind: string, readonly gate: FlyGate, flySpeed: number, erratic: number, hp: number, private rnd: () => number = Math.random) {
+  constructor(kind: string, readonly gate: FlyGate, flySpeed: number, erratic: number, hp: number, private rnd: () => number = Math.random, low = false) {
     const K = (this.K = FLYER_KIND[kind]);
     const sp = flySpeed / 3.6, r = gate.ry;
-    const start = new Vector3(gate.x - 0.6 * Math.sin(r), 1.5 * gate.scale, gate.z - 0.6 * Math.cos(r));
+    const start = new Vector3(gate.x - 0.6 * Math.sin(r), (low ? 0.6 : 1.5) * gate.scale, gate.z - 0.6 * Math.cos(r));
     this.base = start.clone();
     this.pos = start.clone();
     this.last = start.clone();
@@ -121,17 +130,23 @@ export class Flight {
     this.evRoar = this.evWhoosh = this.evBite = false;
     this.t += dt;
     const HL = env.head;
+    const low = env.low > 0;
     if (env.active) {
-      const tgt = _a.set(HL.x * 0.6, Math.max(1.0, HL.y - 0.12), HL.z * 0.6);
-      const to = _b.subVectors(tgt, this.base), d = to.length(), reach = 0.85;
+      const tgt = _a.set(HL.x * 0.6, low ? env.low : Math.max(1.0, HL.y - 0.12), HL.z * 0.6);
+      const S = env.sup, to = _b.subVectors(tgt, this.base), d = to.length(), reach = S ? 1.4 : 0.85;
+      if (d > reach || this.retreat > 0) this.waitT = 0;
+      else this.waitT += dt;
       if (this.retreat > 0) {
         this.retreat -= dt;
         this.base.addScaledVector(to.normalize(), -this.speed * 1.6 * dt);
       } else if (d > reach) this.base.addScaledVector(to.normalize(), Math.min(d, this.speed * dt));
-      else if (env.play && !this.windT) {
+      else if (S && !this.windT && (this.waitT < S.hold + 3 || S.up || S.time < S.next.t)) {
+        /* (en el superman, esperando: a la vista, sin picar mientras aguantas arriba) */
+      } else if (env.play && !this.windT) {
         this.windT = 1e-3; // (se echa atrás antes de lanzarse: te da un momento para dispararle), con su voz
         this.evRoar = true;
       }
+      if (S && this.windT === 1e-3) S.next.t = S.time + S.hold + 3.5; // (y el siguiente, otra repetición después)
       if (this.windT > 0 && !env.play) this.windT = 0;
       if (this.windT > 0) {
         // carga 0,45 s echándose atrás, se lanza 0,25 s y muerde
@@ -147,7 +162,7 @@ export class Flight {
       }
       if (this.t > this.nextDart && !this.windT && env.beat) {
         const A = clamp(d * 0.2, 0.4, 2.4) * this.erratic;
-        this.dartT.set(this.rand(-1, 1) * A, this.rand(-0.4, 0.6) * A * 0.7, this.rand(-0.5, 0.5) * A * 0.4);
+        this.dartT.set(this.rand(-1, 1) * A, this.rand(-0.4, 0.6) * A * (low ? 0.2 : 0.7), this.rand(-0.5, 0.5) * A * 0.4);
         this.nextDart = this.t + this.rand(0.8, 3.0) / Math.sqrt(Math.max(0.2, this.erratic));
       }
     }
@@ -164,7 +179,8 @@ export class Flight {
     this.last.copy(this.pos);
     this.pos.copy(this.base).addScaledVector(right, this.dart.x + Math.sin(this.t * this.w1 + this.ph1) * wob).addScaledVector(dir, this.dart.z);
     this.pos.y += this.dart.y + Math.sin(this.t * this.w2 * 1.7 + this.ph2) * wob * 0.6;
-    this.pos.y = Math.max(0.45, this.pos.y);
+    this.pos.y = Math.max(low ? 0.2 : 0.45, this.pos.y);
+    if (low) this.pos.y = Math.min(this.pos.y, 1.0);
     if (this.windT > 0) {
       // echarse atrás y lanzarse hacia tu cara
       const to = _a.subVectors(HL, this.pos), d = to.length(), w = this.windT;

@@ -107,6 +107,13 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
   por nombre, y los que allí se fabricaban al vuelo, grabados como archivos), con la voz de cada zombi, la compuerta que
   suena y echa vapor al abrirse y el ambiente de la arena (a 0 mientras suena Spotify).
 
+- **Ejercicios de suelo y sentado** (de RepArena, comparados con su código): **fondos en silla** (baja doblando los
+  codos: como la sentadilla, con su carga ×2-×4), **plancha lateral** (cada pocos segundos aguantados con la cadera
+  arriba, un disparo; si cae la cadera, vuelve a empezar) y **superman** (boca abajo, sube el tronco y aguanta: el rayo
+  sale solo al más cercano). Antes de empezar, el marcador dice cómo colocarte y, quieto dos segundos en la postura, la
+  toma. Tumbado, los **voladores vienen bajos**, a la altura de tu cabeza; en el superman esperan a la vista y no pican
+  mientras aguantas arriba. Flexiones, plancha con un brazo e inchworm, con los PR 11b y 11c.
+
 En el ordenador (sin gafas) también se puede probar lo que se hace con la cabeza (sentadilla, zancada, peso muerto…):
 flecha abajo (o S) para agacharse (al subir, el rayo sale solo al
 zombi más cercano) y Enter para empezar.
@@ -160,6 +167,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/components.ts`, `src/components.ts` | Los componentes `Foe` (un enemigo), `Flyer` (vuela), `Obstacle` (lo que rodean) y `Gate`, y su catálogo |
 | `src/exercise/vertical.ts` | El detector de bajar y subir con la cabeza (carga, ×2-×4, PERFECTA), sin IWSDK |
 | `src/exercise/standing.ts` | Los ejercicios de pie de RepArena (zancada, en dos tiempos, peso muerto, curl, curl con barra, elevación frontal, antebrazos), sin IWSDK |
+| `src/exercise/floor.ts` | Los ejercicios de suelo y sentado de RepArena (fondos, flexiones, plancha lateral, superman, plancha con un brazo), sin IWSDK |
 | `src/exercise/how.ts` | Cómo se hace cada ejercicio de pie (lo que dice el menú principal y el recordatorio del marcador) |
 | `src/core/state.ts` | Lo que comparten los sistemas (fase, cabeza, bola, marcador) |
 | `src/core/schema.ts` | Los 186 ajustes de RepArena (claves, valores de serie, límites, grupos, condiciones y explicaciones) |
