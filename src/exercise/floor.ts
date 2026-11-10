@@ -9,6 +9,9 @@
  *  - Superman (superman): tumbado boca abajo, subir el tronco con los brazos estirados y aguantar arriba dispara.
  *  - Plancha con un brazo (plank1): en plancha, levantar un brazo dispara a su lado; una flexión aguantada abajo carga
  *    ×2-×4 para el brazo que se levante después.
+ *  - Inchworm (inchworm): se sigue la cabeza. De pie, te doblas y caminas con las manos hasta que la cabeza llega a la
+ *    línea del suelo (carga); cada flexión allí da más fuerza a la onda (×2-×4); vuelves andando con las manos y, de pie
+ *    cerca de la salida, dispara y sale la onda (RepArena: iwStep).
  */
 import { Vector3 } from 'three';
 import type { Side } from '../input/hand-model.js';
@@ -17,7 +20,12 @@ import type { StandEvent, StandInput } from './standing.js';
 import { WARN_COL } from './standing.js';
 
 /** Los de este detector. */
-export const FLOOR_EX = ['dips', 'pushup', 'splank', 'superman', 'plank1'];
+export const FLOOR_EX = ['dips', 'pushup', 'splank', 'superman', 'plank1', 'inchworm'];
+
+/** El inchworm: la línea vale con la cabeza a 15 cm de ella (RepArena: IW_LINE). */
+export const IW_LINE = 0.15;
+/** Lo que se aleja la línea de donde empiezas: «Alcance del inchworm» o, sin él, según tu altura (RepArena: iwReachM). */
+export const iwReach = (setting: number, standY: number): number => (setting > 0 ? Math.max(0.8, setting / 100) : clamp(standY * 0.8, 1.0, 1.6));
 
 /** Lo que pide cada uno (de los ajustes; las bajadas, en cm). */
 export interface FloorCfg {
@@ -30,6 +38,8 @@ export interface FloorCfg {
   supHold: number;
   /** Superman: «Brazos estirados» ('no': no lo mira). */
   supArms: string;
+  /** Inchworm: «Alcance» (cm; 0, según tu altura). */
+  iwReach: number;
   perfectTime: number;
   powHold: number;
   powHoldInc: number;
@@ -37,7 +47,7 @@ export interface FloorCfg {
   power: boolean;
 }
 
-export const floorDefaults = (ex = 'pushup'): FloorCfg => ({ ex, dipDepth: 15, pushDepth: 13, splDrop: 9, splHold: 3, supRange: 8, supHold: 2, supArms: 'yes', perfectTime: 1.2, powHold: 1.5, powHoldInc: 0.5, deepDrop: 0, power: true });
+export const floorDefaults = (ex = 'pushup'): FloorCfg => ({ ex, dipDepth: 15, pushDepth: 13, splDrop: 9, splHold: 3, supRange: 8, supHold: 2, supArms: 'yes', iwReach: 0, perfectTime: 1.2, powHold: 1.5, powHoldInc: 0.5, deepDrop: 0, power: true });
 
 /** La muñeca de una mano apoyada en el suelo, en la plancha con un brazo: entre 2 y 30 cm (RepArena: PL_FLOOR). */
 const PL_FLOOR: [number, number] = [0.02, 0.3];
@@ -51,6 +61,9 @@ export interface FloorInput extends StandInput {
   headQ: { x: number; y: number; z: number; w: number };
   /** ¿En plena oleada (no en el descanso)? */
   wave: boolean;
+  /** El inchworm: dónde está tu cabeza en la arena (delante es −Z; la línea, en 0) y tu altura de pie. */
+  iwZ: number;
+  standY: number;
 }
 
 export class FloorDetector {
@@ -60,6 +73,7 @@ export class FloorDetector {
   readonly su = { state: 'down' as 'down' | 'up' | 'top', ref: 0.2, t0: 0, awayT: 0, sec: 0, warnT: 0, peak: 0, lift: 0, armT: 0, stillT: 0, lo: 0.2, k: 0 };
   readonly pl = { ref: 0, awayT: 0, boost: 0, left: mkPl(), right: mkPl() };
   readonly plp = new VertDetector();
+  readonly iw = { phase: 'stand' as 'stand' | 'out' | 'back', g: 0, max: 0, t0: 0, pu: 0, pow: 1, pst: 'up' as 'up' | 'down', ref: 0, flash: 0 };
   /** Lo que lleva de carga la bola del superman (0-1: el aguante arriba). */
   get supK(): number {
     return this.su.state === 'up' ? this.su.k : 0;
@@ -80,6 +94,7 @@ export class FloorDetector {
     Object.assign(this.pl, { ref: y, awayT: 0, boost: 0 });
     for (const s of ['left', 'right'] as const) Object.assign(this.pl[s], mkPl(), wrists[s] !== null ? { floor: wrists[s] } : {});
     this.plp.state = 'up';
+    Object.assign(this.iw, { phase: 'stand', g: 0, max: 0, t0: 0, pu: 0, pow: 1, pst: 'up', ref: 0, flash: 0 });
     this.charged = false;
   }
 
@@ -100,6 +115,7 @@ export class FloorDetector {
     } else if (ex === 'splank') this.splank(t, dt, I, c);
     else if (ex === 'superman') this.superman(t, dt, I, c);
     else if (ex === 'plank1') this.plank1(t, dt, I, c);
+    else if (ex === 'inchworm') this.inchworm(t, dt, I, c);
     else {
       const d = this.pu, req = c.pushDepth / 100;
       if (y > d.ref + 0.35) {
@@ -281,6 +297,54 @@ export class FloorDetector {
       S.state = 'down';
       S.peak = y;
       S.ref = Math.max(S.ref, y - req * 0.3);
+    }
+  }
+
+  // Inchworm: se sigue la cabeza (las gafas la ven siempre). De pie, te doblas y caminas con las manos hasta que la cabeza
+  // llega a la línea del suelo: carga. En la plancha, cada flexión da más fuerza a la onda (×2, ×3, ×4). Vuelves andando
+  // con las manos y, de pie cerca de la salida, dispara (y la partida saca la onda). Si te pones de pie sin llegar a la línea,
+  // o lejos de la salida, no cuenta (RepArena: iwStep e iwHead)
+  private inchworm(t: number, dt: number, I: FloorInput, c: FloorCfg): void {
+    const W = this.iw, y = I.head.p.y, standing = y > I.standY - 0.22, S = iwReach(c.iwReach, I.standY) + 0.12, z1 = S - 0.25;
+    const g = clamp((z1 - I.iwZ) / Math.max(0.2, z1 - IW_LINE), 0, 1);
+    W.g = g;
+    if (W.phase === 'stand' && !standing) {
+      W.phase = 'out';
+      W.max = 0;
+      W.t0 = t;
+    }
+    if (W.phase === 'out') {
+      W.max = Math.max(W.max, g);
+      if (I.iwZ <= IW_LINE && y < I.standY * 0.6) {
+        W.phase = 'back';
+        Object.assign(W, { pu: 0, pow: 1, pst: 'up', ref: y, flash: 1 });
+        this.charge();
+      } else if (standing) {
+        if (W.max > 0.35) this.partial('Camina con las manos hasta la línea del suelo');
+        W.phase = 'stand';
+      }
+    } else if (W.phase === 'back' && !standing && I.iwZ <= IW_LINE + 0.3) {
+      // en la plancha, al final del recorrido: cada flexión da más fuerza a la onda
+      const pd = Math.max(0.05, (c.pushDepth / 100) * 0.8);
+      if (W.pst === 'up') {
+        W.ref = Math.max(W.ref - dt * 0.02, y);
+        if (y < W.ref - pd) W.pst = 'down';
+      } else if (y > W.ref - pd * 0.4) {
+        W.pst = 'up';
+        W.pu++;
+        const p = Math.min(4, 1 + W.pu);
+        if (p > W.pow) {
+          W.pow = p;
+          if (this.charged) this.out.push({ type: 'power', level: p, deep: false });
+        }
+      }
+    } else if (W.phase === 'back' && standing) {
+      // de pie otra vez: si has vuelto hasta la salida, dispara
+      if (g < 0.45) {
+        const dur = t - W.t0, pt = c.perfectTime;
+        this.rep(dur >= Math.max(2, pt * 2), dur < 1.6, W.pow || 1);
+      } else this.partial('Vuelve andando con las manos hasta la salida');
+      W.phase = 'stand';
     }
   }
 

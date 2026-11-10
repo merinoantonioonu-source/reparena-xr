@@ -13,8 +13,8 @@ import { STAND_EX } from '../exercise/standing.js';
 
 /** El ejercicio que se juega: el elegido, si es de pie y en Combate (lo único que hay por ahora); si no, la sentadilla. */
 /** Los ejercicios que ya se pueden jugar aquí: los de pie y, desde el PR 11, los fondos, la plancha lateral, el superman,
- * las flexiones y la plancha con un brazo. */
-export const PLAY_EX = [...STAND_EX, 'dips', 'splank', 'superman', 'pushup', 'plank1'];
+ * las flexiones, la plancha con un brazo y el inchworm. */
+export const PLAY_EX = [...STAND_EX, 'dips', 'splank', 'superman', 'pushup', 'plank1', 'inchworm'];
 export const curEx = (): string => (settings.mode === 'combat' && PLAY_EX.includes(settings.exercise) ? settings.exercise : 'squat');
 
 /** Opciones que caben en una fila de teclas; con más, se pasa de una a otra con − y +. */

@@ -356,4 +356,6 @@ export const SND = {
     playSound('caida-foso', at, 1.1);
   },
   pop: (at: Vector3, big = false): void => playSound('pompa', at, big ? 1 : 0.8, big ? 0.8 : 1),
+  /** La onda expansiva del inchworm (su golpe grave). */
+  shock: (at: Vector3): void => playSound('onda-expansiva', at),
 };

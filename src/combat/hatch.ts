@@ -276,6 +276,21 @@ export class HatchFoe {
     this.close = clamp(1 - this.pos.distanceTo(this.target) / this.startD, 0, 1);
   }
 
+  /** La onda del inchworm: sale despedido por el aire, dando vueltas, hasta su trampilla, y vuelve a empezar desde allí
+   * (RepArena: sendHome). */
+  sendHome(): void {
+    if (!this.alive || this.mode === 'dying' || this.mode === 'emerge') return;
+    this.mode = 'recoil';
+    this.flung = true;
+    this.st = 0;
+    this.lungeFrom.copy(this.pos);
+    this.lungeTo.set(this.home.x, 0, this.home.z);
+    this.rear = 0;
+    this.stunT = 0;
+    this.parryT = 0.8;
+    this.threatT = this.rand(1.5, 3);
+  }
+
   /** Empujón: lo aleja de ti dist metros (RepArena: Spider.shove; sin dirección del golpe). */
   shove(dist: number, HL: Vector3, dir: Vector3 | null): void {
     if (this.mode === 'emerge' || this.mode === 'dying' || !(dist > 0)) return;

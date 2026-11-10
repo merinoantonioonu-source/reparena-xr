@@ -37,6 +37,11 @@ function original(c: FloorCfg, hands: Record<Side, Hand>, head: { p: THREE.Vecto
     raSlice('70_game.js', 'const _frm', 'function chopStep', false),
     raSlice('70_game.js', 'const _tw0', '/* =================== FLEXIONES INCHWORM', false),
     raSlice('70_game.js', 'const PL_FLOOR'),
+    // el inchworm: su línea y su cabeza (sin lo que se ve: IW, la onda)
+    "const IW_LINE = 0.15, IW = { flash: 0 }; const iwReachM = () => settings.iwReach > 0 ? Math.max(0.8, settings.iwReach / 100) : clamp(calibRef * 0.8, 1.0, 1.6); const IW_OFF = () => iwReachM() + 0.12;",
+    raSlice('70_game.js', 'function iwHead'),
+    raSlice('70_game.js', 'function iwStep', 'function iwVisual', false),
+    'function iwWave() {}',
     raSlice('70_game.js', 'function runDetectors', '/* =================== APUNTADO', false),
     "handFilter = () => { for (const s of ['left', 'right']) HF[s].ok = hands[s].ok; };",
     "fwd = () => new V3(0, 0, -1);",
@@ -59,16 +64,20 @@ function original(c: FloorCfg, hands: Record<Side, Hand>, head: { p: THREE.Vecto
     oneArm: () => c.ex === 'plank1',
     pistolOn: () => !c.power,
     swordActive: () => false,
-    arena: { worldToLocal: (v: THREE.Vector3) => v },
+    arena: { worldToLocal: (v: THREE.Vector3) => v, localToWorld: (v: THREE.Vector3) => v },
     SND: { charge() {}, tick() {}, beep() {}, partial() {} },
     SAYT: { t: 0 },
     TRK: {},
     POW_COL: [0x3cf0c6, 0xffd166, 0xff8a3d, 0xff3cf0],
+    calibRef: 1.6,
+    hapticBoth: () => {},
+    _iww: new V3(),
+    fx: { sparks() {}, glow() {} },
   });
 }
 
 // la postura de cada uno: la altura de la cabeza y cuánto se mueve
-const POSE: Record<string, [number, number]> = { dips: [1.0, 0.35], pushup: [0.4, 0.25], splank: [0.5, 0.2], superman: [0.2, 0.3], plank1: [0.4, 0.22] };
+const POSE: Record<string, [number, number]> = { dips: [1.0, 0.35], pushup: [0.4, 0.25], splank: [0.5, 0.2], superman: [0.2, 0.3], plank1: [0.4, 0.22], inchworm: [1.6, 1.3] };
 
 const ev = (e: StandEvent): string =>
   e.type === 'charge' ? 'charge'
@@ -80,7 +89,7 @@ const ev = (e: StandEvent): string =>
 
 function scenario(ex: string, seed: number, frames: number): { ra: string[]; port: string[] } {
   const r = rng(seed);
-  const c: FloorCfg = { ...floorDefaults(ex), perfectTime: [0, 0.6, 1.2][Math.floor(r() * 3)], power: r() < 0.9, supArms: r() < 0.3 ? 'no' : 'yes' };
+  const c: FloorCfg = { ...floorDefaults(ex), perfectTime: [0, 0.6, 1.2][Math.floor(r() * 3)], power: r() < 0.9, supArms: r() < 0.3 ? 'no' : 'yes', iwReach: r() < 0.5 ? 0 : 100 + Math.floor(r() * 50) };
   const [y0, amp] = POSE[ex];
   const hands: Record<Side, Hand> = { left: mkHand(), right: mkHand() };
   const head = { p: new V3(0, y0, 0), speed: 0, q: new Q4() };
@@ -95,7 +104,10 @@ function scenario(ex: string, seed: number, frames: number): { ra: string[]; por
   const det = new FloorDetector();
   det.reset(y0, { left: 0.08, right: 0.08 });
   const out: StandEvent[] = [], port: string[] = [];
-  const I = { hands, head, headQ: head.q, fwd: new V3(0, 0, -1), play: true, wave: true };
+  const I = { hands, head, headQ: head.q, fwd: new V3(0, 0, -1), play: true, wave: true, iwZ: 0, standY: 1.6 };
+  // el inchworm: de pie en la salida (z = alcance + 12 cm), caminando con las manos hasta la línea (z = 0) y vuelta
+  const S = (c.iwReach > 0 ? Math.max(0.8, c.iwReach / 100) : 1.28) + 0.12;
+  let iwk = 0, iwDir = 1, iwGo = 0.6 + r() * 0.5;
   let t = 1, y = y0, from = y0, to = y0, k = 1, dur = 1;
   const hand = { left: { from: 0.08, to: 0.08, k: 1, dur: 1 }, right: { from: 0.08, to: 0.08, k: 1, dur: 1 } };
   for (let fr = 0; fr < frames; fr++) {
@@ -112,7 +124,18 @@ function scenario(ex: string, seed: number, frames: number): { ra: string[]; por
     }
     const e = k * k * (3 - 2 * k), prev = y;
     y = from + (to - from) * e + (r() - 0.5) * 0.002;
+    if (ex === 'inchworm') {
+      // de pie → doblado y hasta la línea (o no tanto) → flexiones → de vuelta (o no tanto) → de pie
+      iwk = Math.max(0, Math.min(1, iwk + iwDir * dt * 0.25));
+      if (iwk >= iwGo || iwk <= 0) {
+        iwDir = -iwDir;
+        iwGo = r() < 0.75 ? 1 : 0.3 + r() * 0.6;
+      }
+      head.p.z = S - (S + 0.05) * iwk;
+      y = iwk < 0.08 ? 1.6 - iwk * 10 : 0.45 - (iwk > 0.95 ? Math.max(0, Math.sin(t * 2.5)) * 0.15 : 0) + (r() - 0.5) * 0.002;
+    }
     head.p.y = y;
+    I.iwZ = head.p.z;
     head.speed += (Math.abs(y - prev) / dt - head.speed) * Math.min(1, dt * 8);
     // las manos: apoyadas o levantándose (y, a ratos, perdidas o recogidas junto a la cabeza)
     for (const s of ['left', 'right'] as Side[]) {

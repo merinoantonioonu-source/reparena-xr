@@ -117,7 +117,10 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
   suelo de las que salen **cangrejos, setas y calaveras** de unos 20 cm (y abejas y murciélagos pequeños) que corretean
   hacia tus manos, amenazan dando un saltito y saltan a morderte; el **marcador, tumbado en el suelo** delante de tus
   manos, y lo rodean. En la plancha con un brazo salen a los lados y cada brazo dispara a su lado; una flexión aguantada
-  abajo carga ×2-×4 para el brazo que levantes. El inchworm, con el PR 11c.
+  abajo carga ×2-×4 para el brazo que levantes. **Inchworm**: de pie, te doblas y caminas con las manos
+  hasta que la cabeza llega a la **línea luminosa** del suelo (carga; una barra enseña lo que avanzas); cada flexión allí
+  da más fuerza (×2-×4); vuelve andando hasta la salida y ponte de pie: dispara y sale la **onda expansiva**, que lanza a
+  los bichos por el aire hasta su trampilla (desde ×2, también hace daño). Los bichos van mucho más despacio.
 
 En el ordenador (sin gafas) también se puede probar lo que se hace con la cabeza (sentadilla, zancada, peso muerto…):
 flecha abajo (o S) para agacharse (al subir, el rayo sale solo al
