@@ -5,9 +5,12 @@
  *  - Abierta, la baliza gira y echa sus haces rojos; cerrada, se apaga.
  *  - Es sólida con la física de IWSDK: los pilares, los bloques de los lados y el túnel, cuerpos fijos; las puertas,
  *    cuerpos que se mueven con ellas. Y los zombis la rodean (Obstacle), como las cajas y las rocas.
+ *  - Al abrirse, suena y echa vapor a los lados.
  */
 import { createSystem, Entity, Group, Mesh, MeshBasicMaterial, Object3D, PhysicsBody, PhysicsShape, PhysicsShapeType, PhysicsState, PhysicsSystem, Quaternion, Vector3 } from '@iwsdk/core';
 import { Gate, Obstacle } from './components.js';
+import { SND } from '../audio/sound.js';
+import { Puffs } from '../style/comic-fx.js';
 
 /** Lo que se lleva de cada compuerta: sus piezas que se mueven y sus cuerpos de física. */
 interface GateRt {
@@ -19,6 +22,8 @@ interface GateRt {
   body: MeshBasicMaterial | null;
   doors: Entity[];
   lastOpen: number;
+  /** ¿Se le pidió abrirse el fotograma anterior? (al pedírselo, suena y echa vapor) */
+  was: boolean;
 }
 
 // las partes sólidas, en el marco de la compuerta: [x, y, z, ancho, alto, hondo, giro y, radio para rodearla (0: no)]
@@ -41,9 +46,14 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] } }, {}
   private q2 = new Quaternion();
   private up = new Vector3(0, 1, 0);
   private pose = { position: new Vector3(), quaternion: new Quaternion() };
+  private puffs = new Puffs();
+  private sp = new Vector3();
+  private sv = new Vector3();
+  private gq = new Quaternion();
 
   init(): void {
     this.physics = this.world.getSystem(PhysicsSystem)!;
+    this.world.createTransformEntity(this.puffs.group);
     this.cleanupFuncs.push(this.queries.gates.subscribe('qualify', (e) => this.setup(e)));
     for (const e of this.queries.gates.entities) this.setup(e);
   }
@@ -73,7 +83,7 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] } }, {}
       if (r > 0) s.addComponent(Obstacle, { radius: r });
     }
     for (const sx of [-1, 1]) doors.push(this.collider(root, sx * DOOR.x, DOOR.y, DOOR.z, 0, [DOOR.w, DOOR.h, DOOR.d], PhysicsState.Kinematic));
-    this.rt.set(e, { root, doorL: root.getObjectByName('door-left') ?? null, doorR: root.getObjectByName('door-right') ?? null, spin: root.getObjectByName('beacon-spin') ?? null, beams, body, doors, lastOpen: -1 });
+    this.rt.set(e, { root, doorL: root.getObjectByName('door-left') ?? null, doorR: root.getObjectByName('door-right') ?? null, spin: root.getObjectByName('beacon-spin') ?? null, beams, body, doors, lastOpen: -1, was: false });
   }
 
   // un cuerpo de física (una caja) en (x, y, z) del marco de la compuerta
@@ -138,6 +148,8 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] } }, {}
         if (busy === 0) e.setValue(Gate, 'want', 0);
       }
       const want = e.getValue(Gate, 'want') ?? 0;
+      if (want > 0 && !r.was) this.opened(r);
+      r.was = want > 0;
       let open = e.getValue(Gate, 'open') ?? 0;
       open += (want - open) * Math.min(1, dt * 3.2);
       if (Math.abs(want - open) < 1e-3) open = want;
@@ -159,6 +171,21 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] } }, {}
       if (r.spin && on) r.spin.rotation.y += dt * 6;
       for (const m of r.beams) m.opacity = on ? 0.35 : 0;
       r.body?.color.setHex(on ? (Math.sin(time * 12) > 0 ? 0xff2a08 : 0xc81e06) : 0x3a0c04);
+    }
+    this.puffs.update(dt);
+  }
+
+  // al abrirse: el ruido de la compuerta y seis bocanadas de vapor a cada lado, que salen hacia fuera (RepArena: SND.door y
+  // fx.steam, en el marco de la compuerta)
+  private opened(r: GateRt): void {
+    SND.door(r.root.localToWorld(this.sp.set(0, 0.3, 0.5)));
+    r.root.getWorldQuaternion(this.gq);
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < 6; i++) {
+        r.root.localToWorld(this.sp.set(side * 1.3, 0.3 + i * 0.25, 0.4));
+        this.sv.set(side * (0.8 + Math.random()), 0.2 + Math.random() * 0.6, 0.1 + Math.random() * 0.5).applyQuaternion(this.gq);
+        this.puffs.add(this.sp, this.sv, 0.55 + Math.random() * 0.3, 1 + Math.random() * 0.6);
+      }
     }
   }
 }
