@@ -251,7 +251,7 @@ No las cambies sin preguntarle.
   mano de verdad resbale de lado (hasta `POKE_KEEP`, 7 cm), la punta sigue sobre ella y no se desliza por el panel ni
   ilumina las vecinas. En las planas, la punta se queda en el punto exacto que tocó (`pinW`, en el candado `POKE.lock`),
   también cuando la pulsación rehace el menú con teclas nuevas en el mismo sitio.
-- **[A REVISAR en el PR 7: era un apaño de rendimiento del motor viejo; medir si hace falta]** Detrás del fondo de cada menú (y de la columna HOY), una pantalla invisible que solo escribe profundidad y se pinta la
+- **[Decidido en el PR 7 (usuario): no se pone; si en las gafas el menú va a saltos al mover la cabeza, se pone]** Detrás del fondo de cada menú (y de la columna HOY), una pantalla invisible que solo escribe profundidad y se pinta la
   primera (`menuOccluder`, `src/60_ui.js`): así no se pinta el paisaje tapado por el menú. Sin ella, el menú principal, que
   cubre casi toda la vista, iba a saltos al mover la cabeza (el resumen, pequeño, no). Un panel de menú nuevo, con la suya.
 - **[Con IWSDK, de serie (pedido del usuario): la física de pulsar los menús es la de IWSDK; no se porta]** Tras pulsar un botón, hay que **retirar el dedo** antes de que cuente otra pulsación, para que no se toquen dos

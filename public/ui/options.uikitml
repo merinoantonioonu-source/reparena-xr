@@ -1,0 +1,351 @@
+<!--
+  Opciones (RepArena, src/70_game.js: optionsMenu y settingsRows): todo lo que no está en el menú principal, en pestañas
+  con su color (Rivales y armas, Progreso, Sonido, Entorno y Ajustes); en Ajustes, una pestaña por grupo del esquema. Cada
+  ajuste en una fila: su nombre, − y + (o sus opciones en teclas) y la tecla «?» con su explicación al lado del menú.
+  Salen del esquema de ajustes (src/core/schema.ts); las filas (o1-o9) y las pestañas (s0-s9) las llena el juego
+  (src/ui/menu.ts), de nueve en nueve con ◂ ▸ si no caben. Medidas en centímetros (90 cm de ancho).
+-->
+<style>
+  .root {
+    anchor-y: top;
+    flex-direction: column;
+    align-items: center;
+    width: 90;
+    padding-top: 2.4;
+    padding-bottom: 2.4;
+    padding-left: 4;
+    padding-right: 4;
+    gap: 1.1;
+    background-color: #12151d;
+    border-radius: 4;
+    border-width: 0.4;
+    border-color: #ffd166;
+  }
+  .title {
+    font-size: 5;
+    color: #ffd166;
+  }
+  .tabs {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.8;
+    width: 82;
+  }
+  .tab {
+    height: 5.6;
+    padding-left: 2;
+    padding-right: 2;
+    justify-content: center;
+    align-items: center;
+    border-radius: 1.6;
+    background-color: #2a2f3a;
+    border-width: 0.3;
+    border-color: #2a2f3a;
+    cursor: pointer;
+  }
+  .tabt {
+    font-size: 2.3;
+    color: #e9eef7;
+  }
+  .body {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.1;
+    width: 82;
+    padding-top: 1.2;
+    padding-bottom: 1.2;
+    background-color: #171b26;
+    border-radius: 2.4;
+  }
+  .pager {
+    flex-direction: row;
+    align-items: center;
+    gap: 1.2;
+  }
+  .back {
+    width: 40;
+    height: 6.4;
+    justify-content: center;
+    align-items: center;
+    border-radius: 2;
+    background-color: #3cf0c6;
+    cursor: pointer;
+  }
+  .back:hover {
+    background-color: #8bffe6;
+  }
+  .backt {
+    font-size: 2.6;
+    color: #0d1016;
+  }
+  .k {
+    height: 4.4;
+    padding-left: 1.3;
+    padding-right: 1.3;
+    justify-content: center;
+    align-items: center;
+    border-radius: 1.6;
+    background-color: #2a2f3a;
+    cursor: pointer;
+  }
+  .k:hover {
+    background-color: #3b4252;
+  }
+  .kt {
+    font-size: 2;
+    color: #e9eef7;
+  }
+  .frow {
+    flex-direction: row;
+    align-items: center;
+    gap: 1;
+    width: 82;
+  }
+  .flab {
+    width: 22;
+    font-size: 2;
+    color: #c9d2e3;
+  }
+  .fctl {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.8;
+    width: 53;
+  }
+  .step {
+    width: 4.4;
+    height: 4.4;
+    justify-content: center;
+    align-items: center;
+    border-radius: 1.6;
+    background-color: #3a4152;
+    cursor: pointer;
+  }
+  .step:hover {
+    background-color: #4c5569;
+  }
+  .stept {
+    font-size: 3.2;
+    color: #ffffff;
+  }
+  .fval {
+    width: 16;
+    font-size: 2.2;
+    color: #ffffff;
+    text-align: center;
+  }
+  .help {
+    width: 4.4;
+    height: 4.4;
+    justify-content: center;
+    align-items: center;
+    border-radius: 2.2;
+    background-color: #2a2f3a;
+    border-width: 0.3;
+    border-color: #a49fc8;
+    cursor: pointer;
+  }
+  .help:hover {
+    background-color: #3b4252;
+  }
+  .helpt {
+    font-size: 2.6;
+    color: #a49fc8;
+  }
+  .note {
+    font-size: 2;
+    color: #a49fc8;
+    text-align: center;
+    width: 82;
+  }
+  .display {
+    letter-spacing: 0.1;
+  }
+</style>
+<div id="root" class="root">
+  <span id="o-title" class="title display">OPCIONES</span>
+  <div class="tabs">
+    <button id="t-foes" class="tab"><span id="t-foest" class="tabt">Rivales y armas</span></button>
+    <button id="t-prog" class="tab"><span id="t-progt" class="tabt">Progreso</span></button>
+    <button id="t-sound" class="tab"><span id="t-soundt" class="tabt">Sonido</span></button>
+    <button id="t-scene" class="tab"><span id="t-scenet" class="tabt">Entorno</span></button>
+    <button id="t-set" class="tab"><span id="t-sett" class="tabt">Ajustes</span></button>
+  </div>
+  <div id="subtabs" class="tabs">
+    <button id="s0" class="tab"><span id="s0t" class="tabt">Grupo</span></button>
+    <button id="s1" class="tab"><span id="s1t" class="tabt">Grupo</span></button>
+    <button id="s2" class="tab"><span id="s2t" class="tabt">Grupo</span></button>
+    <button id="s3" class="tab"><span id="s3t" class="tabt">Grupo</span></button>
+    <button id="s4" class="tab"><span id="s4t" class="tabt">Grupo</span></button>
+    <button id="s5" class="tab"><span id="s5t" class="tabt">Grupo</span></button>
+    <button id="s6" class="tab"><span id="s6t" class="tabt">Grupo</span></button>
+    <button id="s7" class="tab"><span id="s7t" class="tabt">Grupo</span></button>
+    <button id="s8" class="tab"><span id="s8t" class="tabt">Grupo</span></button>
+    <button id="s9" class="tab"><span id="s9t" class="tabt">Grupo</span></button>
+  </div>
+  <div class="body">
+    <span id="o-note" class="note">Nota</span>
+    <div id="o1" class="frow">
+      <span id="o1-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="o1-m" class="step"><span class="stept">−</span></button>
+        <span id="o1-v" class="fval">0</span>
+        <button id="o1-p" class="step"><span class="stept">+</span></button>
+        <button id="o1-o0" class="k"><span id="o1-o0t" class="kt">·</span></button>
+        <button id="o1-o1" class="k"><span id="o1-o1t" class="kt">·</span></button>
+        <button id="o1-o2" class="k"><span id="o1-o2t" class="kt">·</span></button>
+        <button id="o1-o3" class="k"><span id="o1-o3t" class="kt">·</span></button>
+        <button id="o1-o4" class="k"><span id="o1-o4t" class="kt">·</span></button>
+        <button id="o1-o5" class="k"><span id="o1-o5t" class="kt">·</span></button>
+        <button id="o1-o6" class="k"><span id="o1-o6t" class="kt">·</span></button>
+        <button id="o1-o7" class="k"><span id="o1-o7t" class="kt">·</span></button>
+      </div>
+      <button id="o1-h" class="help"><span class="helpt">?</span></button>
+    </div>
+    <div id="o2" class="frow">
+      <span id="o2-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="o2-m" class="step"><span class="stept">−</span></button>
+        <span id="o2-v" class="fval">0</span>
+        <button id="o2-p" class="step"><span class="stept">+</span></button>
+        <button id="o2-o0" class="k"><span id="o2-o0t" class="kt">·</span></button>
+        <button id="o2-o1" class="k"><span id="o2-o1t" class="kt">·</span></button>
+        <button id="o2-o2" class="k"><span id="o2-o2t" class="kt">·</span></button>
+        <button id="o2-o3" class="k"><span id="o2-o3t" class="kt">·</span></button>
+        <button id="o2-o4" class="k"><span id="o2-o4t" class="kt">·</span></button>
+        <button id="o2-o5" class="k"><span id="o2-o5t" class="kt">·</span></button>
+        <button id="o2-o6" class="k"><span id="o2-o6t" class="kt">·</span></button>
+        <button id="o2-o7" class="k"><span id="o2-o7t" class="kt">·</span></button>
+      </div>
+      <button id="o2-h" class="help"><span class="helpt">?</span></button>
+    </div>
+    <div id="o3" class="frow">
+      <span id="o3-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="o3-m" class="step"><span class="stept">−</span></button>
+        <span id="o3-v" class="fval">0</span>
+        <button id="o3-p" class="step"><span class="stept">+</span></button>
+        <button id="o3-o0" class="k"><span id="o3-o0t" class="kt">·</span></button>
+        <button id="o3-o1" class="k"><span id="o3-o1t" class="kt">·</span></button>
+        <button id="o3-o2" class="k"><span id="o3-o2t" class="kt">·</span></button>
+        <button id="o3-o3" class="k"><span id="o3-o3t" class="kt">·</span></button>
+        <button id="o3-o4" class="k"><span id="o3-o4t" class="kt">·</span></button>
+        <button id="o3-o5" class="k"><span id="o3-o5t" class="kt">·</span></button>
+        <button id="o3-o6" class="k"><span id="o3-o6t" class="kt">·</span></button>
+        <button id="o3-o7" class="k"><span id="o3-o7t" class="kt">·</span></button>
+      </div>
+      <button id="o3-h" class="help"><span class="helpt">?</span></button>
+    </div>
+    <div id="o4" class="frow">
+      <span id="o4-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="o4-m" class="step"><span class="stept">−</span></button>
+        <span id="o4-v" class="fval">0</span>
+        <button id="o4-p" class="step"><span class="stept">+</span></button>
+        <button id="o4-o0" class="k"><span id="o4-o0t" class="kt">·</span></button>
+        <button id="o4-o1" class="k"><span id="o4-o1t" class="kt">·</span></button>
+        <button id="o4-o2" class="k"><span id="o4-o2t" class="kt">·</span></button>
+        <button id="o4-o3" class="k"><span id="o4-o3t" class="kt">·</span></button>
+        <button id="o4-o4" class="k"><span id="o4-o4t" class="kt">·</span></button>
+        <button id="o4-o5" class="k"><span id="o4-o5t" class="kt">·</span></button>
+        <button id="o4-o6" class="k"><span id="o4-o6t" class="kt">·</span></button>
+        <button id="o4-o7" class="k"><span id="o4-o7t" class="kt">·</span></button>
+      </div>
+      <button id="o4-h" class="help"><span class="helpt">?</span></button>
+    </div>
+    <div id="o5" class="frow">
+      <span id="o5-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="o5-m" class="step"><span class="stept">−</span></button>
+        <span id="o5-v" class="fval">0</span>
+        <button id="o5-p" class="step"><span class="stept">+</span></button>
+        <button id="o5-o0" class="k"><span id="o5-o0t" class="kt">·</span></button>
+        <button id="o5-o1" class="k"><span id="o5-o1t" class="kt">·</span></button>
+        <button id="o5-o2" class="k"><span id="o5-o2t" class="kt">·</span></button>
+        <button id="o5-o3" class="k"><span id="o5-o3t" class="kt">·</span></button>
+        <button id="o5-o4" class="k"><span id="o5-o4t" class="kt">·</span></button>
+        <button id="o5-o5" class="k"><span id="o5-o5t" class="kt">·</span></button>
+        <button id="o5-o6" class="k"><span id="o5-o6t" class="kt">·</span></button>
+        <button id="o5-o7" class="k"><span id="o5-o7t" class="kt">·</span></button>
+      </div>
+      <button id="o5-h" class="help"><span class="helpt">?</span></button>
+    </div>
+    <div id="o6" class="frow">
+      <span id="o6-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="o6-m" class="step"><span class="stept">−</span></button>
+        <span id="o6-v" class="fval">0</span>
+        <button id="o6-p" class="step"><span class="stept">+</span></button>
+        <button id="o6-o0" class="k"><span id="o6-o0t" class="kt">·</span></button>
+        <button id="o6-o1" class="k"><span id="o6-o1t" class="kt">·</span></button>
+        <button id="o6-o2" class="k"><span id="o6-o2t" class="kt">·</span></button>
+        <button id="o6-o3" class="k"><span id="o6-o3t" class="kt">·</span></button>
+        <button id="o6-o4" class="k"><span id="o6-o4t" class="kt">·</span></button>
+        <button id="o6-o5" class="k"><span id="o6-o5t" class="kt">·</span></button>
+        <button id="o6-o6" class="k"><span id="o6-o6t" class="kt">·</span></button>
+        <button id="o6-o7" class="k"><span id="o6-o7t" class="kt">·</span></button>
+      </div>
+      <button id="o6-h" class="help"><span class="helpt">?</span></button>
+    </div>
+    <div id="o7" class="frow">
+      <span id="o7-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="o7-m" class="step"><span class="stept">−</span></button>
+        <span id="o7-v" class="fval">0</span>
+        <button id="o7-p" class="step"><span class="stept">+</span></button>
+        <button id="o7-o0" class="k"><span id="o7-o0t" class="kt">·</span></button>
+        <button id="o7-o1" class="k"><span id="o7-o1t" class="kt">·</span></button>
+        <button id="o7-o2" class="k"><span id="o7-o2t" class="kt">·</span></button>
+        <button id="o7-o3" class="k"><span id="o7-o3t" class="kt">·</span></button>
+        <button id="o7-o4" class="k"><span id="o7-o4t" class="kt">·</span></button>
+        <button id="o7-o5" class="k"><span id="o7-o5t" class="kt">·</span></button>
+        <button id="o7-o6" class="k"><span id="o7-o6t" class="kt">·</span></button>
+        <button id="o7-o7" class="k"><span id="o7-o7t" class="kt">·</span></button>
+      </div>
+      <button id="o7-h" class="help"><span class="helpt">?</span></button>
+    </div>
+    <div id="o8" class="frow">
+      <span id="o8-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="o8-m" class="step"><span class="stept">−</span></button>
+        <span id="o8-v" class="fval">0</span>
+        <button id="o8-p" class="step"><span class="stept">+</span></button>
+        <button id="o8-o0" class="k"><span id="o8-o0t" class="kt">·</span></button>
+        <button id="o8-o1" class="k"><span id="o8-o1t" class="kt">·</span></button>
+        <button id="o8-o2" class="k"><span id="o8-o2t" class="kt">·</span></button>
+        <button id="o8-o3" class="k"><span id="o8-o3t" class="kt">·</span></button>
+        <button id="o8-o4" class="k"><span id="o8-o4t" class="kt">·</span></button>
+        <button id="o8-o5" class="k"><span id="o8-o5t" class="kt">·</span></button>
+        <button id="o8-o6" class="k"><span id="o8-o6t" class="kt">·</span></button>
+        <button id="o8-o7" class="k"><span id="o8-o7t" class="kt">·</span></button>
+      </div>
+      <button id="o8-h" class="help"><span class="helpt">?</span></button>
+    </div>
+    <div id="o9" class="frow">
+      <span id="o9-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="o9-m" class="step"><span class="stept">−</span></button>
+        <span id="o9-v" class="fval">0</span>
+        <button id="o9-p" class="step"><span class="stept">+</span></button>
+        <button id="o9-o0" class="k"><span id="o9-o0t" class="kt">·</span></button>
+        <button id="o9-o1" class="k"><span id="o9-o1t" class="kt">·</span></button>
+        <button id="o9-o2" class="k"><span id="o9-o2t" class="kt">·</span></button>
+        <button id="o9-o3" class="k"><span id="o9-o3t" class="kt">·</span></button>
+        <button id="o9-o4" class="k"><span id="o9-o4t" class="kt">·</span></button>
+        <button id="o9-o5" class="k"><span id="o9-o5t" class="kt">·</span></button>
+        <button id="o9-o6" class="k"><span id="o9-o6t" class="kt">·</span></button>
+        <button id="o9-o7" class="k"><span id="o9-o7t" class="kt">·</span></button>
+      </div>
+      <button id="o9-h" class="help"><span class="helpt">?</span></button>
+    </div>
+    <div id="pager" class="pager">
+      <button id="pg-prev" class="step"><span class="stept">◂</span></button>
+      <span id="pg-label" class="note">1 de 1</span>
+      <button id="pg-next" class="step"><span class="stept">▸</span></button>
+    </div>
+  </div>
+  <span id="o-foot" class="note">Toca − y + o una opción · «?»: qué es cada cosa</span>
+  <button id="o-back" class="back"><span class="backt display">VOLVER</span></button>
+</div>

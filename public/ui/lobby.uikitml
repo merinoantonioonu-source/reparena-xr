@@ -1,0 +1,359 @@
+<!--
+  El menú principal (RepArena, src/70_game.js: lobbyMenu), simple: EMPEZAR grande; debajo, el sitio de las metas de hoy
+  (llegan con el PR 13); el modo (Combate, Arcos, Barras, Toques y Travesía, cada uno con su color, y Sesiones; los que
+  aún no hay, en gris); los ejercicios del modo; la dificultad (los galones de cada rango, «Al fallo», la ficha de la
+  ronda y lo que el desarrollador deja ver con el ojo); Opciones y Salir. Cada parte, en su caja con su título y color.
+  Medidas en centímetros (90 cm de ancho, a tu alcance); letras: Rubik y, con «display», Bungee. Los textos y los
+  colores de cada tecla los pone el juego (src/ui/menu.ts). Las filas de ajustes (l1-l4) son como las de Opciones.
+-->
+<style>
+  .root {
+    anchor-y: top;
+    flex-direction: column;
+    align-items: center;
+    width: 90;
+    padding-top: 2.4;
+    padding-bottom: 2.4;
+    padding-left: 4;
+    padding-right: 4;
+    gap: 1;
+    background-color: #12151d;
+    border-radius: 4;
+    border-width: 0.4;
+    border-color: #ff3d8b;
+  }
+  .last {
+    font-size: 2.4;
+    color: #ffd166;
+    text-align: center;
+    width: 82;
+  }
+  .start {
+    width: 82;
+    height: 9;
+    justify-content: center;
+    align-items: center;
+    background-color: #3cf0c6;
+    border-radius: 6;
+    cursor: pointer;
+  }
+  .start:hover {
+    background-color: #8bffe6;
+  }
+  .start-label {
+    font-size: 4.8;
+    color: #0d1016;
+  }
+  .goals {
+    width: 82;
+    height: 8;
+  }
+  .box {
+    flex-direction: column;
+    align-items: center;
+    width: 82;
+    gap: 0.8;
+    padding-top: 1;
+    padding-bottom: 1.2;
+    padding-left: 1.4;
+    padding-right: 1.4;
+    background-color: #171b26;
+    border-radius: 2.4;
+    border-width: 0.3;
+  }
+  .bt {
+    font-size: 1.8;
+    color: #8c86b4;
+  }
+  .row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.8;
+    width: 79;
+  }
+  .mode {
+    height: 5;
+    padding-left: 1.5;
+    padding-right: 1.5;
+    justify-content: center;
+    align-items: center;
+    border-radius: 1.8;
+    cursor: pointer;
+  }
+  .modet {
+    font-size: 2.2;
+    color: #1b1222;
+  }
+  .sep {
+    width: 1;
+  }
+  .info {
+    font-size: 1.9;
+    color: #5ab8ff;
+    text-align: center;
+    width: 79;
+  }
+  .bottom {
+    flex-direction: row;
+    gap: 1.2;
+    width: 82;
+  }
+  .opts {
+    width: 60;
+    height: 5.4;
+    justify-content: center;
+    align-items: center;
+    border-radius: 2;
+    background-color: #2a2f3a;
+    border-width: 0.3;
+    border-color: #ffd166;
+    cursor: pointer;
+  }
+  .opts:hover {
+    background-color: #3b4252;
+  }
+  .exit {
+    width: 21;
+    height: 5.4;
+    justify-content: center;
+    align-items: center;
+    border-radius: 2;
+    background-color: #5a1f2c;
+    cursor: pointer;
+  }
+  .exit:hover {
+    background-color: #7a2a3c;
+  }
+  .xr {
+    width: 52;
+    height: 8;
+    justify-content: center;
+    align-items: center;
+    background-color: #ff3d8b;
+    border-radius: 4;
+    cursor: pointer;
+  }
+  .xr:hover {
+    background-color: #ff77ad;
+  }
+  .xr-label {
+    font-size: 3.6;
+    color: #ffffff;
+  }
+  .k {
+    height: 4.4;
+    padding-left: 1.3;
+    padding-right: 1.3;
+    justify-content: center;
+    align-items: center;
+    border-radius: 1.6;
+    background-color: #2a2f3a;
+    cursor: pointer;
+  }
+  .k:hover {
+    background-color: #3b4252;
+  }
+  .kt {
+    font-size: 2;
+    color: #e9eef7;
+  }
+  .frow {
+    flex-direction: row;
+    align-items: center;
+    gap: 1;
+    width: 82;
+  }
+  .flab {
+    width: 22;
+    font-size: 2;
+    color: #c9d2e3;
+  }
+  .fctl {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.8;
+    width: 53;
+  }
+  .step {
+    width: 4.4;
+    height: 4.4;
+    justify-content: center;
+    align-items: center;
+    border-radius: 1.6;
+    background-color: #3a4152;
+    cursor: pointer;
+  }
+  .step:hover {
+    background-color: #4c5569;
+  }
+  .stept {
+    font-size: 3.2;
+    color: #ffffff;
+  }
+  .fval {
+    width: 16;
+    font-size: 2.2;
+    color: #ffffff;
+    text-align: center;
+  }
+  .help {
+    width: 4.4;
+    height: 4.4;
+    justify-content: center;
+    align-items: center;
+    border-radius: 2.2;
+    background-color: #2a2f3a;
+    border-width: 0.3;
+    border-color: #a49fc8;
+    cursor: pointer;
+  }
+  .help:hover {
+    background-color: #3b4252;
+  }
+  .helpt {
+    font-size: 2.6;
+    color: #a49fc8;
+  }
+  .note {
+    font-size: 2;
+    color: #a49fc8;
+    text-align: center;
+    width: 82;
+  }
+  .display {
+    letter-spacing: 0.1;
+  }
+</style>
+<div class="root">
+  <span id="last" class="last">Ronda anterior</span>
+  <button id="start-button" class="start"><span id="start-label" class="start-label display">EMPEZAR</span></button>
+  <div id="goals" class="goals"></div>
+  <div id="box-mode" class="box">
+    <span class="bt">Modo</span>
+    <div class="row">
+      <button id="m-combat" class="mode"><span id="m-combatt" class="modet">Combate</span></button>
+      <button id="m-arcs" class="mode"><span id="m-arcst" class="modet">Arcos</span></button>
+      <button id="m-bars" class="mode"><span id="m-barst" class="modet">Barras</span></button>
+      <button id="m-touch" class="mode"><span id="m-toucht" class="modet">Toques</span></button>
+      <button id="m-trek" class="mode"><span id="m-trekt" class="modet">Travesía</span></button>
+      <div class="sep"></div>
+      <button id="m-ses" class="mode"><span id="m-sest" class="modet">Sesiones</span></button>
+    </div>
+  </div>
+  <div id="box-ex" class="box">
+    <span id="ex-title" class="bt">Ejercicio · Combate</span>
+    <div class="row">
+      <button id="e-squat" class="k"><span id="e-squatt" class="kt">Sentadillas</span></button>
+      <button id="e-lunge" class="k"><span id="e-lunget" class="kt">Zancadas</span></button>
+      <button id="e-jsquat" class="k"><span id="e-jsquatt" class="kt">Sent. + salto</span></button>
+      <button id="e-pushup" class="k"><span id="e-pushupt" class="kt">Flexiones</span></button>
+      <button id="e-inchworm" class="k"><span id="e-inchwormt" class="kt">Inchworm</span></button>
+      <button id="e-dips" class="k"><span id="e-dipst" class="kt">Fondos silla</span></button>
+      <button id="e-curl" class="k"><span id="e-curlt" class="kt">Curl</span></button>
+      <button id="e-curl2" class="k"><span id="e-curl2t" class="kt">Curl barra</span></button>
+      <button id="e-twist" class="k"><span id="e-twistt" class="kt">Antebrazos</span></button>
+      <button id="e-fraise" class="k"><span id="e-fraiset" class="kt">Elev. frontal</span></button>
+      <button id="e-thruster" class="k"><span id="e-thrustert" class="kt">Sent. + press</span></button>
+      <button id="e-frontsq" class="k"><span id="e-frontsqt" class="kt">Sent. + elev.</span></button>
+      <button id="e-swing" class="k"><span id="e-swingt" class="kt">Swing</span></button>
+      <button id="e-dlrow" class="k"><span id="e-dlrowt" class="kt">Peso muerto</span></button>
+      <button id="e-plank1" class="k"><span id="e-plank1t" class="kt">Plancha 1 brazo</span></button>
+      <button id="e-splank" class="k"><span id="e-splankt" class="kt">Plancha lateral</span></button>
+      <button id="e-superman" class="k"><span id="e-supermant" class="kt">Superman</span></button>
+    </div>
+    <span id="ex-how" class="info">Cómo se hace</span>
+  </div>
+  <div id="box-diff" class="box">
+    <span class="bt">Dificultad</span>
+    <div class="row">
+      <button id="r-0" class="k"><span id="r-0t" class="kt">Rec.</span></button>
+      <button id="r-1" class="k"><span id="r-1t" class="kt">Sold.</span></button>
+      <button id="r-2" class="k"><span id="r-2t" class="kt">Cabo</span></button>
+      <button id="r-3" class="k"><span id="r-3t" class="kt">Sarg.</span></button>
+      <button id="r-4" class="k"><span id="r-4t" class="kt">Ten.</span></button>
+      <button id="r-5" class="k"><span id="r-5t" class="kt">Cap.</span></button>
+      <button id="r-6" class="k"><span id="r-6t" class="kt">Gral.</span></button>
+      <div class="sep"></div>
+      <button id="fail" class="k"><span id="failt" class="kt">Al fallo</span></button>
+    </div>
+    <span id="round-info" class="info">Cabo en Sentadillas</span>
+    <div id="l1" class="frow">
+      <span id="l1-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="l1-m" class="step"><span class="stept">−</span></button>
+        <span id="l1-v" class="fval">0</span>
+        <button id="l1-p" class="step"><span class="stept">+</span></button>
+        <button id="l1-o0" class="k"><span id="l1-o0t" class="kt">·</span></button>
+        <button id="l1-o1" class="k"><span id="l1-o1t" class="kt">·</span></button>
+        <button id="l1-o2" class="k"><span id="l1-o2t" class="kt">·</span></button>
+        <button id="l1-o3" class="k"><span id="l1-o3t" class="kt">·</span></button>
+        <button id="l1-o4" class="k"><span id="l1-o4t" class="kt">·</span></button>
+        <button id="l1-o5" class="k"><span id="l1-o5t" class="kt">·</span></button>
+        <button id="l1-o6" class="k"><span id="l1-o6t" class="kt">·</span></button>
+        <button id="l1-o7" class="k"><span id="l1-o7t" class="kt">·</span></button>
+      </div>
+      <button id="l1-h" class="help"><span class="helpt">?</span></button>
+    </div>
+  <div id="l2" class="frow">
+      <span id="l2-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="l2-m" class="step"><span class="stept">−</span></button>
+        <span id="l2-v" class="fval">0</span>
+        <button id="l2-p" class="step"><span class="stept">+</span></button>
+        <button id="l2-o0" class="k"><span id="l2-o0t" class="kt">·</span></button>
+        <button id="l2-o1" class="k"><span id="l2-o1t" class="kt">·</span></button>
+        <button id="l2-o2" class="k"><span id="l2-o2t" class="kt">·</span></button>
+        <button id="l2-o3" class="k"><span id="l2-o3t" class="kt">·</span></button>
+        <button id="l2-o4" class="k"><span id="l2-o4t" class="kt">·</span></button>
+        <button id="l2-o5" class="k"><span id="l2-o5t" class="kt">·</span></button>
+        <button id="l2-o6" class="k"><span id="l2-o6t" class="kt">·</span></button>
+        <button id="l2-o7" class="k"><span id="l2-o7t" class="kt">·</span></button>
+      </div>
+      <button id="l2-h" class="help"><span class="helpt">?</span></button>
+    </div>
+  <div id="l3" class="frow">
+      <span id="l3-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="l3-m" class="step"><span class="stept">−</span></button>
+        <span id="l3-v" class="fval">0</span>
+        <button id="l3-p" class="step"><span class="stept">+</span></button>
+        <button id="l3-o0" class="k"><span id="l3-o0t" class="kt">·</span></button>
+        <button id="l3-o1" class="k"><span id="l3-o1t" class="kt">·</span></button>
+        <button id="l3-o2" class="k"><span id="l3-o2t" class="kt">·</span></button>
+        <button id="l3-o3" class="k"><span id="l3-o3t" class="kt">·</span></button>
+        <button id="l3-o4" class="k"><span id="l3-o4t" class="kt">·</span></button>
+        <button id="l3-o5" class="k"><span id="l3-o5t" class="kt">·</span></button>
+        <button id="l3-o6" class="k"><span id="l3-o6t" class="kt">·</span></button>
+        <button id="l3-o7" class="k"><span id="l3-o7t" class="kt">·</span></button>
+      </div>
+      <button id="l3-h" class="help"><span class="helpt">?</span></button>
+    </div>
+  <div id="l4" class="frow">
+      <span id="l4-l" class="flab">Ajuste</span>
+      <div class="fctl">
+        <button id="l4-m" class="step"><span class="stept">−</span></button>
+        <span id="l4-v" class="fval">0</span>
+        <button id="l4-p" class="step"><span class="stept">+</span></button>
+        <button id="l4-o0" class="k"><span id="l4-o0t" class="kt">·</span></button>
+        <button id="l4-o1" class="k"><span id="l4-o1t" class="kt">·</span></button>
+        <button id="l4-o2" class="k"><span id="l4-o2t" class="kt">·</span></button>
+        <button id="l4-o3" class="k"><span id="l4-o3t" class="kt">·</span></button>
+        <button id="l4-o4" class="k"><span id="l4-o4t" class="kt">·</span></button>
+        <button id="l4-o5" class="k"><span id="l4-o5t" class="kt">·</span></button>
+        <button id="l4-o6" class="k"><span id="l4-o6t" class="kt">·</span></button>
+        <button id="l4-o7" class="k"><span id="l4-o7t" class="kt">·</span></button>
+      </div>
+      <button id="l4-h" class="help"><span class="helpt">?</span></button>
+    </div>
+  </div>
+  <span id="lobby-note" class="note">Llega pronto</span>
+  <div class="bottom">
+    <button id="opt-button" class="opts"><span class="kt">Opciones  ▸</span></button>
+    <button id="exit-button" class="exit"><span class="kt">Salir</span></button>
+  </div>
+  <button id="xr-button" class="xr"><span class="xr-label display">ENTRAR EN VR</span></button>
+  <span id="desk-hint" class="note">En el ordenador: flecha abajo (o S) para agacharte; Enter para empezar.</span>
+</div>

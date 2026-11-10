@@ -81,11 +81,11 @@ try {
   console.log(`Partida simulada en http://127.0.0.1:${port}${BASE}`);
   await page.goto(`http://127.0.0.1:${port}${BASE}`);
   await page.waitForFunction(() => !!window.__rx, null, { timeout: 90000 });
-  await until('el juego carga y espera en el menú', (s) => s.phase === 'menu', 30);
+  await until('el juego carga y espera en el menú principal', (s) => s.phase === 'menu' && s.menu === 'lobby', 30);
   await shot('1-menu');
   await page.mouse.click(4, 4); // (abre el sonido; en una esquina, fuera del panel: en el centro hay botones)
   await page.keyboard.press('Enter');
-  await until('EMPEZAR: empieza la ronda', (s) => s.phase === 'playing' && s.wave === 1, 15);
+  await until('EMPEZAR: empieza la ronda y se quita el menú', (s) => s.phase === 'playing' && s.wave === 1 && s.menu === 'none', 15);
   await until('sale el primer zombi', (s) => s.foes.length > 0, 90);
   await page.keyboard.down('ArrowDown');
   await until('al bajar, la bola carga el disparo', (s) => s.charge >= 1 && s.ballOn, 30);
