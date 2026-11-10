@@ -5,7 +5,8 @@
 //   E2E_SHOTS=carpeta npm run test:e2e   (guarda capturas en esa carpeta)
 //
 // Juega: EMPEZAR (Enter) → sale el primer zombi → sentadilla aguantada (flecha abajo) hasta ×2 → arriba (cuenta la
-// repetición) → lanza (espacio) hasta darle a un zombi. Falla si algo no pasa a tiempo o si la página da errores.
+// repetición y, en el ordenador, sin manos, el rayo sale solo al zombi más cercano) → otra sentadilla si no le ha dado.
+// Falla si algo no pasa a tiempo o si la página da errores.
 // Necesita el Chromium de Playwright (npx playwright install chromium; ver MIGRACION.md › Cómo probar).
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -90,19 +91,18 @@ try {
   await shot('2-bola');
   await page.keyboard.up('ArrowDown');
   await until('al subir, cuenta la sentadilla', (s) => s.reps >= 1, 30);
-  // lanzar hasta darle a alguno (el rayo va al que está más cerca de la dirección en la que miras)
+  // en el ordenador, la repetición dispara sola al zombi más cercano; si no le ha dado (aún no había nadie), otra
   const t0 = Date.now();
   let hit = false;
   while (!hit && Date.now() - t0 < 60000) {
-    await page.keyboard.press('Space');
     await page.waitForTimeout(400);
     last = await snap();
     hit = last.kills > 0 || last.foes.some((f) => f.state !== 'walk' || f.hp < 2);
-    if (!hit && last.charge === 0) {
-      // (sin carga: otra sentadilla)
+    if (!hit) {
       await page.keyboard.down('ArrowDown');
       await until('otra carga', (s) => s.charge >= 1, 30);
       await page.keyboard.up('ArrowDown');
+      await until('otra sentadilla', (s) => s.charge === 0, 30);
     }
   }
   if (!hit) throw new Error('el rayo no ha dado a ningún zombi\núltimo estado: ' + JSON.stringify(last));

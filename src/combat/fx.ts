@@ -24,6 +24,10 @@ import type { Object3D } from '@iwsdk/core';
 
 /** Colores de cada nivel de carga (×1 turquesa, ×2 amarillo, ×3 naranja, ×4 magenta), los de RepArena. */
 export const POW_COL = [0x3cf0c6, 0xffd166, 0xff8a2a, 0xff3cf0];
+/** Colores del rayo (RepArena, src/52_bolt.js): normal, perfecto, carga ×2, ×3 y ×4. */
+export const BOLT_COL = [0x4aa8ff, 0x3cf0c6, 0xffd166, 0xff8a2a, 0xff3cf0];
+/** El color de un rayo: el de su carga (×2 o más) o, sin cargar, azul o turquesa si la repetición fue perfecta. */
+export const boltColor = (perfect: boolean, pow: number): number => (pow > 1 ? POW_COL[Math.min(4, pow) - 1] : BOLT_COL[perfect ? 1 : 0]);
 
 const rand = (a: number, b: number): number => a + Math.random() * (b - a);
 
@@ -358,10 +362,10 @@ export class Bolts {
     }
   }
 
-  fire(a: Vector3, b: Vector3, power: number): void {
+  fire(a: Vector3, b: Vector3, power: number, color = POW_COL[Math.max(0, Math.min(3, power - 1))]): void {
     const bolt = this.list[this.next];
     this.next = (this.next + 1) % this.list.length;
-    bolt.start(a, b, POW_COL[Math.max(0, Math.min(3, power - 1))], power);
+    bolt.start(a, b, color, power);
   }
 
   update(dt: number, eye: Vector3): void {
@@ -494,6 +498,36 @@ export class Flashes {
   }
 }
 
+/** La carga en cada mano (RepArena: el orbe de la muñeca cargada), del color de la carga; late deprisa. */
+export class HandOrbs {
+  readonly group = new Group();
+  readonly left: Sprite;
+  readonly right: Sprite;
+
+  constructor(halo: CanvasTexture) {
+    const mk = (): Sprite => {
+      const s = new Sprite(new SpriteMaterial({ map: halo, color: BOLT_COL[0], transparent: true, opacity: 0.95, depthWrite: false, blending: AdditiveBlending, toneMapped: false }));
+      s.visible = false;
+      s.renderOrder = 8;
+      this.group.add(s);
+      return s;
+    };
+    this.left = mk();
+    this.right = mk();
+  }
+
+  /** Enséñala en p (o quítala si p es null), con su carga y el reloj t. */
+  set(side: 'left' | 'right', p: Vector3 | null, perfect: boolean, pow: number, t: number): void {
+    const o = this[side];
+    o.visible = !!p;
+    if (!p) return;
+    const sc = 0.075 * (1 + 0.2 * (pow - 1)) * (1 + 0.15 * Math.sin(t * 18));
+    o.position.copy(p);
+    o.scale.set(sc, sc, 1);
+    (o.material as SpriteMaterial).color.setHex(boltColor(perfect, pow)); // (la carga de la sentadilla aguantada, por su color)
+  }
+}
+
 /** Todos los efectos juntos (un solo grupo en la escena). */
 export class Effects {
   readonly halo = haloTexture();
@@ -501,9 +535,10 @@ export class Effects {
   readonly bolts = new Bolts();
   readonly sparks = new Sparks();
   readonly flashes = new Flashes(this.halo);
+  readonly orbs = new HandOrbs(this.halo);
   readonly group = new Group();
 
   constructor() {
-    this.group.add(this.ball.group, this.bolts.group, this.sparks.points, this.flashes.group);
+    this.group.add(this.ball.group, this.bolts.group, this.sparks.points, this.flashes.group, this.orbs.group);
   }
 }

@@ -8,6 +8,10 @@ import { AssetManager } from '@iwsdk/core';
 const CDN = 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@1.0/dist/profiles/';
 const LOCAL = new Set(['generic-hand', 'meta-quest-touch-plus', 'oculus-touch-v3']);
 
+/** El modelo de la mano de ese lado para la mano que agarra el mando (src/input/controller-hand.ts): el mismo archivo que
+ * la mano desnuda, con otra dirección para que IWSDK no los comparta (la mano desnuda cambia el suyo al crearse). */
+export const handModelUrl = (side: 'left' | 'right'): string => `${import.meta.env.BASE_URL}input-profiles/generic-hand/${side}.glb?mando`;
+
 /** Hay que llamarlo antes de crear el mundo. */
 export function useLocalInputModels(): void {
   const original = AssetManager.loadGLTF.bind(AssetManager);
