@@ -115,8 +115,9 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 7 · Menú principal y Opciones en VR** — #9
 - [x] **PR 8a · Enemigos de las compuertas con su modelo** — #10
 - [x] **PR 8b · Diablillo, puglin y lanzador** — #11
-- [ ] **PR 8c · Voladores con modelo (abeja, murciélago, Cthulhu y dragón)**
-- [ ] **PR 9 · Armas y defensa**
+- [x] **PR 8c · Voladores con modelo (abeja, murciélago, Cthulhu y dragón)** — #12
+- [ ] **PR 8d · Amenazas, formas de moverse, rapidez de gestos y esquivas**
+- [ ] **PR 9 · Armas y defensa** (aplazado por el usuario: se hará más adelante; después del 8d va el 10)
 - [ ] **PR 10 · Oleadas y premios**
 - [ ] **PR 11 · Ejercicios de suelo**
 - [ ] **PR 12 · Menú de muñeca, resumen, carátula del duelo y caricatura**
@@ -215,7 +216,7 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   apaño de rendimiento) se mide en las gafas antes de decidir.
 - De RepArena: `src/60_ui.js`.
 
-**PR 8 · Enemigos** (XL: partido en 8a, 8b y 8c)
+**PR 8 · Enemigos** (XL: partido en 8a, 8b, 8c y 8d)
 - Todos los de RepArena, desde una tabla (robots, diablillo, puglin, lanzador, zombis, raptor, piratas, monstruitos,
   voladores…), con física: rodean los obstáculos, no se atraviesan, bailan al compás esperando; compuertas, cuentas de
   vida (`LIFE`), retratos y la tabla del desarrollador.
@@ -233,10 +234,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `src/combat/rocks.ts` y `rock-path.ts`: `throwRock`, `rockParry`, `updateRocks`; más deprisa cuanto más difícil,
   `throwK`). **Decisión del usuario en el PR 8b: los personajes geométricos (robots, drones, avispones; también las
   arañas del PR 11) no se migran por ahora**; la ficha del robot dice «Por ahora, no».
-- **8c**: los voladores con modelo de Quaternius (`Flyer` de RepArena con `beastFlyer`: abeja, murciélago, Cthulhu y el
-  dragón, jefe), con su vuelo errático, su lanzarse a picar y su aleteo a su ritmo (`FLAP_HZ`). También las amenazas a
-  media distancia (`taunt`), las formas de moverse de cada clase (Ajustes → Cada enemigo: `move_*`, `spd_*`, `pace_*`) y
-  las esquivas. Los de las trampillas con modelo (cangrejo, seta, calavera), con los ejercicios de suelo (PR 11).
+- **8c (hecho)**: los voladores con modelo de Quaternius (abeja, murciélago, Cthulhu y el dragón, que solo sale de jefe:
+  PR 10). Su vuelo, el de RepArena tal cual (`src/combat/flight.ts`: `Flight`, con `FLYER_KIND`, `FLAP_HZ` y `gateKeep`,
+  comparado con su `Flyer` en `tests/compare/flight.compare.test.ts`: 60 vuelos al azar, el mismo sitio y el mismo alabeo
+  en cada fotograma y los mismos mordiscos); el modelo, el aleteo a su ritmo, el mordisco, el zumbido (`loopSound`) y la
+  caída al morir, en `src/combat/flyers.ts` (`FlyerSystem`). Con los de tierra, uno de cada (como en RepArena); los
+  drones y avispones (geométricos) no salen: si solo están ellos, abejas y murciélagos. Sus fichas, en Rivales.
+- **8d** (partido del 8c): las amenazas a media distancia (`taunt`), las formas de moverse de cada clase (Ajustes → Cada
+  enemigo: `move_*`, `spd_*`, `pace_*`) y las esquivas. Los de las trampillas con modelo (cangrejo, seta, calavera), con
+  los ejercicios de suelo (PR 11).
 
 **PR 9 · Armas y defensa** (L)
 - Rayos con el aspecto de RepArena, pistolas, espadas; escudo, guardia, esquiva, onda y burbuja (el puñetazo, la diana y
@@ -297,6 +303,20 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 8c → PR 8d: los de tierra se mueven con la física (velocidad pedida a Havok: `EnemySystem.update`), no como en
+  RepArena (que movía `pos` a mano): las formas de moverse (`move_*`: recto, zigzag, a rachas, esquivas), las velocidades
+  (`spd_*`: `vWalk`, `vRun`, `vMove`, `chargeD` del constructor de `Robot`), la rapidez de gestos (`pace_*`: el `gd` y el
+  `st` de `Robot.update`) y la amenaza (`taunt`) se portan como lógica pura comparada con RepArena y se aplican pidiendo
+  velocidad. Los voladores tienen su `Foe` (y `Flyer`), pero no `PhysicsBody` mientras vuelan: no entran en la consulta
+  de `EnemySystem`. Los blancos (`targets`) son de todos: cada uno, un `FoeTarget` con su vida al salir y la altura de
+  sus cuentas de vida; el disparo y el puñetazo se reparten en `EnemySystem.hit`/`shove`.
+- PR 8c → PR 10: el dragón solo sale de jefe (RepArena: `isBossWave`, el jefe de los voladores; si no lo has elegido, la
+  nodriza, que era geométrica). Está en la tabla (`FOE_DEF.dragon`) y en `FLYER_KIND` (`boss`: el empujón, a un 30 %).
+- PR 8c → PR 11: el vuelo de los voladores diminutos (flexiones) y bajos (superman, plancha lateral) no está portado: en
+  RepArena, `isTiny()` y `lowFly()` dentro de `Flyer`.
+- Sonidos en bucle que siguen a algo: `loopSound(nombre, volumen, tono)` (`src/audio/sound.ts`) devuelve uno que se
+  coloca con `set(p)` y se para con `stop()` (las fuentes se reutilizan).
+
 - PR 7 → PR 8: el menú (`src/ui/menu.ts`, ver AGENTS.md › Menús). Decisiones del usuario en el PR 7: los modos y Sesiones
   que aún no hay, en gris (`SOON_MODE`; cada PR los enciende en `wireLobby`/`refreshLobby`); los ejercicios de suelo,
   igual (`SOON_EX`, PR 11); las metas de hoy y la columna HOY, en el PR 13 (su sitio: el elemento `goals` del principal,
@@ -328,8 +348,7 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   Uno nuevo: `playSound('nombre', pos, volumen, tono)`, con su fila en `SOUNDS` (`src/audio/catalog.ts`), su archivo de
   serie en `sounds/de-serie/` y su línea en `sounds/LEEME.md` (la prueba lo exige). Los de Combate se preparan al arrancar
   (`PRE_FLAT`/`PRE_POS`); un modo nuevo, que prepare los suyos. Los bucles que siguen a algo que se mueve (zumbidos de los
-  voladores, espada láser, remolino, arcos) ya están grabados (`sounds/de-serie/*.ogg`) pero falta su función: una fuente
-  con `loop` pegada a lo que suena y el tono en sus voces. En desarrollo, la consola apunta cada sonido (`rxdbg sonido`).
+  voladores, espada láser, remolino, arcos) ya están grabados (`sounds/de-serie/*.ogg`); su función, `loopSound` (PR 8c). En desarrollo, la consola apunta cada sonido (`rxdbg sonido`).
 - Estilo Cómic: todo lo que aparece en la escena se prepara solo (`ComicSystem`): los materiales estándar
   (`MeshStandardMaterial`) se pintan en cómic y reciben su contorno de tinta. Para que algo nuevo se vea en cómic, dale un
   material estándar con colores claros y lisos (sin texturas de relieve). `userData.noInk` en una malla: sin contorno;
@@ -354,8 +373,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
-- PR 8b: los robots no salen (eran geométricos: decisión del usuario); si solo eliges robots, salen zombis verdes. Los
-  voladores, con el PR 8c.
+- PR 8c: los drones y los avispones no salen (eran geométricos, como los robots); si solo eliges esos, abejas y
+  murciélagos. El dragón, solo de jefe (PR 10). En la VR simulada se han visto la abeja y el murciélago saliendo por las
+  compuertas, zumbando, lanzándose a morder (silbido y golpe) y cayendo al derribarlos; el Cthulhu, el dragón y el vuelo de
+  cerca, por mirar en las gafas.
+- PR 8c: al morir, los voladores estallan en baba y caen al suelo con la física (en RepArena desaparecían en el sitio).
+- PR 8c: el mordisco aún no se para con la guardia ni se esquiva (PR 9).
+- PR 8b: los robots no salen (eran geométricos: decisión del usuario); si solo eliges robots, salen zombis verdes.
 - PR 8b: las piedras se paran con la mano (muñeca o dedos); con la espada, en el PR 9. El lanzador se ha probado en la
   VR simulada (tira desde la mano y la piedra da si no te apartas); esquivarla y pararla, por mirar en las gafas.
 - PR 8a: los enemigos no hacen amenazas a media distancia ni zigzag o rachas (Ajustes → Cada enemigo): PR 8b. Los jefes,

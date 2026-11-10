@@ -11,7 +11,7 @@
  * Lo que se enseña de cada ajuste y lo que hace tocarlo, sin IWSDK, en src/ui/fields.ts.
  */
 import { createSystem, Entity, Euler, PokeInteractable, RayInteractable, UIKitMLAsset, Vector3, VisibilityState } from '@iwsdk/core';
-import { BODY_NOTE, EX_NAMES, EX_SHORT, FOE_GATE, MODE_EX, MODE_NAMES, RANKS } from '../core/catalog.js';
+import { BODY_NOTE, EX_NAMES, EX_SHORT, FOE_FLY, FOE_GATE, MODE_EX, MODE_NAMES, RANKS } from '../core/catalog.js';
 import { foeList } from '../core/rules.js';
 import { devFoe, foeReady } from '../combat/foes.js';
 import { FIELD, type FieldDef } from '../core/schema.js';
@@ -308,6 +308,7 @@ export class MenuSystem extends createSystem({}, {}) {
     this.on(p, 'o-back', () => this.show('lobby'));
     // las fichas de los rivales: al tocar una, sale o deja de salir (Ajustes → Enemigos → De las compuertas)
     for (const [k] of FOE_GATE) this.on(p, 'c-' + k, () => fieldPick(FIELD.foesGate, k));
+    for (const [k] of FOE_FLY) this.on(p, 'c-' + k, () => fieldPick(FIELD.foesFly, k));
     for (const r of ROWS_OPT) this.wireRow(p, r);
   }
 
@@ -351,6 +352,17 @@ export class MenuSystem extends createSystem({}, {}) {
       for (const [k] of FOE_GATE) {
         const on = chosen.includes(k), ok = foeReady(k), f = devFoe('g:' + k);
         this.set(p, 'c-' + k, { borderColor: on ? '#ff8a3d' : KEY.bg, backgroundColor: on ? '#2b2130' : '#1b2030' });
+        this.set(p, `c-${k}n`, { color: ok ? KEY.fg : KEY.offFg });
+        this.text(p, `c-${k}s`, ok ? `Resiste ${f.hp} · Fuerza ${f.str}` : 'Por ahora, no');
+      }
+    // los voladores (los drones y los avispones eran geométricos: por ahora no; el dragón sale de jefe)
+    const fcards = this.tab === 'foes' && fieldVisible(FIELD.foesFly), fchosen = foeList('foesFly');
+    this.shown(p, 'fcards', fcards);
+    this.shown(p, 'fcards-t', fcards);
+    if (fcards)
+      for (const [k] of FOE_FLY) {
+        const on = fchosen.includes(k), ok = foeReady(k), f = devFoe('f:' + k);
+        this.set(p, 'c-' + k, { borderColor: on ? '#3cf0c6' : KEY.bg, backgroundColor: on ? '#1e2b30' : '#1b2030' });
         this.set(p, `c-${k}n`, { color: ok ? KEY.fg : KEY.offFg });
         this.text(p, `c-${k}s`, ok ? `Resiste ${f.hp} · Fuerza ${f.str}` : 'Por ahora, no');
       }

@@ -35,8 +35,10 @@ import { boltColor, Effects, POW_COL } from './fx.js';
 import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
 import { IDLE } from '../exercise/how.js';
-import { aimForced, deepOn, groundList, handsFree } from '../core/rules.js';
-import { deal, devFoe, gateFoes } from './foes.js';
+import { aimForced, deepOn, flyList, foes, groundList, handsFree } from '../core/rules.js';
+import { deal, devFoe, flyFoes, FOE_DEF, gateFoes } from './foes.js';
+import { Flight, type FlyGate } from './flight.js';
+import { FlyerSystem } from './flyers.js';
 import { curEx } from '../ui/fields.js';
 import { dv, nLives, setSetting } from '../core/settings.js';
 import { num, on, settings, str } from '../core/values.js';
@@ -107,7 +109,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private toSpawn = 0;
   // los que van a salir por una compuerta que se está abriendo (a cada uno le falta «t» para salir)
   private gates: GateSystem | null = null;
-  private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0 }));
+  private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0, kind: '' }));
+  private fg: FlyGate = { x: 0, z: 0, ry: 0, scale: 1 };
   private spawnT = 0;
   private betweenT = 0;
   private msgT = 0;
@@ -183,7 +186,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     for (const e of this.queries.foes.entities) {
       const o = e.object3D;
       if (!o) continue;
-      foes.push({ kind: (o.userData.rt as { kind?: string } | undefined)?.kind, state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
+      foes.push({ kind: ((o.userData.rt ?? o.userData.fly) as { kind?: string } | undefined)?.kind, fly: !!o.userData.fly, state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
     return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
@@ -381,13 +384,15 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.kills++;
   }
 
-  // Cada zombi sale por una compuerta (como en RepArena): se abre y, al medio segundo, sale de dentro del túnel. Sin
-  // compuertas libres, espera. (Si la escena no tiene compuertas, aparece delante, en abanico, a 9-13 m.)
+  // Cada uno sale por una compuerta (como en RepArena): se abre y, al medio segundo, sale de dentro del túnel (los
+  // voladores, volando por su hueco; la compuerta se queda abierta lo que tarden en salir). Sin compuertas libres, espera.
+  // (Si la escena no tiene compuertas, aparece delante, en abanico, a 9-13 m.)
   private spawnOne(): boolean {
     if (this.gates && this.gates.queries.gates.entities.size > 0) {
       const slot = this.pending.find((p) => !p.gate), g = slot ? this.gates.freeGate() : null;
       if (!slot || !g) return false;
-      this.gates.openGate(g, 3.2);
+      slot.kind = this.whoNext();
+      this.gates.openGate(g, FOE_DEF[slot.kind]?.fly ? Math.max(3.2, Flight.gateTime(slot.kind, dv('flySpeed', this.rampLvl))) : 3.2);
       slot.gate = g;
       slot.t = 0.55;
       return true;
@@ -402,22 +407,40 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         if (o && Math.hypot(o.position.x - x, o.position.z - z) < 1.2) ok = false;
       }
       if (!ok) continue;
-      this.spawnFoe(x, z);
+      this.fg.x = x;
+      this.fg.z = z;
+      this.fg.ry = Math.atan2(GAME.head.x - x, GAME.head.z - z);
+      this.spawnFoe(this.whoNext(), this.fg, x, z);
       return true;
     }
     return false;
   }
 
-  // el zombi que toca: desde la segunda oleada, también gordos
-  // Quién sale: repartidos entre los que eliges en Rivales (RepArena: buildWave → deal), bien mezclados; los que aún no
-  // están (PR 8b) o no han acabado de cargarse, zombis verdes. Su resistencia, la de la tabla del desarrollador, y sube un
-  // disparo cada cuatro oleadas (la escalera y los jefes llegan con el PR 10)
-  private nextFoe: () => string = () => 'zgreen';
+  // Quién sale: repartidos entre los que eliges en Rivales (RepArena: buildWave → deal), bien mezclados; con los de tierra
+  // y los voladores, uno de cada (en la mezcla, alternando). Los que aún no están (los robots y los drones, geométricos)
+  // o no han acabado de cargarse, zombis verdes (y abejas y murciélagos). Su resistencia, la de la tabla del desarrollador:
+  // los de tierra suben un disparo cada cuatro oleadas; los voladores no (la escalera y los jefes llegan con el PR 10)
+  private nextG: () => string = () => 'zgreen';
+  private nextF: () => string = () => 'bee';
+  private dealN = 0;
   private dealFoes(): void {
-    this.nextFoe = deal(gateFoes(groundList()));
+    this.nextG = deal(gateFoes(groundList()));
+    this.nextF = deal(flyFoes(flyList()));
+    this.dealN = 0;
   }
-  private spawnFoe(x: number, z: number): void {
-    let k = this.nextFoe();
+  private whoNext(): string {
+    const F = foes(), k = this.dealN++;
+    return F === 'robots' || (F === 'mix' && k % 2 === 0) ? this.nextG() : this.nextF();
+  }
+  private spawnFoe(k: string, gate: FlyGate, x: number, z: number): void {
+    const fly = FOE_DEF[k]?.fly, flyers = this.world.getSystem(FlyerSystem);
+    if (fly) {
+      if (flyers?.ready(k)) {
+        flyers.spawn(k, gate, devFoe('f:' + k).hp, dv('flySpeed', this.rampLvl), dv('erratic', this.rampLvl));
+        return;
+      }
+      k = 'zgreen';
+    }
     if (!this.enemies.ready(k)) k = 'zgreen';
     this.enemies.spawn(k, x, z, devFoe('g:' + k).hp + Math.floor((GAME.wave - 1) / 4));
   }
@@ -427,7 +450,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     for (const p of this.pending) {
       if (!p.gate || (p.t -= dt) > 0) continue;
       const at = this.gates!.spawnPoint(p.gate, this.tmpC);
-      this.spawnFoe(at.x, at.z);
+      this.spawnFoe(p.kind, this.gates!.frame(p.gate, this.fg), at.x, at.z);
       p.gate = null;
     }
   }
@@ -599,7 +622,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     SND.bolt(from, L);
     SND.boltHit(tp, L);
     const d = this.tmpC.copy(tp).sub(from).setY(0).normalize();
-    this.enemies.hit(e.entity, dmg, pow, d);
+    this.enemies.hit(e.entity, dmg, pow, d, perfect);
     if (e.alive) this.cfx.hit(tp); // (en cómic: líneas de impacto; y si cae, la estrella)
     else this.cfx.kill(tp);
   }

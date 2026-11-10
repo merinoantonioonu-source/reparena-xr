@@ -46,6 +46,7 @@ import { SND } from '../audio/sound.js';
 import { VOICE_PITCH } from '../audio/catalog.js';
 import { GAME, HOOKS } from '../core/state.js';
 import type { PunchTarget } from '../input/punch.js';
+import type { FlyerSystem } from './flyers.js';
 
 // lo que pesa cada uno: más cuanto más ancho (el gordo, 1,6 veces el verde), y los pesados, más aún
 const massOf = (d: FoeDef): number => Math.max(0.8, (d.r / 0.32) ** 2) * (d.heavy ? 1.3 : 1);
@@ -61,6 +62,11 @@ export class FoeTarget implements LockTarget, PunchTarget {
     readonly root: Object3D,
     readonly radius: number,
     private lift: number,
+    /** Su vida al salir y a qué altura sobre su centro van sus cuentas de vida. */
+    readonly maxHp: number,
+    readonly top: number,
+    /** Vuela (el puñetazo lo alcanza algo más lejos). */
+    readonly flyer = false,
   ) {}
   get alive(): boolean {
     return !this.removed && this.entity.getValue(Foe, 'state') !== FoeState.Dead;
@@ -147,6 +153,8 @@ export class EnemySystem extends createSystem(
   private slots: SlotFoe[] = [];
   private beatK = -1;
   private beatHit = false;
+  /** Los voladores (src/combat/flyers.ts): se enganchan solos al arrancar. */
+  flyers: FlyerSystem | null = null;
 
   init(): void {
     this.physics = this.world.getSystem(PhysicsSystem)!;
@@ -171,9 +179,9 @@ export class EnemySystem extends createSystem(
     this.world.createTransformEntity(this.rocks.group);
   }
 
-  /** Cuántos zombis quedan en pie. */
+  /** Cuántos quedan en pie (también los que vuelan). */
   aliveCount(): number {
-    let n = 0;
+    let n = this.flyers?.aliveCount() ?? 0;
     for (const e of this.queries.foes.entities) if (e.getValue(Foe, 'state') !== FoeState.Dead) n++;
     return n;
   }
@@ -260,7 +268,7 @@ export class EnemySystem extends createSystem(
       if (clip) actions.set(k, mixer.clipAction(clip));
     }
     const e = this.world.createTransformEntity(root);
-    const target = new FoeTarget(e, root, d.r, d.h * (d.ctr - 0.5));
+    const target = new FoeTarget(e, root, d.r, d.h * (d.ctr - 0.5), hp, d.h / 2 + 0.22);
     const sf: SlotFoe = { pos: new Vector3(x, 0, z), radius: d.r, stop: d.stop, slot: new Vector3(), slotOk: false, row: 0 };
     foeSlot(sf, this.slots, GAME.head);
     this.slots.push(sf);
@@ -277,6 +285,7 @@ export class EnemySystem extends createSystem(
 
   /** Al acabar la ronda: los que quedan en pie se desvanecen (no tapan el resumen). */
   vanishAll(): void {
+    this.flyers?.vanishAll();
     for (const e of this.queries.foes.entities) {
       if (e.getValue(Foe, 'state') === FoeState.Dead) continue;
       e.setValue(Foe, 'state', FoeState.Dead);
@@ -287,6 +296,7 @@ export class EnemySystem extends createSystem(
   /** Quita a todos (al empezar otra ronda). */
   clear(): void {
     this.rocks.clear();
+    this.flyers?.clear();
     for (const e of [...this.queries.foes.entities]) this.remove(e);
   }
 
@@ -334,7 +344,8 @@ export class EnemySystem extends createSystem(
    * pie, retrocede empujado por la física y encaja el golpe; si no, sale despedido dando vueltas. power: la carga (×1 a ×4:
    * cuanto más, más lejos); dir: hacia dónde va el rayo (horizontal).
    */
-  hit(e: Entity, dmg: number, power: number, dir: Vector3): void {
+  hit(e: Entity, dmg: number, power: number, dir: Vector3, perfect = false): void {
+    if (e.object3D?.userData.fly) return this.flyers?.hit(e, dmg, perfect, power, dir);
     const rt = e.object3D?.userData.rt as FoeRuntime | undefined;
     if (!rt || e.getValue(Foe, 'state') === FoeState.Dead) return;
     power = Math.max(1, Math.min(4, power));
@@ -380,6 +391,7 @@ export class EnemySystem extends createSystem(
    * aturdido stun segundos; si estaba atacando, le corta el golpe. No le quita vida.
    */
   shove(e: Entity, dist: number, stun: number, dir: Vector3): void {
+    if (e.object3D?.userData.fly) return this.flyers?.shove(e, dist, dir);
     const rt = e.object3D?.userData.rt as FoeRuntime | undefined, o = e.object3D;
     if (!rt || !o || e.getValue(Foe, 'state') === FoeState.Dead || !(dist > 0)) return;
     const b = this.tmp.set(o.position.x - GAME.head.x, 0, o.position.z - GAME.head.z);
@@ -643,10 +655,7 @@ export class EnemySystem extends createSystem(
     this.rocks.update(dt);
     // las cuentas de vida, encima de cada uno
     this.life.begin();
-    for (const t of this.targets) {
-      const rt = t.root.userData.rt as FoeRuntime | undefined;
-      if (rt && t.alive) this.life.add(rt, t.root.position.x, t.root.position.y + rt.def.h / 2 + 0.22, t.root.position.z, t.entity.getValue(Foe, 'hp') ?? 0, rt.maxHp);
-    }
+    for (const t of this.targets) if (t.alive) this.life.add(t, t.root.position.x, t.root.position.y + t.top, t.root.position.z, t.entity.getValue(Foe, 'hp') ?? 0, t.maxHp);
     this.life.end(dt, GAME.head, this.world.renderer);
   }
 }

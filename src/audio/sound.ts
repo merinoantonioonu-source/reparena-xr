@@ -138,6 +138,27 @@ export class SoundSystem extends createSystem({}, {}) {
     if (import.meta.env.DEV) console.info(`rxdbg sonido ${n}${at ? ' desde ' + at.toArray().map((v) => v.toFixed(1)).join(',') : ''} (${this.ctx.state})`); // (para probar en el emulador)
   }
 
+  // los bucles libres de cada sonido (al acabar uno, su fuente se guarda para el siguiente: sin crear ni borrar entidades)
+  private loops = new Map<string, Entity[]>();
+
+  /** Un sonido en bucle que sigue a algo que se mueve (el zumbido de un volador…): null si no suena. */
+  loop(n: string, gain: number, rate: number): SoundLoop | null {
+    const spec = SOUNDS[n];
+    if (!spec || OFF.has(n) || !this.ctx || this.ctx.state === 'closed') return null;
+    const free = this.loops.get(n) ?? [];
+    this.loops.set(n, free);
+    const e = free.pop() ?? this.source(this.world.createTransformEntity(undefined, { persistent: true }), n, { ...spec, loop: true }, true);
+    e.setValue(AudioSource, 'volume', gain * (num('volume') / 100));
+    tune(e, rate);
+    AudioUtils.play(e);
+    SOUND.played[n] = (SOUND.played[n] ?? 0) + 1;
+    if (import.meta.env.DEV) console.info(`rxdbg bucle ${n}`); // (para probar en el emulador)
+    return new SoundLoop(e, () => {
+      AudioUtils.stop(e);
+      free.push(e);
+    });
+  }
+
   /** Cuántas fuentes tienen ya su archivo cargado, de cuántas (para las pruebas). */
   loaded(): [number, number] {
     let n = 0, all = 0;
@@ -195,6 +216,28 @@ function tune(e: Entity, r: number): void {
 export function unlockAudio(): void {
   const c = sys?.ctx;
   if (c && c.state === 'suspended') void c.resume();
+}
+
+/** Un sonido en bucle: se coloca donde está lo que suena (set) y se para al acabar (stop). */
+export class SoundLoop {
+  private done = false;
+  constructor(
+    private e: Entity,
+    private end: () => void,
+  ) {}
+  set(p: Vector3): void {
+    this.e.object3D?.position.copy(p);
+  }
+  stop(): void {
+    if (this.done) return;
+    this.done = true;
+    this.end();
+  }
+}
+
+/** Empieza un sonido en bucle (n) con su volumen y su tono; null si no suena (apagado, o sin sonido aún). */
+export function loopSound(n: string, gain = 1, rate = 1): SoundLoop | null {
+  return sys?.loop(n, gain, rate) ?? null;
 }
 
 /** Suena n desde at (en 3D) o, sin sitio, «en tu cabeza»; gain y rate: el volumen y el tono de ese efecto. */

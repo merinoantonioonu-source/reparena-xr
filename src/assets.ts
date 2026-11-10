@@ -44,6 +44,11 @@ export default defineAssets({
   'foe-skull': foe('monstruitos/skull.glb', 'Calavera'),
   'foe-alien': foe('monstruitos/alien.glb', 'Alien'),
   'foe-alientall': foe('monstruitos/alien_tall.glb', 'Alien alto'),
+  // los voladores (Cute Animated Monsters)
+  'foe-bee': foe('monstruitos/bee.glb', 'Abeja'),
+  'foe-bat': foe('monstruitos/bat.glb', 'Murciélago'),
+  'foe-cthulhu': foe('monstruitos/cthulhu.glb', 'Cthulhu'),
+  'foe-dragon': foe('monstruitos/yellowdragon.glb', 'Dragón'),
   // el diablillo y el puglin (Bestiary), con las animaciones de la biblioteca (Universal Animation Library) y tres colores
   'foe-imp': foe('imp.glb', 'Diablillo'),
   'foe-puglin': foe('puglin.glb', 'Puglin'),

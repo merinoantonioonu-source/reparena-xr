@@ -2,6 +2,6 @@
  * El catálogo de componentes que comparten el juego y el editor.
  */
 import { defineComponents } from '@iwsdk/core';
-import { Foe, Gate, Obstacle } from './combat/components.js';
+import { Flyer, Foe, Gate, Obstacle } from './combat/components.js';
 
-export default defineComponents([Foe, Obstacle, Gate]);
+export default defineComponents([Foe, Flyer, Obstacle, Gate]);
