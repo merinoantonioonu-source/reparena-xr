@@ -15,7 +15,7 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
 - **Los ejercicios de pie**, con los mismos detectores y números que RepArena (comparados con su código): sentadilla,
   zancada (cada una, la otra pierna delante), sentadilla con salto, con press y con elevación frontal, swing con
   kettlebell, peso muerto, curl (cada brazo por su cuenta), curl con barra o kettlebell (las dos manos, como una sola
-  pesa), elevación frontal y antebrazos con la barra flexible. Se elige en el panel de inicio (es el mismo ajuste que en
+  pesa), elevación frontal y antebrazos con la barra flexible. Se elige en el menú principal (es el mismo ajuste que en
   RepArena). Los recorridos, los tuyos de «Tu cuerpo (recorridos)» de cada ejercicio (por ejemplo, 26 cm de bajada en la
   sentadilla); PERFECTA si dura lo pedido (1,2 s de serie) y vas 3 cm más allá.
 - **La bola roja de energía**, a un metro del pecho: aparece al cargar (al bajar en la sentadilla, al subir la pesa al
@@ -49,11 +49,18 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
   con más vida). Con cinco golpes se acaba la ronda: resumen y **OTRA RONDA**.
 - **Manos**: las de IWSDK tal cual (los modelos oficiales de Meta, con contorno). Con mandos y «Mandos como manos» (de
   serie), la mano de IWSDK que agarra el mando: el índice se dobla con el gatillo y los demás dedos con el agarre.
-- **Paneles**: el de inicio, con el **ejercicio** y **EMPEZAR** (se pulsa con el rayo de la mano y pellizco, con el dedo o con el gatillo), y
-  el **marcador** a la izquierda (oleada, vidas, repeticiones, carga, derribados, perfectas, mensajes, tiempo y hora).
+- **El menú principal**, como el de RepArena: en las gafas sale delante de ti y a tu alcance («Distancia del menú»),
+  colgando a la altura del pecho e inclinado hacia ti; se pulsa con el dedo o con el rayo de la mano o del mando (la
+  pulsación de IWSDK). Arriba, **EMPEZAR** (tras una ronda, **OTRA RONDA**, con cómo fue); el **modo** (Combate; Arcos,
+  Barras, Toques, Travesía y Sesiones, en gris hasta su PR), los **ejercicios** de Combate (los de suelo, en gris hasta
+  el PR 11) con cómo se hace el elegido, la **dificultad** (los siete rangos, «Al fallo», la ficha de la ronda y lo que el
+  desarrollador deja ver con el ojo), **Opciones ▸** y **Salir**. El sitio de las metas de hoy está reservado (PR 13).
+- **Opciones**, en pestañas con su color: Rivales y armas, Progreso (llega con el PR 13), Sonido, Entorno (con la
+  **nitidez en las gafas**: Normal ×1, Alta ×1,4 de serie o Máxima ×1,7, que se aplica al entrar en VR) y Ajustes (una
+  pestaña por grupo). Los ajustes salen del esquema de RepArena, cada uno con − y + o sus opciones, y la tecla **«?»**
+  enseña su explicación al lado del menú. Cada menú sale donde estaba el anterior.
+- **El marcador** a la izquierda (oleada, vidas, repeticiones, carga, derribados, perfectas, mensajes, tiempo y hora).
   Letras de RepArena (Rubik y Bungee), con tildes.
-- **Nitidez en las gafas**: Normal ×1, Alta ×1,4 (de serie) o Máxima ×1,7. Se elige en el panel de inicio y se aplica al
-  entrar en VR (para cambiarla dentro, hay que salir y volver a entrar).
 - **Sonido** con el de IWSDK (en 3D: se oye de dónde viene): los de RepArena (tus archivos de `sounds/`, sustituibles
   por nombre, y los que allí se fabricaban al vuelo, grabados como archivos), con la voz de cada zombi, la compuerta que
   suena y echa vapor al abrirse y el ambiente de la arena (a 0 mientras suena Spotify).
@@ -101,7 +108,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/components.ts`, `src/components.ts` | Los componentes `Foe` (zombi) y `Obstacle` (lo que rodean), y su catálogo |
 | `src/exercise/vertical.ts` | El detector de bajar y subir con la cabeza (carga, ×2-×4, PERFECTA), sin IWSDK |
 | `src/exercise/standing.ts` | Los ejercicios de pie de RepArena (zancada, en dos tiempos, peso muerto, curl, curl con barra, elevación frontal, antebrazos), sin IWSDK |
-| `src/exercise/how.ts` | Cómo se hace cada ejercicio de pie (las líneas del panel de inicio y el recordatorio del marcador) |
+| `src/exercise/how.ts` | Cómo se hace cada ejercicio de pie (lo que dice el menú principal y el recordatorio del marcador) |
 | `src/core/state.ts` | Lo que comparten los sistemas (fase, cabeza, bola, marcador) |
 | `src/core/schema.ts` | Los 186 ajustes de RepArena (claves, valores de serie, límites, grupos, condiciones y explicaciones) |
 | `src/core/settings.ts` | Cargar, guardar y cambiar los ajustes (los mismos datos que RepArena), cada modo con cada ejercicio, los rangos con su tabla y la dificultad creciente |
@@ -111,6 +118,8 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/audio/catalog.ts` | Los sonidos por nombre: el archivo de cada uno (el tuyo o el de serie) y a qué distancia se oye |
 | `sounds/` | Tus sonidos (la lista, en su `LEEME.md`) y los de serie (`de-serie/`, grabados con `tests/sonidos.mjs`) |
 | `src/ui/fonts.ts` | Pone las letras de RepArena (con tildes) en los paneles |
+| `src/ui/menu.ts` | Los menús en VR: el principal, Opciones y la explicación de cada ajuste; dónde salen y la nitidez |
+| `src/ui/fields.ts` | Lo que enseñan los menús de cada ajuste y lo que hace tocarlo, las pestañas y la ficha de la ronda, sin IWSDK |
 | `src/input/hand-system.ts` | Las manos y los mandos en cada fotograma (lo que da IWSDK, en `hands` y `head`), la vibración y «Mandos como manos» |
 | `src/input/hand-model.ts` | Lo que el juego sabe de cada mano (muñeca, articulaciones, pellizco, gatillo, agarre, rayo) y el puño |
 | `src/input/throw.ts` | La sacudida que lanza el rayo y el gatillo con mandos como manos (los de RepArena), sin IWSDK |
@@ -119,7 +128,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
 | `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de arena, aro del jugador, cajas, rocas, compuertas, valle, nubes, zombis y paneles |
 | `public/scenes/main.iwsdk.scene.json` | La escena: cielo, neblina, suelo, compuertas, valle, nubes, cajas y rocas con su física, paneles y luces |
-| `public/ui/*.uikitml` | Los paneles: inicio (con el selector de ejercicio), marcador y los dos del suelo (avisos y carga) |
+| `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador y los dos del suelo (avisos y carga) |
 | `public/models/` | Los zombis (Quaternius, CC0) |
 | `public/fonts/` | Las letras (Rubik y Bungee, OFL) |
 | `public/input-profiles/` | Las manos y los mandos (MIT) |

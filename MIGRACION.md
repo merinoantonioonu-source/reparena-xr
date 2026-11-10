@@ -112,7 +112,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 4 · Estilo Cómic y la arena** — #5
 - [x] **PR 5 · Sonido** — #6
 - [x] **PR 6 · Ejercicios de pie** — #8
-- [ ] **PR 7 · Menú principal y Opciones en VR**
+- [x] **PR 7 · Menú principal y Opciones en VR** — #9
 - [ ] **PR 8 · Enemigos**
 - [ ] **PR 9 · Armas y defensa**
 - [ ] **PR 10 · Oleadas y premios**
@@ -204,7 +204,7 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   se mueve), pero no el filtro `HF`. Los avisos en el suelo y la carga ×N en el suelo, con dos paneles UIKit tumbados
   (`warn.uikitml`, `charge.uikitml`). El selector, once botones en el panel de inicio.
 
-**PR 7 · Menú principal y Opciones en VR** (L)
+**PR 7 · Menú principal y Opciones en VR** (L) — hecho
 - EMPEZAR, metas de hoy, columna HOY, modos, ejercicios, dificultad (galones, «Al fallo», la ficha de la ronda),
   Spotify; Opciones en pestañas, salidas del esquema de ajustes, con la tecla «?».
 - **Las teclas, como las pulsa IWSDK** (lo pidió el usuario: la física del toque de los menús es la de IWSDK de serie):
@@ -278,10 +278,18 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
-- PR 6 → PR 7: el ejercicio se elige con `chooseEx` (`src/combat/game.ts`): pone Combate y el ejercicio con `setSetting`
-  (lo ve también RepArena) y repinta el panel de inicio (`refreshEx`). El menú del PR 7 sustituye al selector: que llame a
-  lo mismo (o a `setSetting`; `onSettingsChange` ya repinta). Al pulsar EMPEZAR, si lo guardado es otro modo o un
-  ejercicio que aquí aún no hay (los del suelo, PR 11), se pasa a Combate con la sentadilla.
+- PR 7 → PR 8: el menú (`src/ui/menu.ts`, ver AGENTS.md › Menús). Decisiones del usuario en el PR 7: los modos y Sesiones
+  que aún no hay, en gris (`SOON_MODE`; cada PR los enciende en `wireLobby`/`refreshLobby`); los ejercicios de suelo,
+  igual (`SOON_EX`, PR 11); las metas de hoy y la columna HOY, en el PR 13 (su sitio: el elemento `goals` del principal,
+  escondido); sin la pantalla invisible detrás de los menús (se mide en las gafas); y la nitidez, solo la del juego nuevo
+  (`QUALITY`, en Opciones → Entorno; la «Calidad de imagen» de RepArena no sale: `NOT_HERE`).
+- Para el PR 8: la pestaña Rivales y armas tiene «Qué enemigos salen» y las armas; faltan las fichas de cada rival con su
+  retrato (las listas de muchas opciones, como `foesGate`, no salen como fila: `fieldView` da null).
+- Para el PR 12: tras la ronda sale el principal con una línea de cómo fue (`HOOKS.showMenu(texto)`): el resumen de
+  RepArena (opción A) va antes. El menú de la muñeca, la caricatura (hasta entonces, el principal dice cómo se hace el
+  ejercicio con `HOW`) y la pausa, también.
+- Al pulsar EMPEZAR (o elegir Combate), si lo guardado es otro modo o un ejercicio que aquí aún no hay, se pasa a
+  Combate con la sentadilla (`curEx`, `src/ui/fields.ts`).
 - Los ejercicios de pie: `StandingDetector` (sucesos) y `readCfg` (lo que pide cada uno, leído al empezar cada oleada).
   Los del suelo (PR 11) van en otro detector con la misma forma: `vertical.ts` sirve para las flexiones y los fondos.
 - Avisos en el suelo: `floorWarn(texto, color)` y `chargeFloor(texto, color)` (paneles `warn-panel` y `charge-panel` de
@@ -315,15 +323,22 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - El juego es siempre Combate con sentadillas, pero con los ajustes del modo y ejercicio que tenga elegidos el usuario
   (los últimos de RepArena). Se arregla al portar los ejercicios (PR 6) y el menú (PR 7). No elijas el ejercicio por
   código con `setSetting` antes: cambiaría también el de RepArena.
-- La nitidez se guarda aparte (`reparenaxr-quality`): RepArena tiene la suya (`quality`, con otras opciones) y este motor
-  pide otra resolución. Se decide en el PR 7 si se unen.
+- La nitidez se guarda aparte (`reparenaxr-quality`), como decidió el usuario en el PR 7: solo la del juego nuevo.
 
 - Fase 0 cerrada (PR 1-5 + el cierre de la comprobación del sonido en la VR simulada): `window.__rx.snapshot().steam`
   cuenta el vapor de las compuertas (lanzado y visto a la vez) y la partida simulada lo exige.
 
 ## Fallos conocidos
 
-- Pulsar los paneles con el dedo no se ha podido comprobar en el emulador (va demasiado lento); en las gafas, por ver.
+- PR 7: los menús se han pulsado en la VR simulada con el rayo del mando y con el dedo (la pulsación de IWSDK: contactos
+  de medio segundo, que cuentan); en las gafas, por ver que se pulsa cómodo y sin tocar dos teclas.
+- PR 7: los números se cambian con − y + (paso a paso); RepArena tenía además el deslizador y el teclado numérico.
+- PR 7: algunos ajustes de Opciones aún no hacen nada aquí (los guarda y los usa RepArena): los del entorno (escenario,
+  fondo, luciérnagas, fotogramas), el ritmo de la música, «Manos con el cuerpo», los de las pistolas y espadas… Se
+  encienden con su PR. La ficha de la ronda dice las oleadas y repeticiones de RepArena: aquí las oleadas aún son las del
+  prototipo (PR 10).
+- PR 7: los galones de los rangos son su nombre abreviado (RepArena los dibujaba); «Restablecer» una pestaña, «A otro
+  aparato» y la sincronización, con el PR 23.
 - PR 6: el filtro de las manos de RepArena (`HF`: manos al alcance y sin saltos imposibles, en todo lo que va con las
   dos manos en una pesa) no se porta, como pidió el usuario (IWSDK de serie). Si en las gafas vuelven los rayos al azar
   (sobre todo en el curl con barra), se busca primero en IWSDK y, si no hay nada, se le propone el `HF` al usuario.

@@ -8,6 +8,8 @@ export type Phase = 'menu' | 'playing' | 'over';
 
 export const GAME = {
   phase: 'menu' as Phase,
+  /** El menú que se ve: el principal, Opciones o ninguno (en plena partida). */
+  menu: 'lobby' as 'lobby' | 'options' | 'none',
   /** Oleada en curso (1, 2, 3…) y si está en la pausa de entre oleadas (no sale nadie). */
   wave: 0,
   between: false,
@@ -35,4 +37,9 @@ export const HOOKS = {
   playerHit: (): void => {},
   /** Ha caído un zombi. */
   foeDown: (): void => {},
+  /** Empezar la ronda (EMPEZAR, o Enter en el ordenador): lo pone la partida. */
+  startRound: (): void => {},
+  /** Abrir el menú principal delante de ti (last: cómo fue la ronda que acaba; vacío, ninguna) y quitarlo: lo pone el menú. */
+  showMenu: (_last: string): void => {},
+  hideMenu: (): void => {},
 };

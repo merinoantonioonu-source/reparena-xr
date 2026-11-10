@@ -68,6 +68,11 @@ tabla de `README.md` dice qué hace cada archivo.
 - La física (Havok) manda en la posición de los cuerpos dinámicos y cinemáticos: no se mueven escribiendo en su
   `object3D` (se pisa en cada paso). Los zombis se mueven pidiendo velocidad (`PhysicsManipulation`); la bola y tu
   cuerpo, teletransportándolos (`setBodyTransform`). Una `PhysicsManipulation` con todo a cero significa «no cambies».
+- **Menús** (`src/ui/menu.ts`): paneles UIKitML de la escena (`lobby-panel`, `options-panel`, `hint-panel`) con teclas de
+  id fijo que el sistema llena (textos, colores y `display`) desde el esquema (`src/ui/fields.ts`); las filas de ajuste
+  (`o1`…`o9`, `l1`…`l4`) se repiten con la misma forma. Se pulsan con `RayInteractable` y `PokeInteractable` (los de IWSDK)
+  mientras se ven. Cuelgan de su borde de arriba (`anchor-y: top`). La partida y el menú se avisan con `HOOKS.startRound`,
+  `HOOKS.showMenu` y `HOOKS.hideMenu`; `GAME.menu` dice cuál se ve.
 - La letra que trae IWSDK (Inter) no tiene tildes: los paneles usan las de `public/fonts` (ver su `LEEME.md`), que se
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee.

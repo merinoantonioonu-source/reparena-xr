@@ -1,0 +1,31 @@
+<!--
+  La explicación de un ajuste (la tecla «?»), al lado del menú, durante unos segundos (RepArena, src/60_ui.js: hintShow).
+  35 cm de ancho; los textos los pone el juego (src/ui/menu.ts).
+-->
+<style>
+  .root {
+    flex-direction: column;
+    width: 35;
+    padding-top: 2.4;
+    padding-bottom: 2.4;
+    padding-left: 2.6;
+    padding-right: 2.6;
+    gap: 1.2;
+    background-color: #1b2030;
+    border-radius: 3;
+    border-width: 0.4;
+    border-color: #a49fc8;
+  }
+  .ht {
+    font-size: 2.6;
+    color: #ffd166;
+  }
+  .hx {
+    font-size: 2.1;
+    color: #e9eef7;
+  }
+</style>
+<div class="root">
+  <span id="h-title" class="ht">Ajuste</span>
+  <span id="h-text" class="hx">Explicación</span>
+</div>

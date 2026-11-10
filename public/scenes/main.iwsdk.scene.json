@@ -425,21 +425,51 @@
       }
     },
     {
-      "id": "start-panel",
-      "name": "Panel de inicio",
+      "id": "lobby-panel",
+      "name": "Menú principal",
       "content": {
         "type": "asset",
-        "asset": "start-panel"
+        "asset": "lobby-panel"
       },
       "transform": {
         "position": [
           0,
-          1.45,
+          1.9,
           -1.5
         ]
       },
       "components": {
         "RayInteractable": {}
+      }
+    },
+    {
+      "id": "options-panel",
+      "name": "Opciones",
+      "content": {
+        "type": "asset",
+        "asset": "options-panel"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.9,
+          -1.5
+        ]
+      }
+    },
+    {
+      "id": "hint-panel",
+      "name": "Explicación de un ajuste",
+      "content": {
+        "type": "asset",
+        "asset": "hint-panel"
+      },
+      "transform": {
+        "position": [
+          0.66,
+          1.65,
+          -1.48
+        ]
       }
     },
     {

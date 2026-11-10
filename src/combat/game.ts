@@ -20,7 +20,6 @@ import {
   Euler,
   Mesh,
   MeshBasicMaterial,
-  RayInteractable,
   SphereGeometry,
   BackSide,
   UIKitMLAsset,
@@ -35,10 +34,10 @@ import { applyFonts } from '../ui/fonts.js';
 import { boltColor, Effects, POW_COL } from './fx.js';
 import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
-import { HOW, IDLE } from '../exercise/how.js';
+import { IDLE } from '../exercise/how.js';
 import { aimForced, deepOn, handsFree } from '../core/rules.js';
-import { EX_NAMES } from '../core/catalog.js';
-import { dv, nLives, onSettingsChange, setSetting } from '../core/settings.js';
+import { curEx } from '../ui/fields.js';
+import { dv, nLives, setSetting } from '../core/settings.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
 import { GAME, HOOKS } from '../core/state.js';
@@ -58,16 +57,6 @@ const POW_DMG = [0, 1, 2, 4];
 // el nivel del rayo (RepArena, src/52_bolt.js: boltLevel): 1 el perfecto y, con carga, su nivel (de él salen su color y su sonido)
 const boltLevel = (perfect: boolean, pow: number): number => Math.max(perfect ? 1 : 0, pow > 1 ? pow : 0);
 
-/** Nitidez en las gafas: la resolución que se pide al entrar (×1 es la «nativa» del navegador de las Quest 3, que se
- * queda corta) y la foveación (cuánto se emborrona el borde de la vista para ir más ligero). */
-const QUALITY = [
-  { id: 'q-normal', scale: 1.0, foveation: 1.0 },
-  { id: 'q-alta', scale: 1.4, foveation: 0.5 },
-  { id: 'q-max', scale: 1.7, foveation: 0.2 },
-];
-
-const QUALITY_KEY = 'reparenaxr-quality';
-
 // La puntería (Opciones → Rivales y armas): automática, con las manos (de serie) o con la mirada, como en RepArena: con
 // la barra flexible, siempre automática (las dos manos están ocupadas); con pesas en las manos no se lanza con la mano,
 // el rayo va al que miras (aimSources). Sin pistolas ni espadas todavía (PR 9)
@@ -77,9 +66,6 @@ const aimNow = (): 'auto' | 'hands' | 'gaze' => {
   return a === 'gaze' || !handsFree() ? 'gaze' : 'hands';
 };
 
-/** El ejercicio que se juega: el elegido, si es de pie y en Combate; si no, la sentadilla. */
-const curEx = (): string => (settings.mode === 'combat' && STAND_EX.includes(settings.exercise) ? settings.exercise : 'squat');
-
 // Avisos en el suelo (RepArena, src/60_ui.js: warnFloor y chargeFloor)
 const WARN_SECS = 4;
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
@@ -88,12 +74,8 @@ const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
 export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) {
   private fx!: Effects;
   private enemies!: EnemySystem;
-  private start: UIKitMLAsset | null = null;
   private board: UIKitMLAsset | null = null;
-  private startEntity: Entity | undefined;
   private texts = new Map<string, string>();
-  private quality = 1;
-  private vrOk = false;
   private boardT = 0;
   private hurt!: Mesh;
   private hurtT = 0;
@@ -166,30 +148,18 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.hurt.renderOrder = 20;
     this.hurt.visible = false;
     this.world.createTransformEntity(this.hurt);
-    // la nitidez guardada
-    try {
-      // (propia de RepArena XR: el motor es otro y pide otra resolución que RepArena, que guarda la suya en «quality»)
-      const raw = localStorage.getItem(QUALITY_KEY) ?? localStorage.getItem('rx-quality'), q = Number(raw);
-      if (raw !== null && q >= 0 && q < QUALITY.length) this.quality = q;
-    } catch {
-      /* (sin almacenamiento: la de serie) */
-    }
-    // los paneles
-    this.start = this.world.getSceneObject<UIKitMLAsset>('start-panel') ?? null;
+    // los paneles (los menús, en src/ui/menu.ts)
     this.board = this.world.getSceneObject<UIKitMLAsset>('board-panel') ?? null;
-    this.startEntity = this.world.getSceneEntity('start-panel');
     this.warn = this.world.getSceneObject<UIKitMLAsset>('warn-panel') ?? null;
     this.warnEntity = this.world.getSceneEntity('warn-panel');
     this.chargeP = this.world.getSceneObject<UIKitMLAsset>('charge-panel') ?? null;
     this.chargeEntity = this.world.getSceneEntity('charge-panel');
-    for (const p of [this.start, this.board, this.warn, this.chargeP]) if (p) applyFonts(p);
+    for (const p of [this.board, this.warn, this.chargeP]) if (p) applyFonts(p);
     for (const e of [this.warnEntity, this.chargeEntity]) if (e?.object3D) e.object3D.visible = false;
-    this.wireStartPanel();
-    this.applyQuality();
     GAME.maxLives = GAME.lives = nLives(); // (las de tu rango)
     HOOKS.playerHit = () => this.onPlayerHit();
     HOOKS.foeDown = () => this.onFoeDown();
-    this.showMenu('menu');
+    HOOKS.startRound = () => this.startRound();
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
     (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, snapshot: () => this.snapshot() };
     // la letra de la ×N de la bola (Bungee, para el lienzo)
@@ -210,7 +180,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       foes.push({ state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
-    return { ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
+    return { menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
@@ -221,116 +191,6 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (this.texts.get(key) === text) return; // (solo si cambia: cada cambio rehace el texto)
     this.texts.set(key, text);
     panel.getElementById(id)?.setProperties({ text });
-  }
-
-  private wireStartPanel(): void {
-    const p = this.start;
-    if (!p) return;
-    const on = (id: string, fn: () => void): void => {
-      const el = p.getElementById(id);
-      if (!el) return;
-      const h = (): void => {
-        unlockAudio();
-        SND.click();
-        fn();
-      };
-      el.addEventListener('click', h);
-      this.cleanupFuncs.push(() => el.removeEventListener('click', h));
-    };
-    on('start-button', () => this.startRound());
-    for (const ex of STAND_EX) on('ex-' + ex, () => this.chooseEx(ex));
-    this.cleanupFuncs.push(onSettingsChange((k) => {
-      if (k === 'exercise' || k === 'mode' || k === 'aim') this.refreshEx();
-    }));
-    this.refreshEx();
-    on('xr-button', () => this.world.launchXR());
-    QUALITY.forEach((q, i) =>
-      on(q.id, () => {
-        this.quality = i;
-        try {
-          localStorage.setItem(QUALITY_KEY, String(i));
-          localStorage.removeItem('rx-quality');
-        } catch {
-          /* */
-        }
-        this.applyQuality();
-      }),
-    );
-    // «Entrar en VR», solo en el navegador y si tiene realidad virtual (dentro de las gafas ya estás)
-    const refresh = (): void => {
-      const is2D = this.world.visibilityState.peek() === VisibilityState.NonImmersive;
-      p.getElementById('xr-button')?.setProperties({ display: is2D && this.vrOk ? 'flex' : 'none' });
-      p.getElementById('desk-hint')?.setProperties({ display: is2D ? 'flex' : 'none' });
-    };
-    this.cleanupFuncs.push(this.world.visibilityState.subscribe(refresh));
-    void navigator.xr
-      ?.isSessionSupported('immersive-vr')
-      .then((ok) => {
-        this.vrOk = ok && this.world.xrEnabled;
-        refresh();
-      })
-      .catch(() => {});
-  }
-
-  // la nitidez: se pide al entrar en las gafas (dentro, cambiarla pide salir y volver a entrar)
-  private applyQuality(): void {
-    const q = QUALITY[this.quality];
-    const xr = this.world.renderer.xr;
-    if (!xr.isPresenting) xr.setFramebufferScaleFactor(q.scale);
-    xr.setFoveation(q.foveation);
-    const p = this.start;
-    if (!p) return;
-    QUALITY.forEach((qq, i) => {
-      p.getElementById(qq.id)?.setProperties({ backgroundColor: i === this.quality ? '#ff3d8b' : '#2a2f3a', color: i === this.quality ? '#ffffff' : '#c9d2e3' });
-    });
-    this.setText(p, 'q-note', xr.isPresenting ? 'La resolución nueva se aplica al volver a entrar en VR' : 'Se aplica al entrar en VR');
-  }
-
-  // el selector de ejercicio (hasta el menú del PR 7): elegir uno es elegir Combate con ese ejercicio, como en RepArena
-  // (se guarda donde RepArena: lo verá también allí)
-  private chooseEx(ex: string): void {
-    if (settings.mode !== 'combat') setSetting('mode', 'combat');
-    if (settings.exercise !== ex) setSetting('exercise', ex);
-    if (import.meta.env.DEV) console.info(`rxdbg ejercicio ${settings.mode} ${settings.exercise}`); // (para probar en el emulador)
-    this.refreshEx();
-  }
-
-  private refreshEx(): void {
-    const p = this.start;
-    if (!p) return;
-    const ex = curEx(), mode = aimNow();
-    for (const e of STAND_EX) {
-      const sel = e === ex;
-      p.getElementById('ex-' + e)?.setProperties({ backgroundColor: sel ? '#3cf0c6' : '#2a2f3a', color: sel ? '#0d1016' : '#e9eef7' });
-    }
-    if (GAME.phase !== 'over') this.setText(p, 'subtitle', `Combate · ${EX_NAMES[ex]}`);
-    const [a, b] = HOW[ex];
-    this.setText(p, 'how-1', a);
-    this.setText(p, 'how-2', b);
-    this.setText(p, 'how-3', mode === 'hands' ? '3. Lanza el rayo con una sacudida de la mano hacia el zombi.' : mode === 'gaze' ? '3. El rayo va al zombi que miras.' : '3. El rayo sale solo hacia el zombi más cercano.');
-    p.getElementById('how-4')?.setProperties({ display: mode === 'hands' ? 'flex' : 'none' });
-  }
-
-  private showMenu(kind: 'menu' | 'over'): void {
-    const p = this.start;
-    if (!p) return;
-    p.visible = true;
-    if (this.startEntity && !this.startEntity.hasComponent(RayInteractable)) this.startEntity.addComponent(RayInteractable);
-    if (kind === 'menu') {
-      this.setText(p, 'title', 'REPARENA XR');
-      this.setText(p, 'subtitle', `Combate · ${EX_NAMES[curEx()]}`);
-      this.setText(p, 'start-label', 'EMPEZAR');
-    } else {
-      this.setText(p, 'title', 'FIN DE LA RONDA');
-      const mins = Math.floor((this.clock - GAME.startTime) / 60), secs = Math.floor((this.clock - GAME.startTime) % 60);
-      this.setText(p, 'subtitle', `Oleada ${GAME.wave} · ${GAME.reps} repeticiones (${GAME.perfect} perfectas) · ${GAME.kills} derribados · ${mins}:${String(secs).padStart(2, '0')}`);
-      this.setText(p, 'start-label', 'OTRA RONDA');
-    }
-  }
-
-  private hideMenu(): void {
-    if (this.start) this.start.visible = false;
-    if (this.startEntity?.hasComponent(RayInteractable)) this.startEntity.removeComponent(RayInteractable);
   }
 
   private message(text: string, secs = 2.5): void {
@@ -430,7 +290,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
     // el ejercicio: Combate con uno de pie (si lo elegido en RepArena era otro modo u otro ejercicio, la sentadilla)
-    if (settings.mode !== 'combat' || !STAND_EX.includes(settings.exercise)) this.chooseEx(curEx());
+    if (settings.mode !== 'combat') setSetting('mode', 'combat');
+    if (!STAND_EX.includes(settings.exercise)) setSetting('exercise', curEx());
     // las vidas, las de tu rango (0: infinitas: los golpes no te eliminan)
     GAME.maxLives = nLives();
     Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, startTime: this.clock });
@@ -441,7 +302,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     gazeLockReset();
     punchReset();
     this.locks.clear();
-    this.hideMenu();
+    HOOKS.hideMenu();
     this.nextWave();
   }
 
@@ -494,7 +355,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
     this.message('¡Te han derribado!', 4);
-    this.showMenu('over');
+    // el menú principal, delante de ti, con cómo fue la ronda (el resumen de RepArena llega con el PR 12)
+    const t = Math.floor(this.clock - GAME.startTime);
+    HOOKS.showMenu(`Oleada ${GAME.wave} · ${GAME.reps} repeticiones (${GAME.perfect} perfectas) · ${GAME.kills} derribados · ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`);
   }
 
   private onPlayerHit(): void {
