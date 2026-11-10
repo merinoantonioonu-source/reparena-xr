@@ -38,7 +38,8 @@ import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, typ
 import { IDLE } from '../exercise/how.js';
 import { aimForced, deepOn, flyList, foes, groundList, handsFree, twoShots } from '../core/rules.js';
 import { devFoe, flyFoes, FOE_DEF, foeName, gateFoes } from './foes.js';
-import { buildWave, foeTierOf, killPoints, rampAfter, rampK, REP_TIME, repPoints, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
+import { Rewards } from './rewards.js';
+import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, REP_TIME, repPoints, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
 import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
 import { curEx } from '../ui/fields.js';
@@ -110,6 +111,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private waveE: Entity | undefined;
   private veil!: Mesh;
   private introT = -1;
+  // los premios (cartas de mejora, dorado, relámpago, cofre y carrera contra tu récord) y si se está descansando
+  private rw!: Rewards;
+  private resting = false;
   // el lanzamiento con las manos (src/input/throw.ts), la diana y lo que le pasa
   private env!: ThrowEnv;
   private locks = new LockLines();
@@ -181,10 +185,20 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.veil.visible = false;
     this.world.createTransformEntity(this.veil);
     for (const p of [this.board, this.warn, this.chargeP, this.waveP]) if (p) applyFonts(p);
+    this.rw = new Rewards(this.world, {
+      message: (t, s) => this.message(t, s),
+      sparks: (p, n, c, sp) => this.fx.sparks.burst(p, n, c, sp ?? 2.4, 0.04),
+      addLife: () => {
+        if (!(GAME.maxLives > 0) || GAME.lives >= GAME.maxLives) return false;
+        GAME.lives++;
+        return true;
+      },
+    });
+    this.enemies.slowOf = (t) => this.rw.slow(t);
     for (const e of [this.warnEntity, this.chargeEntity]) if (e?.object3D) e.object3D.visible = false;
     GAME.maxLives = GAME.lives = nLives(); // (las de tu rango)
     HOOKS.playerHit = (str) => this.onPlayerHit(str ?? 1);
-    HOOKS.foeDown = (k, b) => this.onFoeDown(k, b);
+    HOOKS.foeDown = (k, b, t) => this.onFoeDown(k, b, (t as FoeTarget | undefined) ?? null);
     HOOKS.score = (pts, combo) => {
       GAME.score += pts;
       if (combo) {
@@ -219,7 +233,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       foes.push({ kind: (ud.rt ?? ud.fly)?.kind, fly: !!ud.fly, boss: !!(ud.rt?.def.boss || ud.fly?.flight.K.boss), state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
-    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
+    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
@@ -314,7 +328,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.setText(b, 'lives', GAME.maxLives > 0 ? `VIDAS ${GAME.lives}/${GAME.maxLives}` : 'VIDAS SIN FIN');
     this.setText(b, 'reps', String(GAME.reps));
     this.setText(b, 'kills', `${GAME.score} puntos · Derribados: ${GAME.kills}`);
-    this.setText(b, 'perfect', `Perfectas: ${GAME.perfect}`);
+    const gh = this.rw?.ghostText();
+    this.setText(b, 'perfect', gh ? `Perfectas: ${GAME.perfect} · ${gh[0]}` : `Perfectas: ${GAME.perfect}`);
     const pow = Math.max(this.chargePow, HTH.left.c?.pow ?? 0, HTH.right.c?.pow ?? 0); // (en la bola o en las manos)
     this.setText(b, 'charge', pow > 0 ? `Carga ×${pow}` : 'Sin carga');
     b.getElementById('charge')?.setProperties({ color: pow > 0 ? '#' + POW_COL[pow - 1].toString(16).padStart(6, '0') : '#8b95a8' });
@@ -345,6 +360,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     HOOKS.hideMenu();
     this.seen.clear();
     this.queue.length = 0;
+    this.rw.roundStart();
+    this.resting = false;
     // antes de la primera oleada, 3 s para colocarte (RepArena: 'ready')
     GAME.between = true;
     this.restT = 3;
@@ -370,6 +387,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.foeSpeed = Math.min(2.2, Math.max(0.4, SQUAT_SPAWN_DIST / Math.max(1, dv('walkTime', this.rampLvl))));
     this.stCfg = this.readCfg(this.rampLvl);
     this.taken0 = GAME.taken;
+    this.rw.waveStart(i, isBossWave(i, nWaves()));
     if (i > 0) {
       this.waveIntro(i, w.fresh, rk);
       this.spawnT += WAVE_INTRO; // (llegan cuando se va el panel)
@@ -430,9 +448,18 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     }
     GAME.between = true;
     this.restT = num('rest');
+    this.resting = true;
+    this.rw.waveCleared();
     SND.victory();
     this.message(r.note ? `¡Oleada superada! ${r.note}` : '¡Oleada superada!', 2.5);
-    if (this.restT <= 0) this.startWave(GAME.wave);
+    if (this.restT <= 0 && !this.rw.waits()) this.endRest();
+  }
+
+  // se acaba el descanso: la carta que no elegiste, al azar, y la oleada siguiente
+  private endRest(): void {
+    if (this.resting) this.rw.restEnd();
+    this.resting = false;
+    this.startWave(GAME.wave);
   }
 
   // lo que pide el ejercicio en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
@@ -465,6 +492,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     throwReset();
     this.locks.clear();
     this.hideIntro();
+    this.rw.roundEnd();
+    this.resting = false;
     if (win) SND.victory();
     else SND.defeat();
     haptic('left', 1, 450);
@@ -481,19 +510,21 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // te han dado: pierdes las vidas de su fuerza (la de la tabla del desarrollador; RepArena: hurtPlayer)
   private onPlayerHit(str: number): void {
     if (GAME.phase !== 'playing') return;
+    if (this.rw.absorb()) return; // (el escudo de las mejoras)
     if (GAME.maxLives > 0) GAME.lives = Math.max(0, GAME.lives - Math.max(1, str));
     this.hurtT = 0.45;
     SND.hurt();
-    GAME.combo = 0; // (te han dado: se rompe el combo)
+    if (!this.rw.keepCombo()) GAME.combo = 0; // (te han dado: se rompe el combo, salvo con el combo de hierro)
     GAME.taken++;
     this.message(GAME.maxLives === 0 ? '¡Golpe!' : GAME.lives > 0 ? '¡Golpe! Quedan ' + GAME.lives : '¡Golpe!', 1.5);
     if (GAME.maxLives > 0 && GAME.lives <= 0) this.endRound(false);
   }
 
   // derribado: sus puntos (el jefe, 1500) (RepArena: onKilled)
-  private onFoeDown(kind = '', boss = false): void {
+  private onFoeDown(kind = '', boss = false, t: FoeTarget | null = null): void {
     GAME.kills++;
-    GAME.score += killPoints(kind, boss);
+    GAME.score += killPoints(kind, boss) * this.rw.killK(t); // (dorado ×3, relámpago ×2)
+    this.rw.onKill(t);
     if (boss) {
       this.message('¡JEFE DESTRUIDO!', 2.2);
       SND.combo();
@@ -505,7 +536,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private repScore(perfect: boolean): void {
     GAME.combo++;
     GAME.bestCombo = Math.max(GAME.bestCombo, GAME.combo);
-    GAME.score += repPoints(perfect, GAME.combo);
+    GAME.score += repPoints(perfect, GAME.combo, this.rw.ptsK(perfect));
+    this.rw.onRep(perfect);
     if (GAME.combo % 10 === 0) {
       this.message(`COMBO ×${GAME.combo}`, 1.5);
       SND.combo();
@@ -550,13 +582,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const flyers = this.world.getSystem(FlyerSystem);
     if (FOE_DEF[k]?.fly) {
       if (flyers?.ready(k)) {
-        flyers.spawn(k, gate, hp, dv('flySpeed', this.rampLvl), dv('erratic', this.rampLvl));
+        this.rw.onSpawn(flyers.spawn(k, gate, hp, dv('flySpeed', this.rampLvl), dv('erratic', this.rampLvl)), boss);
         return;
       }
       k = 'zgreen';
     }
     if (!this.enemies.ready(k)) k = 'zgreen';
-    this.enemies.spawn(k, x, z, hp, boss);
+    this.rw.onSpawn(this.enemies.spawn(k, x, z, hp, boss), boss);
   }
 
   // los que salen por su compuerta, cuando ya está abierta
@@ -738,6 +770,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     SND.boltHit(tp, L);
     const d = this.tmpC.copy(tp).sub(from).setY(0).normalize();
     this.enemies.hit(e.entity, dmg, pow, d, perfect);
+    if (perfect) this.rw.onPerfectHit(e, tp, this.enemies.targets, (o, dist) => this.enemies.shove(o.entity, dist, 0.4, this.tmpD.copy(o.root.position).sub(tp).setY(0).normalize()));
     if (e.alive) this.cfx.hit(tp); // (en cómic: líneas de impacto; y si cae, la estrella)
     else this.cfx.kill(tp);
   }
@@ -800,11 +833,18 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       // oleadas: el descanso (no sale nadie); luego van saliendo de la cola, de uno en uno (con ritmo, en el pulso), sin
       // pasar de «Máximo a la vez»; cuando no queda nadie, oleada superada
       this.stepIntro(dt);
-      if (this.restT > 0) {
-        this.restT -= dt;
-        if (this.restT <= 0) this.startWave(GAME.wave);
+      this.rw.playStep(dt, time, !GAME.between);
+      if (this.resting || this.restT > 0) {
+        // el descanso (o los 3 s antes de la primera): las cartas, que hacen esperar; el cofre
+        if (this.resting) this.rw.restStep(dt, time, this.restT <= 0);
+        if (this.rw.lateStart) {
+          this.rw.lateStart = false;
+          if (this.restT <= 3) this.restT = 3; // (elegida tarde: 3 s para prepararte)
+        }
+        if (this.restT > 0) this.restT -= dt;
+        if (this.restT <= 0 && !(this.resting && this.rw.waits())) this.endRest();
       } else if (!GAME.between) {
-        this.spawnT -= dt;
+        this.spawnT -= dt * this.rw.spawnK(); // (en el relámpago, el doble de seguidos)
         this.stepPending(dt);
         let coming = 0;
         for (const p of this.pending) if (p.gate) coming++;

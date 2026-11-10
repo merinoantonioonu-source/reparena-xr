@@ -1,0 +1,83 @@
+<!--
+  Las cartas de mejora (RepArena, src/79_perks.js: perkMenu): en el descanso, cada tres oleadas superadas con pocos golpes,
+  eliges 1 de 3 mejoras para el resto de la ronda; la oleada siguiente espera a que elijas. 72 cm de ancho, cuelga de su
+  borde de arriba (como los menús); los nombres, las explicaciones y los colores los pone el juego (src/combat/game.ts).
+-->
+<style>
+  .root {
+    anchor-y: top;
+    flex-direction: column;
+    align-items: center;
+    width: 72;
+    padding-top: 3;
+    padding-bottom: 3;
+    padding-left: 3;
+    padding-right: 3;
+    gap: 1.6;
+    background-color: #14101f;
+    border-radius: 3;
+    border-width: 0.5;
+    border-color: #ffd166;
+  }
+  .title {
+    font-size: 4.2;
+    color: #ffd166;
+  }
+  .sub {
+    font-size: 1.9;
+    color: #a49fc8;
+    text-align: center;
+  }
+  .cards {
+    flex-direction: row;
+    gap: 1.5;
+    width: 66;
+  }
+  .card {
+    flex-direction: column;
+    align-items: center;
+    width: 21;
+    min-height: 19;
+    padding-top: 2;
+    padding-bottom: 2;
+    padding-left: 1.4;
+    padding-right: 1.4;
+    gap: 1.2;
+    border-radius: 2.4;
+    border-width: 0.5;
+    border-color: #ffd166;
+    background-color: #241c33;
+    cursor: pointer;
+  }
+  .card:hover {
+    background-color: #352a4a;
+  }
+  .name {
+    font-size: 3;
+    color: #ffd166;
+    text-align: center;
+  }
+  .desc {
+    font-size: 1.85;
+    color: #e9eef7;
+    text-align: center;
+  }
+</style>
+<div class="root">
+  <span class="title display">ELIGE UNA MEJORA</span>
+  <span class="sub">Dura lo que queda de ronda. La oleada siguiente espera a que elijas</span>
+  <div class="cards">
+    <button id="p0" class="card">
+      <span id="p0n" class="name display">Escudo</span>
+      <span id="p0d" class="desc">Para el primer golpe de cada oleada</span>
+    </button>
+    <button id="p1" class="card">
+      <span id="p1n" class="name display">Escarcha</span>
+      <span id="p1d" class="desc">Cada perfecta deja más lentos 3 s a los que están cerca del impacto</span>
+    </button>
+    <button id="p2" class="card">
+      <span id="p2n" class="name display">Calma</span>
+      <span id="p2d" class="desc">Los enemigos se mueven un 15 % más despacio</span>
+    </button>
+  </div>
+</div>

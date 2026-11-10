@@ -12,6 +12,7 @@ Licencia: el Ultimate Platformer Pack trae su `License.txt`: CC0 1.0 (dominio p�
 | `monstruitos/*.glb` | **Monstruitos** (Cute Animated Monsters, de Quaternius, CC0): demonio, demonio verde, cíclope, yeti, calavera, alien y alien alto, con su textura dentro y sus animaciones (reposo, andar, saltar, morder, recibir golpe y morir); y los que vuelan (`bee.glb`, `bat.glb`, `cthulhu.glb` y `yellowdragon.glb`: abeja, murciélago, Cthulhu y dragón), con las suyas (volar, morder, recibir golpe y morir). |
 
 | `imp.glb`, `puglin.glb`, `tex/imp_color*.jpg`, `tex/puglin_color*.jpg` | **Diablillo** y **Puglin** (Bestiary · Dungeon Monsters Kit, de Quaternius): cuerpo y esqueleto, y sus tres colores (texturas reducidas a 1024 px). El lanzador es el mismo diablillo. |
+| `island.glb` | La **isla pirata** (Pirate Kit, de Quaternius, CC0), la misma de RepArena: de momento solo se usa su cofre (`Chest_Closed` y `Chest_Gold`), el del descanso de Combate. |
 | `anims.glb` | Las animaciones de la **Universal Animation Library** (Quaternius, CC0), hechas para el esqueleto del diablillo y el puglin: andar, trotar, correr, puñetazos, tajos, gancho, lanzar, recibir golpe, morir, bailar… El juego las pasa a cada modelo al cargarlo (`src/combat/retarget.ts`). |
 
 Más licencias: los modelos y texturas del Bestiary están bajo la Quaternius Asset License (QAL) v1.0 (se pueden usar
