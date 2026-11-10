@@ -1,0 +1,29 @@
+<!--
+  La carga del disparo, en el suelo (CARGA ×2, ×3; a ×4, «×4 · ¡ARRIBA!»), como en RepArena (src/60_ui.js: chargeFloor):
+  aguantando abajo lo que ves es el suelo. 1,1 m de ancho, más cerca que los avisos; el juego la tumba delante de ti y la
+  hace latir. Medidas en centímetros; letras: Bungee. El color (el de la carga) lo pone el juego.
+-->
+<style>
+  .root {
+    width: 110;
+    min-height: 30;
+    padding-top: 3;
+    padding-bottom: 3;
+    padding-left: 5;
+    padding-right: 5;
+    justify-content: center;
+    align-items: center;
+    background-color: #0a0812;
+    border-radius: 7;
+    border-width: 2;
+    border-color: #ffd166;
+  }
+  .text {
+    font-size: 15;
+    color: #ffd166;
+    text-align: center;
+  }
+</style>
+<div id="box" class="root">
+  <span id="text" class="text display">CARGA ×2</span>
+</div>

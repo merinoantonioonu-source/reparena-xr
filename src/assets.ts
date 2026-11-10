@@ -30,5 +30,7 @@ export default defineAssets({
   'zombie-chubby': glb('zombie_chubby.glb', 'Zombi gordo'),
   'start-panel': uikitml('start.uikitml', 'Panel de inicio'),
   'board-panel': uikitml('board.uikitml', 'Marcador'),
+  'warn-floor': uikitml('warn.uikitml', 'Aviso en el suelo'),
+  'charge-floor': uikitml('charge.uikitml', 'Carga en el suelo'),
   ...sounds,
 });

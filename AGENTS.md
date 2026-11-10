@@ -29,7 +29,7 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
 | `src/assets.ts`, `src/components.ts`, `src/scene-assets/` | Los catálogos de IWSDK: recursos, componentes y objetos hechos en código |
 | `src/core/` | Lo común: el estado compartido de la partida y los ajustes (los de RepArena: esquema, guardado, rangos) |
 | `src/input/` | Manos, mandos y gestos: lo que da IWSDK, pasado a `hands` y `head` (`hand-system.ts`), y la lógica pura de RepArena (sacudida, mirada, puñetazo), con pruebas |
-| `src/exercise/` | Los detectores de repeticiones: lógica pura (sin IWSDK ni Three), con pruebas |
+| `src/exercise/` | Los detectores de repeticiones (`StandingDetector`: los de pie): lógica pura (sin IWSDK), con pruebas y comparados con RepArena |
 | `src/combat/` | El modo Combate: la partida, los enemigos, las compuertas, los efectos y sus componentes |
 | `src/style/` | El estilo Cómic: sombreado, contornos de tinta y efectos (se aplica solo a lo que aparece en la escena) |
 | `src/ui/` | Paneles y letras |
@@ -57,6 +57,12 @@ tabla de `README.md` dice qué hace cada archivo.
 - **Ajustes**: se leen con `num`, `str` u `on` (`src/core/values.ts`), con `dv` si les afecta la dificultad creciente, y
   se cambian solo con `setSetting` (`src/core/settings.ts`). `initSettings()` se llama una vez al arrancar. Lo portado de
   RepArena se compara con su código original (`tests/compare`, ver `MIGRACION.md` › Cómo probar).
+- **Ejercicios**: el detector (`StandingDetector`, `src/exercise/standing.ts`) recibe la cabeza y las manos tal como las da
+  IWSDK y devuelve sucesos (`charge`, `power`, `rep`, `partial`, `top`, `say`); la partida (`src/combat/game.ts`) les pone
+  la bola, el sonido, el rayo y los avisos. Lo que se hace mal (los `partial` y los `say` naranjas, `WARN_COL`) sale además
+  en grande en el suelo (`floorWarn`). Lo que pide cada ejercicio (`StandCfg`) se lee de los ajustes al empezar cada
+  oleada. Un ejercicio nuevo: su paso en el detector, su comparación en `tests/compare/standing.compare.test.ts` y sus
+  líneas en `src/exercise/how.ts`.
 - Los campos de un componente con `min` no admiten valores por debajo: `setValue` lanza un error y para el sistema
   entero (pasó con la vida de los zombis).
 - La física (Havok) manda en la posición de los cuerpos dinámicos y cinemáticos: no se mueven escribiendo en su

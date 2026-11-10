@@ -10,21 +10,30 @@ paneles nítidos). El prototipo convenció: RepArena se está pasando entero aqu
 
 ## Qué hay
 
-Por ahora, Combate con sentadillas, como en RepArena:
+Por ahora, Combate con los ejercicios de pie, como en RepArena:
 
-- **La sentadilla** se detecta con la altura de la cabeza (los mismos números que RepArena: 26 cm de bajada; PERFECTA si
-  dura 1,2 s o más y bajas 3 cm más de lo pedido).
-- **La bola roja de energía**, a un metro del pecho: aparece al bajar (la carga del disparo, una por mano) y, aguantando
-  abajo en la postura perfecta, sube a **×2** (1,5 s), **×3** (2 s más) y **×4** (2,5 s más), con su número encima y un
-  destello al llegar a ×4.
-- **El rayo**, como en RepArena: al subir de la sentadilla, la bola estalla y la carga pasa a **las dos manos** (un orbe
+- **Los ejercicios de pie**, con los mismos detectores y números que RepArena (comparados con su código): sentadilla,
+  zancada (cada una, la otra pierna delante), sentadilla con salto, con press y con elevación frontal, swing con
+  kettlebell, peso muerto, curl (cada brazo por su cuenta), curl con barra o kettlebell (las dos manos, como una sola
+  pesa), elevación frontal y antebrazos con la barra flexible. Se elige en el panel de inicio (es el mismo ajuste que en
+  RepArena). Los recorridos, los tuyos de «Tu cuerpo (recorridos)» de cada ejercicio (por ejemplo, 26 cm de bajada en la
+  sentadilla); PERFECTA si dura lo pedido (1,2 s de serie) y vas 3 cm más allá.
+- **La bola roja de energía**, a un metro del pecho: aparece al cargar (al bajar en la sentadilla, al subir la pesa al
+  hombro en el curl…) y, aguantando en la postura más dura, sube a **×2** (1,5 s), **×3** (2 s más) y **×4** (2,5 s
+  más), con su número encima y un destello al llegar a ×4. La carga se escribe también **en el suelo**, delante
+  (aguantando, es lo que ves), y a ×4 dice «¡ARRIBA!». Arriba del curl y de la elevación frontal, un chasquido de luz en
+  las manos (la repetición ya vale; el disparo sale al empezar a bajar).
+- **Lo que haces mal** («¡Baja más!», «Sube hasta el hombro», «¡Salta al subir!»…) sale en grande, **impreso en el
+  suelo** delante de ti, unos 4 s.
+- **El rayo**, como en RepArena: al completar la repetición, la bola estalla y la carga pasa a **las dos manos** (un orbe
   en cada muñeca, uno por mano y sin acumular). Cada mano lanza el suyo con una **sacudida hacia el zombi** (la de
   RepArena: puede salir de la cadera y hacerse subiendo o bajando; si las gafas pierden la mano a medias, sale igual).
   Con **«El rayo va al que miras»** (de serie) va al zombi que llevas un momento mirando, marcado con su **diana** (líneas
   de enfoque rojas); si no, al más cercano a la dirección de la mano. Con mandos, apuntando con la mano y con el
   **gatillo** (gatillo y agarre a la vez es el puño: no dispara). Pellizcar no dispara. Daño de RepArena: 1 el normal, 2
   el perfecto, y la carga suma (×2 +1, ×3 +2, ×4 +4). Con la puntería automática (o con la mirada), la repetición
-  dispara sola.
+  dispara sola. Con pesas en las manos no se lanza con la mano: el rayo va al zombi que miras; con la barra flexible,
+  sale solo.
 - **Puñetazo**: un golpe rápido al zombi que tienes delante lo aparta y lo aturde un momento (sin quitarle vida).
 - **Estilo Cómic** (el de serie, como en RepArena): sombreado plano con un corte duro entre luz y sombra (la sombra,
   violácea), contornos de tinta finos, colores claros y vivos, cielo de dibujo con nubes de borde entintado, neblina clara
@@ -40,8 +49,8 @@ Por ahora, Combate con sentadillas, como en RepArena:
   con más vida). Con cinco golpes se acaba la ronda: resumen y **OTRA RONDA**.
 - **Manos**: las de IWSDK tal cual (los modelos oficiales de Meta, con contorno). Con mandos y «Mandos como manos» (de
   serie), la mano de IWSDK que agarra el mando: el índice se dobla con el gatillo y los demás dedos con el agarre.
-- **Paneles**: el de inicio, con **EMPEZAR** (se pulsa con el rayo de la mano y pellizco, con el dedo o con el gatillo), y
-  el **marcador** a la izquierda (oleada, vidas, sentadillas, carga, derribados, perfectas, mensajes, tiempo y hora).
+- **Paneles**: el de inicio, con el **ejercicio** y **EMPEZAR** (se pulsa con el rayo de la mano y pellizco, con el dedo o con el gatillo), y
+  el **marcador** a la izquierda (oleada, vidas, repeticiones, carga, derribados, perfectas, mensajes, tiempo y hora).
   Letras de RepArena (Rubik y Bungee), con tildes.
 - **Nitidez en las gafas**: Normal ×1, Alta ×1,4 (de serie) o Máxima ×1,7. Se elige en el panel de inicio y se aplica al
   entrar en VR (para cambiarla dentro, hay que salir y volver a entrar).
@@ -49,7 +58,8 @@ Por ahora, Combate con sentadillas, como en RepArena:
   por nombre, y los que allí se fabricaban al vuelo, grabados como archivos), con la voz de cada zombi, la compuerta que
   suena y echa vapor al abrirse y el ambiente de la arena (a 0 mientras suena Spotify).
 
-En el ordenador (sin gafas) también se puede probar: flecha abajo (o S) para agacharse (al subir, el rayo sale solo al
+En el ordenador (sin gafas) también se puede probar lo que se hace con la cabeza (sentadilla, zancada, peso muerto…):
+flecha abajo (o S) para agacharse (al subir, el rayo sale solo al
 zombi más cercano) y Enter para empezar.
 
 ## Construir y probar
@@ -78,7 +88,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `AGENTS.md`, `CLAUDE.md` | Instrucciones para las IA (`CLAUDE.md` incluye las otras dos) |
 | `iwsdk.config.json` | El proyecto: escena, recursos, componentes, VR con seguimiento de manos y física |
 | `src/index.ts` | Arranca el mundo y registra los sistemas del juego |
-| `src/combat/game.ts` | La partida: carga ×2-×4, la carga en las manos, rayos y daño, puñetazos, oleadas, vidas, paneles y nitidez |
+| `src/combat/game.ts` | La partida: el ejercicio elegido, carga ×2-×4, la carga en las manos, rayos y daño, puñetazos, oleadas, vidas, paneles (y los avisos en el suelo) y nitidez |
 | `src/combat/lockline.ts` | La diana: líneas de enfoque alrededor del zombi apuntado |
 | `src/combat/gates.ts` | Las compuertas: abrirse para sacar a un zombi, la baliza y sus cuerpos de física |
 | `src/style/comic.ts`, `src/style/comic-system.ts` | El estilo Cómic: el sombreado, los colores y los contornos de tinta, y el sistema que lo aplica a todo |
@@ -89,7 +99,9 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/enemies.ts` | Los zombis: cuerpos de física, marcha rodeando obstáculos, ataque, retroceso y muerte |
 | `src/combat/fx.ts` | La bola de energía, la carga en cada mano, los rayos, las chispas y los destellos |
 | `src/combat/components.ts`, `src/components.ts` | Los componentes `Foe` (zombi) y `Obstacle` (lo que rodean), y su catálogo |
-| `src/exercise/vertical.ts` | El detector de la sentadilla (bajar y subir, carga, ×2-×4, PERFECTA), sin IWSDK |
+| `src/exercise/vertical.ts` | El detector de bajar y subir con la cabeza (carga, ×2-×4, PERFECTA), sin IWSDK |
+| `src/exercise/standing.ts` | Los ejercicios de pie de RepArena (zancada, en dos tiempos, peso muerto, curl, curl con barra, elevación frontal, antebrazos), sin IWSDK |
+| `src/exercise/how.ts` | Cómo se hace cada ejercicio de pie (las líneas del panel de inicio y el recordatorio del marcador) |
 | `src/core/state.ts` | Lo que comparten los sistemas (fase, cabeza, bola, marcador) |
 | `src/core/schema.ts` | Los 186 ajustes de RepArena (claves, valores de serie, límites, grupos, condiciones y explicaciones) |
 | `src/core/settings.ts` | Cargar, guardar y cambiar los ajustes (los mismos datos que RepArena), cada modo con cada ejercicio, los rangos con su tabla y la dificultad creciente |
@@ -107,7 +119,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
 | `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de arena, aro del jugador, cajas, rocas, compuertas, valle, nubes, zombis y paneles |
 | `public/scenes/main.iwsdk.scene.json` | La escena: cielo, neblina, suelo, compuertas, valle, nubes, cajas y rocas con su física, paneles y luces |
-| `public/ui/*.uikitml` | Los paneles (inicio y marcador) |
+| `public/ui/*.uikitml` | Los paneles: inicio (con el selector de ejercicio), marcador y los dos del suelo (avisos y carga) |
 | `public/models/` | Los zombis (Quaternius, CC0) |
 | `public/fonts/` | Las letras (Rubik y Bungee, OFL) |
 | `public/input-profiles/` | Las manos y los mandos (MIT) |
