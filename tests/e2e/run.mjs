@@ -158,6 +158,7 @@ try {
   // descanso (acortado a 1 s) y el panel de la oleada siguiente, con la escena algo oscurecida; mientras, no sale nadie
   await page.evaluate(() => {
     window.__rx.game.queue.length = 0;
+    for (const p of window.__rx.game.pending) p.gate = null; // (y los que estaban saliendo por una compuerta)
     window.__rx.enemies.clear();
   });
   await until('oleada superada: el descanso', (s) => s.between && s.wave === 1 && s.resting, 20);
