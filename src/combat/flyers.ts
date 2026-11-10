@@ -140,7 +140,7 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
     HOOKS.sparks(c, big ? 30 : 18, ICHOR);
     SND.squish(c);
     if (big) SND.explosion(c, true);
-    HOOKS.foeDown();
+    HOOKS.foeDown(rt.kind, !!rt.flight.K.boss);
     if (rt.death) {
       rt.mixer.stopAllAction();
       rt.death.setLoop(LoopOnce, 1);

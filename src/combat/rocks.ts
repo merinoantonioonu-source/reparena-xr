@@ -59,6 +59,11 @@ export class Rocks {
     if (!this.thrown++) HOOKS.say('¡Te lanza piedras! Apártate o párala con la mano', '#ff8a3d', 2.2);
   }
 
+  /** ¿Queda alguna en el aire? (la oleada no acaba con una piedra volando: RepArena, projs) */
+  flying(): boolean {
+    return this.list.some((r) => r.on && r.fly);
+  }
+
   clear(): void {
     for (const r of this.list) {
       r.on = false;
@@ -89,6 +94,7 @@ export class Rocks {
           HOOKS.sparks(p, 16, 0xffcc80);
           haptic(side, 0.8, 50);
           HOOKS.say('¡Parada!', '#3cf0c6', 0.8);
+          HOOKS.score(100, true); // (RepArena: +100 y suma al combo)
           continue;
         }
         if (r.t >= r.T) {
@@ -103,7 +109,10 @@ export class Rocks {
             continue;
           }
           r.fly = false;
-          if (play) HOOKS.say('¡Esquivada!', '#3cf0c6', 0.8);
+          if (play) {
+            HOOKS.say('¡Esquivada!', '#3cf0c6', 0.8);
+            HOOKS.score(50, true);
+          }
         }
       } else {
         // parada o esquivada: cae y desaparece

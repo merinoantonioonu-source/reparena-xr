@@ -115,6 +115,19 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] } }, {}
     return pick;
   }
 
+  /** La compuerta del centro, si está libre (por ella sale el jefe, como en RepArena). */
+  centerGate(): Entity | null {
+    let best: Entity | null = null, bx = Infinity;
+    for (const e of this.queries.gates.entities) {
+      const x = Math.abs(e.object3D?.position.x ?? 99);
+      if (x < bx) {
+        bx = x;
+        best = e;
+      }
+    }
+    return best && (best.getValue(Gate, 'busy') ?? 0) <= 0 ? best : null;
+  }
+
   /** Ábrela para sacar a uno (se queda abierta secs segundos y luego se cierra sola). */
   openGate(e: Entity, secs: number): void {
     e.setValue(Gate, 'busy', secs);

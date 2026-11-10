@@ -82,6 +82,8 @@ tabla de `README.md` dice qué hace cada archivo.
   número en `FLYER_KIND`; sin cuerpo de física mientras vuelan. Los blancos (`EnemySystem.targets`) son de todos.
   Los de tierra andan con su marcha (`Gait`, `src/combat/gait.ts`: forma de moverse, velocidades, amenaza y esquivas, de
   RepArena) pidiendo velocidad a la física; su reloj de gestos va a su `pace`.
+- **Oleadas** (`src/combat/waves.ts`, de RepArena): `buildWave` da la cola de cada oleada con los nombres de RepArena
+  (`impthrow`, `zombieboss`…); `xrFoe` dice cuál es aquí y si es jefe (`bossDef`). Los puntos y el combo, en `GAME`.
 - La letra que trae IWSDK (Inter) no tiene tildes: los paneles usan las de `public/fonts` (ver su `LEEME.md`), que se
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee.
