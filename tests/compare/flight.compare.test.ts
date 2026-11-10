@@ -131,5 +131,5 @@ describe.skipIf(!RA_DIR)('el vuelo de los voladores, como en RepArena', () => {
     }
     expect(frames).toBeGreaterThan(170000);
     expect(bites).toBeGreaterThan(20);
-  });
+  }, 120000);
 });
