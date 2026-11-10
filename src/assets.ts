@@ -62,6 +62,7 @@ export default defineAssets({
   'charge-floor': uikitml('charge.uikitml', 'Carga en el suelo'),
   'wave-intro': uikitml('wave.uikitml', 'Panel entre oleadas'),
   'perks-cards': uikitml('perks.uikitml', 'Cartas de mejora'),
+  'trophy-card': uikitml('trophy.uikitml', 'Logro en grande (trofeo dorado)'),
   // la isla pirata (Pirate Kit): de momento, solo su cofre (el del descanso de Combate)
   'island-kit': foe('island.glb', 'Isla pirata (Pirate Kit)'),
   ...sounds,

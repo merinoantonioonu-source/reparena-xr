@@ -210,6 +210,14 @@ export class Ghost {
     return false;
   }
 
+  /** Para el rosco del marcador: dónde ibas en tu mejor ronda en este momento (g), lo que llevas (n) y tu récord (best)
+   * (RepArena: ghostAt). */
+  at(n: number, on: boolean): { g: number; n: number; best: number; beat: boolean } | null {
+    const B = this.best;
+    if (!on || !B || !B.n || !B.tl || !B.tl.length) return null;
+    return { g: B.tl[Math.min(B.tl.length - 1, this.tl.length)] || 0, n, best: B.n, beat: this.beat };
+  }
+
   /** Para el marcador: cuántas llevas de más o de menos que tu récord en este momento. */
   text(n: number, on: boolean): PerkNote {
     const B = this.best;

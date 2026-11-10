@@ -642,6 +642,27 @@
         ],
         "scale": 1
       }
+    },
+    {
+      "id": "trophy-panel",
+      "name": "Logro en grande",
+      "content": {
+        "type": "asset",
+        "asset": "trophy-card"
+      },
+      "transform": {
+        "position": [
+          0,
+          2.02,
+          -1.6
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1
+      }
     }
   ],
   "authoring": {

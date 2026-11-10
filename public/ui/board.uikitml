@@ -1,94 +1,157 @@
 <!--
-  El marcador, a un lado (0,56 m de ancho). Medidas en centímetros; letras: Rubik y, con «display», Bungee.
+  El marcador, a un lado (diseño C, elegido por el usuario en RepArena; src/60_ui.js: drawBoard): en cómic, violeta con
+  borde grueso de tinta. Arriba, la oleada en puntos (con muchas, «3/12»), los puntos (en el relámpago, ×2, y el borde de
+  arriba es una mecha que se consume) y las vidas; debajo, lo que llevas entrenando y, discreta, la hora. A la izquierda, el
+  rosco doble (la oleada fuera, la racha dentro y tus repeticiones en medio: un lienzo, src/ui/board-ring.ts); a la
+  derecha, un solo hueco para lo que pasa ahora, grande (en el descanso, la cuenta atrás, la oleada siguiente y tu récord).
+  Abajo a la derecha, tu rango. Nada de cargas ni escudo: se ven en el juego. Medidas en centímetros (64 de ancho).
 -->
 <style>
   .root {
     flex-direction: column;
-    width: 56;
-    padding-top: 3;
-    padding-bottom: 3;
-    padding-left: 3.4;
-    padding-right: 3.4;
-    gap: 1.4;
-    background-color: #12151d;
-    border-radius: 3.4;
-    border-width: 0.4;
-    border-color: #3cf0c6;
+    width: 64;
+    padding-top: 2.4;
+    padding-bottom: 2.4;
+    padding-left: 3;
+    padding-right: 3;
+    gap: 1;
+    background-color: #3a2d5c;
+    border-radius: 3;
+    border-width: 0.9;
+    border-color: #140c1a;
+  }
+  .fuse-track {
+    height: 0.8;
+    width: 58;
+    border-radius: 0.4;
+    background-color: #4d3f2a;
+  }
+  .fuse {
+    height: 0.8;
+    width: 58;
+    border-radius: 0.4;
+    background-color: #ffd166;
   }
   .top {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
+    height: 6;
   }
-  .wave {
-    font-size: 4.2;
+  .side {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.7;
+    width: 18;
+  }
+  .right {
+    justify-content: flex-end;
+  }
+  .mid {
+    justify-content: center;
+  }
+  .dot {
+    width: 1.8;
+    height: 1.8;
+    border-radius: 0.9;
+    border-width: 0.3;
+    border-color: #3cf0c6;
+    background-color: #3cf0c6;
+  }
+  .wtext {
+    font-size: 3.6;
+    color: #3cf0c6;
+  }
+  .score {
+    font-size: 4.8;
     color: #ffd166;
   }
-  .lives {
+  .x2 {
+    font-size: 3.4;
+    color: #ffd166;
+  }
+  .life {
+    width: 2.2;
+    height: 2.2;
+    border-radius: 1.1;
+    border-width: 0.35;
+    border-color: #ff4fa3;
+    background-color: #ff4fa3;
+  }
+  .ltext {
+    font-size: 3.6;
+    color: #ff4fa3;
+  }
+  .times {
+    flex-direction: row;
+    justify-content: center;
+    gap: 2;
+    align-items: center;
+  }
+  .train {
     font-size: 2.8;
-    color: #ff6b8b;
+    color: #eeeaff;
     font-weight: bold;
   }
-  .big {
+  .clock {
+    font-size: 2.1;
+    color: #a49fc8;
+  }
+  .main {
     flex-direction: row;
-    align-items: flex-end;
+    align-items: center;
     gap: 2;
   }
-  .reps {
-    font-size: 12;
-    color: #ffffff;
+  .ring {
+    width: 21;
+    height: 21;
   }
-  .reps-label {
-    font-size: 3.2;
-    color: #9fe8ff;
-    margin-bottom: 2.4;
-  }
-  .charge {
-    font-size: 4;
-    color: #8b95a8;
-  }
-  .row {
-    flex-direction: row;
-    justify-content: space-between;
-  }
-  .stat {
-    font-size: 2.8;
-    color: #e9eef7;
-  }
-  .msgbox {
-    height: 9;
+  .say {
+    flex-direction: column;
+    align-items: flex-end;
     justify-content: center;
-    align-items: center;
-    background-color: #1b2030;
-    border-radius: 2.2;
+    gap: 0.8;
+    width: 35;
+    min-height: 16;
   }
   .msg {
-    font-size: 4.2;
+    font-size: 5.2;
     color: #3cf0c6;
-    font-weight: bold;
+    text-align: right;
   }
-  .time {
-    font-size: 2.2;
-    color: #8b95a8;
+  .line {
+    font-size: 2.7;
+    color: #eeeaff;
+    text-align: right;
+  }
+  .rank {
+    font-size: 3.2;
+    color: #ffd166;
+    text-align: right;
   }
   .display {
     letter-spacing: 0.1;
   }
 </style>
 <div class="root">
+  <div id="fuse-box" class="fuse-track"><div id="fuse" class="fuse"></div></div>
   <div class="top">
-    <span id="wave" class="wave display">PREPARADO</span>
-    <span id="lives" class="lives">VIDAS 5/5</span>
+    <div class="side"><div id="w0" class="dot"></div><div id="w1" class="dot"></div><div id="w2" class="dot"></div><div id="w3" class="dot"></div><div id="w4" class="dot"></div><div id="w5" class="dot"></div><div id="w6" class="dot"></div><div id="w7" class="dot"></div><div id="w8" class="dot"></div><div id="w9" class="dot"></div><span id="wtext" class="wtext display">1/5</span></div>
+    <div class="side mid"><span id="score" class="score display">0</span><span id="x2" class="x2 display">×2</span></div>
+    <div class="side right"><div id="l0" class="life"></div><div id="l1" class="life"></div><div id="l2" class="life"></div><div id="l3" class="life"></div><div id="l4" class="life"></div><div id="l5" class="life"></div><div id="l6" class="life"></div><div id="l7" class="life"></div><span id="ltext" class="ltext display">∞</span></div>
   </div>
-  <div class="big">
-    <span id="reps" class="reps display">0</span>
-    <span id="reps-label" class="reps-label">sentadillas</span>
+  <div class="times">
+    <span id="train" class="train">0:00</span>
+    <span id="clock" class="clock">12:00</span>
   </div>
-  <span id="charge" class="charge display">Sin carga</span>
-  <div class="row">
-    <span id="kills" class="stat">Derribados: 0</span>
-    <span id="perfect" class="stat">Perfectas: 0</span>
+  <div class="main">
+    <img id="ring" class="ring" src="retratos/robot.png" />
+    <div class="say">
+      <span id="msg" class="msg display">Pulsa EMPEZAR</span>
+      <span id="r1" class="line">Siguiente</span>
+      <span id="r2" class="line">Récord</span>
+      <span id="r3" class="line">Combate · Sentadillas</span>
+    </div>
   </div>
-  <div class="msgbox"><span id="msg" class="msg">Pulsa EMPEZAR</span></div>
-  <span id="time" class="time">0:00</span>
+  <span id="rank" class="rank display">RECLUTA</span>
 </div>
