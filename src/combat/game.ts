@@ -36,7 +36,7 @@ import { boltColor, Effects, POW_COL } from './fx.js';
 import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
 import { IDLE, PLACE } from '../exercise/how.js';
-import { FLOOR_EX, FloorDetector, floorDefaults, type FloorCfg, type FloorInput } from '../exercise/floor.js';
+import { FLOOR_EX, FloorDetector, floorDefaults, iwReach, type FloorCfg, type FloorInput } from '../exercise/floor.js';
 import { aimForced, deepOn, flyList, foes, groundList, handsFree, isTiny, oneArm, twoShots } from '../core/rules.js';
 import { HatchSystem, hatchFoes } from './hatch-foes.js';
 import { devFoe, flyFoes, FOE_DEF, foeName, gateFoes } from './foes.js';
@@ -192,7 +192,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       lockShow: (e) => this.locks.show(e as FoeTarget),
     };
     this.stIn = { hands, head, fwd: new Vector3(0, 0, -1), play: false }; // (delante, en la arena: hacia las compuertas)
-    this.flIn = { ...this.stIn, headQ: head.q, wave: false };
+    this.flIn = { ...this.stIn, headQ: head.q, wave: false, iwZ: 9, standY: 1.6 };
     this.hurt = new Mesh(new SphereGeometry(0.3, 24, 16), new MeshBasicMaterial({ color: 0xff1030, transparent: true, opacity: 0, side: BackSide, depthTest: false, depthWrite: false, toneMapped: false }));
     this.hurt.renderOrder = 20;
     this.hurt.visible = false;
@@ -523,6 +523,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.rw.roundStart();
     this.resting = false;
     this.world.getSystem(HatchSystem)?.layout(false, head.p, false);
+    this.world.getSystem(HatchSystem)?.inchLayout(false, 1);
     this.placeBoard();
     // al fallo: la oleada más lejana a la que llegaste nunca con este ejercicio (para el trofeo al pasarla)
     const hist = store<{ ex?: string; mode?: string; fail?: number }[]>('reparena3-history') ?? [];
@@ -644,21 +645,26 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   // lo que piden los de suelo y sentado en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
   private readFloorCfg(lvl: number): FloorCfg {
-    return { ex: settings.exercise, dipDepth: dv('dipDepth', lvl), pushDepth: dv('pushDepth', lvl), splDrop: num('splDrop'), splHold: num('splHold'), supRange: num('supRange'), supHold: num('supHold'), supArms: str('supArms') || 'yes', perfectTime: num('perfectTime'), powHold: num('powHold'), powHoldInc: num('powHoldInc'), deepDrop: 0, power: true };
+    return { ex: settings.exercise, dipDepth: dv('dipDepth', lvl), pushDepth: dv('pushDepth', lvl), splDrop: num('splDrop'), splHold: num('splHold'), supRange: num('supRange'), supHold: num('supHold'), supArms: str('supArms') || 'yes', iwReach: num('iwReach'), perfectTime: num('perfectTime'), powHold: num('powHold'), powHoldInc: num('powHoldInc'), deepDrop: 0, power: true };
   }
 
   // ¿Quieto en la postura? (RepArena: calib) La cabeza, a su altura: sentado, entre 0,55 y 1,5 m; tumbado o en plancha
   // lateral, por debajo de 1 m. Dos segundos quieto y se toma esa postura
   private calibStep(dt: number): void {
     const y = head.p.y, ex = settings.exercise;
-    const ok = ex === 'dips' ? y > 0.55 && y < 1.5 : y < 1.0 && y > (ex === 'superman' ? 0.04 : 0.15);
+    const ok = ex === 'inchworm' ? y > 1.1 : ex === 'dips' ? y > 0.55 && y < 1.5 : y < 1.0 && y > (ex === 'superman' ? 0.04 : 0.15);
     if (ok && head.speed < 0.07) this.calibT += dt;
     else this.calibT = Math.max(0, this.calibT - dt * 2);
     if (this.calibT < 2) return;
     this.calibT = -1;
     this.fl.reset(y, { left: hands.left.ok ? hands.left.wrist.y : null, right: hands.right.ok ? hands.right.wrist.y : null });
     this.rw.standY = 1.6;
-    this.world.getSystem(HatchSystem)?.layout(isTiny(), head.p, oneArm()); // (las trampillas, delante de tus manos)
+    // la arena diminuta: las trampillas delante de tus manos; en el inchworm, su origen es donde quedará tu cabeza en la
+    // plancha (la línea), a tu alcance por delante de donde estás de pie (RepArena: IW_OFF, arenaFromHead, iwLayout)
+    const hs = this.world.getSystem(HatchSystem), inch = ex === 'inchworm', reach = iwReach(num('iwReach'), y);
+    this.flIn.standY = y;
+    hs?.layout(isTiny(), inch ? this.tmpA.copy(head.p).addScaledVector(GAME.fwd, reach + 0.12) : head.p, oneArm());
+    hs?.inchLayout(inch, reach);
     this.placeBoard();
     this.restT = 3;
     SND.charge();
@@ -829,12 +835,22 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (FLOOR_EX.includes(this.flCfg.ex)) {
       this.flIn.play = this.stIn.play;
       this.flIn.wave = !GAME.between && !this.resting;
+      const hs = this.world.getSystem(HatchSystem);
+      this.flIn.iwZ = hs ? head.p.z - hs.origin.z : 9;
       if (this.calibT < 0) this.fl.update(t, dt, this.flIn, this.flCfg, ev);
+      if (this.flCfg.ex === 'inchworm') {
+        const W = this.fl.iw;
+        W.flash = Math.max(0, W.flash - dt * 1.5);
+        hs?.inchVisual(W.phase, W.g, W.flash, t);
+      }
     } else this.st.update(t, dt, this.stIn, this.stCfg, ev);
     for (const e of ev) {
       if (e.type === 'charge') this.onCharge();
       else if (e.type === 'power') this.onPower(e.level, e.deep);
-      else if (e.type === 'rep') this.onRep(e.perfect, e.fast, e.pow, e.side);
+      else if (e.type === 'rep') {
+        this.onRep(e.perfect, e.fast, e.pow, e.side);
+        if (this.flCfg.ex === 'inchworm' && FLOOR_EX.includes(this.flCfg.ex)) this.shockwave(e.pow);
+      }
       else if (e.type === 'partial') this.onPartial(e.msg);
       else if (e.type === 'top') this.topCue(e.side);
       else {
@@ -842,6 +858,28 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         if (e.color === WARN_COL) this.floorWarn(e.msg, e.color);
       }
     }
+  }
+
+  // Inchworm: al ponerte de pie tras la vuelta, la onda expansiva en el suelo: lanza a los bichos de las trampillas por el
+  // aire hasta la suya y empuja a los demás; desde ×2, también hace daño (como un disparo de esa carga) (RepArena: iwWave)
+  private shockwave(pow: number): void {
+    const hs = this.world.getSystem(HatchSystem);
+    if (!hs) return;
+    const at = this.tmpB.copy(head.p).setY(0), reach = hs.shockwave(at, pow), dmg = POW_DMG[pow - 1] || 0;
+    let n = 0;
+    for (const e of [...this.enemies.targets]) {
+      if (!e.alive) continue;
+      const c = e.center(this.tmpA);
+      if (Math.hypot(c.x - at.x, c.z - at.z) > reach) continue;
+      n++;
+      const dir = this.tmpC.set(c.x - at.x, 0, c.z - at.z).normalize();
+      if (dmg) this.enemies.hit(e.entity, dmg, pow, dir);
+      if (e.alive && !e.entity.object3D?.userData.hatch) this.enemies.shove(e.entity, 1.2 * (0.85 + 0.2 * (pow - 1)), 0.5, dir);
+    }
+    SND.shock(at);
+    haptic('left', 1, 160 + 40 * pow);
+    haptic('right', 1, 160 + 40 * pow);
+    this.message(n ? `¡ONDA EXPANSIVA${pow > 1 ? ' ×' + pow : ''}! Vuelven a su trampilla` : `¡Onda expansiva${pow > 1 ? ' ×' + pow : ''}!`, 1.4, pow > 1 ? '#ff6ae0' : '#40fff0');
   }
 
   // Arriba del todo en el curl, la elevación frontal o el curl con barra la repetición ya vale; el disparo sale al empezar

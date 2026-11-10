@@ -127,7 +127,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 10c · El marcador elegido (C), celebraciones y trofeos dorados** — #16
 - [x] **PR 11a · Fondos, plancha lateral y superman** — #17
 - [x] **PR 11b · La batalla diminuta: flexiones y plancha con un brazo** — #18
-- [ ] **PR 11c · Inchworm**
+- [x] **PR 11c · Inchworm** — #19
 - [ ] **PR 12 · Menú de muñeca, resumen, carátula del duelo y caricatura**
 - [ ] **PR 13 · Carrera y progreso**
 - [ ] **PR 14 · Página web y app del móvil**
@@ -294,7 +294,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   cuatro trampillas, `hatch.scene-asset.ts`, y el cangrejo, la seta y la calavera con su modelo); los voladores
   diminutos (`Flight` con `tiny`) y las oleadas de la batalla diminuta (`buildWave` con `tiny`), comparados también; el
   marcador tumbado en el suelo, que rodean; en la plancha con un brazo, cada brazo dispara a su lado.
-- **11c**: el inchworm (la cabeza hasta la línea del suelo y vuelta; la onda).
+- **11c (hecho)**: el inchworm de RepArena (`FloorDetector`, `inchworm`: la cabeza hasta la línea del suelo, las flexiones
+  que dan fuerza a la onda y la vuelta; comparado con su `iwStep` en `floor.compare.test.ts`); en la partida, la línea, la
+  barra y la salida en el suelo, la onda expansiva (que manda a los bichos a su trampilla con `HatchFoe.sendHome` y,
+  desde ×2, hace daño) y los bichos 2,6 veces más lentos.
 
 ### Fase 2 · Alrededor de la partida
 
@@ -345,6 +348,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `wave-panel`). Los puntos y el combo, en `GAME.score`/`GAME.combo` (`repScore`, `onFoeDown`, `HOOKS.score` para las
   piedras); los golpes recibidos, en `GAME.taken`. Las cartas de mejora tienen que hacer esperar al descanso (RepArena:
   `perkWaits`), y el dorado, el relámpago y el cofre multiplican los puntos (`perkPtsK`, `perkKillK`).
+- PR 11c → PR 12: los avisos de la vista (los del centro, PERFECTA, las indicaciones para colocarse y la caricatura) aún
+  van al marcador: tumbado y en plancha, RepArena los ponía en el suelo bajo la cara o en el techo, fijos y derechos.
+  La colocación antes de empezar (`calibStep`) dice cómo con el marcador; la caricatura (RepArena: `src/62_demo.js`) lo
+  enseñará.
 - PR 11b → PR 11c: el inchworm también es de la batalla diminuta (RepArena: `isTiny`, con los bichos más lentos: `IW_SLOW`
   en `walkT` de `HatchFoe`) y tiene su onda que los manda a su trampilla (`HatchFoe.flung`: el modo `recoil` ya lo
   admite; falta `sendHome`). La arena diminuta (`HatchSystem.layout`, origen donde te colocas) y el marcador del suelo
@@ -457,6 +464,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   PR 9) y su tamaño se ha probado en el navegador (el zombi verde a lo grande y el dragón); en las gafas, por ver que
   quepan bien por la compuerta. Los robots, drones, avispones y la nodriza (geométricos) no salen: en su lugar, zombis
   verdes, abejas y el dragón.
+- PR 11c: probado en la VR simulada (llegar a la línea carga, una flexión allí da ×2, al volver y ponerse de pie dispara
+  y sale la onda con su sonido, que manda a los bichos a su trampilla). El polvo de la onda de RepArena (nubes que se
+  hinchan y columnas que suben) aquí son chispas de colores a su paso; por mirar en las gafas si hace falta más.
+  RepArena dejaba fijar con la mirada a quién va el rayo en el inchworm (con su diana); aquí va al más cercano.
 - PR 11b: las arañas de RepArena (geométricas) no salen: en su lugar, cangrejos y setas (y la calavera si la eliges). En la
   VR simulada se han visto las trampillas, el marcador tumbado, cangrejos, setas y abejas diminutas saliendo, y una
   flexión que cuenta y dispara; la plancha con un brazo, comparada con RepArena y por probar en las gafas. La arena
