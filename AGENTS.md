@@ -73,6 +73,11 @@ tabla de `README.md` dice qué hace cada archivo.
   (`o1`…`o9`, `l1`…`l4`) se repiten con la misma forma. Se pulsan con `RayInteractable` y `PokeInteractable` (los de IWSDK)
   mientras se ven. Cuelgan de su borde de arriba (`anchor-y: top`). La partida y el menú se avisan con `HOOKS.startRound`,
   `HOOKS.showMenu` y `HOOKS.hideMenu`; `GAME.menu` dice cuál se ve.
+- **Enemigos**: cada uno sale de su fila en `FOE_DEF` (`src/combat/foes.ts`: su modelo del catálogo, tamaño, nombres de sus
+  animaciones —`idle`, `walk`, `run`, `attack`, `hit`, `death`, `dance`—, cuándo empieza y llega su golpe, su voz); su
+  resistencia y su fuerza, de `devFoe` (la tabla del desarrollador). Uno nuevo: su fila, su modelo en `src/assets.ts`
+  (`foe(...)`, que IWSDK carga después de arrancar) y en `public/models/` con su licencia, y su retrato en
+  `public/retratos/`. La prueba `tests/unit/foes.test.ts` comprueba que sus animaciones están en el modelo.
 - La letra que trae IWSDK (Inter) no tiene tildes: los paneles usan las de `public/fonts` (ver su `LEEME.md`), que se
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee.

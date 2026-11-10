@@ -1,0 +1,177 @@
+/**
+ * Los enemigos de las compuertas, desde una tabla (RepArena: ROBOT_KIND de src/70_game.js y BEAST_DEF de src/42_beasts.js),
+ * con su resistencia, su fuerza y su dureza de la tabla del desarrollador (src/67_dev.js: devFoe), el reparto entre los que
+ * eliges en Rivales (buildWave: deal) y los puestos de ataque delante de ti (robotSlot). Sin IWSDK: se prueba en
+ * tests/unit/foes.test.ts.
+ *
+ * Por ahora, los que traen su modelo y sus animaciones (PR 8a): zombis, velociraptor, piratas y monstruitos. El diablillo,
+ * el puglin, el lanzador y los robots llegan con el PR 8b (hasta entonces, si solo están elegidos esos, salen zombis).
+ */
+import { Vector3 } from 'three';
+import { DEV, DEV_FACTORY } from '../core/dev-state.js';
+import { FOE_GATE } from '../core/catalog.js';
+
+/** Cómo se llama cada animación en su modelo: reposo, andar, correr, atacar, recibir, morir y la de esperar bailando. */
+export interface FoeClips {
+  idle: string;
+  walk: string;
+  run: string;
+  attack: string;
+  hit: string;
+  death: string;
+  dance: string;
+}
+
+export interface FoeDef {
+  /** Su modelo en el catálogo de recursos (src/assets.ts). */
+  asset: string;
+  /** Lo que mide de pie (m) y su escala (para que mida eso). */
+  h: number;
+  k: number;
+  /** Su radio en el suelo (m): su cápsula y lo que ocupa. */
+  r: number;
+  /** A qué distancia de ti se planta a golpear (m), lo rápido que es (respecto al tiempo de llegada) y si es pesado. */
+  stop: number;
+  speedF: number;
+  heavy: boolean;
+  /** A qué velocidad (m/s) avanzan sus animaciones de andar y de correr (para que los pies no patinen). */
+  walk: number;
+  run: number;
+  minTs: number;
+  maxTs: number;
+  clips: FoeClips;
+  /** Su golpe: cuándo empieza (s) y cuándo llega (s) en la animación de atacar. */
+  atk: [number, number];
+  /** Su voz (VOICE, src/audio/catalog.ts) y su clase (Ajustes → Cada enemigo). */
+  voice: string;
+  grp: string;
+  /** Su paleta de colores aparte (el zombi de 2017), en el catálogo de recursos. */
+  palette?: string;
+  /** El centro del cuerpo, en proporción a su altura (los monstruitos, su hueso del cuerpo a ras de suelo). */
+  ctr: number;
+}
+
+const ZOMBIE2_CLIPS: FoeClips = { idle: 'Idle', walk: 'Walk', run: 'Run', attack: 'Punch', hit: 'HitReact', death: 'Death', dance: 'Idle_Attack' };
+const PIRATE_CLIPS: FoeClips = { idle: 'Idle', walk: 'Walk', run: 'Run', attack: 'Sword', hit: 'HitReact', death: 'Death', dance: 'Wave' };
+const CUTE_CLIPS: FoeClips = { idle: 'Idle', walk: 'Walk', run: 'Walk', attack: 'Bite_Front', hit: 'HitRecieve', death: 'Death', dance: 'Jump' };
+
+const zombie2 = (asset: string, h: number, voice: string): FoeDef => ({ asset, h, k: 1, r: 0.4, stop: 1.1, speedF: 0.9, heavy: false, walk: 0.6, run: 2.4, minTs: 0.5, maxTs: 2.2, clips: ZOMBIE2_CLIPS, atk: [0.25, 0.45], voice, grp: 'zombie', ctr: 0.62 });
+const pirate = (asset: string, h: number, voice: string): FoeDef => ({ asset, h, k: 1, r: 0.4, stop: 1.1, speedF: 1, heavy: false, walk: 0.7, run: 2.6, minTs: 0.5, maxTs: 2.2, clips: PIRATE_CLIPS, atk: [0.15, 0.32], voice, grp: 'pirate', ctr: 0.62 });
+// los monstruitos: [alto del modelo, metros que miden al andar]
+const cute = (asset: string, nat: number, h: number, voice: string): FoeDef => ({ asset, h, k: h / nat, r: 0.4, stop: 1.1, speedF: 1, heavy: false, walk: 0.7, run: 2.2, minTs: 0.7, maxTs: 2.4, clips: CUTE_CLIPS, atk: [0.12, 0.28], voice, grp: 'cute', ctr: 0.5 });
+
+/** Los de las compuertas que ya están (RepArena: BEAST_DEF y ROBOT_KIND, con sus mismos números). */
+export const FOE_DEF: Record<string, FoeDef> = {
+  zombie: { asset: 'foe-zombie', h: 1.8, k: 0.27, r: 0.4, stop: 1.05, speedF: 0.9, heavy: false, walk: 0.35, run: 2.4, minTs: 0.5, maxTs: 2.6, clips: { idle: 'Zombie|ZombieIdle', walk: 'Zombie|ZombieWalk', run: 'Zombie|ZombieRun', attack: 'Zombie|ZombieBite', hit: '', death: '', dance: 'Zombie|ZombieIdle' }, atk: [1.0, 2.5], voice: 'zombie', grp: 'zombie', palette: 'foe-zombie-palette', ctr: 0.62 },
+  zgreen: zombie2('zombie-basic', 1.36, 'zgreen'),
+  zchubby: zombie2('zombie-chubby', 1.64, 'zchubby'),
+  raptor: { asset: 'foe-raptor', h: 1.4, k: 0.3, r: 0.5, stop: 1.45, speedF: 1.2, heavy: false, walk: 1.3, run: 4.3, minTs: 0.6, maxTs: 2.2, clips: { idle: 'Armature|Velociraptor_Idle', walk: 'Armature|Velociraptor_Walk', run: 'Armature|Velociraptor_Run', attack: 'Armature|Velociraptor_Attack', hit: '', death: 'Armature|Velociraptor_Death', dance: 'Armature|Velociraptor_Idle' }, atk: [0.21, 0.42], voice: 'raptor', grp: 'dino', ctr: 0.55 },
+  skeleton: pirate('foe-skeleton', 1.5, 'skeleton'),
+  captain: pirate('foe-captain', 1.85, 'captain'),
+  sharky: pirate('foe-sharky', 1.56, 'sharky'),
+  mako: pirate('foe-mako', 1.59, 'mako'),
+  demon: cute('foe-demon', 1.62, 1.15, 'demon'),
+  greendemon: cute('foe-greendemon', 1.62, 1.15, 'greendemon'),
+  cyclops: cute('foe-cyclops', 1.67, 1.25, 'cyclops'),
+  yeti: cute('foe-yeti', 1.67, 1.3, 'yeti'),
+  skull: cute('foe-skull', 1.55, 1.0, 'skull'),
+  alien: cute('foe-alien', 2.06, 1.2, 'alien'),
+  alientall: cute('foe-alientall', 2.11, 1.35, 'alientall'),
+};
+// (el zombi verde y el gordo, algo más grandes que en RepArena, como en el prototipo: que se vean bien de lejos)
+FOE_DEF.zgreen.k = 1.2;
+FOE_DEF.zgreen.h = 1.62;
+FOE_DEF.zchubby.k = 1.1;
+FOE_DEF.zchubby.h = 1.8;
+FOE_DEF.zchubby.r = 0.45;
+
+/** ¿Ya se puede sacar? (los demás, con el PR 8b) */
+export const foeReady = (k: string): boolean => !!FOE_DEF[k];
+
+/** Su nombre (el de Rivales). */
+export const foeName = (k: string): string => FOE_GATE.find((o) => o[0] === k)?.[1] ?? k;
+
+// ---------------------------------------------------------------- resistencia, fuerza y dureza
+
+/** Lo que aguanta cada uno de serie si no es 1 (las de las compuertas, 2) (RepArena: DEV_FOE_HP). */
+export const DEV_FOE_HP: Record<string, number> = { 'g:robot_h': 3, 'g:puglin': 1, 'g:zchubby': 3, 'g:yeti': 3, 'g:cyclops': 3, 'g:captain': 3, 'h:spider': 2, 'h:spider_h': 3, 'f:bomber': 2, 'f:cthulhu': 2 };
+/** En qué tramo de la escalera entra cada uno (RepArena: FOE_TIER). */
+export const FOE_TIER: Record<string, number> = { zombie: 1, zgreen: 1, puglin: 1, mushroom: 1, crab: 1, drone: 1, bee: 1, robot: 2, imp: 2, skeleton: 2, sharky: 2, alien: 2, spider: 2, skull: 2, hornet: 2, bat: 2, zchubby: 3, raptor: 3, thrower: 3, demon: 3, greendemon: 3, mako: 3, alientall: 3, cthulhu: 3, cyclops: 4, yeti: 4, captain: 4 };
+
+const devFoeDefHp = (key: string): number => DEV_FOE_HP[key] || (key.startsWith('g:') ? 2 : 1);
+type FoeRow = { hp?: number; str?: number; tier?: number };
+/** Resistencia (disparos que aguanta en la primera oleada), fuerza (vidas que quita cada golpe) y dureza, de la tabla del
+ * desarrollador (la suya y la de fábrica) o las de serie (RepArena: devFoe). key: 'g:zombie', 'h:spider', 'f:drone'… */
+export function devFoe(key: string): { hp: number; str: number; tier: number } {
+  const fac = (DEV_FACTORY.foes as Record<string, FoeRow> | undefined)?.[key] ?? {}, own = (DEV.t.foes as Record<string, FoeRow> | undefined)?.[key] ?? {}, o = { ...fac, ...own };
+  return { hp: o.hp || devFoeDefHp(key), str: o.str || 1, tier: o.tier || 0 };
+}
+
+// ---------------------------------------------------------------- el reparto
+
+/** Reparte los elegidos bien mezclados (RepArena: buildWave → deal): cada vez, el que más le toca. */
+export function deal(ks: string[], rnd = Math.random): () => string {
+  const acc: Record<string, number> = {};
+  for (const k of ks) acc[k] = rnd() * 0.5;
+  return () => {
+    let g = ks[0], top = -Infinity;
+    for (const k of ks) {
+      acc[k] += 1 / ks.length;
+      if (acc[k] > top) {
+        top = acc[k];
+        g = k;
+      }
+    }
+    acc[g] -= 1;
+    return g;
+  };
+}
+
+/** De los elegidos en Rivales, los que ya se pueden sacar; si ninguno, los zombis verdes (los del prototipo). */
+export const gateFoes = (chosen: string[]): string[] => {
+  const ok = chosen.filter(foeReady);
+  return ok.length ? ok : ['zgreen'];
+};
+
+// ---------------------------------------------------------------- los puestos de ataque
+
+/** Puestos de ataque (RepArena: ROW_GAP, SLOT_ARC): cada uno tiene el suyo en un arco delante de ti, separado de los demás
+ * para que nunca se estorben; si la primera fila está llena, esperan en una segunda (o tercera) y avanzan cuando queda un
+ * hueco. */
+export const ROW_GAP = 1.1, SLOT_ARC = 1.3, FRONT_MIN = 0.3;
+
+export interface SlotFoe {
+  /** Dónde está, su radio y a qué distancia golpea. */
+  pos: Vector3;
+  radius: number;
+  stop: number;
+  /** Su puesto (si lo tiene). */
+  slot: Vector3;
+  slotOk: boolean;
+  row: number;
+}
+
+const _rs = new Vector3();
+/** Busca puesto para f entre los de los demás (others): en el arco delante de ti (head: tus ojos; delante es −Z), el
+ * más cercano a su camino y al centro, primero en la fila de delante. Nunca a tu altura ni detrás (RepArena: robotSlot). */
+export function foeSlot(f: SlotFoe, others: SlotFoe[], head: Vector3, rnd = Math.random): void {
+  const want = Math.atan2(f.pos.x - head.x, -(f.pos.z - head.z));
+  let best: { a: number; row: number } | null = null, bestC = Infinity;
+  for (let row = 0; row < 3 && !best; row++) {
+    const R = f.stop + row * ROW_GAP;
+    for (let a = -SLOT_ARC; a <= SLOT_ARC + 1e-6; a += 0.1) {
+      _rs.set(head.x + Math.sin(a) * R, 0, head.z - Math.cos(a) * R);
+      if (others.some((o) => o !== f && o.slotOk && o.slot.distanceTo(_rs) < f.radius + o.radius + 0.65)) continue; // (también entre filas)
+      if (_rs.z > head.z - FRONT_MIN) continue;
+      const c = Math.abs(a - want) + Math.abs(a) * 0.3 + rnd() * 0.12;
+      if (c < bestC) {
+        bestC = c;
+        best = { a, row };
+      }
+    }
+  }
+  const a = best ? best.a : want, row = best ? best.row : 3, R = f.stop + row * ROW_GAP;
+  f.slot.set(head.x + Math.sin(a) * R, 0, Math.min(head.z - Math.cos(a) * R, head.z - FRONT_MIN)); // (RepArena: frontKeep(best.p))
+  f.row = row;
+  f.slotOk = true;
+}

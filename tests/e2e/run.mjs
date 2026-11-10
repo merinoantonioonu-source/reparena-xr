@@ -86,7 +86,7 @@ try {
   await page.mouse.click(4, 4); // (abre el sonido; en una esquina, fuera del panel: en el centro hay botones)
   await page.keyboard.press('Enter');
   await until('EMPEZAR: empieza la ronda y se quita el menú', (s) => s.phase === 'playing' && s.wave === 1 && s.menu === 'none', 15);
-  await until('sale el primer zombi', (s) => s.foes.length > 0, 90);
+  await until('sale el primer enemigo, con sus cuentas de vida encima', (s) => s.foes.length > 0 && s.life > 0, 90);
   await page.keyboard.down('ArrowDown');
   await until('al bajar, la bola carga el disparo', (s) => s.charge >= 1 && s.ballOn, 30);
   await until('aguantando abajo, la carga sube a ×2', (s) => s.charge >= 2, 60);

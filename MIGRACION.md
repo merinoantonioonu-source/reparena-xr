@@ -113,7 +113,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 5 · Sonido** — #6
 - [x] **PR 6 · Ejercicios de pie** — #8
 - [x] **PR 7 · Menú principal y Opciones en VR** — #9
-- [ ] **PR 8 · Enemigos**
+- [x] **PR 8a · Enemigos de las compuertas con su modelo** — #10
+- [ ] **PR 8b · Diablillo, puglin, lanzador, robots y voladores**
 - [ ] **PR 9 · Armas y defensa**
 - [ ] **PR 10 · Oleadas y premios**
 - [ ] **PR 11 · Ejercicios de suelo**
@@ -213,11 +214,25 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   apaño de rendimiento) se mide en las gafas antes de decidir.
 - De RepArena: `src/60_ui.js`.
 
-**PR 8 · Enemigos** (L)
+**PR 8 · Enemigos** (XL: partido en 8a y 8b)
 - Todos los de RepArena, desde una tabla (robots, diablillo, puglin, lanzador, zombis, raptor, piratas, monstruitos,
   voladores…), con física: rodean los obstáculos, no se atraviesan, bailan al compás esperando; compuertas, cuentas de
   vida (`LIFE`), retratos y la tabla del desarrollador.
 - De RepArena: `src/40_models.js`, `src/42_beasts.js`, `src/70_game.js`.
+- **8a (hecho)**: los que traen su modelo y sus animaciones (zombi, zombi verde y gordo, velociraptor, los cuatro piratas
+  y los siete monstruitos de las compuertas), desde una tabla (`src/combat/foes.ts`: `BEAST_DEF` y `ROBOT_KIND`); su
+  resistencia, fuerza y dureza de la tabla del desarrollador (`devFoe`, sin la pantalla de la tabla: PR 23); el reparto
+  entre los elegidos (`deal`); los puestos de ataque en arco con filas de espera (`robotSlot`, comparado con RepArena en
+  `tests/compare/foes.compare.test.ts`: los mismos puestos); el golpe preparado (en el pulso con ritmo) con su fuerza y el
+  retroceso; el baile al compás esperando (con ritmo marcado); las cuentas de vida (`LIFE`, `src/combat/life.ts`); y las
+  fichas con retrato en Rivales, que eligen quién sale.
+- **8b**: el diablillo y el puglin (sus animaciones salen de `anims.glb`, la Universal Animation Library, pasadas a su
+  esqueleto: `beastRetarget`), el lanzador (un diablillo que se queda lejos y tira piedras, `throwRock`), los robots
+  (`buildRipper`, `buildDestroyer`: hechos a mano en RepArena; aquí, con la habilidad `iwsdk-build-model`, o proponer al
+  usuario cambiarlos por un modelo de Quaternius: su regla dice que los geométricos gustaron poco) y los voladores
+  (`Flyer`: drones, avispones, abeja, murciélago, Cthulhu y el dragón). También las amenazas a media distancia (`taunt`),
+  las formas de moverse de cada clase (Ajustes → Cada enemigo: `move_*`, `spd_*`, `pace_*`) y las esquivas. Los de las
+  trampillas (arañas, cangrejo, seta, calavera), con los ejercicios de suelo (PR 11).
 
 **PR 9 · Armas y defensa** (L)
 - Rayos con el aspecto de RepArena, pistolas, espadas; escudo, guardia, esquiva, onda y burbuja (el puñetazo, la diana y
@@ -283,8 +298,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   igual (`SOON_EX`, PR 11); las metas de hoy y la columna HOY, en el PR 13 (su sitio: el elemento `goals` del principal,
   escondido); sin la pantalla invisible detrás de los menús (se mide en las gafas); y la nitidez, solo la del juego nuevo
   (`QUALITY`, en Opciones → Entorno; la «Calidad de imagen» de RepArena no sale: `NOT_HERE`).
-- Para el PR 8: la pestaña Rivales y armas tiene «Qué enemigos salen» y las armas; faltan las fichas de cada rival con su
-  retrato (las listas de muchas opciones, como `foesGate`, no salen como fila: `fieldView` da null).
+- PR 8a → PR 8b: la tabla (`FOE_DEF`) y el sistema (`EnemySystem`) ya admiten cualquier enemigo con su modelo y sus
+  animaciones por nombre; los que necesitan animaciones de otro archivo (diablillo, puglin) piden pasarlas a su esqueleto
+  antes de añadir su fila. `foeReady(k)` dice cuáles hay; las fichas de Rivales (`c-*` en `options.uikitml`) se encienden
+  solas al añadirlos. Los puestos (`foeSlot`) son los de RepArena; los voladores no los usan.
 - Para el PR 12: tras la ronda sale el principal con una línea de cómo fue (`HOOKS.showMenu(texto)`): el resumen de
   RepArena (opción A) va antes. El menú de la muñeca, la caricatura (hasta entonces, el principal dice cómo se hace el
   ejercicio con `HOW`) y la pausa, también.
@@ -329,6 +346,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   cuenta el vapor de las compuertas (lanzado y visto a la vez) y la partida simulada lo exige.
 
 ## Fallos conocidos
+
+- PR 8a: aún no están el diablillo, el puglin, el lanzador, los robots ni los voladores (PR 8b): si solo eliges esos,
+  salen zombis verdes; sus fichas en Rivales dicen «Llega con el PR 8b».
+- PR 8a: los enemigos no hacen amenazas a media distancia ni zigzag o rachas (Ajustes → Cada enemigo): PR 8b. Los jefes,
+  la escalera de dureza y la resistencia que sube por oleadas superadas, con el PR 10. El baile al compás, con el ritmo
+  marcado (Opciones → Sonido); el de la canción de Spotify, con el PR 22.
+- PR 8a: el golpe no se puede parar todavía (la guardia y las espadas, PR 9).
+- PR 8a: en la VR simulada se han visto el capitán, el yeti, el zombi y el velociraptor saliendo, yendo a su puesto,
+  golpeando y con su voz; el baile al compás y las bolitas de vida de cerca, por mirar en las gafas.
 
 - PR 7: los menús se han pulsado en la VR simulada con el rayo del mando y con el dedo (la pulsación de IWSDK: contactos
   de medio segundo, que cuentan); en las gafas, por ver que se pulsa cómodo y sin tocar dos teclas.
