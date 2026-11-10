@@ -1,0 +1,94 @@
+<!--
+  El marcador, a un lado (0,56 m de ancho). Medidas en centímetros; letras: Rubik y, con «display», Bungee.
+-->
+<style>
+  .root {
+    flex-direction: column;
+    width: 56;
+    padding-top: 3;
+    padding-bottom: 3;
+    padding-left: 3.4;
+    padding-right: 3.4;
+    gap: 1.4;
+    background-color: #12151d;
+    border-radius: 3.4;
+    border-width: 0.4;
+    border-color: #3cf0c6;
+  }
+  .top {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .wave {
+    font-size: 4.2;
+    color: #ffd166;
+  }
+  .lives {
+    font-size: 2.8;
+    color: #ff6b8b;
+    font-weight: bold;
+  }
+  .big {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 2;
+  }
+  .reps {
+    font-size: 12;
+    color: #ffffff;
+  }
+  .reps-label {
+    font-size: 3.2;
+    color: #9fe8ff;
+    margin-bottom: 2.4;
+  }
+  .charge {
+    font-size: 4;
+    color: #8b95a8;
+  }
+  .row {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  .stat {
+    font-size: 2.8;
+    color: #e9eef7;
+  }
+  .msgbox {
+    height: 9;
+    justify-content: center;
+    align-items: center;
+    background-color: #1b2030;
+    border-radius: 2.2;
+  }
+  .msg {
+    font-size: 4.2;
+    color: #3cf0c6;
+    font-weight: bold;
+  }
+  .time {
+    font-size: 2.2;
+    color: #8b95a8;
+  }
+  .display {
+    letter-spacing: 0.1;
+  }
+</style>
+<div class="root">
+  <div class="top">
+    <span id="wave" class="wave display">PREPARADO</span>
+    <span id="lives" class="lives">VIDAS 5/5</span>
+  </div>
+  <div class="big">
+    <span id="reps" class="reps display">0</span>
+    <span id="reps-label" class="reps-label">sentadillas</span>
+  </div>
+  <span id="charge" class="charge display">Sin carga</span>
+  <div class="row">
+    <span id="kills" class="stat">Derribados: 0</span>
+    <span id="perfect" class="stat">Perfectas: 0</span>
+  </div>
+  <div class="msgbox"><span id="msg" class="msg">Pulsa EMPEZAR</span></div>
+  <span id="time" class="time">0:00</span>
+</div>

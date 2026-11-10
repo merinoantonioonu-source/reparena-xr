@@ -1,0 +1,436 @@
+/**
+ * Los zombis, con física de verdad (Havok): cada uno es una cápsula dinámica que choca con el suelo, las cajas, las
+ * rocas, la bola de energía y los demás zombis. Andan hacia ti dirigiendo su velocidad (no se teletransportan): rodean
+ * la bola y los obstáculos, se separan entre ellos y, si chocan, se empujan. Un disparo los hace retroceder; el último
+ * los lanza por el aire dando vueltas y caen al suelo como un cuerpo suelto.
+ */
+import {
+  AnimationAction,
+  AnimationMixer,
+  AssetManager,
+  createSystem,
+  Entity,
+  Group,
+  LoopOnce,
+  LoopRepeat,
+  Material,
+  Mesh,
+  Object3D,
+  PhysicsBody,
+  PhysicsManipulation,
+  PhysicsShape,
+  PhysicsShapeType,
+  PhysicsState,
+  PhysicsSystem,
+  Quaternion,
+  SkinnedMesh,
+  Vector3,
+} from '@iwsdk/core';
+import { Foe, FoeState, Obstacle } from './game-components.js';
+import { sfx } from './sound.js';
+import { GAME, HOOKS } from './state.js';
+
+type FoeKind = 'basic' | 'chubby';
+
+/** Cada tipo: su modelo, su tamaño (alto de la cápsula y radio), su escala, su vida y el tono de su voz. */
+const KIND: Record<FoeKind, { asset: string; height: number; radius: number; scale: number; hp: number; pitch: number; mass: number }> = {
+  basic: { asset: 'zombie-basic', height: 1.62, radius: 0.27, scale: 1.2, hp: 2, pitch: 1.0, mass: 1 },
+  chubby: { asset: 'zombie-chubby', height: 1.8, radius: 0.38, scale: 1.1, hp: 4, pitch: 0.75, mass: 1.6 },
+};
+
+/** Lo que no cabe en el componente: el modelo, sus animaciones y los relojes de cada zombi. */
+interface FoeRuntime {
+  kind: FoeKind;
+  model: Object3D;
+  mixer: AnimationMixer;
+  actions: Map<string, AnimationAction>;
+  current: string;
+  yaw: number;
+  groanT: number;
+  attackT: number;
+  struck: boolean;
+  /** Un disparo le acaba de dar: este fotograma manda su empujón, no la marcha. */
+  kick: boolean;
+  fade: Material[] | null;
+}
+
+const ATTACK_RANGE = 0.65; // a esta distancia (del jugador al borde del zombi) se para y golpea
+const STAGGER = 0.8; // segundos que se queda encajando el golpe
+const PUNCH_HIT = 0.42; // segundos del puñetazo en que llega el golpe
+const PUNCH_EVERY = 2.2;
+
+const wrap = (a: number): number => {
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
+};
+
+export class EnemySystem extends createSystem(
+  {
+    foes: { required: [Foe, PhysicsBody] },
+    obstacles: { required: [Obstacle] },
+  },
+  {},
+) {
+  private physics!: PhysicsSystem;
+  private playerBody: Entity | null = null;
+  private ballBody: Entity | null = null;
+  private ballPose = { position: new Vector3(0, -10, 0), quaternion: new Quaternion() };
+  private ballParked = true;
+  private v = new Vector3();
+  private w = new Vector3();
+  private des = new Vector3();
+  private tmp = new Vector3();
+  private up = new Vector3();
+  private fwd = new Vector3();
+  private q = new Quaternion();
+  private pos = new Vector3();
+  private manip = { force: [0, 0, 0] as [number, number, number], linearVelocity: [0, 0, 0] as [number, number, number], angularVelocity: [0, 0, 0] as [number, number, number] };
+  private playerPose = { position: new Vector3(), quaternion: new Quaternion() };
+
+  init(): void {
+    this.physics = this.world.getSystem(PhysicsSystem)!;
+    // el suelo: una caja estática de 60 × 60 m (su cara de arriba, a ras del suelo que se ve)
+    const floor = this.world.createTransformEntity(new Group());
+    floor.object3D!.position.set(0, -0.25, 0);
+    floor.addComponent(PhysicsShape, { shape: PhysicsShapeType.Box, dimensions: [60, 0.5, 60], friction: 0.7, restitution: 0.1 });
+    floor.addComponent(PhysicsBody, { state: PhysicsState.Static });
+    // tu cuerpo: una cápsula que sigue a la cabeza (los zombis y los cuerpos que caen no te atraviesan)
+    const me = this.world.createTransformEntity(new Group());
+    me.object3D!.position.set(0, 0.85, 0);
+    me.addComponent(PhysicsShape, { shape: PhysicsShapeType.Capsules, dimensions: [0.22, 1.7, 0], friction: 0.2 });
+    me.addComponent(PhysicsBody, { state: PhysicsState.Kinematic });
+    this.playerBody = me;
+    // la bola de energía: una esfera que se mueve con ella (si no se ve, se aparca bajo el suelo)
+    const ball = this.world.createTransformEntity(new Group());
+    ball.object3D!.position.set(0, -10, 0);
+    ball.addComponent(PhysicsShape, { shape: PhysicsShapeType.Sphere, dimensions: [GAME.ballR, 0, 0], friction: 0.3, restitution: 0.3 });
+    ball.addComponent(PhysicsBody, { state: PhysicsState.Kinematic });
+    this.ballBody = ball;
+  }
+
+  /** Cuántos zombis quedan en pie. */
+  aliveCount(): number {
+    let n = 0;
+    for (const e of this.queries.foes.entities) if (e.getValue(Foe, 'state') !== FoeState.Dead) n++;
+    return n;
+  }
+
+  /** Saca un zombi de un tipo en (x, z), mirando hacia el jugador. */
+  spawn(kind: FoeKind, x: number, z: number): void {
+    const K = KIND[kind];
+    const gltf = AssetManager.getGLTF(K.asset);
+    if (!gltf) return;
+    const root = new Group();
+    root.name = `zombi-${kind}`;
+    const model = gltf.scene;
+    model.scale.setScalar(K.scale);
+    model.position.y = -K.height / 2; // los pies, en la base de la cápsula
+    model.traverse((o) => {
+      const m = o as Mesh;
+      if (m.isMesh) {
+        m.castShadow = true;
+        m.receiveShadow = false;
+        // (animado, se sale de su caja de reposo: sin esto, desaparecía a ratos por el borde de la vista)
+        if ((o as SkinnedMesh).isSkinnedMesh) m.frustumCulled = false;
+      }
+    });
+    root.add(model);
+    const yaw = Math.atan2(GAME.head.x - x, GAME.head.z - z);
+    root.position.set(x, K.height / 2 + 0.02, z);
+    root.quaternion.setFromAxisAngle(this.up.set(0, 1, 0), yaw);
+    const mixer = new AnimationMixer(model);
+    const actions = new Map<string, AnimationAction>();
+    for (const clip of gltf.animations) actions.set(clip.name, mixer.clipAction(clip));
+    const rt: FoeRuntime = { kind, model, mixer, actions, current: '', yaw, groanT: 1 + Math.random() * 3, attackT: 0.6, struck: false, kick: false, fade: null };
+    root.userData.rt = rt;
+    const e = this.world.createTransformEntity(root);
+    e.addComponent(Foe, { hp: K.hp, speed: GAME.foeSpeed * (kind === 'chubby' ? 0.8 : 1) * (0.9 + Math.random() * 0.2), state: FoeState.Walk, timer: 0, side: Math.random() < 0.5 ? -1 : 1, radius: K.radius });
+    e.addComponent(PhysicsShape, { shape: PhysicsShapeType.Capsules, dimensions: [K.radius, K.height, 0], density: K.mass * 60, friction: 0.15, restitution: 0.05 });
+    e.addComponent(PhysicsBody, { state: PhysicsState.Dynamic, linearDamping: 0.2, angularDamping: 6 });
+    this.anim(rt, 'Walk', 0);
+    sfx.groan(root.position, K.pitch);
+  }
+
+  /** Al acabar la ronda: los que quedan en pie se desvanecen (no tapan el resumen). */
+  vanishAll(): void {
+    for (const e of this.queries.foes.entities) {
+      if (e.getValue(Foe, 'state') === FoeState.Dead) continue;
+      e.setValue(Foe, 'state', FoeState.Dead);
+      e.setValue(Foe, 'timer', 3.2); // (se empiezan a desvanecer ya)
+    }
+  }
+
+  /** Quita a todos (al empezar otra ronda). */
+  clear(): void {
+    for (const e of [...this.queries.foes.entities]) this.remove(e);
+  }
+
+  private remove(e: Entity): void {
+    const rt = e.object3D?.userData.rt as FoeRuntime | undefined;
+    if (rt) {
+      rt.mixer.stopAllAction();
+      if (rt.fade) for (const m of rt.fade) m.dispose();
+    }
+    // (los modelos comparten mallas, materiales y texturas: no se liberan al quitar uno)
+    e.dispose({ disposeResources: false });
+  }
+
+  // cambia de animación con un fundido
+  private anim(rt: FoeRuntime, name: string, fade = 0.25, once = false, timeScale = 1): void {
+    const a = rt.actions.get(name);
+    if (!a) return;
+    a.timeScale = timeScale;
+    if (rt.current === name && !once) return;
+    const prev = rt.actions.get(rt.current);
+    a.reset();
+    a.setLoop(once ? LoopOnce : LoopRepeat, once ? 1 : Infinity);
+    a.clampWhenFinished = once;
+    a.enabled = true;
+    a.setEffectiveWeight(1);
+    if (prev && prev !== a && fade > 0) a.crossFadeFrom(prev, fade, false);
+    else if (prev && prev !== a) prev.stop();
+    a.play();
+    rt.current = name;
+  }
+
+  /**
+   * Un disparo le da: quita la carga en vida; si sigue en pie, retrocede empujado por la física y encaja el golpe; si
+   * no, sale despedido dando vueltas. dir: hacia dónde va el rayo (horizontal).
+   */
+  hit(e: Entity, power: number, dir: Vector3): void {
+    const rt = e.object3D?.userData.rt as FoeRuntime | undefined;
+    if (!rt || e.getValue(Foe, 'state') === FoeState.Dead) return;
+    const dmg = [1, 2, 3, 5][Math.max(1, Math.min(4, power)) - 1];
+    const hp = Math.max(0, (e.getValue(Foe, 'hp') ?? 1) - dmg); // (el campo no admite negativos: lanzaría un error)
+    e.setValue(Foe, 'hp', hp);
+    const mass = KIND[rt.kind].mass;
+    if (hp > 0) {
+      e.setValue(Foe, 'state', FoeState.Stagger);
+      e.setValue(Foe, 'timer', 0);
+      const kb = (1.6 + 0.9 * power) / mass;
+      this.setVel(e, dir.x * kb, 0.6 + 0.3 * power, dir.z * kb, null);
+      rt.kick = true;
+      this.anim(rt, 'HitReact', 0.08, true, 1.3);
+      return;
+    }
+    // muerto: cuerpo suelto (sin enderezarse), lanzado hacia atrás y hacia arriba, girando
+    e.setValue(Foe, 'state', FoeState.Dead);
+    e.setValue(Foe, 'timer', 0);
+    e.setValue(PhysicsBody, 'angularDamping', 0.6);
+    e.setValue(PhysicsBody, 'linearDamping', 1.0);
+    const kb = (3.2 + 1.4 * power) / Math.sqrt(mass);
+    this.tmp.set(dir.z, 0, -dir.x); // (el eje del vuelco: horizontal, de lado al empujón)
+    const spin = 3.5 + 1.5 * power;
+    this.setVel(e, dir.x * kb, 2.4 + 0.6 * power, dir.z * kb, this.tmp.multiplyScalar(spin));
+    rt.kick = true;
+    // la postura del golpe, congelada: cae como un cuerpo rígido
+    this.anim(rt, 'HitReact', 0.05, true, 1);
+    const a = rt.actions.get('HitReact');
+    if (a) {
+      a.time = a.getClip().duration * 0.35;
+      a.paused = true;
+    }
+    sfx.down(e.object3D!.position);
+    HOOKS.foeDown();
+  }
+
+  // pide a la física una velocidad (y un giro) para el siguiente paso; vx NaN: la velocidad no se toca (empujado, la
+  // física lo frena sola)
+  private setVel(e: Entity, vx: number, vy: number, vz: number, ang: Vector3 | null): void {
+    const m = this.manip;
+    m.force[0] = m.force[1] = m.force[2] = 0;
+    if (Number.isNaN(vx)) m.linearVelocity[0] = m.linearVelocity[1] = m.linearVelocity[2] = 0;
+    else {
+      m.linearVelocity[0] = vx;
+      m.linearVelocity[1] = vy === 0 && vx === 0 && vz === 0 ? 1e-5 : vy; // (todo a cero = «no cambies»)
+      m.linearVelocity[2] = vz;
+    }
+    if (ang) {
+      m.angularVelocity[0] = ang.x;
+      m.angularVelocity[1] = ang.y;
+      m.angularVelocity[2] = ang.z;
+    } else m.angularVelocity[0] = m.angularVelocity[1] = m.angularVelocity[2] = 0;
+    if (e.hasComponent(PhysicsManipulation)) e.removeComponent(PhysicsManipulation);
+    e.addComponent(PhysicsManipulation, m);
+  }
+
+  // Dirección deseada (horizontal, en des) para ir hacia el jugador rodeando la bola, las cajas, las rocas y a los
+  // demás zombis
+  private steer(e: Entity, p: Vector3, r: number, side: number): void {
+    const tx = GAME.head.x - p.x, tz = GAME.head.z - p.z;
+    const dist = Math.hypot(tx, tz) || 1;
+    const dx = tx / dist, dz = tz / dist;
+    this.des.set(dx, 0, dz);
+    const look = Math.min(3, dist);
+    // un obstáculo redondo (cx, cz, radio R): si está delante y en el camino, me aparto hacia un lado (el que ya
+    // llevo, o el que me aleja del centro); si estoy encima, me empuja hacia fuera
+    const avoid = (cx: number, cz: number, R: number, weight: number): void => {
+      const ox = cx - p.x, oz = cz - p.z;
+      const ahead = ox * dx + oz * dz;
+      const lat = ox * -dz + oz * dx; // (positivo: el centro queda a la izquierda)
+      const clear = R + r + 0.18;
+      const d = Math.hypot(ox, oz);
+      if (d < clear) {
+        const k = (clear - d) / clear;
+        this.des.x -= (ox / (d || 1)) * k * 3 * weight;
+        this.des.z -= (oz / (d || 1)) * k * 3 * weight;
+      }
+      if (ahead <= 0 || ahead > look + R) return;
+      if (Math.abs(lat) > clear) return;
+      const s = Math.abs(lat) > 0.05 ? -Math.sign(lat) : side; // (por el lado contrario al centro)
+      const k = (1 - Math.abs(lat) / clear) * (1 - Math.max(0, ahead - R) / (look + 0.01)) * 2.2 * weight;
+      this.des.x += -dz * s * k;
+      this.des.z += dx * s * k;
+    };
+    if (GAME.ballOn) avoid(GAME.ballPos.x, GAME.ballPos.z, GAME.ballR, 1.4);
+    for (const o of this.queries.obstacles.entities) {
+      const ob = o.object3D;
+      if (!ob) continue;
+      avoid(ob.position.x, ob.position.z, o.getValue(Obstacle, 'radius') ?? 0.6, 1);
+    }
+    // separarse de los demás (sin chocar entre ellos)
+    for (const other of this.queries.foes.entities) {
+      if (other === e || !other.object3D) continue;
+      const op = other.object3D.position;
+      const ox = p.x - op.x, oz = p.z - op.z, d2 = ox * ox + oz * oz;
+      const rr = r + (other.getValue(Foe, 'radius') ?? 0.3) + 0.35;
+      if (d2 > rr * rr || d2 < 1e-6) continue;
+      const d = Math.sqrt(d2), k = ((rr - d) / rr) * 1.6;
+      this.des.x += (ox / d) * k;
+      this.des.z += (oz / d) * k;
+    }
+    const l = Math.hypot(this.des.x, this.des.z) || 1;
+    this.des.x /= l;
+    this.des.z /= l;
+  }
+
+  update(delta: number): void {
+    const dt = Math.min(delta, 0.05);
+    // tu cápsula, donde estás (solo si te has movido algo)
+    if (this.playerBody?.object3D) {
+      const pp = this.playerPose.position;
+      if (Math.abs(pp.x - GAME.head.x) + Math.abs(pp.z - GAME.head.z) > 0.01 || pp.y === 0) {
+        pp.set(GAME.head.x, 0.85, GAME.head.z);
+        this.physics.setBodyTransform(this.playerBody, this.playerPose);
+      }
+    }
+    // la esfera de la bola, con la bola (o aparcada bajo el suelo si no se ve)
+    if (this.ballBody?.object3D) {
+      const bp = this.ballPose.position;
+      if (GAME.ballOn) {
+        if (this.ballParked || bp.distanceToSquared(GAME.ballPos) > 0.0001) {
+          bp.copy(GAME.ballPos);
+          this.physics.setBodyTransform(this.ballBody, this.ballPose);
+          this.ballParked = false;
+        }
+      } else if (!this.ballParked) {
+        bp.set(GAME.ballPos.x, -10, GAME.ballPos.z);
+        this.physics.setBodyTransform(this.ballBody, this.ballPose);
+        this.ballParked = true;
+      }
+    }
+    const playing = GAME.phase === 'playing';
+    for (const e of this.queries.foes.entities) {
+      const o = e.object3D;
+      const rt = o?.userData.rt as FoeRuntime | undefined;
+      if (!o || !rt) continue;
+      rt.mixer.update(dt);
+      const state: string = e.getValue(Foe, 'state') ?? FoeState.Walk;
+      const timer = (e.getValue(Foe, 'timer') ?? 0) + dt;
+      e.setValue(Foe, 'timer', timer);
+      if (state === FoeState.Dead) {
+        // tumbado un rato; luego se desvanece y desaparece
+        if (timer > 3.2 && !rt.fade) {
+          rt.fade = [];
+          o.traverse((c) => {
+            const m = c as Mesh;
+            if (!m.isMesh) return;
+            const mat = (m.material as Material).clone();
+            mat.transparent = true;
+            m.material = mat;
+            rt.fade!.push(mat);
+          });
+        }
+        if (rt.fade) {
+          const k = Math.max(0, 1 - (timer - 3.2) / 0.8);
+          for (const m of rt.fade) m.opacity = k;
+          if (k <= 0) this.remove(e);
+        }
+        continue;
+      }
+      if (!e.getValue(PhysicsBody, '_engineBody')) continue; // (la física aún no lo ha creado)
+      const p = this.pos.copy(o.position);
+      const r = e.getValue(Foe, 'radius') ?? 0.3;
+      const vel = e.getVectorView(PhysicsBody, '_linearVelocity');
+      // si cae fuera del mundo o lo lanzan lejos, se quita
+      if (p.y < -5 || Math.abs(p.x) > 40 || Math.abs(p.z) > 40) {
+        this.remove(e);
+        continue;
+      }
+      const toX = GAME.head.x - p.x, toZ = GAME.head.z - p.z, dist = Math.hypot(toX, toZ);
+      let wantYaw = Math.atan2(toX, toZ);
+      let vx = NaN, vz = NaN; // (NaN: la velocidad la lleva la física)
+      let newState = state;
+      if (!playing) {
+        this.anim(rt, 'Idle'); // fuera de la partida: quietos (la física los frena)
+      } else if (state === FoeState.Stagger) {
+        if (timer > STAGGER) newState = FoeState.Walk; // (empujado: no se dirige; la física lo frena)
+      } else if (state === FoeState.Walk) {
+        const speed = e.getValue(Foe, 'speed') ?? 1;
+        this.steer(e, p, r, e.getValue(Foe, 'side') ?? 1);
+        const slow = Math.min(1, Math.max(0.3, (dist - r - ATTACK_RANGE) / 1.0)); // (frena al llegar)
+        const ax = this.des.x * speed * slow, az = this.des.z * speed * slow;
+        const blend = Math.min(1, dt * 12); // (no del todo: así los choques también lo mueven)
+        vx = vel[0] + (ax - vel[0]) * blend;
+        vz = vel[2] + (az - vel[2]) * blend;
+        if (Math.hypot(vx, vz) > 0.15) wantYaw = Math.atan2(vx, vz);
+        if (speed > 1.35) this.anim(rt, 'Run', 0.3, false, speed / 2.6);
+        else this.anim(rt, 'Walk', 0.3, false, Math.max(0.6, Math.hypot(vx, vz) / 0.9));
+        if (dist < ATTACK_RANGE + r) {
+          newState = FoeState.Attack;
+          rt.attackT = 0.35;
+        }
+        rt.groanT -= dt;
+        if (rt.groanT <= 0) {
+          rt.groanT = 3 + Math.random() * 5;
+          sfx.groan(p, KIND[rt.kind].pitch);
+        }
+      } else if (state === FoeState.Attack) {
+        // quieto, de cara a ti; cada poco, un puñetazo (si sigues cerca, te da)
+        const keep = 1 - Math.min(1, dt * 10);
+        vx = vel[0] * keep;
+        vz = vel[2] * keep;
+        rt.attackT -= dt;
+        if (rt.attackT <= 0) {
+          rt.attackT = PUNCH_EVERY;
+          rt.struck = false;
+          this.anim(rt, 'Punch', 0.12, true, 1.1);
+        }
+        if (rt.current === 'Punch' && !rt.struck && PUNCH_EVERY - rt.attackT > PUNCH_HIT) {
+          rt.struck = true;
+          if (dist < ATTACK_RANGE + r + 0.35) HOOKS.playerHit();
+        }
+        if (rt.current === 'Punch' && PUNCH_EVERY - rt.attackT > 1.0) this.anim(rt, 'Idle', 0.3);
+        if (dist > ATTACK_RANGE + r + 0.5) newState = FoeState.Walk;
+      }
+      if (newState !== state) {
+        e.setValue(Foe, 'state', newState);
+        e.setValue(Foe, 'timer', 0);
+      }
+      // el empujón de un disparo manda en este paso (si no, la marcha lo borraría)
+      if (rt.kick) {
+        rt.kick = false;
+        continue;
+      }
+      // de pie y girado hacia donde va: la física manda en la posición; esto solo corrige la inclinación y el rumbo
+      this.q.copy(o.quaternion);
+      this.up.set(0, 1, 0).applyQuaternion(this.q);
+      this.w.crossVectors(this.up, this.tmp.set(0, 1, 0)).multiplyScalar(12); // (endereza)
+      this.fwd.set(0, 0, 1).applyQuaternion(this.q);
+      const yawErr = wrap(wantYaw - Math.atan2(this.fwd.x, this.fwd.z));
+      this.w.y += Math.max(-5, Math.min(5, yawErr * 7)) + 1e-5; // (nunca todo a cero: sería «no cambies»)
+      this.setVel(e, vx, vel[1], vz, this.w);
+    }
+  }
+}

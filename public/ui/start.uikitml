@@ -1,0 +1,127 @@
+<!--
+  Panel de inicio (y de fin de ronda). Las medidas, en centímetros (el panel mide 0,92 m de ancho).
+  Las letras se cambian al cargar (src/fonts.ts): Rubik para el texto y Bungee para lo que lleva la clase «display».
+-->
+<style>
+  .root {
+    flex-direction: column;
+    align-items: center;
+    width: 92;
+    padding-top: 4;
+    padding-bottom: 4;
+    padding-left: 5;
+    padding-right: 5;
+    gap: 2;
+    background-color: #12151d;
+    border-radius: 4;
+    border-width: 0.4;
+    border-color: #ff3d8b;
+  }
+  .title {
+    font-size: 8;
+    color: #ff3d8b;
+  }
+  .subtitle {
+    font-size: 2.8;
+    color: #9fe8ff;
+    text-align: center;
+  }
+  .how {
+    flex-direction: column;
+    gap: 1;
+    width: 82;
+    padding-top: 2.4;
+    padding-bottom: 2.4;
+    padding-left: 3;
+    padding-right: 3;
+    background-color: #1b2030;
+    border-radius: 2.4;
+  }
+  .line {
+    font-size: 2.6;
+    color: #e9eef7;
+  }
+  .start {
+    width: 60;
+    height: 13;
+    justify-content: center;
+    align-items: center;
+    background-color: #3cf0c6;
+    border-radius: 6.5;
+    cursor: pointer;
+  }
+  .start:hover {
+    background-color: #8bffe6;
+  }
+  .start-label {
+    font-size: 6.2;
+    color: #0d1016;
+  }
+  .row {
+    flex-direction: row;
+    align-items: center;
+    gap: 1.4;
+  }
+  .qlabel {
+    font-size: 2.4;
+    color: #c9d2e3;
+    margin-right: 1;
+  }
+  .q {
+    padding-top: 1.2;
+    padding-bottom: 1.2;
+    padding-left: 2.2;
+    padding-right: 2.2;
+    border-radius: 2;
+    background-color: #2a2f3a;
+    color: #c9d2e3;
+    font-size: 2.4;
+    cursor: pointer;
+  }
+  .q:hover {
+    background-color: #3b4252;
+  }
+  .note {
+    font-size: 2;
+    color: #8b95a8;
+  }
+  .xr {
+    width: 52;
+    height: 9;
+    justify-content: center;
+    align-items: center;
+    background-color: #ff3d8b;
+    border-radius: 4.5;
+    cursor: pointer;
+  }
+  .xr:hover {
+    background-color: #ff77ad;
+  }
+  .xr-label {
+    font-size: 4;
+    color: #ffffff;
+  }
+  .display {
+    letter-spacing: 0.1;
+  }
+</style>
+<div class="root">
+  <span id="title" class="title display">REPARENA XR</span>
+  <span id="subtitle" class="subtitle">Prototipo · Combate con sentadillas</span>
+  <div class="how">
+    <span class="line">1. Baja en sentadilla: se enciende la bola roja de energía.</span>
+    <span class="line">2. Aguanta abajo en la postura perfecta: ×2, ×3 y ×4.</span>
+    <span class="line">3. Lanza el rayo con una sacudida de la mano hacia el zombi.</span>
+    <span class="line">Con mandos: apunta con la mano y aprieta el gatillo.</span>
+  </div>
+  <button id="start-button" class="start"><span id="start-label" class="start-label display">EMPEZAR</span></button>
+  <div class="row">
+    <span class="qlabel">Nitidez en las gafas:</span>
+    <button id="q-normal" class="q">Normal ×1</button>
+    <button id="q-alta" class="q">Alta ×1,4</button>
+    <button id="q-max" class="q">Máxima ×1,7</button>
+  </div>
+  <span id="q-note" class="note">Se aplica al entrar en VR</span>
+  <button id="xr-button" class="xr"><span class="xr-label display">ENTRAR EN VR</span></button>
+  <span id="desk-hint" class="note">En el ordenador: flecha abajo (o S) para agacharte y espacio para lanzar.</span>
+</div>
