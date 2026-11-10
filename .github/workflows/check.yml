@@ -1,4 +1,4 @@
-# Comprueba cada PR: tipos y construcción (sin publicar).
+# Comprueba cada PR: tipos, pruebas de la lógica y la partida simulada (sin publicar).
 name: Comprobar
 
 on:
@@ -18,6 +18,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: npm run build
+      - run: npm test
+      # el Chromium de Playwright para la partida simulada
+      - run: npx playwright install --with-deps chromium
+      # (construye la versión publicable y juega una partida en ella)
+      - run: npm run test:e2e
         env:
           NODE_ENV: production
+          E2E_SHOTS: e2e-capturas
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-partida-simulada
+          path: e2e-capturas
+          if-no-files-found: ignore

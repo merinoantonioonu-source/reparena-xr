@@ -26,9 +26,9 @@ import {
   SkinnedMesh,
   Vector3,
 } from '@iwsdk/core';
-import { Foe, FoeState, Obstacle } from './game-components.js';
-import { sfx } from './sound.js';
-import { GAME, HOOKS } from './state.js';
+import { Foe, FoeState, Obstacle } from './components.js';
+import { sfx } from '../audio/sound.js';
+import { GAME, HOOKS } from '../core/state.js';
 
 type FoeKind = 'basic' | 'chubby';
 

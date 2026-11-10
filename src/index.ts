@@ -5,9 +5,9 @@
  */
 import { World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
-import { EnemySystem } from './enemies.js';
-import { GameSystem } from './game.js';
-import { useLocalInputModels } from './input-models.js';
+import { EnemySystem } from './combat/enemies.js';
+import { GameSystem } from './combat/game.js';
+import { useLocalInputModels } from './input/input-models.js';
 
 useLocalInputModels();
 
