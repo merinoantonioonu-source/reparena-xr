@@ -67,6 +67,7 @@ export default defineAssets({
   'foe-mushroom': foe('monstruitos/mushroom.glb', 'Seta'),
   // los voladores (Cute Animated Monsters)
   'foe-bee': foe('monstruitos/bee.glb', 'Abeja'),
+  tentacle: foe('tentaculo.glb', 'Tentáculo del charco'),
   'foe-bat': foe('monstruitos/bat.glb', 'Murciélago'),
   'foe-cthulhu': foe('monstruitos/cthulhu.glb', 'Cthulhu'),
   'foe-dragon': foe('monstruitos/yellowdragon.glb', 'Dragón'),

@@ -19,5 +19,7 @@ Más licencias: los modelos y texturas del Bestiary están bajo la Quaternius As
 gratis en juegos y otros proyectos; los mismos que usa RepArena). La Universal Animation Library, CC0. el zombi, el Pirate Kit y Cute Animated Monsters no traen archivo de licencia; Quaternius publica sus packs
 gratuitos como CC0 (dominio público). El Dinosaur Animated Pack, CC0.
 
+| `tentaculo.glb` | **Tentáculo** del charco de las barras (Pirate Kit, de Quaternius, CC0) con sus cuatro animaciones: reposo (`Tentacle_Idle`, se mece), pinchazo (`Poke`), latigazo (`Attack`) y barrido (`Attack2`). Convertido de su `.gltf` a `.glb`, sin simplificar (3.900 triángulos). Es el de RepArena. |
+
 Los retratos de cada enemigo para sus fichas del menú (`../retratos/*.png`, 128 px) salen de la hoja de RepArena
 (`models/retratos.png`, hecha con estos modelos por su `tests/retratos.js`), cortada una vez.

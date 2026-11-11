@@ -15,6 +15,7 @@ import { num, settings, str } from '../../core/values.js';
 import { GateSystem } from '../../combat/gates.js';
 import { hands, head } from '../../input/hand-model.js';
 import { setSetting } from '../../core/settings.js';
+import { HangScene } from './hang-scene.js';
 import { createBubble, createDipBars, createDoorBar, type BarRigParts, type BubbleParts } from '../../scene-assets/bars.scene-asset.js';
 import { BarDetector, powRgb } from './detect.js';
 import { dipOne, eqName, eqPose, loadEquip, type Equip } from './equip.js';
@@ -51,6 +52,7 @@ export class BarsSystem extends createSystem({}) {
   private rig: BarRigParts | null = null;
   private rigKey = '';
   private line!: Mesh;
+  private hang!: HangScene;
   private entries: TEntry[] = [];
   private clock = 0;
   private gates: GateSystem | null = null;
@@ -94,6 +96,10 @@ export class BarsSystem extends createSystem({}) {
     this.line.userData.noInk = true;
     this.line.visible = false;
     this.root.add(this.line);
+    this.hang = new HangScene(this.root, this.world.scene);
+    // la arena de siempre (compuertas, cajas, rocas, suelo, valle y nubes), que de noche se esconde en el bosque
+    const arena = ['arena-floor', 'gate-left', 'gate-center', 'gate-right', 'crate-a', 'crate-b', 'crate-c', 'rock-a', 'rock-b', 'comic-valley', 'comic-clouds'];
+    this.hang.arenaOf = () => arena.map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is NonNullable<typeof o> => !!o);
     HOOKS.placeEq = (note) => this.startPlace(() => HOOKS.showMenu(''), note ?? '');
     HOOKS.eqPlaced = () => this.placed();
     HOOKS.placing = () => this.placing;
@@ -240,6 +246,7 @@ export class BarsSystem extends createSystem({}) {
     for (const e of this.entries) this.free(e);
     this.entries.length = 0;
     this.mstate = 'off';
+    this.hang?.clear();
     if (this.rig) this.rig.grp.visible = false;
   }
 
@@ -260,6 +267,7 @@ export class BarsSystem extends createSystem({}) {
       this.paintLine();
     } else this.line.visible = false;
     this.syncRig();
+    this.stepHang(dt, time);
     if (GAME.phase !== 'playing' || this.mstate === 'off') return;
     if (GAME.paused) return;
     if (this.mstate === 'mount') {
@@ -277,6 +285,25 @@ export class BarsSystem extends createSystem({}) {
     this.field.update(dt, time, this.env, this.out);
     this.applyAll();
     this.syncTargets(dt);
+  }
+
+  // lo de debajo del que cuelga: el charco con tentáculos o el remolino, y el bosque de noche si cuelga
+  private stepHang(dt: number, t: number): void {
+    const door = str('exercise') !== 'row', e = eqPose(this.eq, false, 'door'), live = GAME.phase === 'playing' && this.mstate !== 'off' && e.set;
+    this.hang.update(dt, t, {
+      door: door && live,
+      hang: str('exercise') === 'hang',
+      pit: str('hangPit') || 'pool',
+      mounting: this.mstate === 'mount',
+      playing: this.mstate === 'play' && !GAME.between,
+      frac: this.bar.need > 0 ? this.bar.hold / this.bar.need : 0,
+      x: e.x,
+      z: e.z,
+      yaw: e.yaw,
+      px: head.p.x,
+      pz: head.p.z,
+      paused: GAME.paused,
+    });
   }
 
   private applyAll(): void {
@@ -322,6 +349,21 @@ export class BarsSystem extends createSystem({}) {
         HOOKS.say(ev.text, WARN, 1.4, true);
         break;
       case 'fall': {
+        // con el remolino abierto, te traga y la oleada termina; en la barra de puerta, los tentáculos del charco te agarran
+        if (ev.door && str('exercise') === 'hang' && str('hangPit') === 'vortex') {
+          this.hang.engulf(ev.at);
+          HOOKS.playerHit(1, true);
+          if (GAME.phase === 'playing') {
+            HOOKS.say('¡TE ENGULLÓ EL REMOLINO!', '#ff6ab4', 2, false);
+            this.bar.failed = true;
+          }
+          break;
+        }
+        if (ev.door) this.hang.grab(ev.at);
+        else {
+          SND.partial();
+          HOOKS.sparks(ev.at, 8, 0xff8a4d);
+        }
         HOOKS.playerHit(1, true);
         if (GAME.phase === 'playing') {
           HOOKS.say(ev.text, ev.col, 1.8, false);
