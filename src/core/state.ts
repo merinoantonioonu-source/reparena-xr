@@ -106,6 +106,13 @@ export const HOOKS = {
   eqPlaced: (): boolean => true,
   placing: (): boolean => false,
   cancelPlace: (): void => {},
+  /** Ha cambiado lo que suena (o la conexión con Spotify): rehacer lo que lo enseña. */
+  spChanged: (): void => {},
+  /** Una pantalla genérica del menú (título y filas de texto o de botones, como `openMenu` de RepArena): la abre y la cierra el
+   * sistema de pantallas (src/ui/screen.ts). */
+  openScreen: (_rows: unknown[], _opts?: { title?: string; accent?: string }): void => {},
+  closeScreen: (): void => {},
+  screenOn: (): boolean => false,
   /** Unas chispas (n, del color c) en p: lo pone la partida. */
   sparks: (_p: Vector3, _n: number, _c: number): void => {},
 };

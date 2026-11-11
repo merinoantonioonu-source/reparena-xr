@@ -87,6 +87,7 @@ export default defineAssets({
   'trophy-card': uikitml('trophy.uikitml', 'Logro en grande (trofeo dorado)'),
   'summary-card': uikitml('summary.uikitml', 'Resumen de la ronda'),
   'pause-card': uikitml('pause.uikitml', 'Pausa'),
+  'screen-card': uikitml('screen.uikitml', 'Pantalla del menú'),
   'wrist-card': uikitml('wrist.uikitml', 'Botón MENÚ de la muñeca'),
   'center-card': uikitml('center.uikitml', 'Aviso del centro de la vista (calibración, ¡prepárate!)'),
   'hoy-card': uikitml('hoy.uikitml', 'Columna HOY (metas, cofre, racha y nivel)'),

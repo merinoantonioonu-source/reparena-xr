@@ -17,6 +17,7 @@ import { GateSystem } from '../../combat/gates.js';
 import { hands, head, type Side } from '../../input/hand-model.js';
 import { haptic } from '../../input/hand-system.js';
 import { createTouchGem, createTouchPad, createTouchRing, type TouchGemParts, type TouchPadParts, type TouchRingParts } from '../../scene-assets/touch.scene-asset.js';
+import { BEAT } from '../../core/beat-hub.js';
 import type { TouchEnv } from './env.js';
 import { TCH_COL, TouchTarget, mkTouch, tchPeriod, type TouchState } from './targets.js';
 import { buildTouchWave, frontGates, touchClear, touchLeft, touchStartWave, touchStep, type TouchSpec } from './wave.js';
@@ -189,6 +190,7 @@ export class TouchSystem extends createSystem({}) {
       return;
     }
     if (GAME.phase !== 'playing' || VIEW.duel) return;
+    this.tch.beat0 = BEAT.beat0; // (el pulso de la música: «Al compás» o el de Spotify)
     const evs = touchStep(this.tch, this.queue, dt, this.clock);
     for (const ev of evs) this.apply(ev);
     this.openFront();

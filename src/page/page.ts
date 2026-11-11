@@ -11,6 +11,8 @@ import { loadCanvasFonts } from '../ui/canvas-kit.js';
 import { onSettingsChange } from '../core/settings.js';
 import { HOOKS } from '../core/state.js';
 import { $ } from './dom.js';
+import { musicPage } from './music-page.js';
+import { xferPage } from './xfer-page.js';
 import { appEnter, appMount, appSoon } from './app.js';
 import { buildForm, formHooks, syncForm } from './form.js';
 import { navHooks, pageNav } from './nav.js';
@@ -48,6 +50,8 @@ export function startPage(): void {
   appSoon(); // (y lo de hoy en el inicio de la app del móvil)
   appMount(); // (en el móvil, la página es una app: PR 14b)
   demoPage();
+  xferPage(); // (pasar datos por código y la sincronización)
+  musicPage(); // (Spotify)
   $('#btnPreview')?.addEventListener('click', enterPreview);
   $('#btnExitPreview')?.addEventListener('click', exitPreview);
   addEventListener('keydown', (ev) => {

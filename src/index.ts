@@ -20,6 +20,7 @@ import { SoundSystem } from './audio/sound.js';
 import { ViewSystem } from './ui/view-panels.js';
 import { GoalsSystem } from './ui/goals-intro.js';
 import { MenuSystem } from './ui/menu.js';
+import { ScreenSystem } from './ui/screen.js';
 import { useLocalInputModels } from './input/input-models.js';
 import { initSettings } from './core/settings.js';
 import { pageWorld, startPage } from './page/page.js';
@@ -41,6 +42,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(EnvSystem, { priority: 7 });
   world.registerSystem(GameSystem, { priority: 6 });
   world.registerSystem(MenuSystem, { priority: 6 });
+  world.registerSystem(ScreenSystem, { priority: 6 });
   world.registerSystem(ViewSystem, { priority: 6 });
   world.registerSystem(GoalsSystem, { priority: 6 });
   world.registerSystem(ComicSystem, { priority: 7 });

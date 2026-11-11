@@ -749,6 +749,27 @@
       }
     },
     {
+      "id": "screen-panel",
+      "name": "Pantalla del menú",
+      "content": {
+        "type": "asset",
+        "asset": "screen-card"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.9,
+          -1.5
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1
+      }
+    },
+    {
       "id": "wrist-panel",
       "name": "Botón MENÚ de la muñeca",
       "content": {

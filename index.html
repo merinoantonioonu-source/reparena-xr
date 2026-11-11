@@ -33,7 +33,8 @@
     <!-- La página: entrar, elegir el modo y el ejercicio, los ajustes y tu progreso (RepArena: src/page.html). Se ve en el
          ordenador y en el navegador de las gafas antes de entrar; «Probar en el ordenador» y VR la esconden -->
     <div id="page">
-  <main class="wrap">
+  <div class="syncAsk" id="syncAsk" role="alertdialog" aria-live="assertive" hidden><p id="syncAskTxt"></p><div><button class="btn small alt" id="btnSyncYes">Importar</button><button class="btn small" id="btnSyncNo">Ahora no</button></div></div>
+<main class="wrap">
   <aside class="side">
     <header class="brand">
       <p class="eyebrow">Meta Quest 3 · WebXR · manos · hecho con IWSDK</p>

@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 import { Beat, MoteBeat, beatP, danceP, moteBpm } from '../../src/core/beat.js';
 import { Bpm, SP_RETRY, type BpmCfg, type BpmEnv, type FetchRes, type SpTrack } from '../../src/services/bpm.js';
 
-const DAY = 864e5;
 function setup(o: { dz?: Record<string, unknown>; rb?: Record<string, number>; rbStatus?: number; rbThrow?: boolean; fetch?: boolean } = {}) {
   const W = { now: 1e12, perf: 100, bpm: 0, track: null as SpTrack | null, progress: 0, cfg: {} as BpmCfg, saves: 0, calls: [] as string[], beat0: [] as number[], say: [] as string[] };
   const dz = o.dz || {}, rb = o.rb || {};
@@ -214,4 +213,3 @@ describe('reloj de pulsos', () => {
     expect(Math.abs(m.ph - want)).toBeLessThan(0.02);
   });
 });
-void DAY;

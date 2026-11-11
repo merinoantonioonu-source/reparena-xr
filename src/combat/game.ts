@@ -57,6 +57,8 @@ import { FlyerSystem } from './flyers.js';
 import { ArcsSystem } from '../modes/arcs/arcs-system.js';
 import { BarsSystem } from '../modes/bars/bars-system.js';
 import { EnvSystem } from '../env/env-system.js';
+import { BEAT } from '../core/beat-hub.js';
+import { spotify } from '../services/hub.js';
 import { TouchSystem } from '../modes/touch/touch-system.js';
 import { curEx } from '../ui/fields.js';
 import { PLAY_MODES, playableEx } from '../core/playable.js';
@@ -173,6 +175,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private waveTarget = 0;
   private taken0 = 0;
   private beatK = -1;
+  private wasPaused = false;
   // los que van a salir por una compuerta que se está abriendo (a cada uno le falta «t» para salir)
   private gates: GateSystem | null = null;
   private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0, kind: '', boss: false, hp: 1 }));
@@ -284,6 +287,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         this.arcs()?.clear();
         this.touch()?.clear();
         this.bars()?.clear();
+        spotify().roundEnd();
       }
       HOOKS.showMenu('');
     };
@@ -612,6 +616,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, score: 0, combo: 0, bestCombo: 0, taken: 0, startTime: this.clock });
     this.rampLvl = GAME.ramp = 0;
     GAME.ptsK = 1;
+    BEAT.reset(); // (el pulso se engancha a la música al empezar)
+    spotify().roundStart();
     if (settings.mode === 'arcs') this.arcs()?.begin(); else this.arcs()?.clear();
     if (settings.mode === 'touch') this.touch()?.begin(); else this.touch()?.clear();
     if (settings.mode === 'bars') this.bars()?.begin(); else this.bars()?.clear();
@@ -840,6 +846,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // Se acaba la ronda: al perder todas las vidas (win: false) o al superar la última oleada (RepArena: endRun)
   private endRound(win: boolean, manual = false): void {
     if (GAME.phase !== 'playing') return;
+    spotify().roundEnd(); // (la música se pausa al acabar la ronda y vuelve en la siguiente)
     GAME.paused = false;
     GAME.phase = 'over';
     GAME.between = false;
@@ -1328,6 +1335,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   update(delta: number, time: number): void {
     const dt = Math.min(delta, 0.05);
     this.stepOutcome(dt);
+    spotify().tick(dt); // (la música: se pregunta a Spotify cada pocos segundos)
+    if (this.wasPaused && !GAME.paused) BEAT.relock(); // (al seguir tras la pausa, el pulso se vuelve a enganchar a la música)
+    this.wasPaused = GAME.paused;
+    if (GAME.phase === 'playing' && !GAME.paused) BEAT.step(dt); // (el pulso de la música, para los modos y los enemigos)
     if (GAME.paused) {
       // en pausa: nada se mueve ni sale; el reloj de la ronda tampoco corre
       GAME.startTime += time - this.clock;
@@ -1395,8 +1406,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         this.stepPending(dt);
         let coming = 0;
         for (const p of this.pending) if (p.gate) coming++;
-        const P = num('bpm') > 0 ? 60 / num('bpm') : 0, bk = P ? Math.floor(time / P) : -1, beat = !P || bk !== this.beatK;
-        this.beatK = bk;
+        // con ritmo, los enemigos salen en el pulso (sin ritmo, cuando toca)
+        const beat = !BEAT.period() || BEAT.hit;
         if (this.queue.length && this.spawnT <= 0 && this.enemies.aliveCount() + coming < this.maxAlive && beat && this.spawnOne(this.queue[0])) {
           this.queue.shift();
           this.spawnT = this.gap * (0.8 + Math.random() * 0.4);

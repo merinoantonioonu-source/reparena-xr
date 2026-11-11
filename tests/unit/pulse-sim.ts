@@ -119,3 +119,11 @@ export class FakeDb {
 export const settle = async (n = 30): Promise<void> => {
   for (let i = 0; i < n; i++) await new Promise((r) => setImmediate(r));
 };
+/** Espera (de verdad, el cifrado va en otro hilo) hasta que se cumpla algo, como mucho `ms`. */
+export async function until(cond: () => boolean, ms = 3000): Promise<void> {
+  const t0 = Date.now();
+  while (!cond()) {
+    if (Date.now() - t0 > ms) throw new Error('no llegó a tiempo');
+    await new Promise((r) => setTimeout(r, 2));
+  }
+}

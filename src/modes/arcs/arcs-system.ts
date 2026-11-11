@@ -13,7 +13,7 @@ import { SND } from '../../audio/sound.js';
 import { haptic } from '../../input/hand-system.js';
 import { dv, store } from '../../core/settings.js';
 import { GAME, HOOKS } from '../../core/state.js';
-import { num, settings, str } from '../../core/values.js';
+import { num, on, settings, str } from '../../core/values.js';
 import { hands, head } from '../../input/hand-model.js';
 import { createArc, type ArcParts } from '../../scene-assets/arc.scene-asset.js';
 import { createLaser, createMace, createOrb, createWalls, type LaserParts, type MaceParts, type OrbParts, type WallsParts } from '../../scene-assets/arc-extras.scene-asset.js';
@@ -21,7 +21,9 @@ import { ArcCore, arxSpeed, type ArcOutcome } from './arc.js';
 import { HEAD_TOP, type ArcsEnv } from './env.js';
 import { ArcObsCore, ArcOrbCore, type ObsOutcome } from './obstacles.js';
 import { ARX_JUMP_GAP, ArcNewKind, arcGap, arcSpawnPlan, arxBeatGap, buildArcsWave, type ArcSpec } from './patterns.js';
-import { ARX_GHOST, ArxState, arxClean, arxEnd, arxGhostDiff, arxHit, arxPtsK, arxReset, arxStep, type ArxEnd, type ArxEvent, type ArxFrame, type ArxGhost } from './state.js';
+import { BEAT } from '../../core/beat-hub.js';
+import { arxBeatP } from '../../core/beat.js';
+import { ARX_GHOST, ArxState, arxBeatTick, arxClean, arxEnd, arxGhostDiff, arxHit, arxPtsK, arxReset, arxStep, type ArxEnd, type ArxEvent, type ArxFrame, type ArxGhost } from './state.js';
 
 const TAU = Math.PI * 2;
 const rnd = Math.random;
@@ -102,7 +104,9 @@ export class ArcsSystem extends createSystem({}) {
       get jumpFastT() {
         return self.jumpFast;
       },
-      beatP: 0, // (la música llega con el PR 22)
+      get beatP() {
+        return arxBeatP(true, on('arcBeat'), num('bpm')); // (con música y «Arcos al compás»: cada arco llega en un pulso)
+      },
       get time() {
         return self.clock;
       },
@@ -193,7 +197,9 @@ export class ArcsSystem extends createSystem({}) {
     // salen de la cola, a su ritmo
     if (play) {
       this.spawnT -= dt;
-      if (this.spawnT <= 0 && this.queue.length) this.spawn();
+      // con ritmo, el siguiente sale cuando pasa el pulso en que ha de llegarte; sin ritmo, siempre (RepArena: arxBeatTick)
+      const onBeat = arxBeatTick(this.arx, this.env, arxSpeed(this.env, this.arx), BEAT.now());
+      if (this.spawnT <= 0 && this.queue.length && onBeat) this.spawn();
     }
     // los arcos y los obstáculos
     for (const e of this.arcs) this.stepArc(e, dt, judging);
@@ -207,7 +213,7 @@ export class ArcsSystem extends createSystem({}) {
       this.obstacles.splice(i, 1);
     }
     // los metros, la línea de puntos y los orbes
-    const frame: ArxFrame = { play, winOpen: GAME.between && false, speed: arxSpeed(this.env, this.arx), score: GAME.score, beatNow: 0 };
+    const frame: ArxFrame = { play, winOpen: GAME.between && false, speed: arxSpeed(this.env, this.arx), score: GAME.score, beatNow: BEAT.now() };
     const out = arxStep(this.arx, this.env, dt, frame);
     if (out.event) this.apply(out.event);
     if (out.spawnOrb) this.addOrb();

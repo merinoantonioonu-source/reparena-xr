@@ -6,13 +6,20 @@
 // (Se salta sin RA_DIR: ver tests/compare/ra.ts.)
 import { webcrypto } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { Sync, XFER_KEYS, xferOpen, xferSeal, xferSummary, xferTopic, syncMerge, syncNews, type SyncAsk, type SyncSide, type XferEnv, type XferPacket, type XferResponse } from '../../src/services/xfer.js';
+import { Sync, SYNC_DB, SYNC_KEY, SYNC_SALT, XFER_BASE, XFER_CHUNK, XFER_HOURS, XFER_KEYS, xferOpen, xferSeal, xferSummary, xferTopic, syncMerge, syncNews, type SyncAsk, type SyncSide, type XferEnv, type XferPacket, type XferResponse } from '../../src/services/xfer.js';
 import { Mem, RA_DIR, raRun, raSlice } from './ra.js';
 
 process.env.TZ = 'Europe/Madrid';
 const cr = webcrypto as unknown as Crypto;
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
 const js = (v: unknown) => JSON.parse(JSON.stringify(v ?? null));
+const out = (f: () => unknown): unknown => {
+  try {
+    return js(f());
+  } catch {
+    return 'error';
+  }
+};
 const res = (status: number, body: string): XferResponse => ({ ok: status >= 200 && status < 300, status, text: async () => body, json: async () => JSON.parse(body) });
 
 /** Un ntfy y un Firebase en memoria, compartidos por los dos. */
@@ -62,6 +69,11 @@ interface RA {
   syncDecline(m: unknown): void;
   store(k: string, v?: unknown): unknown;
   SYNC: { ready: boolean; busy: boolean };
+  XFER_KEYS: string[];
+  XFER_CHUNK: number;
+  XFER_HOURS: number;
+  SYNC_DB: string;
+  SALTS: string[];
 }
 const CODE = () =>
   [
@@ -70,7 +82,7 @@ const CODE = () =>
     raSlice('00_core.js', 'function store('),
     raSlice('69_xfer.js', '/* =================== PASAR', '/* ---------- En el juego', false),
   ].join('\n');
-const RET = '{ xferSeal, xferOpen, xferTopic, xferSend, xferFetch, xferApply, xferSummary, syncMerge, syncNews, syncUrl, syncWhen, syncAskText, syncCreate, syncLink, syncCheck, syncPush, syncImport, syncDecline, store, SYNC }';
+const RET = '{ xferSeal, xferOpen, xferTopic, xferSend, xferFetch, xferApply, xferSummary, syncMerge, syncNews, syncUrl, syncWhen, syncAskText, syncCreate, syncLink, syncCheck, syncPush, syncImport, syncDecline, store, SYNC, XFER_KEYS, XFER_CHUNK, XFER_HOURS, SYNC_DB, SALTS: [SYNC.salt, SYNC.key, XFER.base] }';
 
 /** Un aparato con RepArena (su almacén, su reloj, sus temporizadores, que no se disparan solos). */
 function raDev(net: FakeNet, clock: { t: number }, o: { zip?: boolean; ua?: string; xr?: boolean } = {}) {
@@ -142,6 +154,12 @@ function randSide(r: () => number): SyncSide {
 }
 
 describe.skipIf(!RA_DIR)('pasar datos y sincronizar, como en RepArena', () => {
+  it('las mismas claves, trozos, horas, sales y servicios', () => {
+    const { ra } = raDev(new FakeNet(), { t: 0 });
+    expect([...ra.XFER_KEYS]).toEqual([...XFER_KEYS]);
+    expect([ra.XFER_CHUNK, ra.XFER_HOURS, ra.SYNC_DB, ...ra.SALTS]).toEqual([XFER_CHUNK, XFER_HOURS, SYNC_DB, SYNC_SALT, SYNC_KEY, XFER_BASE]);
+  });
+
   it('un paquete sellado por RepArena lo abre el porte y al revés (sales, con y sin comprimir)', async () => {
     const net = new FakeNet(), clock = { t: 0 };
     const obj = { v: 1, at: 5, from: 'gafas', d: { 'reparena3-settings': { mode: 'arcs', txt: 'ñandú «»' }, 'reparena3-history': Array.from({ length: 50 }, (_, i) => ({ date: i, ex: 'squat', reps: i })) }, kt: { 'reparena3-settings': { mode: 3 } } };
@@ -179,7 +197,7 @@ describe.skipIf(!RA_DIR)('pasar datos y sincronizar, como en RepArena', () => {
       const q = js(await A.ra.xferFetch(code2));
       expect(q).toEqual(js({ ...B.xfer.pack(), at: clock.t }));
       expect(q).toEqual(js(await B.xfer.fetch(code2)));
-      expect(js(B.xfer.pack())).toEqual(js(A.ra.xferFetch && p2)); // (mismos datos de partida: mismo paquete)
+      expect(js(B.xfer.pack())).toEqual(p2); // (mismos datos de partida: mismo paquete)
       // cargar un paquete de otros datos en los dos
       const C = raDev(net, clock), other = rng(seed + 100);
       fill(C.ra.store, other);
@@ -200,10 +218,11 @@ describe.skipIf(!RA_DIR)('pasar datos y sincronizar, como en RepArena', () => {
     let news = 0;
     for (let i = 0; i < 800; i++) {
       const L = randSide(r), R = r() < 0.1 ? js(L) : randSide(r), pr = r() < 0.5;
-      expect(js(syncMerge(js(L), js(R), pr))).toEqual(js(ra.syncMerge(js(L), js(R), pr)));
-      const n = syncNews(js(L), js(R));
-      expect(js(n)).toEqual(js(ra.syncNews(js(L), js(R))));
-      if (n) news++;
+      // (una partida rota en el historial de aquí rompe los dos igual)
+      expect(out(() => syncMerge(js(L), js(R), pr))).toEqual(out(() => ra.syncMerge(js(L), js(R), pr)));
+      const n = out(() => syncNews(js(L), js(R)));
+      expect(n).toEqual(out(() => ra.syncNews(js(L), js(R))));
+      if (n && n !== 'error') news++;
     }
     expect(news).toBeGreaterThan(100);
   });
@@ -269,7 +288,7 @@ describe.skipIf(!RA_DIR)('pasar datos y sincronizar, como en RepArena', () => {
     await pc.ra.syncImport(ask2, false);
     expect(js(pc.ra.store('reparena3-settings'))).toEqual({ mode: 'combat', vol: 9 });
     expect(js(pc.ra.store('reparena3-history'))).toEqual(quest.store('reparena3-history'));
-    // y al revés, con «Ahora no»: ninguno vuelve a preguntar
+    // lo último de arriba es del porte y ya está subido: no pregunta ni sube nada
     expect(await quest.sync.check()).toBeNull();
   }, 60000);
 });
