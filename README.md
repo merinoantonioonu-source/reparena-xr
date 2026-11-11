@@ -163,6 +163,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/lockline.ts` | La diana: líneas de enfoque alrededor del zombi apuntado |
 | `src/combat/gates.ts` | Las compuertas: abrirse para sacar a un zombi, la baliza y sus cuerpos de física |
 | `src/style/comic.ts`, `src/style/comic-system.ts` | El estilo Cómic: el sombreado, los colores y los contornos de tinta, y el sistema que lo aplica a todo |
+| `src/core/hitch.ts`, `src/ui/perf-system.ts` | El registro de tirones (de RepArena) y el medidor de fotogramas: qué congela la imagen y cuántos fotogramas se pierden |
 | `src/style/warm.ts` | Precompilar los sombreadores antes de cada ronda (con la carátula en negro), para que nada nuevo dé un tirón en plena partida |
 | `src/style/comic-fx.ts` | Los efectos de cómic: líneas de impacto y estrella al derribar |
 | `src/scene-assets/gate.scene-asset.ts` | La compuerta (hecha en código) |

@@ -10,6 +10,7 @@
  *  - Se pide al empezar cada ronda (`warmSoon`), mientras la carátula del duelo lo tapa todo de negro.
  */
 import { Group } from '@iwsdk/core';
+import { HITCH } from '../core/hitch.js';
 import type { Camera, Object3D, Scene, Texture, WebGLRenderer } from '@iwsdk/core';
 
 const W = { want: false, hooked: false, keep: null as Group | null, tex: new Set<Texture>() };
@@ -28,6 +29,7 @@ export function warmHook(renderer: WebGLRenderer, scene: Scene): void {
     const cam = a[2];
     if (!W.want) return;
     W.want = false;
+    HITCH.f.warm = 1; // (para el registro de tirones)
     try {
       renderer.compile(scene, cam as Camera);
       for (const t of W.tex) renderer.initTexture(t); // (y sus texturas, subidas ya)

@@ -17,6 +17,7 @@ import { GateSystem } from './combat/gates.js';
 import { HandSystem } from './input/hand-system.js';
 import { GloveSystem } from './input/glove-system.js';
 import { SolidKeysSystem } from './ui/solid-keys.js';
+import { PerfStartSystem, PerfSystem } from './ui/perf-system.js';
 import { ComicSystem } from './style/comic-system.js';
 import { SoundSystem } from './audio/sound.js';
 import { ViewSystem } from './ui/view-panels.js';
@@ -35,6 +36,7 @@ useLocalInputModels();
 startPage(); // (la página: se ve en cuanto carga, sin esperar a la escena)
 
 World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
+  world.registerSystem(PerfStartSystem, { priority: -100 }); // (el medidor: cuándo empieza el fotograma)
   world.registerSystem(HandSystem, { priority: 4 });
   world.registerSystem(GateSystem, { priority: 4 });
   world.registerSystem(EnemySystem, { priority: 5 });
@@ -53,5 +55,6 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(GloveSystem, { priority: 7 }); // (detrás de la partida: el mundo ya está en su sitio)
   world.registerSystem(ComicSystem, { priority: 7 });
   world.registerSystem(SoundSystem, { priority: 8 });
+  world.registerSystem(PerfSystem, { priority: 100 }); // (el medidor y el registro de tirones: después de todo)
   pageWorld(world);
 });

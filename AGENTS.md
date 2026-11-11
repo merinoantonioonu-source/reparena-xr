@@ -110,6 +110,8 @@ tabla de `README.md` dice qué hace cada archivo.
 - **Tirones**: lo que se pinta por primera vez compila su sombreador y la imagen se para un instante en las gafas. Antes de cada
   ronda se compila lo que hay en la escena y lo de `warmKeep` (`src/style/warm.ts`); no crees materiales en plena partida (para
   copiar uno, `fadeCopy` o `comicPatch`).
+- **Casa**: RepArena XR es la única; la dirección vieja (`…/reparena/`) trae aquí y RepArena sigue en `…/reparena/clasica.html`
+  para lo aplazado. Un ejercicio nuevo, con su prueba de movimientos en `tests/unit/exercises.test.ts`.
 - La letra que trae IWSDK (Inter) no tiene tildes: los paneles usan las de `public/fonts` (ver su `LEEME.md`), que se
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee.
