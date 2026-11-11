@@ -83,6 +83,22 @@ try {
   await page.goto(`http://127.0.0.1:${port}${BASE}`);
   await page.waitForFunction(() => !!window.__rx, null, { timeout: 90000 });
   await until('el juego carga y espera en el menú principal', (s) => s.phase === 'menu' && s.menu === 'lobby', 30);
+  // la página (en el ordenador): sus apartados, el formulario de ajustes y los botones de entrar; «Probar en el ordenador»
+  // enseña la escena y esconde la página
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.waitForFunction(() => !document.documentElement.classList.contains('app'), null, { timeout: 10000 });
+  const pg = await page.evaluate(() => ({ secs: [...document.querySelectorAll('.main > section')].map((x) => x.id), rest: !!document.querySelector('#f-rest'), vr: !!document.querySelector('#btnVR'), shown: !!document.querySelector('#page')?.offsetParent, toc: document.querySelectorAll('#toc .tocList li').length, today: !!document.querySelector('#todayBox .ring') }));
+  if (!pg.shown || !pg.rest || !pg.vr || pg.secs.length < 7 || pg.toc < 7 || !pg.today) throw new Error('la página no está bien: ' + JSON.stringify(pg));
+  console.log(`  ✓ la página: ${pg.secs.length} apartados, el índice, lo de hoy y el formulario de ajustes`);
+  await page.evaluate(() => { const r = document.querySelector('#f-rest'); if (r) { r.value = '20'; r.dispatchEvent(new Event('input', { bubbles: true })); } });
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('reparena3-settings') || '{}').rest);
+  if (stored !== 20) throw new Error('el formulario no guarda: rest = ' + stored);
+  console.log('  ✓ el formulario guarda en los ajustes de RepArena (rest = 20)');
+  await shot('0-pagina');
+  await page.click('#btnPreview');
+  if (!(await page.evaluate(() => document.documentElement.classList.contains('stage') && !document.querySelector('#page')?.offsetParent))) throw new Error('«Probar en el ordenador» no enseña la escena');
+  console.log('  ✓ «Probar en el ordenador» enseña la escena y esconde la página');
+  await page.setViewportSize({ width: 400, height: 250 });
   await shot('1-menu');
   await page.mouse.click(4, 4); // (abre el sonido; en una esquina, fuera del panel: en el centro hay botones)
   await page.keyboard.press('Enter');
@@ -198,6 +214,14 @@ try {
   if (car.mis.list.some((m) => !(m.n > 0) || m.got < 0)) throw new Error('misiones raras: ' + JSON.stringify(car.mis));
   console.log(`  ✓ la carrera: ${car.xp} XP y ${car.mis.list.length} misiones de hoy (${car.mis.list.map((m) => m.t).join(', ')})`);
   await shot('9-resumen');
+  // en el móvil (estrecho y fuera de las gafas), la página es una app: el inicio con sus listas y cada apartado, una pantalla
+  await page.click('#btnExitPreview');
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.waitForFunction(() => document.documentElement.classList.contains('app') && !!document.querySelector('#appHome'), null, { timeout: 10000 });
+  const rows = await page.evaluate(() => document.querySelectorAll('#appHome [data-app]').length);
+  if (!(rows >= 5)) throw new Error('la app del móvil no tiene sus filas: ' + rows);
+  console.log(`  ✓ en el móvil, la página es una app (${rows} filas en el inicio)`);
+  await shot('10-app-movil');
   if (missing.length) throw new Error('faltan archivos: ' + missing.join(', '));
   if (errors.length) throw new Error('errores en la página:\n' + errors.join('\n'));
   ok = true;

@@ -18,10 +18,12 @@ import { GoalsSystem } from './ui/goals-intro.js';
 import { MenuSystem } from './ui/menu.js';
 import { useLocalInputModels } from './input/input-models.js';
 import { initSettings } from './core/settings.js';
+import { pageWorld, startPage } from './page/page.js';
 
 // tus ajustes (los mismos que en RepArena: se comparten) y las manos y mandos desde el propio juego, antes de crear el mundo
 initSettings();
 useLocalInputModels();
+startPage(); // (la página: se ve en cuanto carga, sin esperar a la escena)
 
 World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
   world.registerSystem(HandSystem, { priority: 4 });
@@ -35,4 +37,5 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(GoalsSystem, { priority: 6 });
   world.registerSystem(ComicSystem, { priority: 7 });
   world.registerSystem(SoundSystem, { priority: 8 });
+  pageWorld(world);
 });

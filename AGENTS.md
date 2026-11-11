@@ -98,6 +98,12 @@ tabla de `README.md` dice qué hace cada archivo.
   `recLive`: los avisos grandes). Qué modos y ejercicios se pueden jugar aquí lo dice `playMode`/`playEx` del hub: las
   misiones de variedad solo piden lo que ya hay. El menú principal enseña las metas y la columna HOY, y Opciones → Progreso. La campaña (`src/core/campaign.ts`:
   `campBegin`, `campEnd`; `HOOKS.campPlay`) pone los ajustes del nivel por encima de los tuyos con `OVERLAY`: no se guardan.
+- **La página web** (`index.html`, `src/page/`; la de RepArena, con su CSS en `page.css`): lo primero que se ve en el ordenador y
+  en el navegador de las gafas. Cada apartado es una `<section>` de `.main` con `id` y `data-toc` (el índice y la app del
+  móvil salen de ahí); el formulario de ajustes sale de `SCHEMA` y todo cambio pasa por `setSetting`. La escena de IWSDK
+  vive en `#stage`, escondida tras la página; «Probar en el ordenador» y VR la enseñan. En el móvil (`html.app`, que pone
+  el `<head>`), la página es una app (`src/page/app.ts`). Lo que llega con PR posteriores (Spotify, sesiones, sincronización,
+  pulsómetro, tabla del desarrollador) añade su apartado con su `id`.
 - La letra que trae IWSDK (Inter) no tiene tildes: los paneles usan las de `public/fonts` (ver su `LEEME.md`), que se
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee.

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- RepArena: la R de la letra del juego (Bungee, en trazo) y el rayo de cada repetición. Los iconos PNG salen de aquí con
+       node tests/iconos.js (el de Android, «maskable», con la marca más pequeña para que quepa en el círculo) -->
+  <defs>
+    <radialGradient id="fondo" cx=".3" cy=".25" r="1"><stop offset="0" stop-color="#34226a"/><stop offset=".6" stop-color="#160f2b"/><stop offset="1" stop-color="#0b0816"/></radialGradient>
+    <linearGradient id="rosa" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff8cc8"/><stop offset="1" stop-color="#ff2a8a"/></linearGradient>
+    <filter id="brillo" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="20" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#fondo)"/>
+  <g id="marca">
+    <path transform="translate(202.4 800) scale(.68 -.68)" fill="url(#rosa)" stroke="#0b0816" stroke-width="35" stroke-linejoin="round" paint-order="stroke" d="M259 0H105Q69 0 69 36V684Q69 720 105 720H438Q513 720 556.0 699.0Q599 678 617.0 640.5Q635 603 635 553V507Q635 465 623.0 436.0Q611 407 579 393Q634 387 667.0 349.0Q700 311 700 248V36Q700 0 664 0H509Q473 0 473 36V189Q473 212 464.5 222.0Q456 232 435 232H295V36Q295 0 259 0ZM295 540V412H370Q396 412 405.0 425.5Q414 439 414 459V493Q414 513 405.0 526.5Q396 540 370 540Z"/>
+    <path d="M790 120 L660 380 H750 L690 600 L880 320 H790 L850 120 Z" fill="#3cf0c6" stroke="#0b0816" stroke-width="20" stroke-linejoin="round" paint-order="stroke" filter="url(#brillo)"/>
+  </g>
+</svg>
