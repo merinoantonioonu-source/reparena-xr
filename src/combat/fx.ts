@@ -12,7 +12,6 @@ import {
   DoubleSide,
   Group,
   Mesh,
-  MeshBasicMaterial,
   Points,
   ShaderMaterial,
   SphereGeometry,
@@ -21,6 +20,8 @@ import {
   Vector3,
 } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
+import { SND } from '../audio/sound.js';
+import { Bolts } from './bolt.js';
 
 /** Colores de cada nivel de carga (×1 turquesa, ×2 amarillo, ×3 naranja, ×4 magenta), los de RepArena. */
 export const POW_COL = [0x3cf0c6, 0xffd166, 0xff8a2a, 0xff3cf0];
@@ -249,133 +250,6 @@ export class EnergyBall {
   }
 }
 
-const MAX_SEG = 24;
-
-/** Un rayo: una cinta quebrada que mira siempre a la cámara, con su resplandor; se rehace a saltos y se apaga. */
-class Bolt {
-  readonly mesh: Mesh;
-  readonly glow: Mesh;
-  private pos: Float32Array;
-  private gpos: Float32Array;
-  private pts: Vector3[] = [];
-  readonly a = new Vector3();
-  readonly b = new Vector3();
-  life = 0;
-  private dur = 0.3;
-  private width = 0.02;
-  private regen = 0;
-
-  constructor() {
-    const mk = (color: number, opacity: number): Mesh => {
-      const g = new BufferGeometry();
-      g.setAttribute('position', new BufferAttribute(new Float32Array((MAX_SEG + 1) * 2 * 3), 3));
-      const idx: number[] = [];
-      for (let i = 0; i < MAX_SEG; i++) {
-        const o = i * 2;
-        idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2);
-      }
-      g.setIndex(idx);
-      const m = new Mesh(g, new MeshBasicMaterial({ color, transparent: true, opacity, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, toneMapped: false }));
-      m.frustumCulled = false;
-      m.visible = false;
-      m.renderOrder = 9;
-      return m;
-    };
-    this.mesh = mk(0xffffff, 1);
-    this.glow = mk(0xff3060, 0.6);
-    this.pos = (this.mesh.geometry.attributes.position as BufferAttribute).array as Float32Array;
-    this.gpos = (this.glow.geometry.attributes.position as BufferAttribute).array as Float32Array;
-    for (let i = 0; i <= MAX_SEG; i++) this.pts.push(new Vector3());
-  }
-
-  start(a: Vector3, b: Vector3, color: number, power: number): void {
-    this.a.copy(a);
-    this.b.copy(b);
-    this.life = this.dur = 0.22 + 0.06 * power;
-    this.width = 0.012 + 0.006 * power;
-    (this.glow.material as MeshBasicMaterial).color.setHex(color);
-    this.mesh.visible = this.glow.visible = true;
-    this.regen = 0;
-  }
-
-  private static _d = new Vector3();
-  private static _u = new Vector3();
-  private static _w = new Vector3();
-  private static _side = new Vector3();
-
-  // los puntos del rayo: del origen al blanco con quiebros que se rehacen
-  private jag(): void {
-    const n = MAX_SEG, d = Bolt._d.subVectors(this.b, this.a), len = d.length();
-    d.normalize();
-    const u = Bolt._u.set(0, 1, 0);
-    if (Math.abs(d.y) > 0.9) u.set(1, 0, 0);
-    u.cross(d).normalize();
-    const w = Bolt._w.crossVectors(d, u);
-    for (let i = 0; i <= n; i++) {
-      const t = i / n, env = Math.sin(Math.PI * t); // (los extremos, fijos)
-      const amp = len * 0.035 * env;
-      this.pts[i].copy(this.a).addScaledVector(Bolt._d.subVectors(this.b, this.a), t).addScaledVector(u, rand(-1, 1) * amp).addScaledVector(w, rand(-1, 1) * amp);
-    }
-  }
-
-  update(dt: number, eye: Vector3): void {
-    if (this.life <= 0) return;
-    this.life -= dt;
-    if (this.life <= 0) {
-      this.mesh.visible = this.glow.visible = false;
-      return;
-    }
-    this.regen -= dt;
-    if (this.regen <= 0) {
-      this.regen = 0.045;
-      this.jag();
-    }
-    const k = this.life / this.dur;
-    (this.mesh.material as MeshBasicMaterial).opacity = Math.min(1, k * 1.6);
-    (this.glow.material as MeshBasicMaterial).opacity = 0.6 * k;
-    // la cinta, de cara a los ojos
-    for (let i = 0; i <= MAX_SEG; i++) {
-      const p = this.pts[i], q = this.pts[Math.min(MAX_SEG, i + 1)], r = this.pts[Math.max(0, i - 1)];
-      const dir = Bolt._d.subVectors(q, r);
-      const view = Bolt._u.subVectors(eye, p);
-      const side = Bolt._side.crossVectors(dir, view).normalize();
-      const w1 = this.width * (0.5 + 0.5 * k), w2 = w1 * 5;
-      const o = i * 6;
-      this.pos[o] = p.x + side.x * w1; this.pos[o + 1] = p.y + side.y * w1; this.pos[o + 2] = p.z + side.z * w1;
-      this.pos[o + 3] = p.x - side.x * w1; this.pos[o + 4] = p.y - side.y * w1; this.pos[o + 5] = p.z - side.z * w1;
-      this.gpos[o] = p.x + side.x * w2; this.gpos[o + 1] = p.y + side.y * w2; this.gpos[o + 2] = p.z + side.z * w2;
-      this.gpos[o + 3] = p.x - side.x * w2; this.gpos[o + 4] = p.y - side.y * w2; this.gpos[o + 5] = p.z - side.z * w2;
-    }
-    this.mesh.geometry.attributes.position.needsUpdate = true;
-    this.glow.geometry.attributes.position.needsUpdate = true;
-  }
-}
-
-/** Los rayos (unos pocos a la vez, reutilizados). */
-export class Bolts {
-  readonly group = new Group();
-  private list: Bolt[] = [];
-  private next = 0;
-
-  constructor(n = 6) {
-    for (let i = 0; i < n; i++) {
-      const b = new Bolt();
-      this.list.push(b);
-      this.group.add(b.glow, b.mesh);
-    }
-  }
-
-  fire(a: Vector3, b: Vector3, power: number, color = POW_COL[Math.max(0, Math.min(3, power - 1))]): void {
-    const bolt = this.list[this.next];
-    this.next = (this.next + 1) % this.list.length;
-    bolt.start(a, b, color, power);
-  }
-
-  update(dt: number, eye: Vector3): void {
-    for (const b of this.list) b.update(dt, eye);
-  }
-}
-
 const MAX_SPARKS = 600;
 
 /**
@@ -535,8 +409,9 @@ export class HandOrbs {
 export class Effects {
   readonly halo = haloTexture();
   readonly ball = new EnergyBall(this.halo);
-  readonly bolts = new Bolts();
   readonly sparks = new Sparks();
+  // los rayos (src/combat/bolt.ts): echan chispas al parpadear y dan el chispazo del segundo latigazo
+  readonly bolts = new Bolts({ sparks: (p, n, h, sp, sz) => this.sparks.burst(p, n, h, sp, sz), zap: (p) => SND.zap(p) });
   readonly flashes = new Flashes(this.halo);
   readonly orbs = new HandOrbs(this.halo);
   readonly group = new Group();

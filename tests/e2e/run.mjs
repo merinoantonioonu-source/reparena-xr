@@ -117,7 +117,7 @@ try {
   while (!hit && Date.now() - t0 < 60000) {
     await page.waitForTimeout(400);
     last = await snap();
-    hit = last.kills > 0 || last.foes.some((f) => f.state !== 'walk' || f.hp < 2);
+    hit = last.kills > 0 || last.foes.some((f) => f.state === 'stagger' || f.state === 'dead' || f.hp < 2); // (el rayo viaja: le da al llegar)
     if (!hit) {
       await page.keyboard.down('ArrowDown');
       await until('otra carga', (s) => s.charge >= 1, 30);
@@ -128,7 +128,7 @@ try {
   if (!hit) throw new Error('el rayo no ha dado a ningún zombi\núltimo estado: ' + JSON.stringify(last));
   console.log('  ✓ el rayo le da a un zombi');
   // el sonido: se abre con el primer toque, IWSDK carga los archivos y suena lo de la partida
-  const snd = await until('el sonido se abre y tiene sus archivos cargados', (s) => s.sound?.running && s.sound.loaded[0] === s.sound.loaded[1] && s.sound.loaded[1] > 0, 30);
+  const snd = await until('el sonido se abre y tiene sus archivos cargados (y suena el impacto, que llega con el rayo)', (s) => s.sound?.running && s.sound.loaded[0] === s.sound.loaded[1] && s.sound.loaded[1] > 0 && !!s.sound.played.impacto, 30);
   const played = snd.sound.played, want = ['oleada', 'compuerta', 'carga', 'carga-nivel', 'impacto'].filter((n) => !played[n]);
   if (!played.rayo && !played['rayo-cargado']) want.push('rayo');
   if (want.length) throw new Error('no han sonado: ' + want.join(', ') + '\nsonidos: ' + JSON.stringify(snd.sound));

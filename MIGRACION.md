@@ -143,7 +143,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [ ] **PR 21 · Realidad mixta** (aplazado por el usuario: se hará más adelante; nada de lo demás depende de ella. Se empezó con lo de serie de IWSDK: entrar con `launchXR` en modo `immersive-ar` con detección de planos y mallas, anclas y profundidad, `DepthSensingSystem` y `DepthOccludable` en compuertas, cajas, rocas y enemigos, y `GAME.mr`/`arenaDepth` —6 m en realidad mixta—; el plan de la habitación de RepArena, `src/37_room.js`, se porta a lógica pura con su comparación)
 - [x] **PR 22 · Música** — #29
 - [x] **PR 23 · Sincronización, pulsómetro y modo desarrollador** — #29 (juntos con el 22: comparten la pantalla de menú y la página)
-- [x] **PR 24a · Los fallos de la prueba en las gafas** (calibración con tu mirada, enemigos de espaldas, la pasarela de los Arcos, los tirones, teclado sólido y menú más pequeño, manos opacas) — #30
+- [x] **PR 24a · Los fallos de la prueba en las gafas** (calibración con tu mirada, enemigos de espaldas, la pasarela de los Arcos, los tirones, teclado sólido y menú más pequeño, manos opacas, y los rayos de RepArena) — #30
 - [ ] **PR 24 · Cambio de casa**
 
 ## Los PR
@@ -526,6 +526,8 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - PR 24a: lo que se pinta por primera vez en plena partida da un tirón en las gafas (se compila su sombreador). Lo que pueda
   salir, que esté en la escena (aunque escondido) o en `warmKeep` (`src/style/warm.ts`) antes de la ronda; para copiar
   materiales en plena partida, `fadeCopy` o `comicPatch` (Three no copia el sombreador propio al clonar).
+- PR 24a: un rayo se lanza con `GameSystem.launch` (viaja con `Lightning`, `src/combat/bolt.ts`); lo que pasa al llegar, en
+  `arrive`. No apliques daño al dispararlo: llega unas décimas después, como en RepArena.
 - PR 24a: la mano que se ve se aparta lo de `HOLD` (`src/input/hold.ts`) para apoyarse en los paneles; lo que pinte manos nuevas
   (armas del PR 9…), que lo sume.
 
@@ -534,6 +536,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 24a: los rayos son los de RepArena (`src/combat/bolt.ts`) y el golpe llega al alcanzar al enemigo, pero **sin su luz**: en
+  RepArena el rayo encendía una luz que iluminaba lo de alrededor y movía las sombras; en Cómic la escena no se ilumina con luces
+  puntuales (tampoco lo hacía RepArena en Cómic). Sin el estallido que alcanza a los de alrededor con carga ×3 o más (RepArena,
+  `fireOrb`), que llegará con el repaso del Combate.
 - PR 24a: **el tirón al hacer la sentadilla, sin confirmar en las gafas**. La causa más probable (y la que vio RepArena) es que lo
   nuevo se compila al pintarse por primera vez: ahora, al empezar cada ronda, con la carátula del duelo en negro, se compila todo
   lo de la escena y una copia de cada enemigo de tierra y de su versión al desvanecerse (`src/style/warm.ts`); el desvanecerse

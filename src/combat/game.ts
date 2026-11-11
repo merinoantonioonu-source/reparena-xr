@@ -14,6 +14,7 @@
  *  - Un puñetazo rápido al zombi que tienes delante lo aparta y lo aturde un momento (sin quitarle vida).
  *  - Oleadas de zombis cada vez algo más rápidos; si te golpean, pierdes una vida; sin vidas, se acaba la ronda.
  */
+import type { Lightning } from './bolt.js';
 import { warmHook, warmSoon } from '../style/warm.js';
 import {
   createSystem,
@@ -83,6 +84,24 @@ const SQUAT_SPAWN_DIST = 11; // (a cuánto salen los zombis, más o menos: con l
 const POW_DMG = [0, 1, 2, 4];
 // el nivel del rayo (RepArena, src/52_bolt.js: boltLevel): 1 el perfecto y, con carga, su nivel (de él salen su color y su sonido)
 const boltLevel = (perfect: boolean, pow: number): number => Math.max(perfect ? 1 : 0, pow > 1 ? pow : 0);
+
+/** Un rayo en camino (RepArena: projs): de dónde sale, a quién va, lo que hace al llegar y cuánto tarda. */
+interface Proj {
+  on: boolean;
+  lt: Lightning | null;
+  from: Vector3;
+  to: Vector3;
+  e: FoeTarget | null;
+  dmg: number;
+  perfect: boolean;
+  pow: number;
+  L: number;
+  col: number;
+  t: number;
+  dur: number;
+  say: boolean;
+}
+const mkProj = (): Proj => ({ on: false, lt: null, from: new Vector3(), to: new Vector3(), e: null, dmg: 0, perfect: false, pow: 1, L: 0, col: 0, t: 0, dur: 0.1, say: false });
 
 // La puntería (Opciones → Rivales y armas): automática, con las manos (de serie) o con la mirada, como en RepArena: con
 // la barra flexible, siempre automática (las dos manos están ocupadas); con pesas en las manos no se lanza con la mano,
@@ -189,6 +208,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private desktopDrop = 0;
   // temporales (sin crear objetos en cada fotograma)
   private tmpA = new Vector3();
+  private projs: Proj[] = Array.from({ length: 12 }, mkProj);
   private tmpB = new Vector3();
   private tmpC = new Vector3();
   private tmpD = new Vector3();
@@ -649,6 +669,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       return;
     }
     this.enemies.clear();
+    for (const p of this.projs) p.on = false; // (los rayos que iban de camino)
+    this.fx.bolts.clear();
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
     // con la carátula del duelo en negro, se compila todo lo que puede salir (si no, lo nuevo daba un tirón en plena partida)
@@ -1327,7 +1349,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   /** Apuntando tú: el rayo sale hacia d y se engancha al zombi fijado (forced) o al de la ayuda de puntería. */
   private fireBolt(origin: Vector3, d: Vector3, lockFrom: Vector3 | null, dmg: number, perfect: boolean, forced: FoeTarget | null, pow: number): void {
     const e = forced && forced.alive ? forced : this.findLock(lockFrom ?? origin, d);
-    if (e) this.strike(origin, e, dmg, perfect, pow);
+    if (e) this.strike(origin, e, dmg, perfect, pow, true);
     else this.miss(origin, this.tmpB.copy(origin).addScaledVector(d, 9), perfect, pow, true);
   }
 
@@ -1339,32 +1361,80 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   }
 
   // el rayo llega: chispas, destello, sonido y el golpe al zombi (retrocede, o cae si se queda sin vida)
-  private strike(from: Vector3, e: FoeTarget, dmg: number, perfect: boolean, pow: number): void {
-    const tp = e.center(this.tmpA), col = boltColor(perfect, pow);
-    this.fx.bolts.fire(from, tp, pow, col);
-    this.fx.sparks.burst(tp, 18 + pow * 8, col, 2.4 + 0.6 * pow, 0.028);
-    this.fx.flashes.at(tp, col, 0.6 + 0.25 * pow);
-    this.fx.flashes.at(from, 0xff4060, 0.35, 0.15);
-    const L = boltLevel(perfect, pow);
+  // El rayo sale hacia el enemigo y viaja hasta él (RepArena: fireOrb/fireBolt con projs): el golpe llega al alcanzarlo
+  // (arrive). La puntería automática tarda algo más cuanto más lejos (0,09 s + 3,2 cs por metro); apuntando tú, a 30 m/s
+  private strike(from: Vector3, e: FoeTarget, dmg: number, perfect: boolean, pow: number, aimed = false): void {
+    const tp = e.center(this.tmpA), col = boltColor(perfect, pow), L = boltLevel(perfect, pow), dist = from.distanceTo(tp);
+    this.launch(from, tp, e, dmg, perfect, pow, L, col, aimed ? Math.max(0.09, dist / 30) : 0.09 + dist * 0.032, false);
+    this.fx.flashes.at(from, col, 0.25, 0.1); // (el fogonazo de la salida: RepArena, muzzle)
+    this.fx.sparks.burst(from, 6, col, 1.5, 0.025);
     SND.bolt(from, L);
-    SND.boltHit(tp, L);
-    const d = this.tmpC.copy(tp).sub(from).setY(0).normalize();
-    this.enemies.hit(e.entity, dmg, pow, d, perfect);
-    if (perfect) this.rw.onPerfectHit(e, tp, this.enemies.targets, (o, dist) => this.enemies.shove(o.entity, dist, 0.4, this.tmpD.copy(o.root.position).sub(tp).setY(0).normalize()));
-    if (e.alive) this.cfx.hit(tp); // (en cómic: líneas de impacto; y si cae, la estrella)
-    else this.cfx.kill(tp);
   }
 
   // sin nadie a quien dar: el rayo se pierde (apuntando tú, «Fallo»)
   private miss(from: Vector3, to: Vector3, perfect: boolean, pow: number, say: boolean): void {
-    this.fx.bolts.fire(from, to, pow, boltColor(perfect, pow));
-    this.fx.sparks.burst(to, 4, 0x99ffff, 1, 0.03);
-    SND.bolt(from, boltLevel(perfect, pow));
-    if (say) {
-      SND.miss();
-      GAME.combo = 0; // (un rayo perdido rompe el combo)
-      this.message('Fallo', 0.6);
+    const L = boltLevel(perfect, pow), col = boltColor(perfect, pow);
+    this.launch(from, to, null, 0, perfect, pow, L, col, say ? Math.max(0.09, from.distanceTo(to) / 30) : 0.09 + from.distanceTo(to) * 0.032, say);
+    this.fx.flashes.at(from, col, 0.25, 0.1);
+    SND.bolt(from, L);
+  }
+
+  private launch(from: Vector3, to: Vector3, e: FoeTarget | null, dmg: number, perfect: boolean, pow: number, L: number, col: number, dur: number, say: boolean): void {
+    let p = this.projs.find((x) => !x.on);
+    if (!p) p = this.projs.reduce((o, x) => (x.t > o.t ? x : o)); // (como mucho 12 a la vez)
+    p.on = true;
+    p.lt = this.fx.bolts.start(from, to, L, col, isTiny() ? 0.45 : 1);
+    p.from.copy(from);
+    p.to.copy(to);
+    Object.assign(p, { e, dmg, perfect, pow, L, col, t: 0, dur, say });
+  }
+
+  // los rayos en camino: la cabeza sigue al blanco (que puede moverse); al llegar, el golpe
+  private stepProjs(dt: number): void {
+    for (const p of this.projs) {
+      if (!p.on || !p.lt) continue;
+      p.t += dt;
+      if (p.e && p.e.alive) p.e.center(p.to);
+      const k = Math.min(1, p.t / p.dur);
+      p.lt.to.copy(p.to);
+      p.lt.k = Math.max(p.lt.k, k);
+      if (k < 1) continue;
+      p.on = false;
+      p.lt.arrive();
+      this.arrive(p);
     }
+  }
+
+  // al llegar (RepArena: boltArrive y updateProjectiles): destello, chispas, el impacto y el daño
+  private arrive(p: Proj): void {
+    const tp = p.to, L = p.L, e = p.e;
+    if (!e) {
+      this.fx.flashes.at(tp, p.col, 0.15, 0.12);
+      this.fx.sparks.burst(tp, 4, 0x99ffff, 1, 0.03);
+      if (p.say) {
+        SND.miss();
+        GAME.combo = 0; // (un rayo perdido rompe el combo)
+        this.message('Fallo', 0.6);
+      }
+      return;
+    }
+    if (!e.alive) {
+      this.fx.sparks.burst(tp, 5, 0xffcc66, 1.5, 0.03); // (ya había caído)
+      return;
+    }
+    SND.boltHit(tp, L);
+    this.fx.sparks.burst(tp, 18 + p.pow * 8, p.col, 2.4 + 0.6 * p.pow, 0.028);
+    this.fx.flashes.at(tp, p.col, 0.6 + 0.25 * p.pow);
+    if (L >= 2) {
+      // los cargados, con chispazos eléctricos (RepArena: fx.electric)
+      this.fx.sparks.burst(tp, 6 + L * 3, 0xe6e6ff, 2.6, 0.035, 0);
+      this.fx.flashes.at(tp, 0xff6650, 0.5, 0.12);
+    }
+    const d = this.tmpC.copy(tp).sub(p.from).setY(0).normalize();
+    this.enemies.hit(e.entity, p.dmg, p.pow, d, p.perfect);
+    if (p.perfect) this.rw.onPerfectHit(e, tp, this.enemies.targets, (o, dist) => this.enemies.shove(o.entity, dist, 0.4, this.tmpD.copy(o.root.position).sub(tp).setY(0).normalize()));
+    if (e.alive) this.cfx.hit(tp); // (en cómic: líneas de impacto; y si cae, la estrella)
+    else this.cfx.kill(tp);
   }
 
   // un puñetazo: lo aparta (hacia donde iba el puño) y lo aturde; no le quita vida
@@ -1490,6 +1560,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.fx.ball.update(dt, this.ballTarget, playing ? this.chargePow : 0);
     GAME.ballOn = this.fx.ball.visible;
     GAME.ballPos.copy(this.fx.ball.pos);
+    this.stepProjs(dt);
     this.fx.bolts.update(dt, GAME.head);
     this.fx.sparks.update(dt);
     this.fx.flashes.update(dt);

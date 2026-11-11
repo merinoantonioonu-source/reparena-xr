@@ -181,7 +181,8 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/flyers.ts` | Los voladores: su modelo, el aleteo, el mordisco, el zumbido y la caída al morir |
 | `src/combat/life.ts` | Las cuentas de vida sobre cada enemigo (bolitas doradas, en un solo dibujo) |
 | `src/combat/enemies.ts` | Los enemigos: cuerpos de física, marcha a su puesto rodeando obstáculos, ataque con su fuerza, baile al compás, retroceso y muerte |
-| `src/combat/fx.ts` | La bola de energía, la carga en cada mano, los rayos, las chispas y los destellos |
+| `src/combat/fx.ts` | La bola de energía, la carga en cada mano, las chispas y los destellos |
+| `src/combat/bolt.ts` | Los rayos (los de RepArena): descargas que viajan hasta el blanco, con su cabeza, su estela, sus filamentos y el segundo latigazo |
 | `src/combat/components.ts`, `src/components.ts` | Los componentes `Foe` (un enemigo), `Flyer` (vuela), `Obstacle` (lo que rodean) y `Gate`, y su catálogo |
 | `src/exercise/vertical.ts` | El detector de bajar y subir con la cabeza (carga, ×2-×4, PERFECTA), sin IWSDK |
 | `src/exercise/standing.ts` | Los ejercicios de pie de RepArena (zancada, en dos tiempos, peso muerto, curl, curl con barra, elevación frontal, antebrazos), sin IWSDK |
