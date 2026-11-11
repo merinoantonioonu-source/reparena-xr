@@ -58,7 +58,7 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]['k'];
 // Lo que aún no está (se enciende con su PR): los modos y Sesiones, y los ejercicios de suelo
-const SOON_MODE: Record<string, string> = { bars: 'Barras llega con el PR 17', touch: 'Toques llega con el PR 16', trek: 'La Travesía llega con el PR 18', ses: 'Las sesiones llegan con el PR 19' };
+const SOON_MODE: Record<string, string> = { bars: 'Barras llega con el PR 17', trek: 'La Travesía llega con el PR 18', ses: 'Las sesiones llegan con el PR 19' };
 const SOON_EX = 'Este ejercicio aún no está';
 /** Todos los botones de ejercicio del menú principal (cada modo enseña los suyos). */
 const ALL_EX = [...new Set(Object.values(MODE_EX).flat())];

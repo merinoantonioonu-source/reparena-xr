@@ -214,6 +214,15 @@ try {
   if (car.mis.list.some((m) => !(m.n > 0) || m.got < 0)) throw new Error('misiones raras: ' + JSON.stringify(car.mis));
   console.log(`  ✓ la carrera: ${car.xp} XP y ${car.mis.list.length} misiones de hoy (${car.mis.list.map((m) => m.t).join(', ')})`);
   await shot('9-resumen');
+  // los otros modos: una ronda corta de Arcos y otra de Toques (sin manos: nadie toca, pero todo sale, se ve y se juzga)
+  for (const [mode, ex, what] of [['arcs', 'squat', 'Arcos'], ['touch', 'slam', 'Toques']]) {
+    await page.evaluate(([m, e]) => { window.__rx.setSetting('lives', 0); window.__rx.setSetting('mode', m); window.__rx.setSetting('exercise', e); window.__rx.HOOKS.startRound(); }, [mode, ex]);
+    await until(`${what}: empieza la oleada 1`, (s) => s.mode === mode && s.phase === 'playing' && s.wave >= 1, 30);
+    await page.waitForFunction((m) => { const g = window.__rx.game; return m === 'arcs' ? g.arcs().obstacles.length + g.arcs().arcs.length > 0 : g.touch().entries.length > 0; }, mode, { timeout: 40000 });
+    console.log(`  ✓ ${what}: sale lo primero`);
+    await page.evaluate(() => window.__rx.game.endRound(false, true));
+    await until(`${what}: el resumen`, (s) => s.menu === 'summary' && s.phase === 'over', 20);
+  }
   // en el móvil (estrecho y fuera de las gafas), la página es una app: el inicio con sus listas y cada apartado, una pantalla
   await page.click('#btnExitPreview');
   await page.setViewportSize({ width: 390, height: 800 });

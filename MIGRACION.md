@@ -134,7 +134,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 13b · La campaña y la carátula «METAS DE HOY»** — #23
 - [x] **PR 14 · Página web y app del móvil** — #24
 - [x] **PR 15 · Arcos** — #25
-- [ ] **PR 16 · Toques**
+- [x] **PR 16 · Toques** — #26
 - [ ] **PR 17 · Barras**
 - [ ] **PR 18 · Travesía**
 - [ ] **PR 19 · Sesiones**
@@ -380,6 +380,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 16 → PR 17 y siguientes: Toques sigue la receta de Arcos (`src/modes/touch/`: lógica pura en `targets.ts`/`wave.ts` con su
+  `TouchEnv`, comparada con RepArena; `touch-system.ts` pinta, suena y puntúa; sus objetos, en `touch.scene-asset.ts`). Cada
+  toque cuenta como una repetición por `HOOKS.arcRep(perfect)` (es el `registerRep` sin disparo; sirve a cualquier modo sin
+  bola). La partida llama a `begin`, `calibrated(y)`, `startWave(i, intro)`, `waveLeft` y `clear` del sistema del modo.
+  Para jugar un ejercicio en un modo: `PLAY_MODE_EX` (`src/core/playable.ts`). El pulso (BPM) del modo es el ajuste `bpm`:
+  la música (PR 22) lo dará.
 - PR 15 → PR 16 y siguientes: cada modo tiene su carpeta `src/modes/<modo>/` con la lógica pura (sin IWSDK; recibe un `…Env` con
   lo de fuera: ajustes, cabeza, azar, reloj) y su sistema (`arcs-system.ts`), que pinta, suena y avisa. Un modo nuevo: su
   sistema en `src/index.ts` (antes de `GameSystem`), su entrada en `PLAY_MODES`/`PLAY_MODE_EX` de `src/core/playable.ts` (con eso
@@ -490,6 +496,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 16: **Toques sin espadas ni abdominales ni combinado**: hasta el PR 9 no hay espada (los bloques que se cortan salen como
+  diamantes, como en RepArena sin mandos); Slam, Saltos y Flexiones se juegan; Abdominales (boca arriba) y Combinado, no todavía.
+  Los aros no llevan los filamentos eléctricos ni el zumbido que traía RepArena (el aro de neón, sus flechas y su estallido
+  de chispas, sí); el icono de la mano sobre el diamante es un dibujo sencillo con la inicial (D o I).
+- PR 16: la realidad mixta (los objetivos a 4 m en vez de 6,5) llega con el PR 21 (`ar: false` en el sistema).
 - PR 15: **Arcos más sencillo de adorno que en RepArena**: sin la rejilla de la arena, los postes laterales, la tormenta roja del
   cielo ni el zumbido continuo de los láseres; la pared sin franjas y sin la apertura de las compuertas. Los números (velocidades,
   huecos, láser, fiebre, orbes, fantasma, medalla) son los de RepArena, comparados con su código (`tests/compare/arcs-*`). Los
