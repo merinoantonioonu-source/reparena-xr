@@ -10,7 +10,9 @@ import { num } from '../core/values.js';
 import { setMusicPlaying } from '../audio/sound.js';
 import { Bpm, browserJsonp } from './bpm.js';
 import { Spotify, type SpotifyEnv, type SpState } from './spotify.js';
-import { Sync, Xfer, type XferEnv } from './xfer.js';
+import { exSongs } from '../core/dev.js';
+import { makeBrowserPulseEnv, Pulse } from './pulse.js';
+import { SYNC_DB, Sync, Xfer, type XferEnv } from './xfer.js';
 
 const xferEnv = (): XferEnv => ({
   fetch: (url, init) => fetch(url, init as RequestInit) as unknown as ReturnType<XferEnv['fetch']>,
@@ -108,4 +110,40 @@ export function bpm(): Bpm {
     });
   }
   return BP;
+}
+
+// ---------------------------------------------------------------- el pulso y la música de cada ejercicio
+
+/** Lo que enseña la página del pulso (#hrStatus, #btnHrOff, #hrNow): lo pone la página al arrancar. */
+export const PULSE_UI = { status: (_t: string, _bad: boolean, _canOff: boolean): void => {}, bpm: (_b: number, _col: string): void => {} };
+let PU: Pulse | null = null;
+
+/** El pulsómetro (banda o reloj por Bluetooth) y el pulso que pasa el móvil a las gafas. */
+export function pulse(): Pulse {
+  return (PU ??= new Pulse(
+    makeBrowserPulseEnv({
+      syncDb: SYNC_DB,
+      store: (k, v) => store(k, v) as never,
+      inXR: () => !!(globalThis as { __xrOn?: boolean }).__xrOn,
+      hrMax: () => num('hrMax') || 190,
+      onStatus: (t, bad, canOff) => PULSE_UI.status(t, bad, canOff),
+      onBpm: (b, c) => PULSE_UI.bpm(b, c),
+      onChange: () => {},
+    }),
+  ));
+}
+
+/** Al empezar una ronda: las canciones de este ejercicio (si las hay), al azar (RepArena: exSongsStart). */
+export function exSongsStart(exercise: string): boolean {
+  const l = exSongs(exercise), sp = spotify();
+  if (!l.length || !sp.connected()) return false;
+  const last = (sp as unknown as { exSongs?: string }).exSongs;
+  if (sp.want === 'block' && last === exercise && sp.playing()) return true; // (ya suenan las de este ejercicio)
+  const sh = l.slice();
+  for (let k = sh.length - 1; k > 0; k--) {
+    const j = Math.floor(Math.random() * (k + 1));
+    [sh[k], sh[j]] = [sh[j], sh[k]];
+  }
+  (sp as unknown as { exSongs?: string }).exSongs = exercise;
+  return sp.blockMusic({ music: sh });
 }

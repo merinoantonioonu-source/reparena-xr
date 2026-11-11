@@ -58,7 +58,7 @@ import { ArcsSystem } from '../modes/arcs/arcs-system.js';
 import { BarsSystem } from '../modes/bars/bars-system.js';
 import { EnvSystem } from '../env/env-system.js';
 import { BEAT } from '../core/beat-hub.js';
-import { spotify } from '../services/hub.js';
+import { exSongsStart, pulse, spotify } from '../services/hub.js';
 import { TouchSystem } from '../modes/touch/touch-system.js';
 import { curEx } from '../ui/fields.js';
 import { PLAY_MODES, playableEx } from '../core/playable.js';
@@ -459,6 +459,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // debajo: lo que llevas entrenando y, discreta, la hora
     const t = playing ? this.clock - GAME.startTime : 0, d = new Date();
     this.setText(b, 'train', `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`);
+    const hr = pulse().board();
+    this.setText(b, 'hr', hr ? String(hr.bpm) : '');
+    if (hr) this.boardSet(b, 'hr', { color: hr.col });
     this.setText(b, 'clock', `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`);
     // el rosco: fuera, la oleada (en el descanso, la cuenta atrás) con la muesca de tu récord; dentro, la racha
     let k = this.waveTarget ? Math.min(1, this.waveDone / this.waveTarget) : 0;
@@ -618,6 +621,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.ptsK = 1;
     BEAT.reset(); // (el pulso se engancha a la música al empezar)
     spotify().roundStart();
+    exSongsStart(settings.exercise); // (las canciones de este ejercicio, si las has elegido)
     if (settings.mode === 'arcs') this.arcs()?.begin(); else this.arcs()?.clear();
     if (settings.mode === 'touch') this.touch()?.begin(); else this.touch()?.clear();
     if (settings.mode === 'bars') this.bars()?.begin(); else this.bars()?.clear();
@@ -1336,6 +1340,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const dt = Math.min(delta, 0.05);
     this.stepOutcome(dt);
     spotify().tick(dt); // (la música: se pregunta a Spotify cada pocos segundos)
+    pulse().step(dt); // (el pulso que pasa el móvil, si lo escuchas desde las gafas)
     if (this.wasPaused && !GAME.paused) BEAT.relock(); // (al seguir tras la pausa, el pulso se vuelve a enganchar a la música)
     this.wasPaused = GAME.paused;
     if (GAME.phase === 'playing' && !GAME.paused) BEAT.step(dt); // (el pulso de la música, para los modos y los enemigos)
@@ -1349,6 +1354,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     }
     this.clock = time;
     const inXR = this.world.visibilityState.peek() !== VisibilityState.NonImmersive;
+    (globalThis as { __xrOn?: boolean }).__xrOn = inXR;
     if (!inXR) {
       // en el ordenador: flecha abajo (o S) para agacharse (al subir, el rayo sale solo) y Enter para empezar
       const kb = this.input.keyboard;
