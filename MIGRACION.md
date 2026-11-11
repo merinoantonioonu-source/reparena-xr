@@ -137,10 +137,10 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 16 · Toques** — #26
 - [x] **PR 17a · Barras: el modo (aparatos que se recuerdan, dominadas, remo, colgado y objetivos)** — #27
 - [x] **PR 17b · Barras: el bosque nocturno, el remolino y los tentáculos** — #27
-- [ ] **PR 18 · Travesía**
-- [ ] **PR 19 · Sesiones**
+- [ ] **PR 18 · Travesía** (aplazado por el usuario: se hará más adelante; su lógica pura ya está portada y comparada en `src/modes/trek/`)
+- [ ] **PR 19 · Sesiones** (aplazado por el usuario: se hará más adelante)
 - [x] **PR 20 · Entornos** — #28
-- [ ] **PR 21 · Realidad mixta**
+- [ ] **PR 21 · Realidad mixta** (aplazado por el usuario: se hará más adelante; nada de lo demás depende de ella. Se empezó con lo de serie de IWSDK: entrar con `launchXR` en modo `immersive-ar` con detección de planos y mallas, anclas y profundidad, `DepthSensingSystem` y `DepthOccludable` en compuertas, cajas, rocas y enemigos, y `GAME.mr`/`arenaDepth` —6 m en realidad mixta—; el plan de la habitación de RepArena, `src/37_room.js`, se porta a lógica pura con su comparación)
 - [ ] **PR 22 · Música**
 - [ ] **PR 23 · Sincronización, pulsómetro y modo desarrollador**
 - [ ] **PR 24 · Cambio de casa**
