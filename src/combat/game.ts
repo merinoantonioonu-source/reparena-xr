@@ -56,6 +56,7 @@ import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
 import { ArcsSystem } from '../modes/arcs/arcs-system.js';
 import { BarsSystem } from '../modes/bars/bars-system.js';
+import { EnvSystem } from '../env/env-system.js';
 import { TouchSystem } from '../modes/touch/touch-system.js';
 import { curEx } from '../ui/fields.js';
 import { PLAY_MODES, playableEx } from '../core/playable.js';
@@ -303,7 +304,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     };
     HOOKS.sparks = (p, n, c) => this.fx.sparks.burst(p, n, c, 2.4, 0.04);
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
-    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS };
+    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS, sceneryOn: () => this.world.getSystem(EnvSystem)?.sceneryOn ?? false };
     // la letra de la ×N de la bola (Bungee, para el lienzo)
     try {
       const face = new FontFace('Bungee', `url(${import.meta.env.BASE_URL}fonts/Bungee-Regular.ttf)`);

@@ -137,10 +137,10 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 16 · Toques** — #26
 - [x] **PR 17a · Barras: el modo (aparatos que se recuerdan, dominadas, remo, colgado y objetivos)** — #27
 - [x] **PR 17b · Barras: el bosque nocturno, el remolino y los tentáculos** — #27
-- [ ] **PR 18 · Travesía**
-- [ ] **PR 19 · Sesiones**
-- [ ] **PR 20 · Entornos**
-- [ ] **PR 21 · Realidad mixta**
+- [ ] **PR 18 · Travesía** (aplazado por el usuario: se hará más adelante; su lógica pura ya está portada y comparada en `src/modes/trek/`)
+- [ ] **PR 19 · Sesiones** (aplazado por el usuario: se hará más adelante)
+- [x] **PR 20 · Entornos** — #28
+- [ ] **PR 21 · Realidad mixta** (aplazado por el usuario: se hará más adelante; nada de lo demás depende de ella. Se empezó con lo de serie de IWSDK: entrar con `launchXR` en modo `immersive-ar` con detección de planos y mallas, anclas y profundidad, `DepthSensingSystem` y `DepthOccludable` en compuertas, cajas, rocas y enemigos, y `GAME.mr`/`arenaDepth` —6 m en realidad mixta—; el plan de la habitación de RepArena, `src/37_room.js`, se porta a lógica pura con su comparación)
 - [ ] **PR 22 · Música**
 - [ ] **PR 23 · Sincronización, pulsómetro y modo desarrollador**
 - [ ] **PR 24 · Cambio de casa**
@@ -381,6 +381,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 20 → PR 21 y siguientes: los entornos viven en `src/env/` (`EnvSystem`: el fondo realista, las luciérnagas y qué entorno toca;
+  `scenery.ts`: carga, instancias, cielo, suelo y mar del bosque y la isla; `placement.ts`: dónde va cada modelo, de RepArena,
+  con prueba). **El fondo realista es el `DomeTexture` de IWSDK** puesto en la raíz del nivel (`activeLevel`): al elegir uno se
+  esconden el valle y las nubes dibujados y sale el bosque de día delante. El entorno de día cambia la niebla de la escena (y la
+  devuelve al salir). Cuando entra la realidad mixta (PR 21), hay que esconder `Scenery` y las luciérnagas (RepArena: `!arMode`).
+- PR 20 → PR 22: las luciérnagas ya tienen sus uniformes sin el baile; con la música (`uBeat`, `uDance`, `uSwing`) añade el
+  compás (ver `src/56_motes.js`, `motesBeat`).
 - PR 17a → PR 17b y siguientes: Barras sigue la receta de Arcos y Toques (`src/modes/bars/`: `detect.ts`, `targets.ts`, `place.ts`
   y `equip.ts` son la lógica de RepArena, comparada con su código; `bars-system.ts` pinta, suena y puntúa; los objetos, en
   `src/scene-assets/bars.scene-asset.ts`). Lo que añade: **antes de cada oleada hay que colgarse** (la cuenta atrás de 3 s la
@@ -506,6 +513,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 20: **el bosque y la isla no tienen compuertas de piedra** (RepArena las cambiaba por cuevas con pilares, dovelas y
+  puertas de tablones): siguen las metálicas de siempre. **Los troncos, rocas y arbustos no frenan a los enemigos** (RepArena
+  les marcaba círculos sólidos: `Scenery.solids` ya los calcula, pero no están conectados a la física). **Sin el viento** que
+  mecía árboles, hierba y flores, y sin la luz de cada sitio (sol cálido, rebote de la arena): solo la niebla clara y el cielo; la
+  luz de IWSDK no se toca. Sin el sonido de ambiente del bosque ni de la isla (sí los pájaros y las gaviotas).
+- PR 20: **las luciérnagas no bailan** (llegan con la música, PR 22) ni se quedan atrás al avanzar (Arcos por el paisaje y la
+  Travesía). El estilo **Realista** es el que ya traía `ComicSystem` (Entorno → «Estilo visual»).
 - PR 17b: **el bosque nocturno** es más sencillo que el de RepArena: el cielo con luna y estrellas, el suelo de musgo, unos 70 árboles
   hechos de troncos y copas, matorrales y la niebla oscura; **sin la rama gruesa y el árbol enorme del que cuelga la barra**, sin
   las luciérnagas ni la niebla baja, sin las setas que brillan ni los búhos y crujidos. De noche se esconde la arena de siempre

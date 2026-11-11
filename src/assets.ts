@@ -94,5 +94,8 @@ export default defineAssets({
   'toast-card': uikitml('toast.uikitml', 'Aviso breve en la vista'),
   // la isla pirata (Pirate Kit): de momento, solo su cofre (el del descanso de Combate)
   'island-kit': foe('island.glb', 'Isla pirata (Pirate Kit)'),
+  // el claro del bosque de día (Stylized Nature MegaKit, de Quaternius, CC0) y sus texturas
+  'nature-kit': foe('nature.glb', 'Bosque de día (Stylized Nature MegaKit)'),
+  ...Object.fromEntries(['bark_tree.jpg', 'bark_dead.jpg', 'leaves_tree.png', 'leaves_pine.png', 'leaves_bush.png', 'leaves.png', 'flowers.png', 'grass.png', 'mushrooms.jpg', 'rocks.jpg'].map((f) => [`nature-${f.replace(/\.\w+$/u, '')}`, { url: publicAssetUrl(`models/tex/nature/${f}`), type: AssetType.Texture, name: `Bosque: ${f}`, priority: 'background' as const }])),
   ...sounds,
 });

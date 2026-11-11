@@ -188,7 +188,7 @@ export class HangScene {
   private grabT = 0;
   private excite = 0;
   private buzzT = 0;
-  private forestOn = false;
+  forestOn = false;
   private savedFog: { color: Color; density: number } | null = null;
   private readonly tmp = new Vector3();
   private readonly feet = new Vector3();
