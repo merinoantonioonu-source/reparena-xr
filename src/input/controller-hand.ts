@@ -10,6 +10,7 @@
 import { AnimatedControllerHand, AssetManager } from '@iwsdk/core';
 import type { Group, PerspectiveCamera, Scene } from '@iwsdk/core';
 import { handModelUrl } from './input-models.js';
+import { opaqueHand } from './skin-hand.js';
 
 type Layout = ConstructorParameters<typeof AnimatedControllerHand>[3];
 type Side = 'left' | 'right';
@@ -29,6 +30,12 @@ export async function loadControllerHands(): Promise<boolean> {
 }
 
 class ControllerHand extends AnimatedControllerHand {
+  // (opaca, como la mano lisa: la de IWSDK es un fantasma transparente)
+  init(): void {
+    super.init();
+    opaqueHand(this.model);
+  }
+
   // (los dedos van hacia su postura con lerp(…, delta × 20): con delta de más de 0,1 s se pasaba y se disparaba)
   update(delta: number): void {
     super.update(Math.min(delta, 0.05));

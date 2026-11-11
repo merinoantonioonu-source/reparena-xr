@@ -13,7 +13,7 @@ import { SND } from '../../audio/sound.js';
 import { haptic } from '../../input/hand-system.js';
 import { dv, store } from '../../core/settings.js';
 import { GAME, HOOKS } from '../../core/state.js';
-import { num, on, on as on2, settings, str } from '../../core/values.js';
+import { num, on, settings, str } from '../../core/values.js';
 import { hands, head } from '../../input/hand-model.js';
 import { createArcTrack, type ArcTrackParts } from '../../scene-assets/arc-track.scene-asset.js';
 import { createArc, type ArcParts } from '../../scene-assets/arc.scene-asset.js';
@@ -134,9 +134,9 @@ export class ArcsSystem extends createSystem({}) {
 
   // RepArena: arxDeco (sin la tormenta del cielo): la pista y las farolas corren hacia ti; del color de la racha (rojo en la fiebre)
   private stepTrack(dt: number, play: boolean): void {
-    const T = this.track, on = this.on && GAME.phase === 'playing' && on2('arcMove');
-    T.grp.visible = on;
-    if (!on) return;
+    const T = this.track, live = this.on && GAME.phase === 'playing' && on('arcMove');
+    T.grp.visible = live;
+    if (!live) return;
     this.tintT.setHex(this.arx.fever ? 0xff2414 : this.arx.streak >= 5 ? 0xffd166 : 0x3cf0c6);
     this.tint.lerp(this.tintT, Math.min(1, dt * 3));
     if (play) this.scroll += arxSpeed(this.env, this.arx) * dt;

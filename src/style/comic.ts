@@ -329,3 +329,31 @@ export function comicApply(on: boolean, root: Object3D, skip: SkipTest): void {
   comicScan(root, skip);
   for (const m of COMIC.mats) comicSet(m, on);
 }
+
+/**
+ * Para desvanecer a un enemigo muerto: sus materiales, copiados y transparentes (devuelve las copias, para bajarles la
+ * opacidad), ya con el cómic puesto (Three no copia el sombreador propio al copiar un material: sin esto se compilaba otra
+ * versión y, al volver a ponerle el cómic, otra más: dos tirones en plena partida); su contorno de tinta se quita (al
+ * desvanecerse no tendría sentido). Lo mismo para las copias que se precompilan antes de la ronda (src/style/warm.ts).
+ */
+export function fadeCopy(root: Object3D): Material[] {
+  const out: Material[] = [], ink: Object3D[] = [];
+  root.traverse((c) => {
+    const m = c as Mesh;
+    if (!m.isMesh) return;
+    if (m.userData.isOutline) {
+      ink.push(m);
+      return;
+    }
+    const one = (src: Material): Material => {
+      const mat = src.clone();
+      mat.transparent = true;
+      if ((mat as MeshStandardMaterial).isMeshStandardMaterial) comicPatch(mat as MeshStandardMaterial);
+      out.push(mat);
+      return mat;
+    };
+    m.material = Array.isArray(m.material) ? m.material.map(one) : one(m.material);
+  });
+  for (const o of ink) o.removeFromParent(); // (después de recorrer; COMIC.ol sigue apuntando a él: no se vuelve a poner)
+  return out;
+}

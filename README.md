@@ -163,6 +163,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/lockline.ts` | La diana: líneas de enfoque alrededor del zombi apuntado |
 | `src/combat/gates.ts` | Las compuertas: abrirse para sacar a un zombi, la baliza y sus cuerpos de física |
 | `src/style/comic.ts`, `src/style/comic-system.ts` | El estilo Cómic: el sombreado, los colores y los contornos de tinta, y el sistema que lo aplica a todo |
+| `src/style/warm.ts` | Precompilar los sombreadores antes de cada ronda (con la carátula en negro), para que nada nuevo dé un tirón en plena partida |
 | `src/style/comic-fx.ts` | Los efectos de cómic: líneas de impacto y estrella al derribar |
 | `src/scene-assets/gate.scene-asset.ts` | La compuerta (hecha en código) |
 | `src/scene-assets/comic-valley.scene-asset.ts`, `src/scene-assets/comic-sky.scene-asset.ts` | El valle de dibujo y las nubes |
@@ -227,6 +228,8 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/throw.ts` | La sacudida que lanza el rayo y el gatillo con mandos como manos (los de RepArena), sin IWSDK |
 | `src/input/gaze-lock.ts`, `src/input/punch.ts`, `src/input/target.ts` | La mirada que fija al enemigo, el puñetazo y lo que ven de cada enemigo (de RepArena, sin IWSDK) |
 | `src/input/controller-hand.ts` | La mano de IWSDK que agarra el mando, con sus fallos de esta versión arreglados |
+| `src/input/skin-hand.ts`, `src/input/glove-system.ts`, `src/scene-assets/glove.scene-asset.ts` | Las manos que se ven («Manos que se ven»): los guantes robóticos de RepArena (de serie) o la mano de IWSDK, opaca |
+| `src/input/hold.ts`, `src/ui/solid-keys.ts` | Las teclas sólidas: la mano que se ve se queda apoyada en el panel que toca (con el mecanismo de IWSDK para moverla) |
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
 | `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de arena, aro del jugador, cajas, rocas, compuertas, valle, nubes, zombis y paneles |
 | `public/scenes/main.iwsdk.scene.json` | La escena: cielo, neblina, suelo, compuertas, valle, nubes, cajas y rocas con su física, paneles y luces |

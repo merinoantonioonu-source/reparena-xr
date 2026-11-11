@@ -85,6 +85,7 @@ export class ScreenSystem extends createSystem({}, {}) {
       if (src && this.e?.object3D) {
         this.e.object3D.position.copy(src.position);
         this.e.object3D.quaternion.copy(src.quaternion);
+        this.e.object3D.scale.copy(src.scale); // (al tamaño del menú)
       }
       HOOKS.hideMenu();
       // (hideMenu esconde los menús; esta pantalla se pone encima)

@@ -29,7 +29,7 @@ export const BOLT_COL = [0x4aa8ff, 0x3cf0c6, 0xffd166, 0xff8a2a, 0xff3cf0];
 /** El color de un rayo: el de su carga (×2 o más) o, sin cargar, azul o turquesa si la repetición fue perfecta. */
 /** El color que llevas puesto para el rayo normal (tu carrera: src/combat/career-hub.ts); el perfecto y los cargados no
  * cambian: su color dice lo que valen (RepArena: boltRGB). */
-export const LOOK = { bolt: BOLT_COL[0] };
+export const LOOK = { bolt: BOLT_COL[0], /** el de las puntas de los guantes */ hands: 0x3cf0c6 };
 export const boltColor = (perfect: boolean, pow: number): number => (pow > 1 ? POW_COL[Math.min(4, pow) - 1] : perfect ? BOLT_COL[1] : LOOK.bolt);
 
 const rand = (a: number, b: number): number => a + Math.random() * (b - a);

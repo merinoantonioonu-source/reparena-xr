@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { RANK_VALS } from '../../src/core/catalog.js';
 import { DEV } from '../../src/core/dev-state.js';
 import { FIELD, SCHEMA } from '../../src/core/schema.js';
-import { COMBO_KEY, DEV_KEY, STORE_KEY, clampSetting, dv, fieldVisible, fmtVal, initSettings, nLives, rankVals, setSetting, store } from '../../src/core/settings.js';
+import { COMBO_KEY, DEV_KEY, STORE_KEY, XR_STORE_KEY, clampSetting, dv, fieldVisible, fmtVal, initSettings, nLives, rankVals, setSetting, store } from '../../src/core/settings.js';
 import { num, settings, str } from '../../src/core/values.js';
 
 // el almacén del navegador, en memoria
@@ -32,9 +32,10 @@ beforeEach(() => {
 });
 
 describe('el esquema', () => {
-  it('tiene los 186 ajustes de RepArena, sin claves repetidas', () => {
-    expect(SCHEMA.length).toBe(186);
-    expect(new Set(SCHEMA.map((f) => f.key)).size).toBe(186);
+  it('tiene los 186 ajustes de RepArena y los 2 nuevos (las manos y el tamaño del menú), sin claves repetidas', () => {
+    expect(SCHEMA.length).toBe(188);
+    expect(new Set(SCHEMA.map((f) => f.key)).size).toBe(188);
+    expect(SCHEMA.filter((f) => f.key === 'handLook' || f.key === 'menuSize').length).toBe(2);
   });
   it('cada valor de serie está dentro de sus límites', () => {
     for (const f of SCHEMA) expect(clampSetting(f, f.def), f.key).toEqual(f.def);
@@ -192,8 +193,11 @@ describe('guardar', () => {
     initSettings();
     setSetting('squatDepth', 30);
     const s = saved(STORE_KEY);
-    for (const f of SCHEMA) expect(s, f.key).toHaveProperty(f.key);
+    for (const f of SCHEMA) if (!f.xr) expect(s, f.key).toHaveProperty(f.key);
     expect(s.squatDepth).toBe(30);
+    // los de RepArena XR, aparte (RepArena no los conoce)
+    expect(s).not.toHaveProperty('handLook');
+    expect(saved(XR_STORE_KEY)).toEqual({ handLook: 'glove', menuSize: 75 });
     expect(s.mode).toBe('combat');
     expect(store(STORE_KEY)).toEqual(s);
   });

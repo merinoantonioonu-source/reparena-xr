@@ -14,6 +14,7 @@
  *  - Un puñetazo rápido al zombi que tienes delante lo aparta y lo aturde un momento (sin quitarle vida).
  *  - Oleadas de zombis cada vez algo más rápidos; si te golpean, pierdes una vida; sin vidas, se acaba la ronda.
  */
+import { warmHook, warmSoon } from '../style/warm.js';
 import {
   createSystem,
   Entity,
@@ -196,6 +197,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   init(): void {
     this.enemies = this.world.getSystem(EnemySystem)!;
+    warmHook(this.world.renderer, this.scene); // (precompilar antes de cada ronda: src/style/warm.ts)
     this.gates = this.world.getSystem(GateSystem) ?? null;
     // los efectos (bola, rayos, chispas, la carga en las manos), la diana y el velo rojo de los golpes
     this.fx = new Effects();
@@ -649,6 +651,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.enemies.clear();
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
+    // con la carátula del duelo en negro, se compila todo lo que puede salir (si no, lo nuevo daba un tirón en plena partida)
+    if (settings.mode === 'combat') this.enemies.warm();
+    warmSoon();
     // el modo y el ejercicio: los que ya hay (si lo elegido en RepArena aún no está aquí, Combate o la sentadilla)
     if (!PLAY_MODES.includes(settings.mode)) setSetting('mode', 'combat');
     const px = playableEx(settings.mode, settings.exercise);
