@@ -21,5 +21,7 @@ gratuitos como CC0 (dominio público). El Dinosaur Animated Pack, CC0.
 
 | `tentaculo.glb` | **Tentáculo** del charco de las barras (Pirate Kit, de Quaternius, CC0) con sus cuatro animaciones: reposo (`Tentacle_Idle`, se mece), pinchazo (`Poke`), latigazo (`Attack`) y barrido (`Attack2`). Convertido de su `.gltf` a `.glb`, sin simplificar (3.900 triángulos). Es el de RepArena. |
 
+| `nature.glb` y `tex/nature/*` | El **claro del bosque de día** (Stylized Nature MegaKit, de Quaternius, CC0): árboles, pinos, árboles secos, arbustos, rocas, hierba, flores, helechos y setas, simplificados y juntos, cada uno bajo un nodo con su nombre; sus texturas, reducidas, aparte. Son los de RepArena. Se usan con Entorno → «Bosque» y con el fondo realista. |
+
 Los retratos de cada enemigo para sus fichas del menú (`../retratos/*.png`, 128 px) salen de la hoja de RepArena
 (`models/retratos.png`, hecha con estos modelos por su `tests/retratos.js`), cortada una vez.

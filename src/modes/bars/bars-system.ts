@@ -106,6 +106,11 @@ export class BarsSystem extends createSystem({}) {
     HOOKS.cancelPlace = () => void this.cancelPlace();
   }
 
+  /** ¿Es de noche en el bosque (colgado de la barra)? Entonces los entornos de día se apartan. */
+  get nightForest(): boolean {
+    return !!this.hang?.forestOn;
+  }
+
   private get on(): boolean {
     return settings.mode === 'bars';
   }

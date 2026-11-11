@@ -108,6 +108,7 @@ tabla de `README.md` dice qué hace cada archivo.
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee.
 - Los modelos de las manos y los mandos se sirven desde el juego (`public/input-profiles`, `src/input/input-models.ts`).
+- **Entornos** (`src/env/`): `EnvSystem` pone el fondo realista como `DomeTexture` de IWSDK en la raíz del nivel (`ajustes pano`) y las luciérnagas (`motes`); `Scenery` pinta el bosque o la isla (`scenery`) con instancias; dónde va cada modelo, `placement.ts`. El fondo realista y el entorno de día esconden el valle, las nubes y el suelo de cómic; Barras colgado (de noche, `nightForest`) los aparta.
 - **Estilo Cómic** (el de serie): `ComicSystem` (`src/style/`) prepara todo lo que aparece con material estándar: su
   sombreado de cómic y su contorno de tinta. Lo nuevo, con `MeshStandardMaterial` de colores claros y lisos; sin contorno,
   `userData.noInk`. Los objetos de escena, con las habilidades de IWSDK (`iwsdk-build-model`, `iwsdk-compose-scene`).

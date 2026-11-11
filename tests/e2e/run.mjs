@@ -214,6 +214,14 @@ try {
   if (car.mis.list.some((m) => !(m.n > 0) || m.got < 0)) throw new Error('misiones raras: ' + JSON.stringify(car.mis));
   console.log(`  ✓ la carrera: ${car.xp} XP y ${car.mis.list.length} misiones de hoy (${car.mis.list.map((m) => m.t).join(', ')})`);
   await shot('9-resumen');
+  // los entornos de día: el bosque y la isla se cargan y se ven (la fortaleza de siempre se esconde)
+  for (const k of ['nature', 'island']) {
+    await page.evaluate((e) => window.__rx.setSetting('scenery', e), k);
+    await page.waitForFunction(() => window.__rx.sceneryOn(), null, { timeout: 60000 });
+    console.log(`  ✓ entorno de día: ${k === 'nature' ? 'el bosque' : 'la isla pirata'}`);
+  }
+  await page.evaluate(() => window.__rx.setSetting('scenery', 'arena'));
+  await page.waitForFunction(() => !window.__rx.sceneryOn(), null, { timeout: 10000 });
   // los otros modos: una ronda corta de Arcos y otra de Toques (sin manos: nadie toca, pero todo sale, se ve y se juzga)
   for (const [mode, ex, what] of [['arcs', 'squat', 'Arcos'], ['touch', 'slam', 'Toques']]) {
     await page.evaluate(([m, e]) => { window.__rx.setSetting('lives', 0); window.__rx.setSetting('mode', m); window.__rx.setSetting('exercise', e); window.__rx.HOOKS.startRound(); }, [mode, ex]);
