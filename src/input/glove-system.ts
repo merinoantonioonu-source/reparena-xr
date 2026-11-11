@@ -1,16 +1,17 @@
 /**
- * Los guantes robóticos de RepArena en las manos desnudas («Manos que se ven» → Guantes, el de serie; RepArena:
+ * Los guantes robóticos de RepArena en las manos desnudas y, con mandos como manos, en la mano que agarra el mando
+ * («Manos que se ven» → Guantes, el de serie; RepArena:
  * updateGloves, src/40_models.js). Cada fotograma se colocan con las articulaciones que dan las gafas (las de `hands`, tal
  * cual, sin suavizar: la lectura de las manos es la de IWSDK). La mano que las gafas pierden deja de verse, como la de
  * IWSDK. Las puntas de los dedos, del color que llevas (en Toques, el de los diamantes de esa mano).
  */
 import { createSystem, InstancedMesh, Matrix4, Quaternion, Vector3, VisibilityState } from '@iwsdk/core';
-import type { BufferGeometry, Group, Material } from '@iwsdk/core';
+import type { BufferGeometry, Group, Material, Object3D } from '@iwsdk/core';
 import { LOOK } from '../combat/fx.js';
 import { settings, str } from '../core/values.js';
 import { TCH_COL } from '../modes/touch/targets.js';
 import { createGloveParts, createGlovePalm, type GloveParts } from '../scene-assets/glove.scene-asset.js';
-import { hands, SIDES, type Joint, type Side } from './hand-model.js';
+import { HJ, hands, SIDES, type Joint, type Side } from './hand-model.js';
 import { HOLD } from './hold.js';
 
 // las falanges (de una articulación a la siguiente), los nudillos, las puntas y los nudillos de la mano (RepArena: G_*)
@@ -20,6 +21,9 @@ for (const b of [5, 10, 15, 20]) {
   SEGS.push([b + 1, b + 2], [b + 2, b + 3], [b + 3, b + 4]);
   JOINTS.push(b + 1, b + 2, b + 3);
 }
+// el grosor de cada articulación de la mano que agarra el mando (su modelo no lo trae: los de una mano normal)
+const RADII = [0.021, 0.019, 0.015, 0.013, 0.011];
+for (const k of [1, 1, 0.95, 0.85]) RADII.push(0.02 * k, 0.011 * k, 0.0095 * k, 0.0085 * k, 0.0075 * k);
 
 interface Glove {
   seg: InstancedMesh;
@@ -40,11 +44,39 @@ export class GloveSystem extends createSystem({}, {}) {
   private s = new Vector3();
   private off = new Vector3();
   private zero = new Matrix4().makeScale(0, 0, 0);
+  private zeroV = new Vector3();
   private q = new Quaternion();
+  /** Las articulaciones de la mano que agarra el mando (de los huesos de su modelo), por lado. */
+  private pad: Record<Side, Joint[]> = { left: [], right: [] };
+  private bones = new WeakMap<object, (Object3D | undefined)[]>();
 
   init(): void {
     this.P = createGloveParts();
     this.g = { left: this.make(), right: this.make() };
+    for (const sd of SIDES) this.pad[sd] = HJ.map((_, i) => ({ p: new Vector3(), q: new Quaternion(), ok: false, r: RADII[i] }));
+  }
+
+  // con mandos como manos: las articulaciones, de los huesos de la mano de IWSDK que agarra el mando (el índice se dobla
+  // con el gatillo y los demás dedos con el agarre); sin ella (el mando), nada
+  private padJoints(side: Side): Joint[] | null {
+    const m = this.input.xr.visualAdapters.controller[side].visual?.model;
+    if (!m) return null;
+    let b = this.bones.get(m);
+    if (!b) {
+      b = HJ.map((n) => m.getObjectByName(n) ?? undefined);
+      this.bones.set(m, b);
+    }
+    if (!b[0]) return null;
+    const J = this.pad[side];
+    for (let i = 0; i < 25; i++) {
+      const bone = b[i];
+      J[i].ok = !!bone;
+      if (bone) {
+        bone.getWorldPosition(J[i].p);
+        bone.getWorldQuaternion(J[i].q);
+      }
+    }
+    return J;
   }
 
   private make(): Glove {
@@ -70,7 +102,7 @@ export class GloveSystem extends createSystem({}, {}) {
   update(): void {
     const inXR = this.world.visibilityState.peek() !== VisibilityState.NonImmersive, want = inXR && str('handLook') !== 'skin';
     for (const side of SIDES) {
-      const h = hands[side], G = this.g[side], show = want && h.isHand && h.ok;
+      const h = hands[side], G = this.g[side], pj = want && h.virt && h.ok ? this.padJoints(side) : null, show = want && h.ok && (h.isHand || !!pj);
       if (!show) {
         if (G.palm.visible) {
           G.palm.visible = false;
@@ -80,7 +112,8 @@ export class GloveSystem extends createSystem({}, {}) {
       }
       const hex = settings.mode === 'touch' ? TCH_COL[side] : LOOK.hands;
       if (hex !== G.hex) G.tipMat.color.setHex((G.hex = hex));
-      const J = h.J, hold = HOLD[side]; // (apoyada en el panel que toca, sin atravesarlo: src/ui/solid-keys.ts)
+      // (apoyada en el panel que toca, sin atravesarlo: src/ui/solid-keys.ts; la del mando ya lleva el apartado en su modelo)
+      const J = pj ?? h.J, hold = pj ? this.zeroV : HOLD[side];
       for (let i = 0; i < SEGS.length; i++) {
         const A = J[SEGS[i][0]], B = J[SEGS[i][1]];
         if (!A.ok || !B.ok) {

@@ -128,7 +128,7 @@ No las cambies sin preguntarle.
   ejercicios que se hacen con las manos (`handEx`: los de pesa —curl, curl con barra, elevación frontal…— y la plancha
   con un brazo) no se inventa ninguna mano: con los brazos abajo las gafas las pierden a menudo, y la inventada subía sola
   y contaba curls y disparos que no se habían hecho. Fuera de la partida (menús), tampoco.
-- **[Con IWSDK, de serie (PR 3): la mano que se ve es la de IWSDK, sin suavizar. PR 24a (pedido del usuario: la de IWSDK es transparente): «Manos que se ven», de serie los guantes robóticos de RepArena (`src/input/glove-system.ts`) o la mano de IWSDK opaca; las dos, con lo que dan las gafas tal cual]** La mano que se pinta usa la posición suavizada (`J.s`) y también el giro suavizado (`J.sq`, mismo filtro): con el giro
+- **[Con IWSDK, de serie (PR 3): la mano que se ve es la de IWSDK, sin suavizar. PR 24a/25 (pedido del usuario: la de IWSDK es transparente y blanca): «Manos que se ven», de serie los guantes robóticos de RepArena (`src/input/glove-system.ts`, también en la mano que agarra el mando) o la mano de IWSDK opaca; las dos, con lo que dan las gafas tal cual]** La mano que se pinta usa la posición suavizada (`J.s`) y también el giro suavizado (`J.sq`, mismo filtro): con el giro
   tal cual, la palma y las falanges temblaban. Solo para pintar: el juego sigue con lo que dan las gafas.
 - **[PR 3: la sacudida y el puñetazo, los de RepArena tal cual (comparados con su código: IWSDK no los trae); la lectura, el suavizado y el pellizco, los de IWSDK de serie; el filtro `HF` no se porta (con IWSDK, de serie; ver el PR 6 en `MIGRACION.md`)]** La lectura de las manos (suavizado, filtro `HF` de las dos manos juntas, lanzamiento, puñetazo, pellizco) está como antes
   de la auditoría externa: sus cambios (solo posturas nuevas, pellizco con puño, salto de la mano recuperada) empeoraron
@@ -237,7 +237,7 @@ No las cambies sin preguntarle.
   - se cierra con la palma izquierda hacia abajo o con el puño;
   - los menús nuevos salen solos.
 - **Cada menú sale donde estaba el anterior**: «Traer menú», «Volver», «Menú principal» y el resumen no se alejan.
-- **[Con IWSDK, de serie (pedido del usuario): la física de pulsar los menús es la de IWSDK; el imán no se porta. PR 24a (pedido del usuario al probar en las gafas: «el dedo sigue hundiéndose en el teclado»): las teclas y el panel, sólidos para la mano que se ve, con el mecanismo de IWSDK para moverla (`src/ui/solid-keys.ts`); la pulsación sigue siendo la de IWSDK]** Los botones de los menús se pulsan con **las dos manos** (el botón MENÚ de la muñeca izquierda, con la derecha). Las
+- **[PR 25 (el usuario, al probar en las gafas: con lo de IWSDK «el dedo atraviesa el panel y resbala por las teclas pulsadas»; IWSDK no trae más que su punto de toque): la pulsación de RepArena sobre el punto de toque de IWSDK (`src/ui/solid-keys.ts`): pulsa al tocar, sólidas, pegadas y retirar el dedo; el imán, aún no]** Los botones de los menús se pulsan con **las dos manos** (el botón MENÚ de la muñeca izquierda, con la derecha). Las
   teclas son **sólidas**: al llegar al fondo, la mano que se ve se queda apoyada en ella y no la atraviesa; el panel
   también (el fondo y los huecos entre teclas). Y tienen **imán** (opción B elegida): la iluminada sigue iluminada hasta que
   el dedo sale de ella más de 1 cm, la mano que se ve se acerca a ella y, al tocarla, se queda clavada donde tocó; decide la
@@ -247,14 +247,14 @@ No las cambies sin preguntarle.
   pulsar, el menú se rehace y la tecla nueva salía sin hundir, con el dedo dentro): con el dedo delante se aclara, tocada
   brilla y, al pulsar, destella con un fogonazo de luz donde está el dedo; nada de eso repinta el panel (solo su color).
   Las de relieve (una malla con laterales y contorno de tinta, y la etiqueta encima) pesaban demasiado.
-- **[Con IWSDK, de serie (pedido del usuario): la física de pulsar los menús es la de IWSDK; no se porta]** **Pegadas** (pedido del usuario): la tecla pulsada retiene el dedo que se ve hasta que lo apartas por delante; aunque la
+- **[PR 25: portado (el usuario lo pidió al volver el problema en las gafas)]** **Pegadas** (pedido del usuario): la tecla pulsada retiene el dedo que se ve hasta que lo apartas por delante; aunque la
   mano de verdad resbale de lado (hasta `POKE_KEEP`, 7 cm), la punta sigue sobre ella y no se desliza por el panel ni
   ilumina las vecinas. En las planas, la punta se queda en el punto exacto que tocó (`pinW`, en el candado `POKE.lock`),
   también cuando la pulsación rehace el menú con teclas nuevas en el mismo sitio.
 - **[Decidido en el PR 7 (usuario): no se pone; si en las gafas el menú va a saltos al mover la cabeza, se pone]** Detrás del fondo de cada menú (y de la columna HOY), una pantalla invisible que solo escribe profundidad y se pinta la
   primera (`menuOccluder`, `src/60_ui.js`): así no se pinta el paisaje tapado por el menú. Sin ella, el menú principal, que
   cubre casi toda la vista, iba a saltos al mover la cabeza (el resumen, pequeño, no). Un panel de menú nuevo, con la suya.
-- **[Con IWSDK, de serie (pedido del usuario): la física de pulsar los menús es la de IWSDK; no se porta]** Tras pulsar un botón, hay que **retirar el dedo** antes de que cuente otra pulsación, para que no se toquen dos
+- **[PR 25: portado (el usuario lo pidió al volver el problema en las gafas)]** Tras pulsar un botón, hay que **retirar el dedo** antes de que cuente otra pulsación, para que no se toquen dos
   opciones ni el menú siguiente.
 - Menús compactos y al alcance de la mano:
   - lo poco usado va en submenús (Sonido, Entorno, Ajustes…);

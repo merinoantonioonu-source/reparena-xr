@@ -268,8 +268,11 @@ export class ViewSystem extends createSystem({}) {
     const lo = this.lobbyE?.object3D, menu = show && GAME.menu === 'lobby' && !!lo?.visible;
     if (menu && lo) {
       lo.updateMatrixWorld();
-      this.demoMenu.position.copy(lo.localToWorld(this.v.set(0.45 + (DEMO_W * DEMO_MS) / 2 + 0.02, (-DEMO_H * DEMO_MS) / 2, 0)));
+      // (a la escala del menú, que en las gafas es más pequeño: si no, se metía encima de él; y un poco por delante, para que
+      // no parpadee si llegan a tocarse)
+      this.demoMenu.position.copy(lo.localToWorld(this.v.set(0.45 + (DEMO_W * DEMO_MS) / 2 + 0.03, (-DEMO_H * DEMO_MS) / 2, 0.004)));
       lo.getWorldQuaternion(this.demoMenu.quaternion);
+      this.demoMenu.scale.setScalar(DEMO_MS * lo.getWorldScale(this.v).x);
     }
     this.demoMenu.visible = menu;
     if (!wait && !menu) return;
