@@ -131,7 +131,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 12a · Botón MENÚ de la muñeca, pausa y resumen de la ronda** — #20
 - [x] **PR 12b · Carátula del duelo, caricatura y avisos de la vista** — #21
 - [x] **PR 13a · Carrera: nivel, misiones del día, cofre y escudos, metas de hoy y Progreso** — #22
-- [ ] **PR 13b · La campaña y la carátula «METAS DE HOY»**
+- [x] **PR 13b · La campaña y la carátula «METAS DE HOY»** — #23
 - [ ] **PR 14 · Página web y app del móvil**
 - [ ] **PR 15 · Arcos**
 - [ ] **PR 16 · Toques**
@@ -332,8 +332,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   «¡RÉCORD DE…!»), lo ganado en el resumen (el cofre y el nivel primero) y «Hoy: x de y min» en el descanso; el color del
   rayo normal. En los menús: las metas de hoy bajo EMPEZAR, la columna «HOY» (`hoy.uikitml`) y Opciones → Progreso (Nivel con
   los colores, Misiones y Semana).
-- **13b**: la campaña (35 niveles en 7 regiones por modo y ejercicio: mapa, jugar un nivel con sus ajustes, estrellas y los
-  botones del resumen) y la carátula «METAS DE HOY» al entrar en las gafas.
+- **13b (hecho)**: la campaña (35 niveles en 7 regiones por modo y ejercicio: Opciones → Progreso → Campaña, con el mapa de
+  cada región, sus cinco niveles —el quinto, con jefe— y sus estrellas; jugar un nivel con el rango y las oleadas del nivel
+  por encima de tus ajustes, `src/core/campaign.ts`; al acabar, el nivel con sus estrellas en el resumen y los botones
+  «Nivel N», «Repetir» y «Mapa») y la carátula «METAS DE HOY» al entrar en las gafas (`src/ui/goals-intro.ts`: 8 s, con todo
+  lo demás oscurecido; se salta con un botón, el pulgar arriba o una tecla).
 
 **PR 14 · Página web y app del móvil** (L)
 - La página con su índice y el formulario de ajustes, «Probar en el ordenador», la app del móvil (modelo C) y el
@@ -369,18 +372,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
-- PR 13a → PR 13b: la campaña ya tiene sus datos (`Career.campOf`, `campLv`, `campResult`, `CAMP_REG`, `CAMP_N`) y su guardado
-  (`cr.camp`); `Career.run(o, camp)` recibe `{id, lv}` de la campaña en juego (aquí, `null`) y suma sus estrellas. Falta
-  jugarla: `campStart` (los ajustes del nivel por encima de los tuyos con `OVERLAY` de `src/core/settings.ts`, `beginRun`),
-  `campEnd` al acabar, el mapa y los botones del resumen (Nivel siguiente, Repetir, Mapa; el resumen es `showSummary` en
-  `src/ui/menu.ts` y `summaryOf` en `src/core/run.ts`). El entorno de cada región (arena, bosque, isla) llega con el PR 20.
-  La pestaña Campaña va en `PROG_SUBS` (`src/ui/menu.ts`). La carátula «METAS DE HOY»: como la del duelo (`ViewSystem`).
+- PR 13b → PR 14: la carrera y la campaña se guardan en `reparena3-career` (la página y la app del móvil la leerán: nivel,
+  misiones de hoy, escudos; en RepArena, `careerHTML` en `src/73_career.js` y el panel «Hoy» de `src/00_core.js`:
+  `renderToday`, `progress`, `dayStats`, que ya están en `src/core/days.ts`). El entorno de cada región de la campaña
+  (arena, bosque, isla) se apunta en `CAMP.env` y se pondrá con el PR 20.
 
-- PR 10a → PR 10b: la ronda va por oleadas (`GameSystem.startWave`, `waveCleared`, `endRound`): la cola de la oleada
-  (`queue`, de `buildWave`), el descanso (`restT`, con `GAME.between`) y el panel entre oleadas (`waveIntro`, panel
-  `wave-panel`). Los puntos y el combo, en `GAME.score`/`GAME.combo` (`repScore`, `onFoeDown`, `HOOKS.score` para las
-  piedras); los golpes recibidos, en `GAME.taken`. Las cartas de mejora tienen que hacer esperar al descanso (RepArena:
-  `perkWaits`), y el dorado, el relámpago y el cofre multiplican los puntos (`perkPtsK`, `perkKillK`).
 - PR 12b → PR 13: los avisos de la vista ya están (`ViewSystem`, `src/ui/view-panels.ts`): lo que pide hacer algo ya, con
   `message(texto, s, color, true)` o `HOOKS.say(…, true)` (el breve); las celebraciones, sin `true` (al marcador). Los
   logros grandes (`GameSystem.trophy`) salen derechos con `VIEW_FRAME`. La carátula «METAS DE HOY» de RepArena al entrar en
@@ -488,6 +484,7 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   Misiones y Semana pulsados con el rayo, y una ronda ganada con las tres misiones (salen «¡TRES DE TRES!» y «¡COFRE DEL
   DÍA!» y el resumen trae el cofre con el color desbloqueado). En las gafas, por mirar: que las letras de la franja y de la
   columna se lean (son pequeñas) y que la columna no estorbe al caricatura (que sale al otro lado).
+- PR 13b: probado en la VR simulada: Progreso → Campaña (el mapa, el nivel elegido), jugar el nivel 1, ganarlo (tres estrellas, «¡Nivel 5!», el resumen con «Nivel 2», «Repetir» y «Mapa»), volver al mapa y jugar el nivel 2; y la carátula «METAS DE HOY» al entrar. En las gafas, por mirar: que el mapa y los botones se pulsen cómodos. El entorno de la región (bosque, isla) llega con el PR 20: por ahora, todas en la arena.
 - PR 13a: el resumen aún no propone subir o bajar de rango (RepArena: `rankFitAdd`); el colgado (`hang`) y los modos con
   metros (Arcos, Travesía) llegan con sus PR.
 

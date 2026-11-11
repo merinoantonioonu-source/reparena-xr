@@ -285,6 +285,97 @@
     height: 0.35;
     background-color: #ff4fa3;
   }
+  .pmap {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.6;
+    width: 78;
+    padding-top: 1.6;
+    padding-bottom: 1.8;
+    border-radius: 2.4;
+    background-color: #3a2f2a;
+  }
+  .pmhead {
+    flex-direction: row;
+    justify-content: space-between;
+    width: 72;
+  }
+  .pmtitle {
+    font-size: 2.3;
+    color: #ffffff;
+  }
+  .pmstars {
+    font-size: 2.1;
+    color: #ffd166;
+  }
+  .pnodes {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+    width: 72;
+  }
+  .pnode {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8;
+    width: 12.6;
+    padding-top: 1.2;
+    padding-bottom: 1.2;
+    border-radius: 2;
+    border-width: 0.4;
+    border-color: #00000000;
+    background-color: #eeeaff;
+    cursor: pointer;
+  }
+  .pnodet {
+    font-size: 4.4;
+    color: #1a1030;
+  }
+  .pnodeb {
+    font-size: 1.7;
+    color: #ff4a6a;
+  }
+  .pstars {
+    flex-direction: row;
+    gap: 0.5;
+  }
+  .pstar {
+    width: 1.8;
+    height: 1.8;
+    border-radius: 0.9;
+    background-color: #ffffff33;
+  }
+  .pcamprow {
+    flex-direction: row;
+    align-items: center;
+    gap: 1.4;
+  }
+  .pplay {
+    width: 32;
+    height: 6;
+    justify-content: center;
+    align-items: center;
+    border-radius: 3;
+    background-color: #3cf0c6;
+    cursor: pointer;
+  }
+  .pplayt {
+    font-size: 2.6;
+    color: #0d1016;
+  }
+  .pside {
+    width: 19;
+    height: 6;
+    justify-content: center;
+    align-items: center;
+    border-radius: 3;
+    background-color: #2a2f3a;
+    cursor: pointer;
+  }
+  .psidet {
+    font-size: 2.2;
+    color: #e9eef7;
+  }
   .pdot {
     width: 5;
     height: 5;
@@ -583,6 +674,24 @@
       </div>
       <span id="pm-note" class="note">Tres nuevas cada día</span>
       <span id="pm-shnote" class="note">Escudos de racha</span>
+    </div>
+    <div id="pg-camp" class="psec">
+      <div id="pc-map" class="pmap">
+        <div class="pmhead"><span id="pc-title" class="pmtitle">1. Campo de entrenamiento · Recluta</span><span id="pc-stars" class="pmstars">0 / 105 estrellas</span></div>
+        <div class="pnodes">
+        <button id="pc0" class="pnode"><span id="pc0-n" class="pnodet display">1</span><span id="pc0-b" class="pnodeb">Jefe</span><div class="pstars"><div id="pc0-s0" class="pstar"></div><div id="pc0-s1" class="pstar"></div><div id="pc0-s2" class="pstar"></div></div></button>
+        <button id="pc1" class="pnode"><span id="pc1-n" class="pnodet display">2</span><span id="pc1-b" class="pnodeb">Jefe</span><div class="pstars"><div id="pc1-s0" class="pstar"></div><div id="pc1-s1" class="pstar"></div><div id="pc1-s2" class="pstar"></div></div></button>
+        <button id="pc2" class="pnode"><span id="pc2-n" class="pnodet display">3</span><span id="pc2-b" class="pnodeb">Jefe</span><div class="pstars"><div id="pc2-s0" class="pstar"></div><div id="pc2-s1" class="pstar"></div><div id="pc2-s2" class="pstar"></div></div></button>
+        <button id="pc3" class="pnode"><span id="pc3-n" class="pnodet display">4</span><span id="pc3-b" class="pnodeb">Jefe</span><div class="pstars"><div id="pc3-s0" class="pstar"></div><div id="pc3-s1" class="pstar"></div><div id="pc3-s2" class="pstar"></div></div></button>
+        <button id="pc4" class="pnode"><span id="pc4-n" class="pnodet display">5</span><span id="pc4-b" class="pnodeb">Jefe</span><div class="pstars"><div id="pc4-s0" class="pstar"></div><div id="pc4-s1" class="pstar"></div><div id="pc4-s2" class="pstar"></div></div></button>
+        </div>
+      </div>
+      <div class="pcamprow">
+        <button id="pc-prev" class="pside"><span id="pc-prevt" class="psidet">Región -</span></button>
+        <button id="pc-play" class="pplay"><span id="pc-playt" class="pplayt display">JUGAR NIVEL 1</span></button>
+        <button id="pc-next" class="pside"><span id="pc-nextt" class="psidet">Región +</span></button>
+      </div>
+      <span id="pc-note" class="note">Nivel 1</span>
     </div>
     <div id="pg-week" class="psec">
       <span class="pwtitle">Tu semana (minutos)</span>

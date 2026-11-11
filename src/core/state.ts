@@ -73,6 +73,8 @@ export const HOOKS = {
   score: (_pts: number, _combo?: boolean): void => {},
   /** Empezar la ronda (EMPEZAR, o Enter en el ordenador): lo pone la partida. */
   startRound: (): void => {},
+  /** Jugar un nivel de la campaña (los ajustes del nivel, por encima de los tuyos): lo pone la partida. */
+  campPlay: (_lv: number): void => {},
   /** Abrir el menú principal delante de ti (last: cómo fue la ronda que acaba; vacío, ninguna) y quitarlo: lo pone el menú. */
   showMenu: (_last: string): void => {},
   hideMenu: (): void => {},
