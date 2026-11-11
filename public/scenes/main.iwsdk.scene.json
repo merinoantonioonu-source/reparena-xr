@@ -464,6 +464,27 @@
       }
     },
     {
+      "id": "metas-panel",
+      "name": "Carátula METAS DE HOY",
+      "content": {
+        "type": "asset",
+        "asset": "metas-card"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.6,
+          -2
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1
+      }
+    },
+    {
       "id": "options-panel",
       "name": "Opciones",
       "content": {

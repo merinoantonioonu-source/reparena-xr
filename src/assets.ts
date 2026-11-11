@@ -73,6 +73,7 @@ export default defineAssets({
   'wrist-card': uikitml('wrist.uikitml', 'Botón MENÚ de la muñeca'),
   'center-card': uikitml('center.uikitml', 'Aviso del centro de la vista (calibración, ¡prepárate!)'),
   'hoy-card': uikitml('hoy.uikitml', 'Columna HOY (metas, cofre, racha y nivel)'),
+  'metas-card': uikitml('metas.uikitml', 'Carátula METAS DE HOY (al entrar en las gafas)'),
   'toast-card': uikitml('toast.uikitml', 'Aviso breve en la vista'),
   // la isla pirata (Pirate Kit): de momento, solo su cofre (el del descanso de Combate)
   'island-kit': foe('island.glb', 'Isla pirata (Pirate Kit)'),

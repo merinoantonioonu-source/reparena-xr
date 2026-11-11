@@ -70,6 +70,8 @@ export interface Summary {
   /** Las tres casillas y el logro más importante (o null). */
   tiles: [string, string][];
   chip: [string, string] | null;
+  /** En la campaña: el nivel jugado, sus estrellas y el siguiente (null si no hay). */
+  camp: { lv: number; stars: number; next: number | null } | null;
 }
 
 /** Los logros del resumen en su orden (RepArena: sumChips): el cofre y el nivel nuevo primero; luego el primer logro de la
@@ -112,5 +114,6 @@ export function summaryOf(s: RunStats, manual: boolean, waveNow: number, nWaves:
     medal: ['', 'bronce', 'plata', 'oro'][stars] || null,
     tiles: [[String(s.score), 'puntos'], [`${mm}:${ss}`, 'tiempo'], [`${Math.round(kcalOf(s.ex, s.work, s.time - s.work, s.kg))}`, 'kcal (aprox.)']],
     chip: all[0] ?? null,
+    camp: null,
   };
 }

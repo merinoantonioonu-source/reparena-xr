@@ -125,6 +125,14 @@
   .btn2:hover {
     background-color: #3a4150;
   }
+  .btn3 {
+    width: 19.4;
+    height: 7;
+    border-radius: 3.5;
+  }
+  .bt3 {
+    font-size: 2.6;
+  }
   .bt {
     font-size: 3.2;
     color: #0d1016;
@@ -156,8 +164,16 @@
     <div class="tile"><span id="s-t2" class="tv display">25</span><span class="tl">kcal (aprox.)</span></div>
   </div>
   <div id="s-chip" class="chip"><span id="s-chipt" class="chip-t">¡Nuevo récord!</span></div>
-  <div class="btns">
+  <div id="camp-btns" class="btns">
+    <button id="s-next" class="btn btn3"><span id="s-nextt" class="bt bt3 display">NIVEL 2</span></button>
+    <button id="s-repeat" class="btn btn2 btn3"><span class="bt bt2 bt3 display">REPETIR</span></button>
+    <button id="s-map" class="btn btn2 btn3"><span class="bt bt2 bt3 display">MAPA</span></button>
+  </div>
+  <div id="again-btns" class="btns">
     <button id="s-again" class="btn"><span class="bt display">OTRA RONDA</span></button>
     <button id="s-menu" class="btn btn2"><span class="bt bt2 display">MENÚ PRINCIPAL</span></button>
+  </div>
+  <div id="camp-menu" class="btns">
+    <button id="s-menu2" class="btn btn2"><span class="bt bt2 display">MENÚ PRINCIPAL</span></button>
   </div>
 </div>

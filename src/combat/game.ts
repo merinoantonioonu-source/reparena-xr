@@ -47,6 +47,7 @@ import { PAUSE_INFO } from '../ui/menu.js';
 import { lyingEx, VIEW_FRAME } from '../ui/view-panels.js';
 import { HIST_KEY, kcalOf, runRecord, summaryOf, type RunStats } from '../core/run.js';
 import { career, history, progressNow } from './career-hub.js';
+import { CAMP, campBegin, campEnd, campLeave } from '../core/campaign.js';
 import { dayBoard, dayLive, type DayBoard } from '../core/today.js';
 import type { LiveStats } from '../core/career.js';
 import { PERKS } from './perks.js';
@@ -55,7 +56,7 @@ import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
 import { curEx, PLAY_EX } from '../ui/fields.js';
 import { dv, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, waveReps } from '../core/settings.js';
-import { EX_NAMES, MODE_NAMES } from '../core/catalog.js';
+import { EX_NAMES, EX_SHORT, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
 import { GAME, HOOKS, VIEW, type CenterInfo } from '../core/state.js';
@@ -257,6 +258,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       }
     };
     HOOKS.startRound = () => this.startRound();
+    HOOKS.campPlay = (lv) => {
+      campBegin(lv);
+      this.startRound();
+    };
     HOOKS.trophy = (t, s, c) => this.trophy(t, s, c);
     this.dayRefresh();
     HOOKS.endRound = () => this.endRound(false, true);
@@ -264,6 +269,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       // al menú principal en plena ronda: se guarda lo hecho (sin resumen), como en RepArena
       if (GAME.phase === 'playing') {
         this.saveRun(false, this.runStats(false));
+        campLeave();
         GAME.phase = 'over';
         this.rw.roundEnd();
         this.enemies.vanishAll();
@@ -800,7 +806,17 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const hist = history(), s = this.runStats(win), P0 = progressNow(hist);
     this.saveRun(win, s); // (con su experiencia, misiones y escudos: la carrera)
     const P = progressNow(), gain = career().take();
-    this.summary = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist, { streakUp: P.streak > P0.streak && P.streak > 1 ? { n: P.streak, best: P.best } : null, notes: gain?.notes ?? null });
+    const sum = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist, { streakUp: P.streak > P0.streak && P.streak > 1 ? { n: P.streak, best: P.best } : null, notes: gain?.notes ?? null });
+    if (CAMP.run) {
+      // en la campaña: el nivel con sus estrellas (y la medalla que dicen), y los botones de seguir
+      const c = gain?.camp ?? { lv: CAMP.run.lv, stars: 0, next: null };
+      sum.camp = { lv: c.lv, stars: c.stars, next: c.next };
+      sum.where = `Campaña, nivel ${c.lv} · ${EX_SHORT[s.ex] ?? EX_NAMES[s.ex] ?? s.ex}`;
+      sum.stars = c.stars;
+      sum.medal = ['', 'bronce', 'plata', 'oro'][c.stars] || null;
+    }
+    campEnd(); // (los ajustes del nivel, fuera: el resumen ya está hecho)
+    this.summary = sum;
     this.outT = 0;
     this.outAt = manual ? 0.4 : win ? 1.4 : 2.6;
   }
@@ -811,7 +827,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const row = runRecord(s);
     if (!row) return;
     store(HIST_KEY, [...history(), row].slice(-400));
-    career().run({ reps: s.reps, perfect: s.perfect, mins: s.time / 60, combo: s.bestCombo, win, taken: GAME.taken, falls: 0, mode: s.mode, ex: s.ex, hang: false }, null);
+    career().run({ reps: s.reps, perfect: s.perfect, mins: s.time / 60, combo: s.bestCombo, win, taken: GAME.taken, falls: 0, mode: s.mode, ex: s.ex, hang: false }, CAMP.run);
     this.dayRefresh();
   }
 

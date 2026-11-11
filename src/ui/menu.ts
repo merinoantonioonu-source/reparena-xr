@@ -32,7 +32,7 @@ import { HOW } from '../exercise/how.js';
 import { curEx, PLAY_EX, eyeFields, fieldHere, fieldPick, fieldStep, fieldView, groupFields, groupName, roundInfo, settingsGroups, type FieldView } from './fields.js';
 import { applyFonts } from './fonts.js';
 import { career, history, progressNow, setLook } from '../combat/career-hub.js';
-import { CHEST_XP, LOOKS, MIS, MIS_XP, misGot, misShort, PROG_COL, SHIELD_COL, SHIELD_MAX, type LookKey, type MisItem } from '../core/career.js';
+import { CAMP_N, CAMP_REG, campId, CHEST_XP, LOOKS, MIS, MIS_XP, misGot, misShort, PROG_COL, SHIELD_COL, SHIELD_MAX, type LookKey, type MisItem } from '../core/career.js';
 import { daysTxt, dayStats, WDAY } from '../core/days.js';
 
 /** Nitidez en las gafas (la del juego nuevo: decisión del usuario en el PR 7): la resolución que se pide al entrar (×1
@@ -59,7 +59,7 @@ type Tab = (typeof TABS)[number]['k'];
 // Lo que aún no está (se enciende con su PR): los modos y Sesiones, y los ejercicios de suelo
 const SOON_MODE: Record<string, string> = { arcs: 'Arcos llega con el PR 15', bars: 'Barras llega con el PR 17', touch: 'Toques llega con el PR 16', trek: 'La Travesía llega con el PR 18', ses: 'Las sesiones llegan con el PR 19' };
 const SOON_EX = 'Este ejercicio aún no está';
-const PROG_SUBS: ['lvl' | 'mis' | 'week', string][] = [['lvl', 'Nivel'], ['mis', 'Misiones'], ['week', 'Semana']]; // (la Campaña llega con el PR 13b)
+const PROG_SUBS: ['lvl' | 'mis' | 'camp' | 'week', string][] = [['lvl', 'Nivel'], ['mis', 'Misiones'], ['camp', 'Campaña'], ['week', 'Semana']];
 const KEY = { bg: '#2a2f3a', fg: '#e9eef7', off: '#1d212b', offFg: '#5d6577', dark: '#0d1016' };
 const ROWS_LOBBY = ['l1', 'l2', 'l3', 'l4'], ROWS_OPT = ['o1', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8', 'o9'], N_OPTS = 8, N_SUB = 10;
 const HINT_SECS = 9;
@@ -83,7 +83,10 @@ export class MenuSystem extends createSystem({}, {}) {
   private eHint: Entity | undefined;
   private hoy: UIKitMLAsset | null = null;
   private eHoy: Entity | undefined;
-  private sub: 'lvl' | 'mis' | 'week' = 'lvl';
+  private sub: 'lvl' | 'mis' | 'camp' | 'week' = 'lvl';
+  private sumCamp: Summary['camp'] = null;
+  private campSel = 0;
+  private campReg = -1;
   private view: 'lobby' | 'options' | 'summary' | 'pause' | 'none' = 'lobby';
   private sum: UIKitMLAsset | null = null;
   private pausep: UIKitMLAsset | null = null;
@@ -134,6 +137,15 @@ export class MenuSystem extends createSystem({}, {}) {
     // el botón de la muñeca
     this.on(this.sum, 's-again', () => HOOKS.startRound());
     this.on(this.sum, 's-menu', () => this.show('lobby'));
+    this.on(this.sum, 's-menu2', () => this.show('lobby'));
+    // en la campaña: el nivel siguiente, repetirlo o volver al mapa
+    this.on(this.sum, 's-next', () => this.sumCamp?.next && HOOKS.campPlay(this.sumCamp.next));
+    this.on(this.sum, 's-repeat', () => this.sumCamp && HOOKS.campPlay(this.sumCamp.lv));
+    this.on(this.sum, 's-map', () => {
+      this.campSel = 0;
+      this.campReg = -1;
+      this.openProgress('camp');
+    });
     this.on(this.pausep, 'p-go', () => HOOKS.resume());
     this.on(this.pausep, 'p-recal', () => {
       HOOKS.resume();
@@ -317,9 +329,10 @@ export class MenuSystem extends createSystem({}, {}) {
   }
 
   // Opciones → Progreso, en la parte que toque (la franja de las metas de hoy lleva a Misiones)
-  private openProgress(sub: 'lvl' | 'mis' | 'week'): void {
+  private openProgress(sub: 'lvl' | 'mis' | 'camp' | 'week'): void {
     this.tab = 'prog';
     this.sub = sub;
+    if (sub === 'camp') this.pickMode();
     this.page = 0;
     this.show('options');
   }
@@ -366,10 +379,26 @@ export class MenuSystem extends createSystem({}, {}) {
     this.text(h, 'xp-n', `${L.into} / ${L.need} XP`);
   }
 
+  // La campaña del modo y el ejercicio que juegas: el nivel elegido (por defecto, el siguiente por jugar) y su región
+  private campView(): { id: string; C: ReturnType<ReturnType<typeof career>['campOf']>; sel: number; reg: number } {
+    const id = campId(settings.mode, settings.exercise), C = career().campOf(id), sel = Math.max(1, Math.min(CAMP_N, this.campSel || C.at));
+    return { id, C, sel, reg: this.campReg >= 0 ? this.campReg : Math.floor((sel - 1) / 5) };
+  }
+  private campPick(i: number): void {
+    const { C, reg } = this.campView(), lv = reg * 5 + i + 1;
+    if (lv > C.at) return;
+    this.campSel = lv;
+    this.campReg = reg;
+  }
+  private campMove(d: number): void {
+    const { reg } = this.campView();
+    if (reg + d >= 0 && reg + d < CAMP_REG.length) this.campReg = reg + d;
+  }
+
   // La parte Progreso de Opciones: Nivel (con los colores que se desbloquean), Misiones y Semana
   private refreshProg(): void {
     const p = this.opts, c = career();
-    for (const k of ['lvl', 'mis', 'week'] as const) this.shown(p, 'pg-' + k, k === this.sub);
+    for (const k of ['lvl', 'mis', 'camp', 'week'] as const) this.shown(p, 'pg-' + k, k === this.sub);
     if (this.sub === 'lvl') {
       const L = c.lvlOf(), nx = c.nextUnlock();
       this.text(p, 'pl-badget', String(L.n));
@@ -388,6 +417,23 @@ export class MenuSystem extends createSystem({}, {}) {
           this.set(p, id + 't', { color: sel ? KEY.dark : own ? KEY.fg : KEY.offFg });
         }
       }
+    } else if (this.sub === 'camp') {
+      const { id, C, sel, reg } = this.campView(), c = career(), L = c.campLv(sel), BG: Record<string, string> = { arena: '#3a2f2a', nature: '#28503a', island: '#2a6f86' };
+      this.set(p, 'pc-map', { backgroundColor: BG[CAMP_REG[reg][1]] });
+      this.text(p, 'pc-title', `${reg + 1}. ${CAMP_REG[reg][0]} · ${RANKS[reg][1]}`);
+      this.text(p, 'pc-stars', `${c.campStars(id)} / ${CAMP_N * 3} estrellas`);
+      for (let i = 0; i < 5; i++) {
+        const lv = reg * 5 + i + 1, open = lv <= C.at, st = C.stars[lv] || 0, next = lv === C.at;
+        this.text(p, `pc${i}-n`, String(lv));
+        this.shown(p, `pc${i}-b`, i === 4);
+        this.set(p, `pc${i}`, { backgroundColor: !open ? '#1f1a24' : next ? '#3cf0c6' : st ? '#ffd166' : '#eeeaff', borderColor: lv === sel ? '#ffffff' : '#00000000' });
+        this.set(p, `pc${i}-n`, { color: open ? '#1a1030' : '#ffffff55' });
+        for (let k = 0; k < 3; k++) this.set(p, `pc${i}-s${k}`, { backgroundColor: k < st ? '#e68a00' : open ? '#00000033' : '#ffffff22' });
+      }
+      this.text(p, 'pc-playt', `JUGAR NIVEL ${sel}`);
+      this.key(p, 'pc-prev', reg > 0 ? KEY.bg : KEY.off, reg > 0 ? KEY.fg : KEY.offFg);
+      this.key(p, 'pc-next', reg < CAMP_REG.length - 1 ? KEY.bg : KEY.off, reg < CAMP_REG.length - 1 ? KEY.fg : KEY.offFg);
+      this.text(p, 'pc-note', `Nivel ${sel}: ${RANKS[L.r][1].toLowerCase()}, ${L.waves} oleadas${L.boss && isCombat() ? ', con jefe' : ''} · ${EX_SHORT[settings.exercise] || EX_NAMES[settings.exercise]} en ${MODE_NAMES[settings.mode]}. Ganar abre el siguiente; de 1 a 3 estrellas`);
     } else if (this.sub === 'mis') {
       const M = c.misToday(), P = progressNow();
       M.list.forEach((m, i) => this.fillGoal(p, `pm${i + 1}`, m, 64, true));
@@ -463,7 +509,10 @@ export class MenuSystem extends createSystem({}, {}) {
       this.on(p, 's' + i, () => {
         if (this.tab === 'prog') {
           const k = PROG_SUBS[i]?.[0];
-          if (k) this.sub = k;
+          if (k) {
+            this.sub = k;
+            if (k === 'camp') this.pickMode(); // (la campaña es del modo y el ejercicio que juegas: aquí, Combate)
+          }
           return;
         }
         const g = settingsGroups()[i];
@@ -473,6 +522,14 @@ export class MenuSystem extends createSystem({}, {}) {
           this.hideHint();
         }
       });
+    // la campaña (Progreso → Campaña): elegir un nivel abierto, cambiar de región y jugar el elegido
+    for (let i = 0; i < 5; i++) this.on(p, 'pc' + i, () => this.campPick(i));
+    this.on(p, 'pc-prev', () => this.campMove(-1));
+    this.on(p, 'pc-next', () => this.campMove(1));
+    this.on(p, 'pc-play', () => {
+      this.pickMode();
+      HOOKS.campPlay(this.campView().sel);
+    });
     // los colores que se desbloquean (Progreso → Nivel): al tocar uno que ya tienes, te lo pones
     for (const k of ['hands', 'bolt'] as LookKey[])
       LOOKS[k].opts.forEach((o, i) => this.on(p, `lk-${k}-${i}`, () => setLook(k, o[0])));
@@ -667,6 +724,15 @@ export class MenuSystem extends createSystem({}, {}) {
     this.text(p, 's-medalt', m ? m[1] : '');
     this.text(p, 's-pct', `${S.pct} %`);
     S.tiles.forEach(([v], i) => this.text(p, 's-t' + i, v));
+    this.sumCamp = S.camp;
+    this.shown(p, 'camp-btns', !!S.camp);
+    this.shown(p, 'camp-menu', !!S.camp);
+    this.shown(p, 'again-btns', !S.camp);
+    if (S.camp) {
+      this.shown(p, 's-next', !!S.camp.next);
+      this.text(p, 's-nextt', `NIVEL ${S.camp.next ?? ''}`);
+      this.key(p, 's-repeat', S.camp.next ? KEY.bg : '#3cf0c6', S.camp.next ? KEY.fg : '#0d1016');
+    }
     this.shown(p, 's-chip', !!S.chip);
     if (S.chip) {
       this.text(p, 's-chipt', S.chip[0]);

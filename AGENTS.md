@@ -96,7 +96,8 @@ tabla de `README.md` dice qué hace cada archivo.
   misiones del día, cofre y escudos de racha; los guarda en `reparena3-career` (la misma clave y forma que RepArena). La
   partida le pasa cada ronda al acabar (`GameSystem.saveRun` → `career().run`) y cada segundo lo que llevas (`misLive`,
   `recLive`: los avisos grandes). Qué modos y ejercicios se pueden jugar aquí lo dice `playMode`/`playEx` del hub: las
-  misiones de variedad solo piden lo que ya hay. El menú principal enseña las metas y la columna HOY, y Opciones → Progreso.
+  misiones de variedad solo piden lo que ya hay. El menú principal enseña las metas y la columna HOY, y Opciones → Progreso. La campaña (`src/core/campaign.ts`:
+  `campBegin`, `campEnd`; `HOOKS.campPlay`) pone los ajustes del nivel por encima de los tuyos con `OVERLAY`: no se guardan.
 - La letra que trae IWSDK (Inter) no tiene tildes: los paneles usan las de `public/fonts` (ver su `LEEME.md`), que se
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee.
