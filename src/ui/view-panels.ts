@@ -10,6 +10,7 @@
  * que viene (se van a otro hueco o se aclaran). Los paneles de texto son de UIKit; la caricatura y la carátula, dibujos
  * en un lienzo (como en RepArena).
  */
+import { HITCH } from '../core/hitch.js';
 import { createSystem, BackSide, Entity, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, UIKitMLAsset, Vector3, VisibilityState } from '@iwsdk/core';
 import { GAME, HOOKS, VIEW, type CenterInfo } from '../core/state.js';
 import { num, on, settings } from '../core/values.js';
@@ -323,7 +324,10 @@ export class ViewSystem extends createSystem({}) {
         duelDeco(card.getContext('2d')!, 1280, 720, cv, name, sub);
       })();
     }
-    while (!A.ready && steps-- > 0) if (A.gen!.next().done) A.ready = true;
+    while (!A.ready && steps-- > 0) {
+      HITCH.f.intro = 1; // (para el registro de tirones)
+      if (A.gen!.next().done) A.ready = true;
+    }
     return A.ready;
   }
 

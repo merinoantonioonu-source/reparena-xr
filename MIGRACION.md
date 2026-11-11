@@ -144,7 +144,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 22 · Música** — #29
 - [x] **PR 23 · Sincronización, pulsómetro y modo desarrollador** — #29 (juntos con el 22: comparten la pantalla de menú y la página)
 - [x] **PR 24a · Los fallos de la prueba en las gafas** (calibración con tu mirada, enemigos de espaldas, la pasarela de los Arcos, los tirones, teclado sólido y menú más pequeño, manos opacas, y los rayos de RepArena) — #30
-- [ ] **PR 24 · Cambio de casa**
+- [x] **PR 24 · Cambio de casa** (la dirección de siempre de RepArena trae aquí; la anterior, en `clasica.html`; pruebas de todos los ejercicios; medidor de fotogramas y registro de tirones) — #31 (y en RepArena, el PR del cambio)
 
 ## Los PR
 
@@ -377,6 +377,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 **PR 24 · Cambio de casa**
 - Repaso de todo frente a RepArena en las gafas y de rendimiento (72 imágenes por segundo); la dirección vieja de
   RepArena lleva a la nueva (un PR en el repositorio viejo); esta pasa a ser la única.
+- Hecho: `merinoantonioonu-source.github.io/reparena/` lleva a `…/reparena-xr/` (con lo que traiga la dirección) y RepArena
+  sigue entera en `…/reparena/clasica.html` mientras lo aplazado (armas, Travesía, Sesiones, realidad mixta) llega aquí; las dos
+  comparten los datos (el mismo sitio). Pruebas de cada ejercicio con movimientos de persona (`tests/unit/exercises.test.ts`).
+  Rendimiento: el medidor de fotogramas («Medidor de fotogramas», Ajustes) y el registro de tirones de RepArena (la página lo
+  resume al salir de las gafas). En el emulador, una ronda de Combate con el bosque pinta unas 170 llamadas y 370 000
+  triángulos por ojo (casi todo, los árboles y sus contornos); hay que mirarlo con el medidor en las gafas.
 
 ## Notas para el siguiente PR
 
@@ -517,6 +523,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   código con `setSetting` antes: cambiaría también el de RepArena.
 - La nitidez se guarda aparte (`reparenaxr-quality`), como decidió el usuario en el PR 7: solo la del juego nuevo.
 
+- PR 24: un ejercicio nuevo necesita su prueba con movimientos de persona en `tests/unit/exercises.test.ts` (cinco bien hechas
+  cuentan cinco, quieto no cuenta nada, lo mal hecho avisa): la última prueba falla si alguno de los que se pueden jugar no la
+  tiene. Lo que pueda congelar la imagen, que marque `HITCH.f` (`src/core/hitch.ts`) para que el registro de tirones lo diga.
 - PR 24a: los ajustes que solo tiene RepArena XR llevan `xr: true` en el esquema y se guardan aparte, en
   `reparenaxr-settings` (`XR_STORE_KEY`): no tocan `reparena3-settings`, que sigue igual que el de RepArena (lo comprueban las
   comparaciones, que los dejan fuera). Por ahora, «Manos que se ven» (`handLook`) y «Tamaño del menú» (`menuSize`).
@@ -536,6 +545,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 24: **el rendimiento no se ha medido en las gafas** (el emulador va sin tarjeta gráfica). Con el medidor encendido se ve
+  si se pierden fotogramas; si se pierden, lo primero que pesa es el bosque (unos 340 000 triángulos con sus contornos de
+  tinta). Tras jugar, la página dice cuántos tirones hubo y de qué.
+- PR 24: la versión clásica (`clasica.html`) pide Spotify con su propia dirección: para usar Spotify allí, añade
+  `…/reparena/clasica.html` en «Redirect URIs» de tu panel de Spotify.
 - PR 24a: los rayos son los de RepArena (`src/combat/bolt.ts`) y el golpe llega al alcanzar al enemigo, pero **sin su luz**: en
   RepArena el rayo encendía una luz que iluminaba lo de alrededor y movía las sombras; en Cómic la escena no se ilumina con luces
   puntuales (tampoco lo hacía RepArena en Cómic). Sin el estallido que alcanza a los de alrededor con carga ×3 o más (RepArena,
