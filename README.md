@@ -187,6 +187,8 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/exercise/floor.ts` | Los ejercicios de suelo y sentado de RepArena (fondos, flexiones, plancha lateral, superman, plancha con un brazo), sin IWSDK |
 | `src/exercise/how.ts` | Cómo se hace cada ejercicio de pie (lo que dice el menú principal y el recordatorio del marcador) |
 | `src/core/run.ts` | Al acabar la ronda: lo que se guarda en el historial (el formato de RepArena), las calorías y el resumen |
+| `src/core/career.ts`, `src/core/days.ts`, `src/core/today.ts` | Tu carrera (de RepArena, con su guardado `reparena3-career`): experiencia, nivel y título, colores que se desbloquean, las tres misiones del día con su cofre y escudos de racha, récords en plena ronda; los días, la racha y lo de hoy. Sin IWSDK |
+| `src/combat/career-hub.ts` | Tu carrera en el juego: dónde se guarda, tu meta y tu peso, qué modos y ejercicios se pueden jugar ya y los trofeos |
 | `src/core/state.ts` | Lo que comparten los sistemas (fase, cabeza, bola, marcador) |
 | `src/core/schema.ts` | Los 186 ajustes de RepArena (claves, valores de serie, límites, grupos, condiciones y explicaciones) |
 | `src/core/settings.ts` | Cargar, guardar y cambiar los ajustes (los mismos datos que RepArena), cada modo con cada ejercicio, los rangos con su tabla y la dificultad creciente |
@@ -214,7 +216,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
 | `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de arena, aro del jugador, cajas, rocas, compuertas, valle, nubes, zombis y paneles |
 | `public/scenes/main.iwsdk.scene.json` | La escena: cielo, neblina, suelo, compuertas, valle, nubes, cajas y rocas con su física, paneles y luces |
-| `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador, los dos del suelo (avisos y carga) el de entre oleadas, las cartas de mejora, el trofeo dorado, el resumen, la pausa y el botón MENÚ de la muñeca |
+| `public/ui/*.uikitml` | Los paneles: menú principal, Opciones, explicación de un ajuste, marcador, los dos del suelo (avisos y carga) el de entre oleadas, las cartas de mejora, la columna HOY, el trofeo dorado, el resumen, la pausa y el botón MENÚ de la muñeca |
 | `public/models/` | Los enemigos: zombis, velociraptor, piratas, monstruitos (también los que vuelan), diablillo y puglin, y las animaciones de la biblioteca (Quaternius; ver su `LEEME.md`) |
 | `public/retratos/` | El retrato de cada enemigo para su ficha en Rivales (cortados de la hoja de RepArena) |
 | `public/fonts/` | Las letras (Rubik y Bungee, OFL) |

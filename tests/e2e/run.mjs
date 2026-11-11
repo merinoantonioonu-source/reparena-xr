@@ -191,6 +191,12 @@ try {
   const lastRun = hist[hist.length - 1];
   if (!lastRun || lastRun.ex !== 'squat' || !(lastRun.reps > 0) || typeof lastRun.kcal !== 'number') throw new Error('la ronda no está en el historial: ' + JSON.stringify(lastRun));
   console.log(`  ✓ la ronda, en el historial (${lastRun.reps} repeticiones, ${lastRun.kcal} kcal)`);
+  // la carrera: la experiencia de la ronda (cada repetición y cada perfecta, 1 XP) y las tres misiones de hoy
+  const car = await page.evaluate(() => JSON.parse(localStorage.getItem('reparena3-career') || 'null'));
+  const gain = lastRun.reps + (lastRun.perfect || 0);
+  if (!car || !(car.xp >= gain) || !car.mis || car.mis.list.length !== 3) throw new Error('la carrera no se ha guardado: ' + JSON.stringify(car));
+  if (car.mis.list.some((m) => !(m.n > 0) || m.got < 0)) throw new Error('misiones raras: ' + JSON.stringify(car.mis));
+  console.log(`  ✓ la carrera: ${car.xp} XP y ${car.mis.list.length} misiones de hoy (${car.mis.list.map((m) => m.t).join(', ')})`);
   await shot('9-resumen');
   if (missing.length) throw new Error('faltan archivos: ' + missing.join(', '));
   if (errors.length) throw new Error('errores en la página:\n' + errors.join('\n'));
