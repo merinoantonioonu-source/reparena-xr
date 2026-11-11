@@ -11,7 +11,9 @@ como letras MSDF (las que usan los paneles de UIKit: se ven nítidas a cualquier
 | `rubik-500.json` | Rubik Medium (texto normal) |
 | `rubik-700.json` | Rubik Bold (texto en negrita) |
 | `bungee-400.json` | Bungee (lo que lleva la clase `display` en los paneles) |
-| `Bungee-Regular.ttf` | Bungee para el «×2», «×3», «×4» de la bola (se pinta en un lienzo) |
+| `Bungee-Regular.ttf` | Bungee para lo que se pinta en un lienzo (la «×2» de la bola, el rosco, la caricatura, la carátula) |
+| `Rubik-Medium.ttf`, `Rubik-Bold.ttf` | Rubik para el texto de la caricatura y de la carátula del duelo (en un lienzo) |
+| `BlackOpsOne-Regular.ttf` | Black Ops One (licencia SIL OFL 1.1, `OFL-BlackOpsOne.txt`): el VS y los nombres de la carátula del duelo, como en RepArena |
 
 Cada `.json` lleva dentro su imagen de letras. Se generaron con el mismo generador de UIKit (`TTFLoader`), a partir de
 los `.ttf` de los paquetes `@expo-google-fonts/rubik` y `@expo-google-fonts/bungee`, con los caracteres ASCII más

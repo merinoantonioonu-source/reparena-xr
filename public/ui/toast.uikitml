@@ -1,0 +1,25 @@
+<!--
+  El aviso breve de la vista, como en RepArena (src/60_ui.js: showToast): lo que pide hacer algo ya («Más controlado»,
+  «Baja más», «¡Lanza el rayo!»…); las celebraciones van solo al marcador. Una píldora de 0,62 m de ancho (medidas en
+  centímetros), unos segundos; con «Avisos breves en la vista» apagado, todo va al marcador. Lo llena el juego.
+-->
+<style>
+  .root {
+    width: 62;
+    height: 10;
+    align-items: center;
+    justify-content: center;
+    padding-left: 4;
+    padding-right: 4;
+    background-color: #0e0a1c;
+    border-radius: 5;
+  }
+  .text {
+    font-size: 5;
+    color: #ffffff;
+    text-align: center;
+  }
+</style>
+<div id="box" class="root">
+  <span id="text" class="text display">Más controlado</span>
+</div>

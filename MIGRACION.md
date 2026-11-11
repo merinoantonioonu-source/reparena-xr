@@ -129,7 +129,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 11b · La batalla diminuta: flexiones y plancha con un brazo** — #18
 - [x] **PR 11c · Inchworm** — #19
 - [x] **PR 12a · Botón MENÚ de la muñeca, pausa y resumen de la ronda** — #20
-- [ ] **PR 12b · Carátula del duelo, caricatura y avisos de la vista**
+- [x] **PR 12b · Carátula del duelo, caricatura y avisos de la vista** — #21
 - [ ] **PR 13 · Carrera y progreso**
 - [ ] **PR 14 · Página web y app del móvil**
 - [ ] **PR 15 · Arcos**
@@ -309,9 +309,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   hacia abajo o el puño, el final de la ronda con el fundido a negro y el resumen (opción A: `summary.uikitml`;
   `src/core/run.ts`: `summaryOf`), y la ronda guardada en el historial de RepArena (`runRecord`, `kcalOf`; comparados con
   su `saveRun` en `tests/compare/run.compare.test.ts`).
-- **12b**: la carátula del duelo (`src/64_intro.js`), la caricatura que enseña cómo se hace cada ejercicio
-  (`src/62_demo.js`) y los avisos de la vista (los del centro, PERFECTA, las indicaciones para colocarse: derechos, y
-  tumbado en el suelo bajo la cara).
+- **12b (hecho)**: la carátula del duelo (`src/combat/duel.ts`: quién es el jefe y tu récord; `src/ui/duel-art.ts`: la
+  ilustración, pintada en el menú a trozos; 7 s a 2,5 m con todo en negro; se salta con un botón o el pulgar arriba:
+  `src/input/thumbs.ts`), la caricatura que enseña cómo se hace cada ejercicio (`src/ui/demo-art.ts`: junto al menú
+  principal y, al colocarte o prepararte, a la derecha del aviso del centro) y los avisos de la vista
+  (`src/ui/view.ts`: siguen la mirada sin ladearse; tumbado, en el suelo bajo la cara; en partida, fijos; no tapan lo que
+  viene): el del centro (`center.uikitml`: la calibración con su barra, «¡PREPÁRATE!» con la cuenta atrás) y el breve
+  (`toast.uikitml`: lo que pide hacer algo ya; las celebraciones siguen en el marcador). Todo comparado con RepArena
+  (`tests/compare/view`, `demo` —el dibujo, llamada a llamada— y `duel`). El sistema: `ViewSystem`
+  (`src/ui/view-panels.ts`).
 
 **PR 13 · Carrera y progreso** (M)
 - Experiencia, nivel, títulos y colores; misiones del día con su cofre y escudos de racha; campaña (7 regiones, jefes,
@@ -357,14 +363,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `wave-panel`). Los puntos y el combo, en `GAME.score`/`GAME.combo` (`repScore`, `onFoeDown`, `HOOKS.score` para las
   piedras); los golpes recibidos, en `GAME.taken`. Las cartas de mejora tienen que hacer esperar al descanso (RepArena:
   `perkWaits`), y el dorado, el relámpago y el cofre multiplican los puntos (`perkPtsK`, `perkKillK`).
+- PR 12b → PR 13: los avisos de la vista ya están (`ViewSystem`, `src/ui/view-panels.ts`): lo que pide hacer algo ya, con
+  `message(texto, s, color, true)` o `HOOKS.say(…, true)` (el breve); las celebraciones, sin `true` (al marcador). Los
+  logros grandes (`GameSystem.trophy`) salen derechos con `VIEW_FRAME`. La carátula «METAS DE HOY» de RepArena al entrar en
+  las gafas (8 s, o cualquier botón) puede ir como la del duelo (`ViewSystem`: `duelStart`, `stepDuel`, el negro `veil` y
+  `padMask`/`thumbsUp` para saltarla). El historial se guarda en `reparena3-history` (lo lee también RepArena); la
+  carrera leerá de ahí.
 - PR 12a → PR 12b: los menús tienen ya cinco vistas (`GAME.menu`: lobby, options, summary, pause, none) y el botón de la
-  muñeca (`stepWrist` en `src/ui/menu.ts`). La ronda acaba con `endRound(win, manual)` (fundido a negro: `stepOutcome`);
-  la carátula del duelo va antes de la primera oleada (RepArena: `introStart` en `beginRun`, 7 s, se salta con un botón).
-  El historial se guarda en `reparena3-history` (lo lee también RepArena); la carrera (PR 13) leerá de ahí.
-- PR 11c → PR 12: los avisos de la vista (los del centro, PERFECTA, las indicaciones para colocarse y la caricatura) aún
-  van al marcador: tumbado y en plancha, RepArena los ponía en el suelo bajo la cara o en el techo, fijos y derechos.
-  La colocación antes de empezar (`calibStep`) dice cómo con el marcador; la caricatura (RepArena: `src/62_demo.js`) lo
-  enseñará.
+  muñeca (`stepWrist` en `src/ui/menu.ts`). La ronda acaba con `endRound(win, manual)` (fundido a negro: `stepOutcome`).
 - PR 11b → PR 11c: el inchworm también es de la batalla diminuta (RepArena: `isTiny`, con los bichos más lentos: `IW_SLOW`
   en `walkT` de `HatchFoe`) y tiene su onda que los manda a su trampilla (`HatchFoe.flung`: el modo `recoil` ya lo
   admite; falta `sendHome`). La arena diminuta (`HatchSystem.layout`, origen donde te colocas) y el marcador del suelo
@@ -379,15 +385,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   Las letras de los paneles no tienen ♥, ★, ∞, ▲, ⚡ ni el signo menos (−): o se dibujan con formas de UIKit (las vidas,
   círculos) o se evitan (`minus()` cambia «−» por «-»); para tenerlos, hay que volver a generar las letras
   (`public/fonts/LEEME.md`).
-- PR 10c → PR 12: los avisos de la vista (lo que pide hacer algo ya o colocarse: RepArena `say`) aún van al marcador; la
-  carátula, el resumen y la caricatura, con sus paneles. Los trofeos (`GameSystem.trophy`) ya tienen su cola.
 - PR 10b → PR 10c: lo que el marcador tiene que enseñar de los premios: el relámpago (`rw.rush`: `on` y `left`, la mecha
   de RepArena), la carrera contra tu récord (`rw.ghostText()`) y las mejoras que tienes (`rw.perks.has`). Los avisos de los
   premios (cofre, dorado, récord) van ahora al hueco de mensajes; en RepArena, los grandes son trofeos (`trophy`).
 - Para preparar pruebas en la VR simulada: `tests/vr/eval.mjs` ejecuta en la página lo que pongas en `RX_EVAL` (con
   `__rx`), con el servidor arrancado con `--allow-browser-automation` (ver Cómo probar).
-- PR 10a → PR 10c: los mensajes de la partida van todos al hueco del marcador (`message`); RepArena separa las
-  celebraciones (`cheer`) de lo que pide hacer algo (`say`).
 - PR 8d → PR 10: cada enemigo de tierra lleva su marcha (`rt.gait`: `Gait`, con su `plan` de velocidades y su `pace`); su
   reloj (`Foe.timer`) corre a su ritmo en todo menos andando (como el `st` de RepArena). Los jefes (PR 10) van algo más
   pausados (`paceOf(…, true)`). La dificultad creciente de la oleada, en `GAME.ramp` (la lee `dv` en los enemigos). En
@@ -477,6 +479,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   PR 9) y su tamaño se ha probado en el navegador (el zombi verde a lo grande y el dragón); en las gafas, por ver que
   quepan bien por la compuerta. Los robots, drones, avispones y la nodriza (geométricos) no salen: en su lugar, zombis
   verdes, abejas y el dragón.
+- PR 12b: probado en la VR simulada: la caricatura a la derecha del menú principal; al pulsar EMPEZAR con el rayo, la
+  carátula del duelo (en negro alrededor, 7 s) y saltada con un botón del mando; tumbado en plancha, el aviso de
+  calibración en el suelo bajo la cara, derecho hacia la cabeza, con la barra que se llena. En las gafas, por mirar: el
+  pulgar arriba para saltar la carátula y que la caricatura se lea bien. La carátula sale hacia donde miras al pulsar
+  EMPEZAR (como en RepArena): si miras al menú, algo baja. Sin gafas (en el ordenador) no sale, como en RepArena.
+- PR 12b: con «Avisos breves en la vista» se ven delante lo que pide hacer algo ya («Más controlado», la pierna que toca
+  en la zancada, lo que se hace mal…); las armas de la caricatura (espada y pistola) siguen apagadas hasta el PR 9.
 - PR 12a: en la VR simulada, la pausa se abrió con el botón X del mando izquierdo y se cerró con «Continuar» (el rayo);
   el resumen sale al terminar la ronda y la ronda queda en el historial (partida simulada). En las gafas, por mirar: el
   botón MENÚ al mirarte la muñeca con las manos, pulsarlo con la otra mano, y recoger el menú con la palma hacia abajo o
@@ -494,10 +503,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   diminuta mira siempre hacia las compuertas (en RepArena, hacia donde mirabas al colocarte).
 - PR 11a: probado en la VR simulada el superman (elegido y empezado con el mando; tumbado, la postura se toma sola; los
   voladores vienen bajos; subir el tronco y aguantar dispara solo al más cercano, perfecta). Los fondos y la plancha
-  lateral, comparados con RepArena; en las gafas, por probar los tres. En RepArena, la caricatura enseñaba cómo colocarse
-  (PR 12); aquí, el marcador dice cómo («Túmbate boca abajo, brazos estirados»).
-- PR 11a: los avisos de lo que se hace mal, tumbado, salen en el suelo delante (como de pie); en RepArena, «en el suelo
-  bajo la cara»: con el PR 12 (los avisos de la vista).
+  lateral, comparados con RepArena; en las gafas, por probar los tres. Cómo colocarse lo dicen el aviso del centro y la
+  caricatura (PR 12b).
+- PR 11a: los avisos de lo que se hace mal en grande en el suelo, tumbado, salen en el suelo delante (como de pie); en
+  RepArena, mirando arriba (remo, abdominales) salían por encima de la cara: con esos ejercicios.
 - PR 10c: el marcador de RepArena se pintaba entero en un lienzo; aquí, con los paneles de UIKit (letras nítidas) y solo el
   rosco en un lienzo. Diferencias: la mecha del relámpago es una barra que se consume en el borde de arriba (en RepArena,
   todo el borde); las vidas, círculos rosas (las letras no tienen ♥); el rango, su nombre (sin el escudo con galones); en
@@ -531,8 +540,6 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   en el suelo y la carga hasta ×4) y el curl (carga arriba, chasquido, ×2-×4 y el rayo al bajar), elegidos en el
   selector con el mando. En el emulador, al pasar a manos, aparecen a media altura: cuenta un curl que no se ha hecho
   (en las gafas las manos aparecen donde están).
-- PR 6: la zancada dice qué pierna toca en el marcador (RepArena lo decía delante de la cara: los avisos de la vista
-  llegan con el PR 12), igual que PERFECTA y las celebraciones (PR 10).
 - PR 6: el aviso del suelo sale delante y se queda quieto; RepArena lo volvía a poner delante si te girabas mucho (más de
   65°). En Combate no hace falta (se mira hacia las compuertas).
 - PR 6: al pulsar EMPEZAR con otro modo guardado (Arcos, Toques…) se guarda Combate también para RepArena (comparten
