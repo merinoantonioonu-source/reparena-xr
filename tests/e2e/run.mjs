@@ -223,6 +223,18 @@ try {
     await page.evaluate(() => window.__rx.game.endRound(false, true));
     await until(`${what}: el resumen`, (s) => s.menu === 'summary' && s.phase === 'over', 20);
   }
+  // Barras: con la barra colocada, la ronda empieza pidiendo colgarse (nadie se cuelga: sin manos, se queda en la cuenta)
+  await page.evaluate(() => {
+    const e = window.__rx.game.bars().eq.xr.door;
+    Object.assign(e, { x: 0, z: -0.2, yaw: 0, set: true });
+    window.__rx.setSetting('mode', 'bars');
+    window.__rx.setSetting('exercise', 'pullup');
+    window.__rx.HOOKS.startRound();
+  });
+  await page.waitForFunction(() => window.__rx.game.bars().center()?.title === 'BARRA', null, { timeout: 20000 });
+  console.log('  ✓ Barras: pide colgarse de la barra');
+  await page.evaluate(() => window.__rx.game.endRound(false, true));
+  await until('Barras: el resumen', (s) => s.menu === 'summary' && s.phase === 'over', 20);
   // en el móvil (estrecho y fuera de las gafas), la página es una app: el inicio con sus listas y cada apartado, una pantalla
   await page.click('#btnExitPreview');
   await page.setViewportSize({ width: 390, height: 800 });
