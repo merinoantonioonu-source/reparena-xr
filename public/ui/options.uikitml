@@ -198,6 +198,174 @@
     font-size: 1.3;
     color: #a49fc8;
   }
+  .psec {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.1;
+    width: 78;
+  }
+  .prow {
+    flex-direction: row;
+    align-items: center;
+    gap: 1.6;
+    width: 78;
+  }
+  .pbadge {
+    width: 9;
+    height: 9;
+    border-radius: 4.5;
+    justify-content: center;
+    align-items: center;
+    background-color: #ffc94a;
+    border-width: 0.6;
+    border-color: #6e4508;
+  }
+  .pbadget {
+    font-size: 5;
+    color: #2a1600;
+  }
+  .pcol {
+    flex-direction: column;
+    gap: 0.7;
+    width: 64;
+  }
+  .ptitle {
+    font-size: 2.8;
+    color: #eeeaff;
+  }
+  .pbar {
+    width: 64;
+    height: 1.4;
+    border-radius: 0.7;
+    background-color: #3a4152;
+  }
+  .pfill {
+    width: 1.4;
+    height: 1.4;
+    border-radius: 0.7;
+    background-color: #c8f560;
+  }
+  .pnum {
+    font-size: 2;
+    color: #a49fc8;
+  }
+  .plab {
+    width: 14;
+    font-size: 2.2;
+    color: #c9d2e3;
+  }
+  .pkeys {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.8;
+    width: 62;
+  }
+  .pk {
+    height: 4.4;
+    padding-left: 0.9;
+    padding-right: 0.9;
+    justify-content: center;
+    align-items: center;
+    border-radius: 1.6;
+    background-color: #2a2f3a;
+    cursor: pointer;
+  }
+  .pk:hover {
+    background-color: #3b4252;
+  }
+  .pkt {
+    font-size: 1.9;
+    color: #e9eef7;
+  }
+  .pgoal {
+    position-type: absolute;
+    position-left: 0;
+    position-right: 0;
+    position-bottom: 8;
+    height: 0.35;
+    background-color: #ff4fa3;
+  }
+  .pdot {
+    width: 5;
+    height: 5;
+    border-radius: 2.5;
+    justify-content: center;
+    align-items: center;
+    background-color: #3a4152;
+  }
+  .pdott {
+    font-size: 3.2;
+    color: #06261f;
+  }
+  .pmtxt {
+    font-size: 2.3;
+    color: #eeeaff;
+  }
+  .pchest {
+    width: 5.4;
+    height: 4.2;
+    border-radius: 1.2;
+    background-color: #7a4318;
+    border-width: 0.5;
+    border-color: #ffd166;
+  }
+  .pflame {
+    width: 4.2;
+    height: 5.2;
+    border-radius: 2.1;
+    background-color: #ff8a3d;
+  }
+  .psh {
+    width: 3.2;
+    height: 4;
+    border-radius: 1.6;
+    background-color: #3a4152;
+  }
+  .pline {
+    font-size: 2.2;
+    color: #ffd166;
+    width: 38;
+  }
+  .pcols {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1;
+    width: 74;
+  }
+  .pcolw {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5;
+    width: 9.4;
+  }
+  .ptrack {
+    flex-direction: column;
+    justify-content: flex-end;
+    width: 7;
+    height: 16;
+    border-radius: 1.2;
+    background-color: #232838;
+  }
+  .pcfill {
+    width: 7;
+    height: 0.1;
+    border-radius: 1.2;
+    background-color: #5ab8ff;
+  }
+  .pwtitle {
+    font-size: 2.2;
+    color: #c9d2e3;
+    width: 74;
+  }
+  .pwv {
+    font-size: 2;
+    color: #eeeaff;
+  }
+  .pwl {
+    font-size: 2;
+    color: #a49fc8;
+  }
   .display {
     letter-spacing: 0.1;
   }
@@ -353,7 +521,85 @@
       <span id="c-dragons" class="cstat">Resiste 1 · Fuerza 1</span>
     </button>
   </div>
-  <div class="body">
+  <div id="prog" class="body">
+    <div id="pg-lvl" class="psec">
+      <div class="prow">
+        <div id="pl-badge" class="pbadge"><span id="pl-badget" class="pbadget display">1</span></div>
+        <div class="pcol">
+          <span id="pl-title" class="ptitle">Nivel 1 · Novato</span>
+          <div class="pbar"><div id="pl-xpf" class="pfill"></div></div>
+          <span id="pl-xpn" class="pnum">0 / 100 XP</span>
+        </div>
+      </div>
+      <div class="prow"><span class="plab">Manos</span><div class="pkeys">
+          <button id="lk-hands-0" class="pk"><span id="lk-hands-0t" class="pkt">·</span></button>
+          <button id="lk-hands-1" class="pk"><span id="lk-hands-1t" class="pkt">·</span></button>
+          <button id="lk-hands-2" class="pk"><span id="lk-hands-2t" class="pkt">·</span></button>
+          <button id="lk-hands-3" class="pk"><span id="lk-hands-3t" class="pkt">·</span></button>
+          <button id="lk-hands-4" class="pk"><span id="lk-hands-4t" class="pkt">·</span></button>
+          <button id="lk-hands-5" class="pk"><span id="lk-hands-5t" class="pkt">·</span></button>
+        </div></div>
+      <div class="prow"><span class="plab">Rayo</span><div class="pkeys">
+          <button id="lk-bolt-0" class="pk"><span id="lk-bolt-0t" class="pkt">·</span></button>
+          <button id="lk-bolt-1" class="pk"><span id="lk-bolt-1t" class="pkt">·</span></button>
+          <button id="lk-bolt-2" class="pk"><span id="lk-bolt-2t" class="pkt">·</span></button>
+          <button id="lk-bolt-3" class="pk"><span id="lk-bolt-3t" class="pkt">·</span></button>
+        </div></div>
+      <span id="pl-note" class="note">Cada repetición da experiencia</span>
+    </div>
+    <div id="pg-mis" class="psec">
+      <div class="prow">
+        <div id="pm1-c" class="pdot"><span id="pm1-ct" class="pdott"></span></div>
+        <div class="pcol">
+          <span id="pm1-t" class="pmtxt">Misión</span>
+          <div class="pbar"><div id="pm1-f" class="pfill"></div></div>
+          <span id="pm1-n" class="pnum">0 / 0</span>
+        </div>
+      </div>
+      <div class="prow">
+        <div id="pm2-c" class="pdot"><span id="pm2-ct" class="pdott"></span></div>
+        <div class="pcol">
+          <span id="pm2-t" class="pmtxt">Misión</span>
+          <div class="pbar"><div id="pm2-f" class="pfill"></div></div>
+          <span id="pm2-n" class="pnum">0 / 0</span>
+        </div>
+      </div>
+      <div class="prow">
+        <div id="pm3-c" class="pdot"><span id="pm3-ct" class="pdott"></span></div>
+        <div class="pcol">
+          <span id="pm3-t" class="pmtxt">Misión</span>
+          <div class="pbar"><div id="pm3-f" class="pfill"></div></div>
+          <span id="pm3-n" class="pnum">0 / 0</span>
+        </div>
+      </div>
+      <div class="prow">
+        <div class="pchest"></div>
+        <span id="pm-chest" class="pmtxt">Cofre</span>
+      </div>
+      <div class="prow">
+        <div class="pflame"></div>
+        <span id="pm-streak" class="pline">Racha</span>
+        <div id="ps0" class="psh"></div><div id="ps1" class="psh"></div><div id="ps2" class="psh"></div>
+      </div>
+      <span id="pm-note" class="note">Tres nuevas cada día</span>
+      <span id="pm-shnote" class="note">Escudos de racha</span>
+    </div>
+    <div id="pg-week" class="psec">
+      <span class="pwtitle">Tu semana (minutos)</span>
+      <div class="pcols">
+        <div class="pcolw"><span id="wk0-v" class="pwv">0</span><div class="ptrack"><div id="wk0-f" class="pcfill"></div><div id="wk0-g" class="pgoal"></div></div><span id="wk0-l" class="pwl">hoy</span></div>
+        <div class="pcolw"><span id="wk1-v" class="pwv">0</span><div class="ptrack"><div id="wk1-f" class="pcfill"></div><div id="wk1-g" class="pgoal"></div></div><span id="wk1-l" class="pwl">hoy</span></div>
+        <div class="pcolw"><span id="wk2-v" class="pwv">0</span><div class="ptrack"><div id="wk2-f" class="pcfill"></div><div id="wk2-g" class="pgoal"></div></div><span id="wk2-l" class="pwl">hoy</span></div>
+        <div class="pcolw"><span id="wk3-v" class="pwv">0</span><div class="ptrack"><div id="wk3-f" class="pcfill"></div><div id="wk3-g" class="pgoal"></div></div><span id="wk3-l" class="pwl">hoy</span></div>
+        <div class="pcolw"><span id="wk4-v" class="pwv">0</span><div class="ptrack"><div id="wk4-f" class="pcfill"></div><div id="wk4-g" class="pgoal"></div></div><span id="wk4-l" class="pwl">hoy</span></div>
+        <div class="pcolw"><span id="wk5-v" class="pwv">0</span><div class="ptrack"><div id="wk5-f" class="pcfill"></div><div id="wk5-g" class="pgoal"></div></div><span id="wk5-l" class="pwl">hoy</span></div>
+        <div class="pcolw"><span id="wk6-v" class="pwv">0</span><div class="ptrack"><div id="wk6-f" class="pcfill"></div><div id="wk6-g" class="pgoal"></div></div><span id="wk6-l" class="pwl">hoy</span></div>
+      </div>
+      <span id="wk-goal" class="note">Meta</span>
+      <span id="wk-best" class="note">Mejor ronda</span>
+    </div>
+  </div>
+  <div id="obody" class="body">
     <span id="o-note" class="note">Nota</span>
     <div id="o1" class="frow">
       <span id="o1-l" class="flab">Ajuste</span>

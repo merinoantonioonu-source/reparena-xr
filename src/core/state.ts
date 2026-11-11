@@ -87,6 +87,8 @@ export const HOOKS = {
   /** Un aviso en el marcador o, si pide hacer algo ya (toast), en la vista (y, si es naranja, también en grande en el
    * suelo): lo pone la partida. */
   say: (_text: string, _color: string, _secs: number, _toast?: boolean): void => {},
+  /** Un logro grande y dorado (RepArena: trophy): lo pone la partida. */
+  trophy: (_title: string, _sub?: string, _color?: string): void => {},
   /** Un aviso breve en la vista (lo que pide hacer algo ya): lo pone el sistema de los avisos de la vista. */
   toast: (_text: string, _color: string, _secs: number): void => {},
   /** La carátula del duelo al empezar la ronda: la enseña el sistema de los avisos de la vista (si no toca, no hace nada). */

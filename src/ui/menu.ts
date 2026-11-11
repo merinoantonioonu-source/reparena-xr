@@ -6,6 +6,8 @@
  *  - Opciones (public/ui/options.uikitml): Rivales y armas, Progreso, Sonido, Entorno y Ajustes, en pestañas, con los
  *    ajustes del esquema;
  *  - la explicación de un ajuste (public/ui/hint.uikitml), al lado del menú, con la tecla «?»;
+ *  - la columna «HOY» (public/ui/hoy.uikitml), a la izquierda del principal, y, bajo EMPEZAR, la franja de las metas de hoy:
+ *    las tres misiones con su barra y la racha con sus escudos; al tocar la franja, Opciones → Progreso → Misiones;
  *  - el resumen de la ronda (public/ui/summary.uikitml: RepArena, opción A) y la pausa (public/ui/pause.uikitml);
  *  - el botón MENÚ de la muñeca izquierda (public/ui/wrist.uikitml: RepArena, watch): sale al mirarte la muñeca y se pulsa
  *    con la otra mano (con mandos, también X/Y): en la ronda, la pausa; fuera, trae el menú delante. El menú se recoge con
@@ -29,6 +31,9 @@ import { SND, unlockAudio } from '../audio/sound.js';
 import { HOW } from '../exercise/how.js';
 import { curEx, PLAY_EX, eyeFields, fieldHere, fieldPick, fieldStep, fieldView, groupFields, groupName, roundInfo, settingsGroups, type FieldView } from './fields.js';
 import { applyFonts } from './fonts.js';
+import { career, history, progressNow, setLook } from '../combat/career-hub.js';
+import { CHEST_XP, LOOKS, MIS, MIS_XP, misGot, misShort, PROG_COL, SHIELD_COL, SHIELD_MAX, type LookKey, type MisItem } from '../core/career.js';
+import { daysTxt, dayStats, WDAY } from '../core/days.js';
 
 /** Nitidez en las gafas (la del juego nuevo: decisión del usuario en el PR 7): la resolución que se pide al entrar (×1
  * es la «nativa» del navegador de las Quest 3, que se queda corta) y la foveación (cuánto se emborrona el borde de la vista
@@ -54,6 +59,7 @@ type Tab = (typeof TABS)[number]['k'];
 // Lo que aún no está (se enciende con su PR): los modos y Sesiones, y los ejercicios de suelo
 const SOON_MODE: Record<string, string> = { arcs: 'Arcos llega con el PR 15', bars: 'Barras llega con el PR 17', touch: 'Toques llega con el PR 16', trek: 'La Travesía llega con el PR 18', ses: 'Las sesiones llegan con el PR 19' };
 const SOON_EX = 'Este ejercicio aún no está';
+const PROG_SUBS: ['lvl' | 'mis' | 'week', string][] = [['lvl', 'Nivel'], ['mis', 'Misiones'], ['week', 'Semana']]; // (la Campaña llega con el PR 13b)
 const KEY = { bg: '#2a2f3a', fg: '#e9eef7', off: '#1d212b', offFg: '#5d6577', dark: '#0d1016' };
 const ROWS_LOBBY = ['l1', 'l2', 'l3', 'l4'], ROWS_OPT = ['o1', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8', 'o9'], N_OPTS = 8, N_SUB = 10;
 const HINT_SECS = 9;
@@ -75,6 +81,9 @@ export class MenuSystem extends createSystem({}, {}) {
   private eLobby: Entity | undefined;
   private eOpts: Entity | undefined;
   private eHint: Entity | undefined;
+  private hoy: UIKitMLAsset | null = null;
+  private eHoy: Entity | undefined;
+  private sub: 'lvl' | 'mis' | 'week' = 'lvl';
   private view: 'lobby' | 'options' | 'summary' | 'pause' | 'none' = 'lobby';
   private sum: UIKitMLAsset | null = null;
   private pausep: UIKitMLAsset | null = null;
@@ -111,13 +120,15 @@ export class MenuSystem extends createSystem({}, {}) {
     this.eLobby = this.world.getSceneEntity('lobby-panel');
     this.eOpts = this.world.getSceneEntity('options-panel');
     this.eHint = this.world.getSceneEntity('hint-panel');
+    this.hoy = this.world.getSceneObject<UIKitMLAsset>('hoy-panel') ?? null;
+    this.eHoy = this.world.getSceneEntity('hoy-panel');
     this.sum = this.world.getSceneObject<UIKitMLAsset>('summary-panel') ?? null;
     this.pausep = this.world.getSceneObject<UIKitMLAsset>('pause-panel') ?? null;
     this.wrist = this.world.getSceneObject<UIKitMLAsset>('wrist-panel') ?? null;
     this.eSum = this.world.getSceneEntity('summary-panel');
     this.ePause = this.world.getSceneEntity('pause-panel');
     this.eWrist = this.world.getSceneEntity('wrist-panel');
-    for (const p of [this.lobby, this.opts, this.hint, this.sum, this.pausep, this.wrist]) if (p) applyFonts(p);
+    for (const p of [this.lobby, this.opts, this.hint, this.hoy, this.sum, this.pausep, this.wrist]) if (p) applyFonts(p);
     this.setOn(this.wrist, this.eWrist, false);
     // el resumen: otra ronda o el menú principal; la pausa: seguir, recolocarse, terminar la ronda o el menú principal;
     // el botón de la muñeca
@@ -186,6 +197,7 @@ export class MenuSystem extends createSystem({}, {}) {
     this.view = v;
     GAME.menu = v;
     this.setOn(this.lobby, this.eLobby, v === 'lobby');
+    this.setOn(this.hoy, this.eHoy, v === 'lobby');
     this.setOn(this.opts, this.eOpts, v === 'options');
     this.setOn(this.sum, this.eSum, v === 'summary');
     this.setOn(this.pausep, this.ePause, v === 'pause');
@@ -289,6 +301,7 @@ export class MenuSystem extends createSystem({}, {}) {
     for (const ex of MODE_EX.combat) this.on(p, 'e-' + ex, () => (PLAY_EX.includes(ex) ? this.pickEx(ex) : this.note(SOON_EX)));
     RANKS.forEach(([v], i) => this.on(p, 'r-' + i, () => setSetting('rank', v)));
     this.on(p, 'fail', () => setSetting('toFail', num('toFail') ? 0 : 1));
+    for (const g of ['g1', 'g2', 'g3', 'g4']) this.on(p, g, () => this.openProgress('mis')); // (la franja de las metas de hoy)
     for (const r of ROWS_LOBBY) this.wireRow(p, r);
   }
 
@@ -303,12 +316,110 @@ export class MenuSystem extends createSystem({}, {}) {
     if (import.meta.env.DEV) console.info(`rxdbg ejercicio ${settings.mode} ${settings.exercise}`); // (para probar en el emulador)
   }
 
+  // Opciones → Progreso, en la parte que toque (la franja de las metas de hoy lleva a Misiones)
+  private openProgress(sub: 'lvl' | 'mis' | 'week'): void {
+    this.tab = 'prog';
+    this.sub = sub;
+    this.page = 0;
+    this.show('options');
+  }
+
+  // ---------------------------------------------------------------- tu carrera: metas de hoy, columna HOY y Progreso
+
+  // Una meta: el círculo (con ✓ si está), su texto, su barra y lo que llevas (long: el texto entero, no el corto)
+  private fillGoal(p: UIKitMLAsset | null, id: string, m: MisItem, barW: number, long = false): void {
+    const done = m.done, got = misGot(m);
+    this.set(p, `${id}-c`, { backgroundColor: done ? '#3cf0c6' : '#3a4152' });
+    this.text(p, `${id}-ct`, done ? '✓' : '');
+    this.text(p, `${id}-t`, long ? MIS[m.t].txt(m) : misShort(m));
+    this.set(p, `${id}-t`, { color: done ? '#2bd4ad' : '#e9eef7' });
+    this.set(p, `${id}-f`, { width: Math.max(barW * 0.04, (barW * got) / m.n), backgroundColor: done ? '#3cf0c6' : PROG_COL });
+    this.text(p, `${id}-n`, done ? `+${MIS_XP} XP` : `${got} / ${m.n}`);
+  }
+
+  private fillShields(p: UIKitMLAsset | null, ids: string[]): void {
+    const n = career().cr.shield;
+    ids.forEach((id, i) => this.set(p, id, { backgroundColor: i < n ? SHIELD_COL : '#3a4152' }));
+  }
+
+  // La franja de bajo EMPEZAR (tres metas y la racha) y la columna HOY (lo mismo, el cofre y tu nivel)
+  private refreshGoals(): void {
+    const c = career(), M = c.misToday(), P = progressNow(), L = c.lvlOf(), left = M.list.filter((m) => !m.done).length;
+    const p = this.lobby, h = this.hoy;
+    this.shown(p, 'goals', true);
+    M.list.forEach((m, i) => {
+      this.fillGoal(p, `g${i + 1}`, m, 15);
+      this.fillGoal(h, `g${i + 1}`, m, 17);
+    });
+    this.text(p, 'g4-t', daysTxt(P.streak));
+    this.fillShields(p, ['g4-s0', 'g4-s1', 'g4-s2']);
+    this.text(p, 'g4-n', M.chest ? 'cofre ✓' : `cofre: ${left}`);
+    this.set(p, 'g4-n', { color: M.chest ? '#ffd166' : '#a49fc8' });
+    // la columna HOY
+    this.text(h, 'chest-t', M.chest ? '¡Cofre del día abierto!' : `Cofre: +${CHEST_XP} XP, un escudo y un color`);
+    this.set(h, 'chest', { backgroundColor: M.chest ? '#ffd166' : '#7a4318' });
+    this.text(h, 'streak-t', `Racha: ${daysTxt(P.streak)}`);
+    this.fillShields(h, ['s0', 's1', 's2']);
+    this.text(h, 'badge-t', String(L.n));
+    this.text(h, 'lvl-t', `Nivel ${L.n} · ${c.titleOf(L.n)}`);
+    this.set(h, 'xp-f', { width: Math.max(0.9, (22 * L.into) / L.need) });
+    this.text(h, 'xp-n', `${L.into} / ${L.need} XP`);
+  }
+
+  // La parte Progreso de Opciones: Nivel (con los colores que se desbloquean), Misiones y Semana
+  private refreshProg(): void {
+    const p = this.opts, c = career();
+    for (const k of ['lvl', 'mis', 'week'] as const) this.shown(p, 'pg-' + k, k === this.sub);
+    if (this.sub === 'lvl') {
+      const L = c.lvlOf(), nx = c.nextUnlock();
+      this.text(p, 'pl-badget', String(L.n));
+      this.text(p, 'pl-title', `Nivel ${L.n} · ${c.titleOf(L.n)}`);
+      this.set(p, 'pl-xpf', { width: Math.max(1.4, (64 * L.into) / L.need) });
+      this.text(p, 'pl-xpn', `${L.into} / ${L.need} XP${nx ? ` · Nivel ${nx.n}: ${nx.label}` : ''}`);
+      this.text(p, 'pl-note', 'Cada repetición da experiencia (las perfectas, el doble). Los colores solo se ven; el de las manos, por ahora, solo en RepArena');
+      for (const k of ['hands', 'bolt'] as LookKey[]) {
+        const O = LOOKS[k].opts, cur = c.lookOpt(k)[0];
+        for (let i = 0; i < 6; i++) {
+          const o = O[i], id = `lk-${k}-${i}`;
+          if (!o) continue;
+          const own = c.lookOwn(k, o[0]), sel = own && o[0] === cur;
+          this.text(p, id + 't', own ? o[1] : `Nivel ${o[2]}`);
+          this.set(p, id, { backgroundColor: sel ? '#' + o[3].toString(16).padStart(6, '0') : own ? KEY.bg : KEY.off });
+          this.set(p, id + 't', { color: sel ? KEY.dark : own ? KEY.fg : KEY.offFg });
+        }
+      }
+    } else if (this.sub === 'mis') {
+      const M = c.misToday(), P = progressNow();
+      M.list.forEach((m, i) => this.fillGoal(p, `pm${i + 1}`, m, 64, true));
+      this.text(p, 'pm-chest', M.chest ? '¡Cofre del día abierto!' : `Cofre: +${CHEST_XP} XP y un escudo`);
+      this.set(p, 'pm-chest', { color: M.chest ? '#ffd166' : '#a49fc8' });
+      this.text(p, 'pm-streak', `Racha: ${daysTxt(P.streak)} · mejor ${P.best}`);
+      this.fillShields(p, ['ps0', 'ps1', 'ps2']);
+      this.text(p, 'pm-note', `Tres nuevas cada día: +${MIS_XP} XP cada una. Con las tres se abre el cofre: +${CHEST_XP} XP, un escudo de racha y, si queda alguno, un color`);
+      this.text(p, 'pm-shnote', `Escudos de racha: ${c.cr.shield} de ${SHIELD_MAX}. Si un día no entrenas, se gasta uno solo y tu racha sigue`);
+      this.set(p, 'pm-shnote', { color: SHIELD_COL });
+    } else {
+      const h = history(), D = dayStats(h, Date.now(), num('weight') || 70), goal = num('goalMin'), mins = D.week.map((d) => d.v.time / 60), mx = Math.max(goal, ...mins) || 1;
+      D.week.forEach((d, i) => {
+        const m = mins[i], today = i === 6;
+        this.text(p, `wk${i}-v`, m >= 1 ? String(Math.round(m)) : '');
+        this.set(p, `wk${i}-f`, { height: Math.max(m > 0 ? 0.4 : 0.1, (16 * m) / mx), backgroundColor: today ? '#3cf0c6' : '#5ab8ff' });
+        this.set(p, `wk${i}-g`, { positionBottom: (16 * goal) / mx - 0.17 }); // (la raya de tu meta)
+        this.text(p, `wk${i}-l`, today ? 'hoy' : WDAY[d.d.getDay()].slice(0, 2));
+        this.set(p, `wk${i}-l`, { color: today ? '#3cf0c6' : '#a49fc8' });
+      });
+      this.text(p, 'wk-goal', `Tu meta: ${goal} min al día (la raya rosa)`);
+      const b = c.bestRunOf(h, settings.exercise, settings.mode), nm = (EX_SHORT[settings.exercise] || EX_NAMES[settings.exercise]).toLowerCase();
+      this.text(p, 'wk-best', b ? `Tu mejor ronda de ${nm} en ${MODE_NAMES[settings.mode]}: ${b.reps} reps${b.reps ? ` · ${Math.round((100 * (b.perfect || 0)) / b.reps)} % perfectas` : ''}` : 'Aún no tienes ninguna ronda de este ejercicio en este modo');
+    }
+  }
+
   private refreshLobby(): void {
     const p = this.lobby, ex = curEx(), xr = this.inXR();
     this.shown(p, 'last', !!this.last);
     this.text(p, 'last', this.last);
     this.text(p, 'start-label', this.last ? 'OTRA RONDA' : 'EMPEZAR');
-    this.shown(p, 'goals', false); // (las metas de hoy, bajo EMPEZAR: llegan con el PR 13)
+    this.refreshGoals();
     // el modo: cada uno, la tecla entera de su color; lo que aún no hay, apagado
     for (const m of Object.keys(MODE_NAMES)) this.key(p, 'm-' + m, m === 'combat' ? MODE_COL[m] : KEY.off, m === 'combat' ? '#1b1222' : KEY.offFg);
     this.key(p, 'm-ses', KEY.off, KEY.offFg);
@@ -350,6 +461,11 @@ export class MenuSystem extends createSystem({}, {}) {
       });
     for (let i = 0; i < N_SUB; i++)
       this.on(p, 's' + i, () => {
+        if (this.tab === 'prog') {
+          const k = PROG_SUBS[i]?.[0];
+          if (k) this.sub = k;
+          return;
+        }
         const g = settingsGroups()[i];
         if (g) {
           this.group = g;
@@ -357,6 +473,9 @@ export class MenuSystem extends createSystem({}, {}) {
           this.hideHint();
         }
       });
+    // los colores que se desbloquean (Progreso → Nivel): al tocar uno que ya tienes, te lo pones
+    for (const k of ['hands', 'bolt'] as LookKey[])
+      LOOKS[k].opts.forEach((o, i) => this.on(p, `lk-${k}-${i}`, () => setLook(k, o[0])));
     this.on(p, 'pg-prev', () => (this.page = Math.max(0, this.page - 1)));
     this.on(p, 'pg-next', () => this.page++);
     this.on(p, 'o-back', () => this.show('lobby'));
@@ -371,7 +490,7 @@ export class MenuSystem extends createSystem({}, {}) {
       const rows: Row[] = [FIELD.foeKind, ...groupFields('armas')].filter((f) => fieldHere(f));
       return { rows, note: 'Toca una ficha para que salga o no · Resiste: los disparos que aguanta · Fuerza: las vidas que te quita' };
     }
-    if (this.tab === 'prog') return { rows: [], note: 'Tu progreso (nivel, misiones del día, tu semana y tu mejor ronda) llega con el PR 13' };
+    if (this.tab === 'prog') return { rows: [], note: '' };
     if (this.tab === 'sound') return { rows: groupFields('sonido'), note: 'Spotify y el compás de la música llegan con el PR 22' };
     if (this.tab === 'scene') return { rows: ['quality', ...groupFields('entorno')], note: this.world.renderer.xr.isPresenting ? 'La nitidez nueva se aplica al volver a entrar en VR' : 'La nitidez se aplica al entrar en VR' };
     const groups = settingsGroups();
@@ -388,16 +507,21 @@ export class MenuSystem extends createSystem({}, {}) {
       this.set(p, 't-' + x.k, { backgroundColor: x.k === this.tab ? x.col : KEY.bg, borderColor: x.col });
       this.set(p, `t-${x.k}t`, { color: x.k === this.tab ? KEY.dark : KEY.fg });
     }
-    // en Ajustes, una pestaña por grupo
-    const groups = this.tab === 'set' ? settingsGroups() : [];
-    this.shown(p, 'subtabs', groups.length > 0);
+    // en Ajustes, una pestaña por grupo; en Progreso, Nivel, Misiones (con las que te quedan) y Semana
+    const left = this.tab === 'prog' ? career().misLeft() : 0;
+    const subs: [string, string][] = this.tab === 'set' ? settingsGroups().map((g) => [g, groupName(g)]) : this.tab === 'prog' ? PROG_SUBS.map(([k, l]) => [k, k === 'mis' && left ? `${l} (${left})` : l]) : [];
+    const cur = this.tab === 'prog' ? this.sub : this.group, subCol = this.tab === 'prog' ? '#ff4fa3' : '#ffd166';
+    this.shown(p, 'subtabs', subs.length > 0);
     for (let i = 0; i < N_SUB; i++) {
-      const g = groups[i];
+      const g = subs[i];
       this.shown(p, 's' + i, !!g);
       if (!g) continue;
-      this.text(p, `s${i}t`, groupName(g));
-      this.key(p, 's' + i, g === this.group ? '#ffd166' : KEY.bg, g === this.group ? KEY.dark : KEY.fg);
+      this.text(p, `s${i}t`, g[1]);
+      this.key(p, 's' + i, g[0] === cur ? subCol : KEY.bg, g[0] === cur ? KEY.dark : KEY.fg);
     }
+    this.shown(p, 'prog', this.tab === 'prog');
+    this.shown(p, 'obody', this.tab !== 'prog');
+    if (this.tab === 'prog') this.refreshProg();
     // las fichas de los rivales (en Rivales y armas): su retrato, su nombre, su resistencia y su fuerza; los elegidos, con
     // el borde de su color; los que aún no están (PR 8b), apagados
     const cards = this.tab === 'foes' && fieldVisible(FIELD.foesGate), chosen = foeList('foesGate');
@@ -630,6 +754,13 @@ export class MenuSystem extends createSystem({}, {}) {
     if (this.hintT > 0) {
       this.hintT -= delta;
       if (this.hintT <= 0 || this.view === 'none') this.hideHint();
+    }
+    // la columna HOY, a la izquierda del principal, colgando de su borde de arriba como él (se va con él)
+    const L = this.eLobby?.object3D, H = this.eHoy?.object3D;
+    if (this.view === 'lobby' && L && H) {
+      L.updateMatrixWorld();
+      H.position.copy(L.localToWorld(this.v.set(-0.66, 0, 0)));
+      L.getWorldQuaternion(H.quaternion);
     }
     // en el menú, Enter (en el ordenador) empieza; en plena partida no hay menú
     if (GAME.phase === 'playing' && !GAME.paused && this.view !== 'none' && this.view !== 'pause') this.show('none');

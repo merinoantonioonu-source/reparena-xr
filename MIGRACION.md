@@ -130,7 +130,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 11c · Inchworm** — #19
 - [x] **PR 12a · Botón MENÚ de la muñeca, pausa y resumen de la ronda** — #20
 - [x] **PR 12b · Carátula del duelo, caricatura y avisos de la vista** — #21
-- [ ] **PR 13 · Carrera y progreso**
+- [x] **PR 13a · Carrera: nivel, misiones del día, cofre y escudos, metas de hoy y Progreso** — #22
+- [ ] **PR 13b · La campaña y la carátula «METAS DE HOY»**
 - [ ] **PR 14 · Página web y app del móvil**
 - [ ] **PR 15 · Arcos**
 - [ ] **PR 16 · Toques**
@@ -321,8 +322,18 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 **PR 13 · Carrera y progreso** (M)
 - Experiencia, nivel, títulos y colores; misiones del día con su cofre y escudos de racha; campaña (7 regiones, jefes,
-  estrellas); Progreso.
+  estrellas); Progreso. Partido en 13a y 13b.
 - De RepArena: `src/73_career.js`.
+- **13a (hecho)**: la carrera de RepArena tal cual (`src/core/career.ts`, `days.ts`, `today.ts`: experiencia por repetición y
+  perfecta, nivel y título, los colores que se desbloquean, las tres misiones de cada día con su cofre y los escudos de
+  racha, los récords en plena ronda, la meta diaria), comparada con su código (`tests/compare/career.compare.test.ts`: 120
+  temporadas de 14 días, con el cambio de hora; `today.compare.test.ts`). En la partida: la experiencia y las misiones al
+  acabar la ronda (también al salir al menú), los trofeos («¡MISIÓN 2 DE 3!», «¡COFRE DEL DÍA!», «¡NIVEL 4!», «¡META DIARIA!»,
+  «¡RÉCORD DE…!»), lo ganado en el resumen (el cofre y el nivel primero) y «Hoy: x de y min» en el descanso; el color del
+  rayo normal. En los menús: las metas de hoy bajo EMPEZAR, la columna «HOY» (`hoy.uikitml`) y Opciones → Progreso (Nivel con
+  los colores, Misiones y Semana).
+- **13b**: la campaña (35 niveles en 7 regiones por modo y ejercicio: mapa, jugar un nivel con sus ajustes, estrellas y los
+  botones del resumen) y la carátula «METAS DE HOY» al entrar en las gafas.
 
 **PR 14 · Página web y app del móvil** (L)
 - La página con su índice y el formulario de ajustes, «Probar en el ordenador», la app del móvil (modelo C) y el
@@ -357,6 +368,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- PR 13a → PR 13b: la campaña ya tiene sus datos (`Career.campOf`, `campLv`, `campResult`, `CAMP_REG`, `CAMP_N`) y su guardado
+  (`cr.camp`); `Career.run(o, camp)` recibe `{id, lv}` de la campaña en juego (aquí, `null`) y suma sus estrellas. Falta
+  jugarla: `campStart` (los ajustes del nivel por encima de los tuyos con `OVERLAY` de `src/core/settings.ts`, `beginRun`),
+  `campEnd` al acabar, el mapa y los botones del resumen (Nivel siguiente, Repetir, Mapa; el resumen es `showSummary` en
+  `src/ui/menu.ts` y `summaryOf` en `src/core/run.ts`). El entorno de cada región (arena, bosque, isla) llega con el PR 20.
+  La pestaña Campaña va en `PROG_SUBS` (`src/ui/menu.ts`). La carátula «METAS DE HOY»: como la del duelo (`ViewSystem`).
 
 - PR 10a → PR 10b: la ronda va por oleadas (`GameSystem.startWave`, `waveCleared`, `endRound`): la cola de la oleada
   (`queue`, de `buildWave`), el descanso (`restT`, con `GAME.between`) y el panel entre oleadas (`waveIntro`, panel
@@ -460,6 +478,19 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 13a: **el color de las manos** (Progreso → Nivel → Manos) se guarda y se desbloquea como en RepArena, pero aquí no se ve:
+  las manos son las de IWSDK (criterio del usuario). Propuestas para decidir con él: tintar la punta de los dedos de las
+  manos de IWSDK, o el halo de la carga en la muñeca. El color del rayo normal sí se ve.
+- PR 13a: **las misiones de variedad solo piden lo que se puede jugar aquí** (`playMode`/`playEx` del hub: hoy, Combate y los
+  ejercicios de `PLAY_EX`); con cada modo nuevo (PR 15 a 18) se amplía. En RepArena pueden salir Arcos o Toques: si la lista de
+  hoy ya la hizo RepArena, se respeta (es la misma guardada).
+- PR 13a: probado en la VR simulada: la franja de metas y la columna HOY a los lados del menú principal, Progreso → Nivel,
+  Misiones y Semana pulsados con el rayo, y una ronda ganada con las tres misiones (salen «¡TRES DE TRES!» y «¡COFRE DEL
+  DÍA!» y el resumen trae el cofre con el color desbloqueado). En las gafas, por mirar: que las letras de la franja y de la
+  columna se lean (son pequeñas) y que la columna no estorbe al caricatura (que sale al otro lado).
+- PR 13a: el resumen aún no propone subir o bajar de rango (RepArena: `rankFitAdd`); el colgado (`hang`) y los modos con
+  metros (Arcos, Travesía) llegan con sus PR.
+
 - PR 8c: los drones y los avispones no salen (eran geométricos, como los robots); si solo eliges esos, abejas y
   murciélagos. El dragón, solo de jefe (PR 10). En la VR simulada se han visto la abeja y el murciélago saliendo por las
   compuertas, zumbando, lanzándose a morder (silbido y golpe) y cayendo al derribarlos; el Cthulhu, el dragón y el vuelo de
@@ -510,7 +541,7 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - PR 10c: el marcador de RepArena se pintaba entero en un lienzo; aquí, con los paneles de UIKit (letras nítidas) y solo el
   rosco en un lienzo. Diferencias: la mecha del relámpago es una barra que se consume en el borde de arriba (en RepArena,
   todo el borde); las vidas, círculos rosas (las letras no tienen ♥); el rango, su nombre (sin el escudo con galones); en
-  el descanso no sale «Hoy: x de y min» (llega con el PR 13). «Marcador: Compuertas» y «Columna» lo dejan a la izquierda.
+  «Marcador: Compuertas» y «Columna» lo dejan a la izquierda.
 - PR 10c: en la VR simulada se han visto el marcador (con el relámpago, las vidas, el rosco y el rango) y un trofeo dorado
   arriba, por encima de las compuertas; en las gafas, por ver que se lea bien de lejos.
 - PR 10b: en la VR simulada se han pulsado las cartas con el rayo del mando y se ha abierto el cofre saltando (con las

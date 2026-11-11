@@ -45,7 +45,10 @@ import { RUSH_SECS } from './perks.js';
 import { BoardRing } from '../ui/board-ring.js';
 import { PAUSE_INFO } from '../ui/menu.js';
 import { lyingEx, VIEW_FRAME } from '../ui/view-panels.js';
-import { HIST_KEY, runRecord, summaryOf, type RunStats } from '../core/run.js';
+import { HIST_KEY, kcalOf, runRecord, summaryOf, type RunStats } from '../core/run.js';
+import { career, history, progressNow } from './career-hub.js';
+import { dayBoard, dayLive, type DayBoard } from '../core/today.js';
+import type { LiveStats } from '../core/career.js';
 import { PERKS } from './perks.js';
 import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, REP_TIME, repPoints, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
 import { Flight, type FlyGate } from './flight.js';
@@ -254,12 +257,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       }
     };
     HOOKS.startRound = () => this.startRound();
+    HOOKS.trophy = (t, s, c) => this.trophy(t, s, c);
+    this.dayRefresh();
     HOOKS.endRound = () => this.endRound(false, true);
     HOOKS.toLobby = () => {
       // al menú principal en plena ronda: se guarda lo hecho (sin resumen), como en RepArena
       if (GAME.phase === 'playing') {
-        const row = runRecord(this.runStats(false));
-        if (row) store(HIST_KEY, [...(store<Record<string, unknown>[]>(HIST_KEY) ?? []), row].slice(-400));
+        this.saveRun(false, this.runStats(false));
         GAME.phase = 'over';
         this.rw.roundEnd();
         this.enemies.vanishAll();
@@ -284,7 +288,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     };
     HOOKS.sparks = (p, n, c) => this.fx.sparks.burst(p, n, c, 2.4, 0.04);
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
-    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, snapshot: () => this.snapshot() };
+    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot() };
     // la letra de la ×N de la bola (Bungee, para el lienzo)
     try {
       const face = new FontFace('Bungee', `url(${import.meta.env.BASE_URL}fonts/Bungee-Regular.ttf)`);
@@ -458,8 +462,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       msg = waits ? 'ELIGE MEJORA' : `DESCANSO ${Math.max(0, Math.ceil(this.restT))}`;
       col = waits ? gold : teal;
       lines[0] = `Siguiente: ${waveReps(GAME.wave)} repeticiones${this.rampNote ? (this.rampUp ? ' · un poco más difícil' : ' · igual') : ''}`;
-      const g = this.rw.ghostText();
+      const g = this.rw.ghostText(), D = this.dayNow(), goal = num('goalMin');
       if (g) lines[1] = minus(g[0]);
+      else if (D.best) lines[1] = `Tu mejor día: ${D.best}`;
+      lines[2] = `Hoy: ${Math.floor(D.time / 60)} de ${goal} min${D.time >= goal * 60 ? ' ✓' : ''}`;
     } else if (!GAME.wave && this.restT > 0) {
       msg = String(Math.max(1, Math.ceil(this.restT)));
       col = gold;
@@ -560,6 +566,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.maxLives = nLives();
     Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, score: 0, combo: 0, bestCombo: 0, taken: 0, startTime: this.clock });
     this.rampLvl = GAME.ramp = 0;
+    this.roundId++;
+    this.dayRefresh();
     this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla)
     this.chargePow = 0;
     throwReset();
@@ -789,12 +797,56 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.message(win ? '¡Victoria!' : manual ? 'Ronda terminada' : '¡Te han derribado!', 4);
     // lo que se guarda (el historial de RepArena: las dos versiones comparten tu progreso) y el resumen (opción A), tras un
     // fundido a negro (RepArena: endRun y showOutcome; al terminarla tú, enseguida)
-    const hist = store<Record<string, unknown>[]>(HIST_KEY) ?? [], s = this.runStats(win);
-    const row = runRecord(s);
-    if (row) store(HIST_KEY, [...hist, row].slice(-400));
-    this.summary = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist);
+    const hist = history(), s = this.runStats(win), P0 = progressNow(hist);
+    this.saveRun(win, s); // (con su experiencia, misiones y escudos: la carrera)
+    const P = progressNow(), gain = career().take();
+    this.summary = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist, { streakUp: P.streak > P0.streak && P.streak > 1 ? { n: P.streak, best: P.best } : null, notes: gain?.notes ?? null });
     this.outT = 0;
     this.outAt = manual ? 0.4 : win ? 1.4 : 2.6;
+  }
+
+  // La ronda, al historial (el de RepArena: las dos versiones comparten tu progreso) y a tu carrera (RepArena: saveRun y
+  // careerRun). Nada si no hiciste ninguna repetición
+  private saveRun(win: boolean, s: RunStats): void {
+    const row = runRecord(s);
+    if (!row) return;
+    store(HIST_KEY, [...history(), row].slice(-400));
+    career().run({ reps: s.reps, perfect: s.perfect, mins: s.time / 60, combo: s.bestCombo, win, taken: GAME.taken, falls: 0, mode: s.mode, ex: s.ex, hang: false }, null);
+    this.dayRefresh();
+  }
+
+  // Lo de hoy para el marcador y la meta diaria (RepArena: boardDayRefresh, boardDay)
+  private dayB: DayBoard = { time: 0, kcal: 0, ex: 0, best: 0, streak: 0 };
+  private dayRefresh(): void {
+    this.dayB = dayBoard(history(), Date.now(), settings.exercise, career().cr.frozen, num('weight') || 70);
+  }
+  private dayNow(): { time: number; kcal: number; n: number; best: number; streak: number } {
+    const s = GAME.phase === 'playing' ? this.runStats(false) : null;
+    return dayLive(this.dayB, s && { time: s.time, kcal: kcalOf(s.ex, s.work, s.time - s.work, s.kg), n: s.reps });
+  }
+
+  // La ronda en curso, para las misiones y los récords en vivo (RepArena: misLive, recLive)
+  private roundId = 0;
+  private liveT = 0;
+  private metDay: boolean | null = null;
+  private liveStats(): LiveStats {
+    return { run: this.roundId, playing: GAME.phase === 'playing' && GAME.wave > 0 && !GAME.between && !this.resting && this.calibT < 0, session: false, exercise: settings.exercise, mode: settings.mode, toFail: num('toFail') > 0, reps: GAME.reps, hold: 0, time: this.clock - GAME.startTime, perfect: GAME.perfect, bestCombo: GAME.bestCombo, score: GAME.score, dist: 0 };
+  }
+  // Cada segundo: las misiones y los récords, en cuanto se cumplen o se baten, y la meta diaria al alcanzarla en plena ronda
+  // (si ya la tenías al empezar, no)
+  private stepCareer(dt: number): void {
+    if (GAME.phase !== 'playing') {
+      this.metDay = null;
+      return;
+    }
+    if ((this.liveT -= dt) > 0) return;
+    this.liveT = 1;
+    const L = this.liveStats();
+    career().misLive(L);
+    career().recLive(L);
+    const met = this.dayNow().time >= num('goalMin') * 60;
+    if (this.metDay !== null && met && !this.metDay) this.trophy('¡META DIARIA!', `${num('goalMin')} min entrenados hoy`);
+    this.metDay = met;
   }
 
   // lo de la ronda que se guarda y sale en el resumen
@@ -1208,6 +1260,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
     const playing = GAME.phase === 'playing';
     this.centerStep(playing);
+    this.stepCareer(dt);
     if (playing && !VIEW.duel) { // (mientras se ve la carátula del duelo, la ronda espera)
       this.exercise(time, dt);
       if (!GAME.between) this.workT += dt; // (el tiempo de oleada, para las calorías)

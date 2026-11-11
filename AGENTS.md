@@ -92,6 +92,11 @@ tabla de `README.md` dice qué hace cada archivo.
   celebraciones, al marcador. El del centro lo llena la partida en `VIEW.center` (calibración, «¡PREPÁRATE!»); la carátula
   del duelo (`HOOKS.duel`, `VIEW.duel`: mientras, la ronda espera). Lo que no es texto (la caricatura, la carátula) se
   pinta en un lienzo (`src/ui/canvas-kit.ts`, con las letras de `public/fonts`).
+- **Carrera** (`src/core/career.ts`, de RepArena; en el juego, `career()` de `src/combat/career-hub.ts`): experiencia, nivel,
+  misiones del día, cofre y escudos de racha; los guarda en `reparena3-career` (la misma clave y forma que RepArena). La
+  partida le pasa cada ronda al acabar (`GameSystem.saveRun` → `career().run`) y cada segundo lo que llevas (`misLive`,
+  `recLive`: los avisos grandes). Qué modos y ejercicios se pueden jugar aquí lo dice `playMode`/`playEx` del hub: las
+  misiones de variedad solo piden lo que ya hay. El menú principal enseña las metas y la columna HOY, y Opciones → Progreso.
 - La letra que trae IWSDK (Inter) no tiene tildes: los paneles usan las de `public/fonts` (ver su `LEEME.md`), que se
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee.

@@ -72,8 +72,24 @@ export interface Summary {
   chip: [string, string] | null;
 }
 
+/** Los logros del resumen en su orden (RepArena: sumChips): el cofre y el nivel nuevo primero; luego el primer logro de la
+ * ronda (récord…); luego el resto de lo ganado (misiones, campaña, escudos…, sin los «Desbloqueado»); y, al final, los demás
+ * de la ronda. Solo se enseña el primero. */
+export function sumChips(chips: [string, string][], notes: [string, string][] | null): [string, string][] {
+  if (!notes) return chips;
+  const ch = notes.find(([t]) => /^¡Cofre/.test(t)), lv = notes.find(([t]) => /^¡Nivel/.test(t)), top = [ch, lv].filter((n): n is [string, string] => !!n);
+  return [...top, ...chips.slice(0, 1), ...notes.filter((n) => !top.includes(n) && !/^Desbloqueado/.test(n[0])), ...chips.slice(1)];
+}
+
 /** El resumen (RepArena: endRun, opción A). hist: el historial de antes de esta ronda. manual: la terminaste tú. */
-export function summaryOf(s: RunStats, manual: boolean, waveNow: number, nWaves: number, exName: string, hist: { ex?: string; mode?: string; reps?: number; fail?: number }[]): Summary {
+export interface CareerBits {
+  /** La racha de días si ha subido hoy (y con más de un día), con tu mejor racha; si no, null. */
+  streakUp: { n: number; best: number } | null;
+  /** Lo ganado en la ronda (la carrera: misiones, cofre, nivel, escudos…); si no hay, null. */
+  notes: [string, string][] | null;
+}
+
+export function summaryOf(s: RunStats, manual: boolean, waveNow: number, nWaves: number, exName: string, hist: { ex?: string; mode?: string; reps?: number; fail?: number }[], career: CareerBits | null = null): Summary {
   const prevBest = hist.filter((r) => r.ex === s.ex).reduce((a, r) => Math.max(a, r.reps || 0), 0);
   const failBest = hist.filter((r) => r.ex === s.ex && r.mode === s.mode && r.fail).reduce((a, r) => Math.max(a, r.fail || 0), 0);
   const got = s.reps, pr = s.reps ? s.perfect / s.reps : 0, mm = Math.floor(s.time / 60), ss = String(Math.round(s.time % 60)).padStart(2, '0');
@@ -83,6 +99,8 @@ export function summaryOf(s: RunStats, manual: boolean, waveNow: number, nWaves:
   const chips: [string, string][] = [];
   if (got > prevBest && prevBest > 0) chips.push(['¡Nuevo récord!', '#ffd166']);
   if (s.failWave !== null && got && waveNow > failBest && failBest) chips.push([`¡Récord al fallo: oleada ${waveNow}!`, '#ffd166']);
+  if (career?.streakUp) chips.push([`${career.streakUp.n} días seguidos${career.streakUp.n >= career.streakUp.best ? ' · tu mejor racha' : ''}`, '#3cf0c6']);
+  const all = sumChips(chips, career?.notes ?? null);
   return {
     title: s.win ? '¡VICTORIA!' : manual ? 'RESUMEN' : 'DERROTA',
     where: exName,
@@ -93,6 +111,6 @@ export function summaryOf(s: RunStats, manual: boolean, waveNow: number, nWaves:
     stars,
     medal: ['', 'bronce', 'plata', 'oro'][stars] || null,
     tiles: [[String(s.score), 'puntos'], [`${mm}:${ss}`, 'tiempo'], [`${Math.round(kcalOf(s.ex, s.work, s.time - s.work, s.kg))}`, 'kcal (aprox.)']],
-    chip: chips[0] ?? null,
+    chip: all[0] ?? null,
   };
 }
