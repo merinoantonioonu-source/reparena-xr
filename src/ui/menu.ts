@@ -29,7 +29,8 @@ import { hands, head, isFist } from '../input/hand-model.js';
 import type { Summary } from '../core/run.js';
 import { SND, unlockAudio } from '../audio/sound.js';
 import { HOW } from '../exercise/how.js';
-import { curEx, PLAY_EX, eyeFields, fieldHere, fieldPick, fieldStep, fieldView, groupFields, groupName, roundInfo, settingsGroups, type FieldView } from './fields.js';
+import { PLAY_MODES, playable, playableEx } from '../core/playable.js';
+import { curEx, eyeFields, fieldHere, fieldPick, fieldStep, fieldView, groupFields, groupName, roundInfo, settingsGroups, type FieldView } from './fields.js';
 import { applyFonts } from './fonts.js';
 import { career, history, progressNow, setLook } from '../combat/career-hub.js';
 import { CAMP_N, CAMP_REG, campId, CHEST_XP, LOOKS, MIS, MIS_XP, misGot, misShort, PROG_COL, SHIELD_COL, SHIELD_MAX, type LookKey, type MisItem } from '../core/career.js';
@@ -59,6 +60,8 @@ type Tab = (typeof TABS)[number]['k'];
 // Lo que aún no está (se enciende con su PR): los modos y Sesiones, y los ejercicios de suelo
 const SOON_MODE: Record<string, string> = { arcs: 'Arcos llega con el PR 15', bars: 'Barras llega con el PR 17', touch: 'Toques llega con el PR 16', trek: 'La Travesía llega con el PR 18', ses: 'Las sesiones llegan con el PR 19' };
 const SOON_EX = 'Este ejercicio aún no está';
+/** Todos los botones de ejercicio del menú principal (cada modo enseña los suyos). */
+const ALL_EX = [...new Set(Object.values(MODE_EX).flat())];
 const PROG_SUBS: ['lvl' | 'mis' | 'camp' | 'week', string][] = [['lvl', 'Nivel'], ['mis', 'Misiones'], ['camp', 'Campaña'], ['week', 'Semana']];
 const KEY = { bg: '#2a2f3a', fg: '#e9eef7', off: '#1d212b', offFg: '#5d6577', dark: '#0d1016' };
 const ROWS_LOBBY = ['l1', 'l2', 'l3', 'l4'], ROWS_OPT = ['o1', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8', 'o9'], N_OPTS = 8, N_SUB = 10;
@@ -308,9 +311,9 @@ export class MenuSystem extends createSystem({}, {}) {
     this.on(p, 'xr-button', () => this.world.launchXR());
     this.on(p, 'exit-button', () => void this.world.renderer.xr.getSession()?.end());
     this.on(p, 'opt-button', () => this.show('options'));
-    for (const m of Object.keys(MODE_NAMES)) this.on(p, 'm-' + m, () => (m === 'combat' ? this.pickMode() : this.note(SOON_MODE[m])));
+    for (const m of Object.keys(MODE_NAMES)) this.on(p, 'm-' + m, () => (PLAY_MODES.includes(m) ? this.pickMode(m) : this.note(SOON_MODE[m])));
     this.on(p, 'm-ses', () => this.note(SOON_MODE.ses));
-    for (const ex of MODE_EX.combat) this.on(p, 'e-' + ex, () => (PLAY_EX.includes(ex) ? this.pickEx(ex) : this.note(SOON_EX)));
+    for (const ex of ALL_EX) this.on(p, 'e-' + ex, () => (playable(settings.mode, ex) ? this.pickEx(ex) : this.note(SOON_EX)));
     RANKS.forEach(([v], i) => this.on(p, 'r-' + i, () => setSetting('rank', v)));
     this.on(p, 'fail', () => setSetting('toFail', num('toFail') ? 0 : 1));
     for (const g of ['g1', 'g2', 'g3', 'g4']) this.on(p, g, () => this.openProgress('mis')); // (la franja de las metas de hoy)
@@ -318,9 +321,11 @@ export class MenuSystem extends createSystem({}, {}) {
   }
 
   // Combate con el ejercicio elegido (si lo guardado en RepArena era otro modo, o uno que aún no hay, la sentadilla)
-  private pickMode(): void {
-    if (settings.mode !== 'combat') setSetting('mode', 'combat');
-    if (!PLAY_EX.includes(settings.exercise)) setSetting('exercise', curEx());
+  private pickMode(m: string = settings.mode): void {
+    const mode = PLAY_MODES.includes(m) ? m : 'combat'; // (lo que aún no hay: Combate)
+    if (settings.mode !== mode) setSetting('mode', mode);
+    const ex = playableEx(mode, settings.exercise);
+    if (ex !== settings.exercise) setSetting('exercise', ex);
   }
   private pickEx(ex: string): void {
     this.pickMode();
@@ -466,18 +471,24 @@ export class MenuSystem extends createSystem({}, {}) {
     this.text(p, 'last', this.last);
     this.text(p, 'start-label', this.last ? 'OTRA RONDA' : 'EMPEZAR');
     this.refreshGoals();
-    // el modo: cada uno, la tecla entera de su color; lo que aún no hay, apagado
-    for (const m of Object.keys(MODE_NAMES)) this.key(p, 'm-' + m, m === 'combat' ? MODE_COL[m] : KEY.off, m === 'combat' ? '#1b1222' : KEY.offFg);
+    // el modo: cada uno, la tecla entera de su color (el elegido, a todo color; los demás, con su color en la letra); lo que
+    // aún no hay, apagado
+    for (const m of Object.keys(MODE_NAMES)) {
+      const ok = PLAY_MODES.includes(m), sel = m === settings.mode;
+      this.key(p, 'm-' + m, !ok ? KEY.off : sel ? MODE_COL[m] : KEY.bg, !ok ? KEY.offFg : sel ? '#1b1222' : MODE_COL[m]);
+    }
     this.key(p, 'm-ses', KEY.off, KEY.offFg);
     this.set(p, 'box-mode', { borderColor: MODE_BOX });
-    // los ejercicios de Combate: el elegido, en blanco; los de suelo, apagados
-    this.text(p, 'ex-title', `Ejercicio · ${MODE_NAMES.combat}`);
-    this.text(p, 'ex-how', HOW[ex].map((l) => l.replace(/^\d\. /, '')).join(' · ')); // (cómo se hace, hasta que llegue la caricatura: PR 12)
+    // los ejercicios del modo: el elegido, en blanco; los que aún no hay, apagados; los de los otros modos, escondidos
+    this.text(p, 'ex-title', `Ejercicio · ${MODE_NAMES[settings.mode]}`);
+    const how = HOW[ex];
+    this.text(p, 'ex-how', how ? how.map((l) => l.replace(/^\d\. /, '')).join(' · ') : ''); // (cómo se hace; la caricatura lo enseña)
     this.set(p, 'ex-how', { color: EX_COL });
     this.set(p, 'box-ex', { borderColor: EX_COL });
-    for (const e of MODE_EX.combat) {
-      const ok = PLAY_EX.includes(e), sel = e === ex;
-      this.key(p, 'e-' + e, !ok ? KEY.off : sel ? EX_COL : KEY.bg, !ok ? KEY.offFg : sel ? KEY.dark : KEY.fg);
+    for (const e of ALL_EX) {
+      const here = (MODE_EX[settings.mode] ?? []).includes(e), ok = playable(settings.mode, e), sel = e === ex;
+      this.shown(p, 'e-' + e, here);
+      if (here) this.key(p, 'e-' + e, !ok ? KEY.off : sel ? EX_COL : KEY.bg, !ok ? KEY.offFg : sel ? KEY.dark : KEY.fg);
     }
     // la dificultad: los galones de cada rango, «Al fallo», la ficha de la ronda y lo del ojo
     this.set(p, 'box-diff', { borderColor: DIFF_COL });

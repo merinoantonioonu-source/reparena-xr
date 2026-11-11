@@ -54,7 +54,8 @@ import { PERKS } from './perks.js';
 import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, REP_TIME, repPoints, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
 import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
-import { curEx, PLAY_EX } from '../ui/fields.js';
+import { curEx } from '../ui/fields.js';
+import { PLAY_MODES, playableEx } from '../core/playable.js';
 import { dv, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, waveReps } from '../core/settings.js';
 import { EX_NAMES, EX_SHORT, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
@@ -565,9 +566,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.enemies.clear();
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
-    // el ejercicio: Combate con uno de pie (si lo elegido en RepArena era otro modo u otro ejercicio, la sentadilla)
-    if (settings.mode !== 'combat') setSetting('mode', 'combat');
-    if (!PLAY_EX.includes(settings.exercise)) setSetting('exercise', curEx());
+    // el modo y el ejercicio: los que ya hay (si lo elegido en RepArena aún no está aquí, Combate o la sentadilla)
+    if (!PLAY_MODES.includes(settings.mode)) setSetting('mode', 'combat');
+    const px = playableEx(settings.mode, settings.exercise);
+    if (px !== settings.exercise) setSetting('exercise', px);
     // las vidas, las de tu rango (0: infinitas: los golpes no te eliminan; al fallo, al menos una)
     GAME.maxLives = nLives();
     Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, score: 0, combo: 0, bestCombo: 0, taken: 0, startTime: this.clock });

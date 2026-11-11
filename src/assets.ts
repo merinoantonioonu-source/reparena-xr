@@ -5,6 +5,7 @@ import { AssetType, defineAssets } from '@iwsdk/core';
 import { createArenaFloor, createCrate, createPlayerPad, createRock } from './scene-assets/arena.scene-asset.js';
 import { createGate } from './scene-assets/gate.scene-asset.js';
 import { createHatch } from './scene-assets/hatch.scene-asset.js';
+import { createArc } from './scene-assets/arc.scene-asset.js';
 import { createComicClouds } from './scene-assets/comic-sky.scene-asset.js';
 import { createComicValley } from './scene-assets/comic-valley.scene-asset.js';
 import { SOUNDS, soundId, soundUrl } from './audio/catalog.js';
@@ -28,6 +29,8 @@ export default defineAssets({
   rock: createRock(),
   gate: createGate(),
   hatch: createHatch(),
+  arc: createArc().grp,
+  'arc-hurdle': createArc(0.14, 2.55, 0, true).grp,
   'comic-clouds': createComicClouds(),
   'comic-valley': createComicValley(),
   'zombie-basic': glb('zombie_basic.glb', 'Zombi verde'),
