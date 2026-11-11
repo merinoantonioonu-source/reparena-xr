@@ -7,14 +7,15 @@
  * patterns.ts), comparada con RepArena. Cada arco pasado cuenta una repetición (sin disparo): la partida (GameSystem) suma
  * los puntos y pasa las oleadas con lo que este sistema le dice (`waveLeft`).
  */
-import { AdditiveBlending, BackSide, BufferGeometry, createSystem, DoubleSide, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, PlaneGeometry, SphereGeometry, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, BackSide, Color, BufferGeometry, createSystem, DoubleSide, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, PlaneGeometry, SphereGeometry, Vector3 } from '@iwsdk/core';
 import type { Material, Object3D } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { haptic } from '../../input/hand-system.js';
 import { dv, store } from '../../core/settings.js';
 import { GAME, HOOKS } from '../../core/state.js';
-import { num, on, settings, str } from '../../core/values.js';
+import { num, on, on as on2, settings, str } from '../../core/values.js';
 import { hands, head } from '../../input/hand-model.js';
+import { createArcTrack, type ArcTrackParts } from '../../scene-assets/arc-track.scene-asset.js';
 import { createArc, type ArcParts } from '../../scene-assets/arc.scene-asset.js';
 import { createLaser, createMace, createOrb, createWalls, type LaserParts, type MaceParts, type OrbParts, type WallsParts } from '../../scene-assets/arc-extras.scene-asset.js';
 import { ArcCore, arxSpeed, type ArcOutcome } from './arc.js';
@@ -78,6 +79,10 @@ export class ArcsSystem extends createSystem({}) {
   private vy = 0;
   private feverOn = false;
   private veil!: Mesh;
+  private track!: ArcTrackParts;
+  private scroll = 0;
+  private readonly tint = new Color(0x3cf0c6);
+  private readonly tintT = new Color();
   private veilK = 0;
   private flash = 0;
   /** La altura de tus ojos de pie al calibrar (RepArena: calibRef). */
@@ -121,6 +126,34 @@ export class ArcsSystem extends createSystem({}) {
     this.veil.renderOrder = 20;
     this.veil.visible = false;
     this.world.createTransformEntity(this.veil);
+    // la pasarela: rayas en la pista y farolas a los lados que pasan a la velocidad de los arcos
+    this.track = createArcTrack();
+    this.track.grp.visible = false;
+    this.world.createTransformEntity(this.track.grp);
+  }
+
+  // RepArena: arxDeco (sin la tormenta del cielo): la pista y las farolas corren hacia ti; del color de la racha (rojo en la fiebre)
+  private stepTrack(dt: number, play: boolean): void {
+    const T = this.track, on = this.on && GAME.phase === 'playing' && on2('arcMove');
+    T.grp.visible = on;
+    if (!on) return;
+    this.tintT.setHex(this.arx.fever ? 0xff2414 : this.arx.streak >= 5 ? 0xffd166 : 0x3cf0c6);
+    this.tint.lerp(this.tintT, Math.min(1, dt * 3));
+    if (play) this.scroll += arxSpeed(this.env, this.arx) * dt;
+    const D = this.env.arenaDepth, z0 = -D + 0.5, span = D + 3, len = D + 1.5, pulse = this.arx.fever ? 0.75 + 0.25 * Math.sin(this.clock * 10) : 0.8;
+    T.grid.scale.y = len;
+    T.grid.position.z = -D + len / 2 + 0.4;
+    const U = T.gridMat.uniforms;
+    U.uLen.value = len;
+    U.uScroll.value = -this.scroll;
+    (U.uCol.value as Color).copy(this.tint);
+    U.uK.value = pulse;
+    T.archMat.color.copy(this.tint);
+    T.archMat.opacity = Math.min(1, (0.35 + 0.25 * pulse) * (this.arx.fever ? 0.8 : 1));
+    T.tipMat.color.copy(this.tint);
+    T.posts.forEach((g, i) => {
+      g.position.z = z0 + ((Math.floor(i / 2) * 3.2 + this.scroll) % span);
+    });
   }
 
   private get on(): boolean {
@@ -172,6 +205,7 @@ export class ArcsSystem extends createSystem({}) {
     this.queue.length = 0;
     this.arx.orbT = -1;
     this.setFever(false);
+    if (this.track) this.track.grp.visible = false;
   }
 
   // ---------------------------------------------------------------- cada fotograma
@@ -192,7 +226,10 @@ export class ArcsSystem extends createSystem({}) {
       this.vy = this.vy * 0.5 + v * 0.5;
       this.jumpFast = this.vy > 0.6 ? 0 : this.jumpFast + dt;
     }
-    if (!live) return;
+    if (!live) {
+      this.track.grp.visible = false;
+      return;
+    }
     const play = !GAME.between && GAME.wave > 0, judging = play || GAME.between;
     // salen de la cola, a su ritmo
     if (play) {
@@ -219,6 +256,7 @@ export class ArcsSystem extends createSystem({}) {
     if (out.spawnOrb) this.addOrb();
     this.stepOrbs(dt, play);
     this.stepFever(dt);
+    this.stepTrack(dt, play);
   }
 
   // ---------------------------------------------------------------- salir

@@ -133,6 +133,7 @@ export class BarsSystem extends createSystem({}) {
   /** A colocarlo con las manos (RepArena: startPlace): `back`, a dónde volver al acabar (el menú). */
   startPlace(back: () => void, note = ''): void {
     this.placeDone = back;
+    HOOKS.rigHome(); // (el aparato va en tu habitación: tu espacio sin girar)
     this.placer.start(this.penv, this.pout, note);
     this.flushPlace();
     HOOKS.hideMenu();

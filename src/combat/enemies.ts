@@ -242,6 +242,9 @@ export class EnemySystem extends createSystem(
     const model = gltf.scene;
     model.scale.setScalar(d.k);
     model.position.y = -d.h / 2; // los pies, en la base de la cápsula
+    // con las animaciones de la biblioteca (diablillo, lanzador y puglin), el modelo mira hacia −Z: media vuelta para que mire
+    // hacia donde va (RepArena: model.rotation.y = π; sin ella, andaban de espaldas)
+    model.rotation.y = d.ual ? Math.PI : 0;
     const palette = d.palette ? AssetManager.getTexture(d.palette) : null;
     if (palette) {
       // (el zombi de 2017: sus colores, de una paleta pequeña, sin suavizar)

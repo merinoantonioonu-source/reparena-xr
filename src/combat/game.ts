@@ -176,6 +176,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private taken0 = 0;
   private beatK = -1;
   private wasPaused = false;
+  /** Colocarte delante de las compuertas (RepArena: arenaGlideToHead): el giro y el sitio de tu espacio, de dónde a dónde, y cuánto va. */
+  private glide = { t: 0, ry0: 0, x0: 0, z0: 0, ry1: 0, x1: 0, z1: 0 };
   // los que van a salir por una compuerta que se está abriendo (a cada uno le falta «t» para salir)
   private gates: GateSystem | null = null;
   private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0, kind: '', boss: false, hp: 1 }));
@@ -267,6 +269,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       }
     };
     HOOKS.startRound = () => this.startRound();
+    HOOKS.rigHome = () => {
+      if (settings.mode === 'bars') this.recenter(false);
+    };
     HOOKS.barWave = (i) => this.startWave(i);
     HOOKS.campPlay = (lv) => {
       campBegin(lv);
@@ -299,6 +304,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         this.message(PLACE[settings.exercise] ?? 'Colócate', 4);
       } else {
         this.st.reset(head.p.y);
+        this.recenter();
         this.message('¡Listo!', 1.5);
       }
     };
@@ -601,6 +607,39 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   // ---------------------------------------------------------------- la ronda
 
+  // Al calibrar de pie (al empezar la ronda o al recolocarte): todo se coloca delante de ti, donde estás y hacia donde miras
+  // (RepArena: arenaGlideToHead, que movía la arena; aquí se mueve tu espacio —el del jugador de IWSDK—, que es lo mismo
+  // visto desde ti), deslizándose en 0,8 s. En Barras no (el aparato está en tu habitación) ni en realidad mixta.
+  private recenter(glide = true): void {
+    const P = this.world.player, cam = this.world.camera;
+    if (!P || !cam) return;
+    if (settings.mode === 'bars') {
+      // (los aparatos están en tu habitación: tu espacio, tal cual lo dan las gafas)
+      Object.assign(this.glide, { t: glide ? 1e-4 : 1, ry0: P.rotation.y, x0: P.position.x, z0: P.position.z, ry1: 0, x1: 0, z1: 0 });
+      if (!glide) this.stepGlide(0);
+      return;
+    }
+    const f = this.tmpA.set(0, 0, -1).applyQuaternion(head.q);
+    f.y = 0;
+    if (f.lengthSq() < 1e-4) return;
+    const a = Math.atan2(-f.x, -f.z), ry1 = P.rotation.y - a; // (girado lo que te apartas de mirar a las compuertas)
+    // tu cabeza en tu espacio, girada como quedará: el sitio que la deja en el centro de la arena
+    const c = Math.cos(ry1), s2 = Math.sin(ry1), hx = cam.position.x, hz = cam.position.z;
+    const x1 = -(hx * c + hz * s2), z1 = -(-hx * s2 + hz * c);
+    Object.assign(this.glide, { t: glide ? 1e-4 : 1, ry0: P.rotation.y, x0: P.position.x, z0: P.position.z, ry1, x1, z1 });
+    if (!glide) this.stepGlide(0);
+  }
+  private stepGlide(dt: number): void {
+    const G = this.glide, P = this.world.player;
+    if (!G.t || !P) return;
+    G.t = Math.min(1, G.t + dt / 0.8);
+    const k = G.t * G.t * (3 - 2 * G.t), w = Math.atan2(Math.sin(G.ry1 - G.ry0), Math.cos(G.ry1 - G.ry0));
+    P.rotation.y = G.ry0 + w * k;
+    P.position.x = G.x0 + (G.x1 - G.x0) * k;
+    P.position.z = G.z0 + (G.z1 - G.z0) * k;
+    if (G.t >= 1) G.t = 0;
+  }
+
   private startRound(): void {
     // Barras: sin el aparato colocado, primero se coloca (con las manos; luego, al menú) (RepArena: «Antes de empezar, coloca…»)
     if (settings.mode === 'bars' && !HOOKS.eqPlaced()) {
@@ -628,6 +667,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.roundId++;
     this.dayRefresh();
     this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla)
+    if (!FLOOR_EX.includes(settings.exercise)) this.recenter(); // (de pie: las compuertas, delante de donde estás y miras)
     this.chargePow = 0;
     throwReset();
     gazeLockReset();
@@ -1340,6 +1380,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const dt = Math.min(delta, 0.05);
     this.stepOutcome(dt);
     spotify().tick(dt); // (la música: se pregunta a Spotify cada pocos segundos)
+    this.stepGlide(dt);
     pulse().step(dt); // (el pulso que pasa el móvil, si lo escuchas desde las gafas)
     if (this.wasPaused && !GAME.paused) BEAT.relock(); // (al seguir tras la pausa, el pulso se vuelve a enganchar a la música)
     this.wasPaused = GAME.paused;
