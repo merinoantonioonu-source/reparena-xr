@@ -54,7 +54,9 @@ import { PERKS } from './perks.js';
 import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, REP_TIME, repPoints, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
 import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
-import { curEx, PLAY_EX } from '../ui/fields.js';
+import { ArcsSystem } from '../modes/arcs/arcs-system.js';
+import { curEx } from '../ui/fields.js';
+import { PLAY_MODES, playableEx } from '../core/playable.js';
 import { dv, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, waveReps } from '../core/settings.js';
 import { EX_NAMES, EX_SHORT, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
@@ -248,7 +250,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.enemies.slowOf = (t) => this.rw.slow(t);
     for (const e of [this.warnEntity, this.chargeEntity]) if (e?.object3D) e.object3D.visible = false;
     GAME.maxLives = GAME.lives = nLives(); // (las de tu rango)
-    HOOKS.playerHit = (str) => this.onPlayerHit(str ?? 1);
+    HOOKS.playerHit = (str, silent) => this.onPlayerHit(str ?? 1, !!silent);
+    HOOKS.arcRep = (perfect) => this.arcRep(perfect);
     HOOKS.foeDown = (k, b, t) => this.onFoeDown(k, b, (t as FoeTarget | undefined) ?? null);
     HOOKS.score = (pts, combo) => {
       GAME.score += pts;
@@ -274,6 +277,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         this.rw.roundEnd();
         this.enemies.vanishAll();
         this.gates?.closeAll();
+        this.arcs()?.clear();
       }
       HOOKS.showMenu('');
     };
@@ -294,7 +298,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     };
     HOOKS.sparks = (p, n, c) => this.fx.sparks.burst(p, n, c, 2.4, 0.04);
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
-    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot() };
+    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS };
     // la letra de la ×N de la bola (Bungee, para el lienzo)
     try {
       const face = new FontFace('Bungee', `url(${import.meta.env.BASE_URL}fonts/Bungee-Regular.ttf)`);
@@ -320,7 +324,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       foes.push({ kind: (ud.rt ?? ud.fly)?.kind ?? (ud.hatch ? 'h' + ud.hatch.beast : undefined), fly: !!ud.fly, hatch: !!ud.hatch, boss: !!(ud.rt?.def.boss || ud.fly?.flight.K.boss || ud.hatch?.foe.boss), state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
-    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, duel: VIEW.duel, center: VIEW.center?.kind ?? '', resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
+    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, arcs: this.arcs()?.hud() ?? null, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, duel: VIEW.duel, center: VIEW.center?.kind ?? '', resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
@@ -483,9 +487,20 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       col = gold;
     }
     if (playing && !this.resting) {
-      const g = this.rw.ghostText();
-      if (g) lines[1] = minus(g[0]);
-      lines[2] = IDLE[this.stCfg.ex] ?? '';
+      if (settings.mode === 'arcs') {
+        // Arcos: metros, racha y la diferencia con tu mejor ronda (el fantasma); sin avisos de lo que viene
+        const h = this.arcs()?.hud();
+        if (h) {
+          lines[0] = `${Math.floor(h.dist)} m · racha ${h.streak}`;
+          lines[1] = h.ghost == null ? '' : `Tu mejor: ${h.ghost >= 0 ? '+' : '-'}${Math.abs(Math.round(h.ghost))}`;
+          lines[2] = h.fever ? '¡FIEBRE!' : h.got ? `Orbes: ${h.got}` : '';
+          if (!msg && h.fever) { msg = '¡FIEBRE! ×2'; col = '#ff4a5a'; }
+        }
+      } else {
+        const g = this.rw.ghostText();
+        if (g) lines[1] = minus(g[0]);
+        lines[2] = IDLE[this.stCfg.ex] ?? '';
+      }
     }
     this.setText(b, 'msg', minus(msg));
     this.boardSet(b, 'msg', { color: col, display: msg ? 'flex' : 'none', fontSize: msg.length > 16 ? 3.6 : 5.2 });
@@ -565,13 +580,16 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.enemies.clear();
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
-    // el ejercicio: Combate con uno de pie (si lo elegido en RepArena era otro modo u otro ejercicio, la sentadilla)
-    if (settings.mode !== 'combat') setSetting('mode', 'combat');
-    if (!PLAY_EX.includes(settings.exercise)) setSetting('exercise', curEx());
+    // el modo y el ejercicio: los que ya hay (si lo elegido en RepArena aún no está aquí, Combate o la sentadilla)
+    if (!PLAY_MODES.includes(settings.mode)) setSetting('mode', 'combat');
+    const px = playableEx(settings.mode, settings.exercise);
+    if (px !== settings.exercise) setSetting('exercise', px);
     // las vidas, las de tu rango (0: infinitas: los golpes no te eliminan; al fallo, al menos una)
     GAME.maxLives = nLives();
     Object.assign(GAME, { phase: 'playing', wave: 0, lives: GAME.maxLives, kills: 0, reps: 0, perfect: 0, score: 0, combo: 0, bestCombo: 0, taken: 0, startTime: this.clock });
     this.rampLvl = GAME.ramp = 0;
+    GAME.ptsK = 1;
+    if (settings.mode === 'arcs') this.arcs()?.begin(); else this.arcs()?.clear();
     this.roundId++;
     this.dayRefresh();
     this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla)
@@ -621,9 +639,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.ramp = this.rampLvl;
     const tiny = isTiny(), ground = tiny ? hatchFoes(groundList()) : gateFoes(groundList()), fly = flyFoes(flyList());
     const env: WaveEnv = { reps: waveReps(i), twoShots: twoShots(), foes: foes() as WaveEnv['foes'], ground, fly: flyList().includes('dragon') ? [...fly, 'dragon'] : fly, waves: nWaves(), rank: rankIdx(), ladder: on('foeLadder'), tiny, hp: (k) => devFoe(k).hp, tier: (k) => foeTierOf((key) => devFoe(key).tier, k) };
-    const w = buildWave(i, env, this.seen);
+    const arcsMode = settings.mode === 'arcs';
+    const w = arcsMode ? { list: [], fresh: [] as string[] } : buildWave(i, env, this.seen);
     this.queue = w.list;
     this.waveTarget = env.reps;
+    if (arcsMode) this.arcs()?.startWave(env.reps); // (en Arcos, la oleada son los obstáculos que van saliendo)
     const rk = rampK(num('ramp'), this.rampLvl, RAMP_CAP);
     this.gap = spawnGap(this.queue, REP_TIME[settings.exercise] ?? 2.4, env.foes === 'flyers', env.twoShots, num('spawnGap'), rk);
     this.spawnT = 0.6;
@@ -806,7 +826,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const hist = history(), s = this.runStats(win), P0 = progressNow(hist);
     this.saveRun(win, s); // (con su experiencia, misiones y escudos: la carrera)
     const P = progressNow(), gain = career().take();
-    const sum = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist, { streakUp: P.streak > P0.streak && P.streak > 1 ? { n: P.streak, best: P.best } : null, notes: gain?.notes ?? null });
+    const AX = settings.mode === 'arcs' ? this.arcs()?.end(GAME.score, GAME.reps, GAME.taken) ?? null : null; // (medalla, metros, orbes y fantasma)
+    this.arcs()?.clear();
+    const sum = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist, { arcs: AX && { medal: AX.medal, farther: AX.farther, orbs: AX.orbs }, streakUp: P.streak > P0.streak && P.streak > 1 ? { n: P.streak, best: P.best } : null, notes: gain?.notes ?? null });
     if (CAMP.run) {
       // en la campaña: el nivel con sus estrellas (y la medalla que dicen), y los botones de seguir
       const c = gain?.camp ?? { lv: CAMP.run.lv, stars: 0, next: null };
@@ -846,7 +868,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private liveT = 0;
   private metDay: boolean | null = null;
   private liveStats(): LiveStats {
-    return { run: this.roundId, playing: GAME.phase === 'playing' && GAME.wave > 0 && !GAME.between && !this.resting && this.calibT < 0, session: false, exercise: settings.exercise, mode: settings.mode, toFail: num('toFail') > 0, reps: GAME.reps, hold: 0, time: this.clock - GAME.startTime, perfect: GAME.perfect, bestCombo: GAME.bestCombo, score: GAME.score, dist: 0 };
+    return { run: this.roundId, playing: GAME.phase === 'playing' && GAME.wave > 0 && !GAME.between && !this.resting && this.calibT < 0, session: false, exercise: settings.exercise, mode: settings.mode, toFail: num('toFail') > 0, reps: GAME.reps, hold: 0, time: this.clock - GAME.startTime, perfect: GAME.perfect, bestCombo: GAME.bestCombo, score: GAME.score, dist: this.distNow() };
   }
   // Cada segundo: las misiones y los récords, en cuanto se cumplen o se baten, y la meta diaria al alcanzarla en plena ronda
   // (si ya la tenías al empezar, no)
@@ -867,7 +889,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   // lo de la ronda que se guarda y sale en el resumen
   private runStats(win: boolean): RunStats {
-    return { ex: settings.exercise, mode: settings.mode, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, win, failWave: num('toFail') ? GAME.wave : null, time: this.clock - GAME.startTime, work: this.workT, score: GAME.score, bestCombo: GAME.bestCombo, kg: num('weight') || 70 };
+    return { ex: settings.exercise, mode: settings.mode, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, win, failWave: num('toFail') ? GAME.wave : null, time: this.clock - GAME.startTime, work: this.workT, score: GAME.score, bestCombo: GAME.bestCombo, kg: num('weight') || 70, dist: this.distNow() };
   }
 
   // el final: la escena funde a negro (del todo; solo quedan el resumen y tus manos) y sale el resumen
@@ -890,8 +912,25 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     }
   }
 
+  // Un arco pasado (Arcos): cuenta una repetición, sin disparo (RepArena: registerRep(perfect, false))
+  private arcRep(perfect: boolean): void {
+    GAME.reps++;
+    this.waveDone++;
+    if (perfect) GAME.perfect++;
+    this.repScore(perfect);
+  }
+
+  // los metros recorridos (Arcos; con la Travesía, también ella)
+  private distNow(): number {
+    return settings.mode === 'arcs' ? Math.floor(this.arcs()?.arx.dist ?? 0) : 0;
+  }
+
+  private arcs(): ArcsSystem | undefined {
+    return this.world.getSystem(ArcsSystem);
+  }
+
   // te han dado: pierdes las vidas de su fuerza (la de la tabla del desarrollador; RepArena: hurtPlayer)
-  private onPlayerHit(str: number): void {
+  private onPlayerHit(str: number, silent = false): void {
     if (GAME.phase !== 'playing') return;
     if (this.rw.absorb()) return; // (el escudo de las mejoras)
     if (GAME.maxLives > 0) GAME.lives = Math.max(0, GAME.lives - Math.max(1, str));
@@ -899,7 +938,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     SND.hurt();
     if (!this.rw.keepCombo()) GAME.combo = 0; // (te han dado: se rompe el combo, salvo con el combo de hierro)
     GAME.taken++;
-    this.message(GAME.maxLives === 0 ? '¡Golpe!' : '¡Te han golpeado!', 1.3, '#ff3b5c');
+    if (!silent) this.message(GAME.maxLives === 0 ? '¡Golpe!' : '¡Te han golpeado!', 1.3, '#ff3b5c'); // (en Arcos, cada obstáculo dice lo suyo)
     if (GAME.maxLives > 0 && GAME.lives <= 0) this.endRound(false);
   }
 
@@ -919,7 +958,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private repScore(perfect: boolean): void {
     GAME.combo++;
     GAME.bestCombo = Math.max(GAME.bestCombo, GAME.combo);
-    GAME.score += repPoints(perfect, GAME.combo, this.rw.ptsK(perfect));
+    GAME.score += repPoints(perfect, GAME.combo, this.rw.ptsK(perfect) * GAME.ptsK); // (la fiebre de Arcos y el turbo de la Travesía, el doble)
     this.rw.onRep(perfect);
     if (GAME.combo % 10 === 0) {
       this.message(`COMBO ×${GAME.combo}`, 1.5, '#ffd166');
@@ -1278,7 +1317,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.centerStep(playing);
     this.stepCareer(dt);
     if (playing && !VIEW.duel) { // (mientras se ve la carátula del duelo, la ronda espera)
-      this.exercise(time, dt);
+      if (settings.mode !== 'arcs') this.exercise(time, dt); // (en Arcos no hay detector: lo que cuenta es pasar los arcos)
       if (!GAME.between) this.workT += dt; // (el tiempo de oleada, para las calorías)
       // oleadas: el descanso (no sale nadie); luego van saliendo de la cola, de uno en uno (con ritmo, en el pulso), sin
       // pasar de «Máximo a la vez»; cuando no queda nadie, oleada superada
@@ -1298,6 +1337,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         }
         if (this.restT > 0) this.restT -= dt;
         if (this.restT <= 0 && !(this.resting && this.rw.waits())) this.endRest();
+      } else if (!GAME.between && settings.mode === 'arcs') {
+        if (!this.arcs()?.waveLeft()) this.waveCleared(); // (Arcos: sin nada por salir ni por pasar)
       } else if (!GAME.between) {
         this.spawnT -= dt * this.rw.spawnK(); // (en el relámpago, el doble de seguidos)
         this.stepPending(dt);

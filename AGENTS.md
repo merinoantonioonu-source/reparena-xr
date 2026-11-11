@@ -39,7 +39,7 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
 | `tests/unit/` | Pruebas de la lógica pura (Vitest: `npm test`) |
 | `tests/e2e/` | La partida simulada en un navegador sin gafas (`npm run test:e2e`) |
 
-Los modos que vengan después, en `src/modes/<modo>/`; Spotify, la sincronización y el pulsómetro, en `src/services/`. La
+Los demás modos, en `src/modes/<modo>/` (Arcos: `arcs-system.ts` pinta lo que la lógica de `arc.ts`/`patterns.ts`/`state.ts` decide; qué modos y ejercicios se pueden jugar, `src/core/playable.ts`; los metros, `dist` en el historial); Spotify, la sincronización y el pulsómetro, en `src/services/`. La
 tabla de `README.md` dice qué hace cada archivo.
 
 ## Cómo está hecho

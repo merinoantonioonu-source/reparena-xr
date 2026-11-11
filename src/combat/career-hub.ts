@@ -10,7 +10,7 @@ import { HIST_KEY } from '../core/run.js';
 import { store } from '../core/settings.js';
 import { HOOKS } from '../core/state.js';
 import { num } from '../core/values.js';
-import { PLAY_EX } from '../ui/fields.js';
+import { PLAY_MODES, playableAnywhere } from '../core/playable.js';
 import { LOOK } from './fx.js';
 
 let C: Career | null = null;
@@ -23,8 +23,8 @@ export function career(): Career {
       goalMin: () => num('goalMin'),
       random: Math.random,
       kg: () => num('weight') || 70,
-      playMode: (m) => m === 'combat', // (los demás modos llegan con sus PR: 15 a 18)
-      playEx: (x) => PLAY_EX.includes(x),
+      playMode: (m) => PLAY_MODES.includes(m), // (los demás modos llegan con sus PR: 16 a 18)
+      playEx: (x) => playableAnywhere(x),
       trophy: (t, s, c) => HOOKS.trophy(t, s, c),
       cheer: (t, c, s) => HOOKS.say(t, c, s, false),
     });

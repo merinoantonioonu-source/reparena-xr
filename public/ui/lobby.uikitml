@@ -370,6 +370,13 @@
       <button id="e-plank1" class="k"><span id="e-plank1t" class="kt">Plancha 1 brazo</span></button>
       <button id="e-splank" class="k"><span id="e-splankt" class="kt">Plancha lateral</span></button>
       <button id="e-superman" class="k"><span id="e-supermant" class="kt">Superman</span></button>
+      <button id="e-row" class="k"><span id="e-rowt" class="kt">Remo invertido</span></button>
+      <button id="e-pullup" class="k"><span id="e-pullupt" class="kt">Dominadas</span></button>
+      <button id="e-hang" class="k"><span id="e-hangt" class="kt">Colgado</span></button>
+      <button id="e-slam" class="k"><span id="e-slamt" class="kt">Slam</span></button>
+      <button id="e-jump" class="k"><span id="e-jumpt" class="kt">Saltos</span></button>
+      <button id="e-abs" class="k"><span id="e-abst" class="kt">Abdominales</span></button>
+      <button id="e-combo" class="k"><span id="e-combot" class="kt">Combinado</span></button>
     </div>
     <span id="ex-how" class="info">Cómo se hace</span>
   </div>

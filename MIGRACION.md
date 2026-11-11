@@ -133,7 +133,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 13a · Carrera: nivel, misiones del día, cofre y escudos, metas de hoy y Progreso** — #22
 - [x] **PR 13b · La campaña y la carátula «METAS DE HOY»** — #23
 - [x] **PR 14 · Página web y app del móvil** — #24
-- [ ] **PR 15 · Arcos**
+- [x] **PR 15 · Arcos** — #25
 - [ ] **PR 16 · Toques**
 - [ ] **PR 17 · Barras**
 - [ ] **PR 18 · Travesía**
@@ -380,6 +380,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 15 → PR 16 y siguientes: cada modo tiene su carpeta `src/modes/<modo>/` con la lógica pura (sin IWSDK; recibe un `…Env` con
+  lo de fuera: ajustes, cabeza, azar, reloj) y su sistema (`arcs-system.ts`), que pinta, suena y avisa. Un modo nuevo: su
+  sistema en `src/index.ts` (antes de `GameSystem`), su entrada en `PLAY_MODES`/`PLAY_MODE_EX` de `src/core/playable.ts` (con eso
+  el menú, las misiones y la página lo ofrecen), quitar su línea de `SOON_MODE` (`src/ui/menu.ts`) y las ramas de
+  `GameSystem` (`startWave`, `exercise`, `refreshBoard`, `endRound`). Los puntos de las repeticiones pasan por `GAME.ptsK`
+  (fiebre y turbo ×2). Las partidas guardan los metros (`dist`) en el historial (`RunRecord`). Los objetos de escena del
+  modo, en `src/scene-assets/`.
 - PR 14 → PR 15 y siguientes: la página tiene sus apartados en `index.html` (los de RepArena que aún no están —Spotify
   y la música, las sesiones, la sincronización «Pasar a otro dispositivo», el pulsómetro y la tabla del desarrollador— se
   añaden con su PR: su `<section class="…" id="…" data-toc="…">` en `.main`, tomada de `src/page.html` de RepArena, y su
@@ -483,6 +490,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 15: **Arcos más sencillo de adorno que en RepArena**: sin la rejilla de la arena, los postes laterales, la tormenta roja del
+  cielo ni el zumbido continuo de los láseres; la pared sin franjas y sin la apertura de las compuertas. Los números (velocidades,
+  huecos, láser, fiebre, orbes, fantasma, medalla) son los de RepArena, comparados con su código (`tests/compare/arcs-*`). Los
+  arcos se miden en las gafas: ver si hace falta más adorno o si el rendimiento aguanta.
+- PR 15: Arcos solo se juega con sentadilla de momento (`PLAY_MODE_EX.arcs`); con cada ejercicio de pie nuevo se amplía.
 - PR 13a: **el color de las manos** (Progreso → Nivel → Manos) se guarda y se desbloquea como en RepArena, pero aquí no se ve:
   las manos son las de IWSDK (criterio del usuario). Propuestas para decidir con él: tintar la punta de los dedos de las
   manos de IWSDK, o el halo de la carga en la muñeca. El color del rayo normal sí se ve.

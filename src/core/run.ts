@@ -30,6 +30,8 @@ export interface RunRecord {
   kcal: number;
   score: number;
   combo: number;
+  /** Los metros (solo Arcos y Travesía). */
+  dist?: number;
   date: number;
 }
 
@@ -48,12 +50,14 @@ export interface RunStats {
   score: number;
   bestCombo: number;
   kg: number;
+  /** Los metros recorridos (Arcos y Travesía). */
+  dist?: number;
 }
 
 /** Lo que se guarda (RepArena: saveRun). Nada si no hiciste ninguna repetición. */
 export function runRecord(s: RunStats, now = Date.now()): RunRecord | null {
   if (!s.reps) return null;
-  return { ex: s.ex, mode: s.mode, reps: s.reps, perfect: s.perfect, kills: s.kills, win: s.win, ...(s.failWave !== null ? { fail: s.failWave } : {}), time: Math.round(s.time), work: Math.round(s.work), kcal: Math.round(kcalOf(s.ex, s.work, s.time - s.work, s.kg) * 10) / 10, score: s.score, combo: s.bestCombo, date: now };
+  return { ex: s.ex, mode: s.mode, reps: s.reps, perfect: s.perfect, kills: s.kills, win: s.win, ...(s.failWave !== null ? { fail: s.failWave } : {}), time: Math.round(s.time), work: Math.round(s.work), kcal: Math.round(kcalOf(s.ex, s.work, s.time - s.work, s.kg) * 10) / 10, score: s.score, combo: s.bestCombo, ...(s.mode === 'arcs' || s.mode === 'trek' ? { dist: Math.floor(s.dist ?? 0) } : {}), date: now };
 }
 
 export interface Summary {
@@ -89,6 +93,8 @@ export interface CareerBits {
   streakUp: { n: number; best: number } | null;
   /** Lo ganado en la ronda (la carrera: misiones, cofre, nivel, escudos…); si no hay, null. */
   notes: [string, string][] | null;
+  /** Arcos: la medalla, si llegaste más lejos que nunca y los orbes cogidos. */
+  arcs?: { medal: [string, string] | null; farther: boolean; orbs: number } | null;
 }
 
 export function summaryOf(s: RunStats, manual: boolean, waveNow: number, nWaves: number, exName: string, hist: { ex?: string; mode?: string; reps?: number; fail?: number }[], career: CareerBits | null = null): Summary {
@@ -101,7 +107,9 @@ export function summaryOf(s: RunStats, manual: boolean, waveNow: number, nWaves:
   const chips: [string, string][] = [];
   if (got > prevBest && prevBest > 0) chips.push(['¡Nuevo récord!', '#ffd166']);
   if (s.failWave !== null && got && waveNow > failBest && failBest) chips.push([`¡Récord al fallo: oleada ${waveNow}!`, '#ffd166']);
+  if (career?.arcs?.farther) chips.push(['¡Más lejos que nunca!', '#3cf0c6']);
   if (career?.streakUp) chips.push([`${career.streakUp.n} días seguidos${career.streakUp.n >= career.streakUp.best ? ' · tu mejor racha' : ''}`, '#3cf0c6']);
+  if (career?.arcs?.orbs) chips.push([`${career.arcs.orbs} orbes`, '#ffd166']);
   const all = sumChips(chips, career?.notes ?? null);
   return {
     title: s.win ? '¡VICTORIA!' : manual ? 'RESUMEN' : 'DERROTA',
@@ -111,7 +119,7 @@ export function summaryOf(s: RunStats, manual: boolean, waveNow: number, nWaves:
     unit: 'repeticiones',
     pct: Math.round(pr * 100),
     stars,
-    medal: ['', 'bronce', 'plata', 'oro'][stars] || null,
+    medal: career?.arcs ? (career.arcs.medal ? career.arcs.medal[0] : null) : ['', 'bronce', 'plata', 'oro'][stars] || null, // (en Arcos, por los que pasaste sin que te dieran)
     tiles: [[String(s.score), 'puntos'], [`${mm}:${ss}`, 'tiempo'], [`${Math.round(kcalOf(s.ex, s.work, s.time - s.work, s.kg))}`, 'kcal (aprox.)']],
     chip: all[0] ?? null,
     camp: null,
