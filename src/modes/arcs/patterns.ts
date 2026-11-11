@@ -180,7 +180,7 @@ export function buildArcsWave(total: number, env: ArcsEnv, newKind: ArcNewKind):
   }
   // los inclinados, repartidos entre los dos lados en la proporción pedida (exacta, no al azar: si no, en una oleada
   // corta un lado puede salir muchas más veces), y en orden barajado
-  const tl = list.filter((o) => o.tilt), nR = Math.round(tl.length * s('arcRight') / 100), sides = tl.map((_, k) => (k < nR ? 1 : -1));
+  const tl = list.filter((o) => o.tilt), nR = Math.round(tl.length * s('arcRight') / 100), sides: number[] = tl.map((_, k) => (k < nR ? 1 : -1));
   for (let k = sides.length - 1; k > 0; k--) {
     const j = Math.floor(rnd() * (k + 1));
     [sides[k], sides[j]] = [sides[j], sides[k]];

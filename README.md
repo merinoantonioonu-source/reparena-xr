@@ -194,6 +194,8 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/core/campaign.ts` | Jugar un nivel de la campaña: los ajustes del nivel (rango y oleadas) por encima de los tuyos, y devolverlos al acabar |
 | `src/ui/goals-intro.ts` | La carátula «METAS DE HOY» al entrar en las gafas (8 s, con todo lo demás oscurecido) |
 | `src/combat/career-hub.ts` | Tu carrera en el juego: dónde se guarda, tu meta y tu peso, qué modos y ejercicios se pueden jugar ya y los trofeos |
+| `src/modes/arcs/` | El modo Arcos: `arc.ts`, `patterns.ts`, `obstacles.ts` y `state.ts` son la lógica de RepArena (sin IWSDK, con pruebas y comparados); `arcs-system.ts` los pinta, suena y avisa. Los objetos, en `src/scene-assets/arc*.scene-asset.ts` |
+| `src/core/playable.ts` | Qué modos y ejercicios se pueden jugar ya (lo leen el menú, las misiones y la página) |
 | `src/core/state.ts` | Lo que comparten los sistemas (fase, cabeza, bola, marcador) |
 | `src/core/schema.ts` | Los 186 ajustes de RepArena (claves, valores de serie, límites, grupos, condiciones y explicaciones) |
 | `src/core/settings.ts` | Cargar, guardar y cambiar los ajustes (los mismos datos que RepArena), cada modo con cada ejercicio, los rangos con su tabla y la dificultad creciente |

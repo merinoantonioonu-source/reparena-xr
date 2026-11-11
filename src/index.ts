@@ -8,6 +8,7 @@ import projectOptions from 'virtual:iwsdk-project';
 import { EnemySystem } from './combat/enemies.js';
 import { FlyerSystem } from './combat/flyers.js';
 import { HatchSystem } from './combat/hatch-foes.js';
+import { ArcsSystem } from './modes/arcs/arcs-system.js';
 import { GameSystem } from './combat/game.js';
 import { GateSystem } from './combat/gates.js';
 import { HandSystem } from './input/hand-system.js';
@@ -31,6 +32,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(EnemySystem, { priority: 5 });
   world.registerSystem(FlyerSystem, { priority: 5 });
   world.registerSystem(HatchSystem, { priority: 5 });
+  world.registerSystem(ArcsSystem, { priority: 5 });
   world.registerSystem(GameSystem, { priority: 6 });
   world.registerSystem(MenuSystem, { priority: 6 });
   world.registerSystem(ViewSystem, { priority: 6 });

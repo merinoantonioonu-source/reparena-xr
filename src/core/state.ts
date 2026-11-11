@@ -40,6 +40,8 @@ export const GAME = {
   lowFly: 0,
   /** El superman: lo que aguantas arriba, si estás arriba, el tiempo de la ronda y cuándo puede lanzarse el siguiente. */
   sup: null as { hold: number; up: boolean; time: number; next: { t: number } } | null,
+  /** Lo que multiplican los puntos de cada repetición (la fiebre de Arcos y el turbo de la Travesía: ×2). */
+  ptsK: 1,
   /** Lo que ha subido la dificultad creciente (oleadas superadas): lo leen los enemigos (dv). */
   ramp: 0,
 };
@@ -66,7 +68,7 @@ export const VIEW = {
 /** Avisos entre sistemas (los pone el sistema del juego al arrancar). */
 export const HOOKS = {
   /** Un enemigo te ha dado (str: las vidas que quita, su fuerza). */
-  playerHit: (_str?: number): void => {},
+  playerHit: (_str?: number, _silent?: boolean): void => {},
   /** Ha caído uno (kind: el que es; boss: el jefe). */
   foeDown: (_kind?: string, _boss?: boolean, _target?: unknown): void => {},
   /** Puntos de más (una piedra parada o esquivada) y si suman al combo. */
@@ -89,6 +91,8 @@ export const HOOKS = {
   /** Un aviso en el marcador o, si pide hacer algo ya (toast), en la vista (y, si es naranja, también en grande en el
    * suelo): lo pone la partida. */
   say: (_text: string, _color: string, _secs: number, _toast?: boolean): void => {},
+  /** Una repetición que cuenta sin disparo (Arcos: un arco pasado; RepArena: registerRep(perfect, false)) y puntos de más. */
+  arcRep: (_perfect: boolean): void => {},
   /** Un logro grande y dorado (RepArena: trophy): lo pone la partida. */
   trophy: (_title: string, _sub?: string, _color?: string): void => {},
   /** Un aviso breve en la vista (lo que pide hacer algo ya): lo pone el sistema de los avisos de la vista. */

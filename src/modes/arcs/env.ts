@@ -16,7 +16,7 @@ export interface ArcsEnv {
   calibRef: number;
   /** El fondo de la arena: de dónde salen los obstáculos (RepArena: arenaDepth()). */
   arenaDepth: number;
-  /** Lo que lleva el último salto: segundos desde que empezó (RepArena: JUMP.fastT; −1 si no hay). */
+  /** Segundos desde la última subida rápida de la cabeza (RepArena: JUMP.fastT: empieza en 9 y cuenta hacia arriba; 0 al subir deprisa). */
   jumpFastT: number;
   /** El pulso (s) del ritmo si hay y «Arcos al compás» está activo; 0 si no (la música llega con el PR 22). */
   beatP: number;

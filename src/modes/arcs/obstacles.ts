@@ -15,6 +15,11 @@ import { arxPtsK, type ArxCheer, type ArxState } from './state.js';
 const TAU = Math.PI * 2;
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 const smooth = (t: number): number => t * t * (3 - 2 * t);
+// (la distancia como la de Three, Vector3.distanceTo: así el orbe se coge en el mismo fotograma que en RepArena)
+const dist3 = (ax: number, ay: number, az: number, bx: number, by: number, bz: number): number => {
+  const dx = ax - bx, dy = ay - by, dz = az - bz;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+};
 
 /** El láser se queda quieto estos segundos antes de llegar a ti (RepArena: LASER_STILL). */
 export const LASER_STILL = 1.6;
@@ -317,8 +322,8 @@ export class ArcOrbCore {
     this.at.z = this.pos.z;
     // se recoge con la cabeza (un poco por debajo de los ojos) o con cualquier mano (la muñeca)
     const a = this.at;
-    let got = Math.hypot(a.x - HL.x, a.y - (HL.y - 0.05), a.z - HL.z) < 0.24;
-    for (const h of [hands.left, hands.right]) if (!got && h && Math.hypot(a.x - h.x, a.y - h.y, a.z - h.z) < 0.17) got = true;
+    let got = dist3(a.x, a.y, a.z, HL.x, HL.y - 0.05, HL.z) < 0.24;
+    for (const h of [hands.left, hands.right]) if (!got && h && dist3(h.x, h.y, h.z, a.x, a.y, a.z) < 0.17) got = true;
     if (got && play) {
       // (con música, cogido justo en un pulso: el doble)
       const onBeat = !!env.beatP && Math.abs(((beatNow % 1) + 1.5) % 1 - 0.5) < 0.18, pts = 100 * arxPtsK(st) * (onBeat ? 2 : 1);
