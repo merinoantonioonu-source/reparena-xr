@@ -20,7 +20,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       # el Chromium de Playwright para la partida simulada
-      - run: npx playwright install --with-deps chromium
+      # (si los servidores de Ubuntu no responden, solo el navegador: las máquinas de GitHub ya traen casi todo lo demás)
+      - run: npx playwright install --with-deps chromium || npx playwright install chromium
       # (construye la versión publicable y juega una partida en ella)
       - run: npm run test:e2e
         env:
