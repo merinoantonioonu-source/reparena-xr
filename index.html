@@ -1,16 +1,239 @@
 <!doctype html>
-<html>
+<html lang="es">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, shrink-to-fit=no"
-    />
-    <link rel="icon" href="data:," />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <!-- Para instalarla en el móvil como una app, con su logotipo (public/icons: los de RepArena), a pantalla completa -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/logo.svg" type="image/svg+xml" />
+    <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="RepArena XR" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#100d1a" />
     <title>RepArena XR</title>
+    <!-- En el móvil (estrecho y fuera de las gafas), la página es un panel de control con forma de app (PR 14b): se decide
+         antes de pintar, para que no salte -->
+    <script>
+      (function () {
+        try {
+          var q = matchMedia('(max-width: 899px)'),
+            f = function () {
+              document.documentElement.classList.toggle('app', q.matches && !/OculusBrowser|Quest|Pacific/i.test(navigator.userAgent));
+            };
+          f();
+          if (q.addEventListener) q.addEventListener('change', f);
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body style="margin: 0">
-    <div id="scene-container"></div>
+  <body>
+    <!-- La página: entrar, elegir el modo y el ejercicio, los ajustes y tu progreso (RepArena: src/page.html). Se ve en el
+         ordenador y en el navegador de las gafas antes de entrar; «Probar en el ordenador» y VR la esconden -->
+    <div id="page">
+  <main class="wrap">
+  <aside class="side">
+    <header class="brand">
+      <p class="eyebrow">Meta Quest 3 · WebXR · manos · hecho con IWSDK</p>
+      <h1 id="pageTitle">Rep<span>Arena</span> XR</h1>
+    </header>
+    <div class="go">
+      <button class="btn primary" id="btnAR" disabled title="La realidad mixta llega con el PR 21"><span class="lg">Entrar en realidad mixta (pronto)</span><span class="sm">Mixta</span></button>
+      <button class="btn alt" id="btnVR"><span class="lg">Entrar en VR</span><span class="sm">VR</span></button>
+      <button class="btn" id="btnPreview"><span class="lg">Probar en el ordenador</span><span class="sm">Probar</span></button>
+    </div>
+    <p class="status" id="xrStatus"></p>
+        <!-- El índice: cada apartado (y debajo, los subapartados del que se ve) enseña a la derecha solo lo suyo. En el móvil,
+         una barra fija arriba que se despliega -->
+    <nav class="toc" id="toc" aria-label="Apartados de la página"></nav>
+    <div class="pick" id="pickBox" aria-live="polite"></div>
+    <div class="demo"><canvas id="demoCv" width="720" height="420" aria-label="Animación del ejercicio elegido: cómo se hace y qué pasa al hacerlo"></canvas></div>
+    <p class="estimate" id="estimate"></p>
+    <div class="todayMini" id="todayMini"></div>
+  </aside>
+
+  <div class="main">
+  <section class="today" id="todayBox" data-toc="Hoy" aria-live="polite"></section>
+  <section class="hist" id="secHist" data-toc="Progreso e historial">
+    <h2>Tu progreso e historial en este dispositivo</h2>
+    <div class="stats" id="progBox"></div>
+    <div class="tablebox"><table>
+      <thead><tr><th>Ejercicio</th><th>Rondas</th><th>Reps totales</th><th>Mejor ronda</th><th>Perfectas</th><th>Tiempo</th><th>≈ kcal</th></tr></thead>
+      <tbody id="histBody"></tbody>
+    </table></div>
+  </section>
+  <section class="secMode" id="secMode" data-toc="1 · Modo de juego">
+    <h2>1 · Modo de juego</h2>
+    <div class="cards modes">
+      <label class="card"><input type="radio" name="mode" id="mode-combat" value="combat">
+        <span class="tag">Cada repetición dispara</span><b>Combate</b>
+        <small>Eliges los enemigos: robots que vienen andando (en flexiones, arañas que salen del suelo), drones y avispones gigantes que vuelan, o una mezcla. Y la puntería: automática, para pensar solo en el ejercicio, o apuntando tú con las manos (cada repetición carga las dos; lanza el rayo llevando la mano atrás y adelante deprisa hacia el enemigo) o la mirada.</small></label>
+      <label class="card"><input type="radio" name="mode" id="mode-arcs" value="arcs">
+        <span class="tag">Sentadillas y saltos</span><b>Arcos</b>
+        <small>Arcos de energía avanzan hacia ti a distintas alturas: agáchate a tiempo para pasar por debajo. Y vallas a ras de suelo que hay que saltar, a veces en ráfagas de tres o cuatro, o detrás de un arco de plancha (un burpee). También mazas de pinchos que se balancean o giran, y arcos tan bajos que hay que pasarlos en plancha (llegan avisados y más despacio).</small></label>
+      <label class="card"><input type="radio" name="mode" id="mode-bars" value="bars">
+        <span class="tag">Barra de dominadas o paralelas</span><b>Barras</b>
+        <small>Revienta con la cabeza las pompas o los bichos que esperan donde llegará tu cabeza al subir. Bajo la barra de dominadas hay un charco con tentáculos: no te sueltes.</small></label>
+      <label class="card"><input type="radio" name="mode" id="mode-touch" value="touch">
+        <span class="tag">Cabeza y manos</span><b>Toques</b>
+        <small>Vienen hacia ti aros de neón con flechas que giran (mete la cabeza por el hueco) y diamantes con la mano que los toca (izquierda azul, derecha naranja). Llegan donde te obliga el ejercicio, y pueden ir al ritmo de la música.</small></label>
+      <label class="card"><input type="radio" name="mode" id="mode-trek" value="trek">
+        <span class="tag">Sentadillas, zancadas y curl</span><b>Travesía</b>
+        <small>Recorre un sendero del bosque a fuerza de repeticiones: cada una te empuja y, si paras, te paras. Cada oleada es un tramo con su paisaje (bosque, aldea, pradera del lago y pinar al atardecer). Por el camino, retos de otro movimiento: troncos que saltar, cofres con cadenas, el arroyo saltando de piedra en piedra, el desfiladero que se desmorona a saltos, bandidos a los que esquivar las piedras (agáchate, salta o apártate) hasta que caen (las bolitas de encima dicen cuántas faltan)… y lobos que te cortan el paso: mantén el ritmo para pasar antes que ellos.</small></label>
+    </div>
+    <p class="modeInfo" id="modeInfo"></p>
+  </section>
+  <section class="secEx" id="secEx" data-toc="2 · Ejercicio">
+    <div class="exHead"><h2>2 · Ejercicio <span class="count" id="exCount"></span></h2><div id="exSortBox"></div></div>
+    <div class="cards exs">
+      <label class="card"><input type="radio" name="exercise" id="ex-squat" value="squat">
+        <span class="tag">Altura del visor</span><b>Sentadillas</b>
+        <small>Apuntando con las manos disparas con las dos a la vez al subir: cada mano, a donde apunte.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-lunge" value="lunge">
+        <span class="tag">Altura del visor</span><b>Zancadas</b>
+        <small>Da un paso y baja hasta que la rodilla de atrás casi toque el suelo; alterna las piernas. Como en las sentadillas, valen las manos o las pistolas para apuntar.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-pushup" value="pushup">
+        <span class="tag">Altura del visor</span><b>Flexiones</b>
+        <small>La batalla ocurre en el suelo, delante de tu cara. Disparas al empujar (si apuntas tú, con la mirada).</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-inchworm" value="inchworm">
+        <span class="tag">Manos libres · visor y manos · 2 m de sitio</span><b>Flexiones inchworm</b>
+        <small>Dóblate y camina con las manos hasta que tu cabeza llegue a la línea luminosa del suelo (carga). Vuelve andando y ponte de pie: disparas y una onda lanza a los bichos a su trampilla.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-dips" value="dips">
+        <span class="tag">Una silla estable · altura del visor</span><b>Fondos en silla</b>
+        <small>Sentado en el borde, manos en el asiento: saca el culo y baja doblando los codos. Disparas al estirarlos.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-curl" value="curl">
+        <span class="tag">Muñecas</span><b>Curl de bíceps</b>
+        <small>Cada brazo dispara al llegar al hombro. Si apuntas tú, mira al objetivo mientras subes la mancuerna.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-curl2" value="curl2">
+        <span class="tag">Barra o kettlebell · muñecas</span><b>Curl con barra o kettlebell</b>
+        <small>Con una barra, una kettlebell agarrada por el asa con las dos manos (los puños juntos, la bola colgando) o dos mancuernas a la vez: sube las dos manos juntas hasta los hombros. Cada subida es un disparo. Las gafas siguen las dos manos como una sola pesa: basta con que vean una.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-twist" value="twist">
+        <span class="tag">Barra flexible · muñecas</span><b>Antebrazos (barra flexible)</b>
+        <small>Agarra la barra flexible por los extremos y gira las muñecas en sentidos contrarios, como al escurrir una toalla, y luego al revés: un giro carga y el siguiente dispara.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-fraise" value="fraise">
+        <span class="tag">Una pesa · muñecas</span><b>Elevaciones frontales (una pesa)</b>
+        <small>Una sola pesa (kettlebell, mancuerna o disco) con las dos manos: súbela al frente, con los brazos estirados, hasta la altura de los hombros. Arriba, un disparo.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-thruster" value="thruster">
+        <span class="tag">Kettlebell, barra o mancuernas · visor y muñecas</span><b>Sentadilla con press</b>
+        <small>Con el peso en los hombros, baja en sentadilla para cargar y, al subir, empújalo por encima de la cabeza para lanzar el rayo. Piernas, tronco y hombros en un solo movimiento.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-frontsq" value="frontsq">
+        <span class="tag">Mancuernas o disco · visor y muñecas</span><b>Sentadilla con elevación frontal</b>
+        <small>Baja en sentadilla para cargar y, al subir, lleva los brazos estirados al frente hasta la altura de los hombros: así disparas.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-jsquat" value="jsquat">
+        <span class="tag">Altura del visor</span><b>Sentadilla con salto</b>
+        <small>La sentadilla carga y el salto al subir dispara (la cabeza tiene que subir deprisa por encima de tu altura de pie). Deja espacio y techo.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-swing" value="swing">
+        <span class="tag">Kettlebell · visor y muñecas</span><b>Swing con kettlebell</b>
+        <small>Lleva la cadera atrás con la espalda recta (la kettlebell entre las piernas) para cargar y, con el impulso de la cadera, lánzala al frente a la altura del pecho para disparar.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-dlrow" value="dlrow">
+        <span class="tag">Barra o mancuernas · visor</span><b>Peso muerto</b>
+        <small>Baja el peso hacia el suelo con la cadera atrás y la espalda recta (carga) y ponte de pie para disparar. Si aguantas abajo, el disparo sale más fuerte. No hace falta que se vean las manos.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-plank1" value="plank1">
+        <span class="tag">Combate · visor y muñecas</span><b>Plancha con un brazo</b>
+        <small>En plancha sobre las manos, levanta un brazo para disparar a las arañas de ese lado. Llegan por los dos costados.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-splank" value="splank">
+        <span class="tag">Combate · altura del visor</span><b>Plancha lateral</b>
+        <small>De lado sobre el antebrazo, con la cadera arriba: cada pocos segundos aguantados, un disparo. Si cae la cadera, vuelve a empezar. Cambia de lado en cada descanso.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-superman" value="superman">
+        <span class="tag">Combate · visor y muñecas</span><b>Superman</b>
+        <small>Tumbado boca abajo, sube el tronco con los brazos estirados y aguanta los segundos que elijas: disparas al bicho que vuela bajo hacia ti.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-row" value="row">
+        <span class="tag">Paralelas · altura del visor</span><b>Remo invertido</b>
+        <small>Colgado bajo una o dos paralelas, cuerpo casi horizontal y pies en el suelo. Tira hasta que la cabeza suba lo que pidas.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-pullup" value="pullup">
+        <span class="tag">Barra de puerta · altura del visor</span><b>Dominadas</b>
+        <small>Desde colgado con los brazos estirados, sube la cabeza hasta reventar el objetivo que espera arriba.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-hang" value="hang">
+        <span class="tag">Barra de puerta · altura del visor</span><b>Colgado</b>
+        <small>Aguanta colgado de la rama de un árbol, en un bosque encantado de noche, los segundos de cada oleada. Si te sueltas, caes al charco de los tentáculos o, si lo eliges en el menú, te engulle el remolino que se abre bajo tus pies y se va cerrando hasta cumplir el tiempo.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-slam" value="slam">
+        <span class="tag">Toques · visor y manos</span><b>Slam</b>
+        <small>De pie y sin parar: diamantes a ras de suelo (agáchate a tocarlos), amebas a los lados (zancada lateral), delante y abajo (zancada), muy abajo (sentadilla profunda) o arriba (salto). Alternan de lado y hay que volver al centro entre una y otra.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-jump" value="jump">
+        <span class="tag">Toques · visor y manos</span><b>Saltos</b>
+        <small>Las amebas llegan por encima de tu cabeza: salta para meterla en el hueco. Los diamantes, arriba a los lados, se tocan saltando con el brazo estirado.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-abs" value="abs">
+        <span class="tag">Toques · visor y manos</span><b>Abdominales</b>
+        <small>Boca arriba con las rodillas dobladas. Las amebas esperan en el arco que hace tu cabeza al subir el tronco, de frente o giradas (oblicuos); los diamantes, junto a las rodillas.</small></label>
+      <label class="card"><input type="radio" name="exercise" id="ex-combo" value="combo">
+        <span class="tag">Toques · tú eliges</span><b>Combinado</b>
+        <small>Elige una postura y mezcla movimientos: sentadilla + salto, flexión + plancha aguantada, abdominal + oblicuo… en orden o al azar.</small></label>
+    </div>
+    <p class="note" id="exNote" hidden>El modo Arcos es solo para sentadillas.</p>
+  </section>
+  <section class="secCommon" id="secCommon" data-toc="3 · Opciones comunes">
+    <h2>3 · Opciones comunes</h2>
+    <p class="note">Valen para todos los modos y ejercicios: entorno y vista, habitación, menú y tu meta diaria. El sonido y la música, aquí debajo.</p>
+    <div class="groups" id="commonGroups"></div>
+  </section>
+  <section class="music" id="secMusic" data-toc="Sonido">
+    <h2>Sonido</h2>
+    <p class="note">El volumen de los efectos y del ambiente, y qué sonidos suenan. La música con Spotify llega con el PR 22.</p>
+    <div class="groups" id="soundGroups"></div>
+  </section>
+
+  <section class="secSpec" id="secSpec" data-toc="4 · Opciones del modo y el ejercicio">
+    <h2 id="specTitle">4 · Opciones del modo y el ejercicio</h2>
+    <p class="note">Solo las que sirven para lo que has elegido arriba.</p>
+    <p class="levelnote" id="levelNote"></p>
+    <div class="groups" id="settingsGroups"></div>
+    <div class="actions"><button class="btn small" id="btnReset">Restablecer todos los ajustes</button></div>
+    <div class="profiles">
+  </section>
+
+  <section class="how" id="secHow" data-toc="Dentro del juego">
+    <h2>Dentro del juego</h2>
+    <p class="note">Esto es RepArena XR, la versión hecha con el SDK de Meta: lo que aún no está (armas, Arcos, Barras, Toques, Travesía, sesiones, música y la realidad mixta) llega poco a poco, y en RepArena lo tienes todo.</p>
+    <p class="lede">Cada repetición bien hecha es un disparo. Baja hasta abajo para cargar y vuelve arriba para soltarlo. Las repeticiones a medias no cuentan.</p>
+    <ul>
+      <li><strong>El menú principal:</strong> arriba, EMPEZAR, grande; debajo, tus cifras (nivel, hoy, racha y misiones: al tocarlas, Progreso); luego, cada cosa en su caja con su color: MODO (Combate, Arcos, Barras, Toques y Sesiones, cada tecla del color de su modo), EJERCICIO (en blanco) y DIFICULTAD (los galones, «Al fallo» y cómo es la ronda, en azul); con Sesiones, la sesión bloque a bloque y EMPEZAR SESIÓN arriba. Abajo, Spotify y <b>Opciones</b>, con lo demás en pestañas: Rivales y armas (una ficha por enemigo, con su retrato, su resistencia y su fuerza), Progreso (nivel, misiones, campaña y semana), Sonido, Entorno y Ajustes.</li>
+      <li>El menú sale de tu <b>muñeca izquierda</b>: mírala (como para mirar un reloj) y pulsa el botón <b>MENÚ</b> con el índice derecho. El panel crece desde la muñeca y se queda <b>quieto delante de ti</b>, derecho y de cara, a la distancia de los ojos que elijas en Ajustes → Menú (si te cuesta enfocarlo, aléjalo): pulsa con calma con la punta del índice de cualquiera de las dos manos. Las teclas y el panel son sólidos: al hundir una tecla hasta el fondo, o al tocar el panel entre las teclas, tu mano se queda apoyada aunque sigas empujando, sin atravesarlo. Para cerrarlo, pon la palma izquierda hacia abajo o cierra el puño; un punto rosa en la muñeca te recuerda que hay un menú esperando, y MENÚ lo vuelve a abrir (si te giras y lo pierdes de vista, el mismo botón, «Traer menú», lo pone delante otra vez). Con mandos, X o Y lo abren y lo cierran. Los menús nuevos (el principal al entrar, el resumen de cada ronda) salen solos delante de ti. Si prefieres el atril fijo sobre un pie, cámbialo en Ajustes → Menú → Menú en.</li>
+      <li><strong>Antes de cada ronda, la carátula del duelo:</strong> todo se queda en negro 7 segundos y delante de ti sale grande tu silueta contra el jefe de la ronda, con un VS, el ejercicio, tu rango, tu récord y los datos de la ronda. Para pasar antes al ejercicio, pulsa cualquier botón del mando o, con las manos, haz el gesto del pulgar arriba.</li>
+      <li>Los valores numéricos se ajustan con el deslizador, con los botones − y +, o tocando el número para escribirlo en un teclado.</li>
+      <li><strong>Menú y salida en cualquier momento:</strong> mira el dorso de tu muñeca izquierda como si miraras un reloj y aparecerá un botón MENÚ. Tócalo con el índice derecho. También funciona juntar pulgar e índice de las dos manos durante 1 segundo, o el gatillo si usas mandos.</li>
+      <li><strong>Arcos inclinados</strong> (Ajustes → Arcos): cuando la barra llega torcida, apártate hacia el lado alto flexionando esa pierna y estirando la otra (el marcador no te lo dice: se entrenan los reflejos). Agacharse en el centro no vale: bajo el lado bajo hay una pared de energía hasta pasado el centro. Ahí mismo eliges si los arcos salen con ritmo regular o irregular, cuánto hay que bajar en los inclinados y lo separados que están sus extremos (más separados, más peso sobre una pierna). Con música de Spotify, los arcos llegan <b>al compás</b>: cada uno, en un pulso. Los orbes vienen también por encima de la cabeza y muy abajo, para agacharse; recogidos en el pulso, valen el doble. Con ritmo, las canciones lentas traen los arcos algo más despacio y las rápidas, más deprisa; cada 32 pulsos hay una frase intensa o un respiro, y a veces un <b>túnel</b> de arcos bajos en el que hay que aguantar abajo. Tras 10 seguidos sin fallo, la <b>fiebre</b>: puntos ×2, más deprisa y una tormenta roja con relámpagos en el cielo. Cuanto más difícil, el láser barre más deprisa y con amagos.</li>
+      <li><strong>Plancha lateral:</strong> aguanta con la cadera arriba; cada pocos segundos sale un disparo. En cada descanso, cambia de lado.</li>
+      <li><strong>Espadas (Ajustes → Espada, con los mandos):</strong> una o dos, metálica o láser. En Combate contra robots cada sentadilla carga la hoja y derribas a los robots con tajos rápidos; si marcan su golpe, pon la hoja en la marca (agachado si es medio o bajo) para pararlo y contraatacar con el doble de daño. En Toques corta los bloques en la dirección de su flecha. Despeja el espacio y ponte la correa de los mandos.</li>
+      <li><strong>Toques:</strong> mete la cabeza por el hueco de los aros de neón (turquesa, con flechas que giran apuntando al hueco y una cabeza dibujada; al pasar, estallan en chispas) y toca los diamantes con la mano que llevan dibujada (I azul, la izquierda; D naranja, la derecha). También valen mientras vienen de camino, si atinas. Entre un toque y el siguiente vuelve a la postura de partida: tras un abdominal, baja al suelo antes de la siguiente ameba; tras un diamante, retira la mano. Cada uno espera un momento delante de ti; si se va sin tocarlo, te golpea. En los abdominales túmbate boca arriba con los pies hacia delante. Para ir al ritmo de la música, toca «Al compás» en el menú cuatro veces siguiendo el pulso de la canción, o, con Spotify conectado, elige «Ritmo de Spotify» y el ritmo seguirá a cada canción.</li>
+      <li><strong>Pistolas</strong> (sentadillas y zancadas en Combate, Ajustes → Enemigos): coge los mandos; cada sentadilla carga munición (las celdas del bláster y el marcador la muestran) y disparas tú con el gatillo donde apuntes. Sin mandos, pellizca índice y pulgar para disparar. Con las pistolas en la mano, el menú se abre con X o Y del mando izquierdo.</li>
+      <li><strong>Cuentas de vida:</strong> encima de cada enemigo, una fila de bolitas doradas: cada una es un disparo normal (la perfecta quita dos y las cargas, más). Al darle, las que pierde desaparecen. Los jefes llevan bolitas grandes, que valen 5.</li>
+      <li><strong>A golpes</strong> (Combate, Ajustes → Armas): un puñetazo rápido al enemigo que tienes delante, o un golpe con la pesa o el mando, lo echa atrás y lo aturde un momento (no le quita vida). Los enemigos nunca se ponen a tu lado ni detrás de ti, aunque avances hacia ellos.</li>
+      <li>Calibración: quédate quieto 2 segundos en la posición inicial (de pie, o en plancha para flexiones).</li>
+      <li><strong>Realidad mixta en tu habitación (escala de habitación):</strong> con la habitación escaneada en las Quest 3 (Ajustes → Espacio físico → Configuración del espacio) y el permiso del juego, las compuertas se abren en tus paredes donde el camino hasta ti está libre de muebles, el marcador se cuelga en una pared, las trampillas salen en suelo libre y las paredes y los muebles tapan lo que pasa por detrás. Si la habitación no cumple los requisitos, el menú principal te dice por qué y te deja <b>colocarla a mano</b> con un asistente de cuatro pasos (tu sitio, las compuertas, las trampillas y el marcador): mira al suelo donde quieras cada cosa, verás su silueta y un cartel que te dice si se puede dejar ahí, y pellizca o pulsa «Colocar aquí». Las trampillas y el marcador también se pueden poner solos. Se recuerda entre sesiones. Se elige en Entorno ▸ → Habitación, o aquí en Entorno y vista → Escala de habitación (Según el escaneo, Colocada a mano o No). Si algo no se ve cuando carga contra ti, activa «Ver lo escaneado» para comprobar que paredes y muebles coinciden con los reales, o apaga «Que paredes y muebles tapen lo virtual».</li>
+      <li><strong>Barras:</strong> pulsa Colocar barra (o Colocar paralelas) en el menú. El menú se oculta: ve al aparato, agárralo con las dos manos por encima de la cabeza (en las paralelas, tumbado debajo con los brazos estirados) y quédate quieto 5 segundos. Después vuelve el menú con los ajustes finos: altura, ancho, mover 1 cm y girar 1°. Para cancelar, el botón de la muñeca izquierda. Las Quest recuerdan la posición para la próxima vez. Para estos ejercicios es mejor la realidad mixta, porque ves la barra y el marco de la puerta de verdad.</li>
+      <li><strong>Cargas aguantando:</strong> como abajo en la sentadilla, aguantar la postura más dura carga el disparo (×2, ×3, ×4) en los fondos (abajo, con los codos a 90°), la elevación frontal (arriba, los brazos al frente), los antebrazos (la barra escurrida al máximo) y, en Barras, las dominadas y el remo (arriba): al bajar sale una onda que, con ×4, revienta también a los que esperan cerca. En la plancha con un brazo, igual en la flexión: aguantar abajo carga (×2, ×3, ×4) y el brazo que levantes después lanza esa carga.</li>
+      <li><strong>Cuando las gafas pierden una mano</strong> (con las manos, sin mandos): si iba deprisa (un puñetazo, una sacudida), sigue su camino un instante y el gesto cuenta igual. Y con <b>Manos con el cuerpo</b> (activado; en las gafas, Ajustes → Menú; en esta página, Menú y avisos), si tu navegador da el seguimiento del cuerpo, la mano perdida (junto a la cadera, por encima de la cabeza, pegada a la cara) el juego la coloca donde está tu muñeca y la sigue usando; esa mano no se pinta (la que ves se queda un instante donde se la vio y desaparece, para que no salga volando) y no pulsa menús. Al calibrar, si lo da, se lee «manos y cuerpo detectados», y al salir de las gafas esta página dice si lo dio. Si notas tirones, quítalo (sal y vuelve a entrar).</li>
+      <li><strong>Mandos como manos</strong> (sentadillas y zancadas en Combate): con los mandos se ven tus manos, agarrando el mando como de verdad (la palma hacia dentro y el índice en el gatillo). Gatillo y agarre a la vez cierran el puño (delante del pecho, escudo); para lanzar el rayo, apunta con la mano y aprieta el gatillo. El menú, con X o Y.</li>
+      <li><strong>Entre oleadas</strong>, la escena se oscurece un poco y un panel grande dice qué oleada empieza y cuántos puntos llevas.</li>
+      <li><strong>Al fallo</strong> (menú principal; en Arcos, de serie): oleadas sin fin hasta que te quedes sin vidas; al final, la oleada a la que llegaste y tu récord. En Combate, los enemigos van <b>de menos a más duros</b>: primero los fáciles y, cada pocas oleadas, entra uno nuevo, que se anuncia.</li>
+      <li><strong>Travesía:</strong> cada repetición te empuja por el sendero (más deprisa cuanto más rápido y más hondo); salta los troncos o agáchate bajo las ramas, rompe las cadenas de los cofres, aparta la roca del derrumbe con zancadas, cruza el arroyo saltando de piedra en piedra y el desfiladero saltando de pilar en pilar antes de que se hundan; a los bandidos, esquívales las piedras (agáchate ante la alta, salta la baja, apártate de la que va al cuerpo) hasta que caigan (encima de cada uno, una bolita por piedra que falta); y gánales la carrera a los lobos: salen a lo lejos, delante y a un lado (con una flecha roja encima), y corren a cortarte el paso (los oirás aullar y gruñir cada vez más cerca); a buen ritmo, llegas antes y se quedan atrás. Cada tramo, otro paisaje: bosque, aldea, pradera del lago y pinar al atardecer.</li>
+      <li><strong>Logros en grande:</strong> la meta del día, un récord, un nivel nuevo o el cofre del día salen en un aviso dorado bien grande, con fanfarria.</li>
+      <li><strong>El marcador</strong> flota a un lado, por delante (a la izquierda, o donde elijas en Entorno → Marcador), sin poste, bien grande y siempre a la vista, con la insignia de tu rango. Al acabar, el resumen te da una medalla. <strong>Tumbado o en plancha</strong>, los avisos salen en el suelo bajo tu cara o en el techo, con lo de arriba del texto hacia tu cabeza.</li>
+      <li><strong>El marcador:</strong> a la izquierda, un rosco doble: el anillo de fuera se llena con la oleada y el de dentro es tu <b>racha</b>, en 10 tramos, que se encienden con cada repetición buena seguida (una a medias o un golpe la apagan); en medio, tus repeticiones. Arriba, las oleadas en puntos, los puntos y las vidas. Las celebraciones (¡PERFECTA!, COMBO…) salen en el marcador; delante de ti, solo lo que tienes que hacer ya. El escudo por técnica es un <b>brazalete de luz</b> en tu antebrazo que se llena con las perfectas.</li>
+      <li><strong>Para que no aburra</strong> (Ajustes → Partida): en Combate, como mucho cada tres oleadas y si te la ganas (3 golpes o menos en ellas), eliges <b>1 de 3 mejoras</b> para el resto de la ronda (escudo, escarcha, onda, corazón, doble o nada, combo de hierro o calma): la oleada siguiente espera a que elijas. En el rosco del marcador, una muesca blanca marca dónde ibas en <b>tu mejor ronda</b>: si la pasas, la punta se pone dorada. Y hay <b>sorpresas</b>: un enemigo dorado que vale el triple, un relámpago de 20 s con todo al doble (el borde del marcador se consume como una mecha) y, en algunos descansos, un cofre en el suelo, a tu derecha, que se abre <b>saltando</b>. Con ritmo de música, el relámpago llega al empezar una frase de la canción, con cuenta atrás al compás (Sonido ▸ → La música manda).</li>
+      <li><strong>Progreso:</strong> arriba, en «Hoy», ves lo que llevas entrenado hoy frente a tu meta diaria (Ajustes → Tu meta), tus repeticiones, calorías y perfectas comparadas con ayer, tu racha y los últimos 7 días. Al terminar cada ronda ves el tiempo y las calorías estimadas (según el ejercicio y tu peso), y abajo, en tu historial, la mejor racha, el tiempo y las calorías de la semana y del total.</li>
+      <li><strong>Tu nivel:</strong> cada repetición te da experiencia (las perfectas, el doble; ganar la ronda, 20 más) y al subir de nivel cambia tu título (de Novato a Leyenda) y desbloqueas colores para tus manos y para el rayo normal. Solo se ven: no dan más cargas ni más daño. Se eligen en Progreso → Nivel.</li>
+      <li><strong>Misiones del día:</strong> cada día, tres nuevas: una de cantidad (repeticiones o minutos), una de calidad (perfectas, combo o ganar sin que te golpeen) y una de variedad (otro modo, un ejercicio que llevas días sin hacer o muchas repeticiones en una sola ronda). Cada una da 40 de experiencia y, con las tres, se abre el cofre del día: 100 más, un <b>escudo de racha</b> (como mucho tres) y, si queda alguno, un color antes de tiempo. Si un día no entrenas, al volver se gasta un escudo solo y tu racha sigue. Las ves en «Hoy» y en Progreso → Misiones.</li>
+      <li><strong>Campaña:</strong> para cada modo y ejercicio, 35 niveles en 7 regiones, una por rango (de recluta a general), cada una en su entorno; el quinto nivel de cada región, con jefe. Ganar abre el siguiente y da de 1 a 3 estrellas (la mitad de perfectas, dos; tres cuartos y sin golpes, tres). Se juega desde Progreso → Campaña; los ajustes del nivel no tocan los tuyos.</li>
+      <li><strong>Tu semana:</strong> en el resumen de cada ronda ves la experiencia ganada, los minutos de los últimos 7 días frente a tu meta y tu mejor ronda con ese ejercicio en ese modo, para saber si te has superado.</li>
+      <li>Repetición lenta y profunda = <strong>PERFECTA</strong>: doble daño (con puntería automática) o explosión en área (apuntando tú) en Combate, y bonificación en Arcos.</li>
+    </ul>
+  </section>
+
+  <div class="secPager" id="secPager"></div>
+  </div>
+</main>
+    </div>
+    <!-- La escena del juego (IWSDK): en la prueba del ordenador y en VR -->
+    <div id="stage">
+      <div id="scene-container"></div>
+      <div class="pbar">
+        <span><kbd>↓</kbd> o <kbd>S</kbd> mantener = bajar (la sentadilla); al soltar, sube y dispara · <kbd>Intro</kbd> empezar la ronda · el ratón, para el menú</span>
+        <button class="btn" id="btnExitPreview">Salir de la prueba</button>
+      </div>
+    </div>
     <script type="module" src="/src/index.ts"></script>
   </body>
 </html>
