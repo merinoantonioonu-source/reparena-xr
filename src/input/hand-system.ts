@@ -13,10 +13,12 @@ import type { VisualConstructor, VisualImplementation } from '@iwsdk/core';
 import { on } from '../core/values.js';
 import { ControllerHandLeft, ControllerHandRight, loadControllerHands } from './controller-hand.js';
 import { HJ, hands, head, SIDES, type Hand, type Side } from './hand-model.js';
+import { SkinHand } from './skin-hand.js';
 
 const _m = new Matrix4(), _s = new Vector3();
 const jointCache = new WeakMap<XRHand, XRJointSpace[]>();
 const poseBuf = new Float32Array(25 * 16);
+const radBuf = new Float32Array(25);
 
 /** Vibración del mando de ese lado (con las manos desnudas, nada). Como en RepArena (src/76_sword.js: haptic). */
 export function haptic(side: Side, v: number, ms: number): void {
@@ -126,6 +128,12 @@ export class HandSystem extends createSystem({}, {}) {
         J.q.premultiply(this.pq);
         J.ok = true;
       }
+      // (el grosor de cada articulación, para los guantes)
+      try {
+        if ((frame as XRFrame & { fillJointRadii?: (s: XRJointSpace[], out: Float32Array) => boolean }).fillJointRadii?.(spaces, radBuf)) for (let i = 0; i < 25; i++) if (radBuf[i] > 0) h.J[i].r = radBuf[i];
+      } catch {
+        /* (sin grosor: el de antes) */
+      }
     } else
       for (let i = 0; i < 25; i++) {
         const jp = frame.getJointPose?.(spaces[i], ref), J = h.J[i];
@@ -134,6 +142,7 @@ export class HandSystem extends createSystem({}, {}) {
         J.p.set(o.x, o.y, o.z).applyMatrix4(this.player.matrixWorld);
         J.q.set(r.x, r.y, r.z, r.w).premultiply(this.pq);
         J.ok = true;
+        if (jp.radius) J.r = jp.radius;
       }
     const W = h.J[0], T = h.J[9];
     if (W.ok) {
@@ -149,6 +158,8 @@ export class HandSystem extends createSystem({}, {}) {
 
   init(): void {
     void loadControllerHands().then((ok) => (this.padHandsReady = ok));
+    // la mano desnuda de IWSDK, opaca (o escondida con los guantes: src/input/skin-hand.ts)
+    for (const s of SIDES) this.input.xr.visualAdapters.hand[s].updateVisualImplementation(SkinHand as unknown as VisualConstructor<VisualImplementation>);
   }
 
   // «Mandos como manos»: la mano que agarra el mando (de IWSDK) o el mando (cuando están sus modelos)

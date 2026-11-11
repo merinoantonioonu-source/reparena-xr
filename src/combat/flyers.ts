@@ -6,6 +6,7 @@
  * en una nube de baba y caen al suelo como un cuerpo suelto (la física de IWSDK), y luego se desvanecen.
  * Mientras vuelan no tienen cuerpo de física (en RepArena no chocaban con los de tierra); al caer, una esfera dinámica.
  */
+import { fadeCopy } from '../style/comic.js';
 import { AnimationAction, AnimationMixer, AssetManager, createSystem, DoubleSide, Entity, Group, LoopOnce, LoopRepeat, Material, Mesh, Object3D, PhysicsBody, PhysicsManipulation, PhysicsShape, PhysicsShapeType, PhysicsState, SkinnedMesh, Vector3 } from '@iwsdk/core';
 import { Flyer, Foe, FoeState } from './components.js';
 import { FLAP_HZ, Flight, type FlyEnv, type FlyGate } from './flight.js';
@@ -252,15 +253,7 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
       rt.launch = null;
     }
     if (timer > 3.2 && !rt.fade) {
-      rt.fade = [];
-      o.traverse((c) => {
-        const m = c as Mesh;
-        if (!m.isMesh) return;
-        const mat = (m.material as Material).clone();
-        mat.transparent = true;
-        m.material = mat;
-        rt.fade!.push(mat);
-      });
+      rt.fade = fadeCopy(o); // (sin compilar nada nuevo: precompilado antes de la ronda)
     }
     if (rt.fade) {
       const k = Math.max(0, 1 - (timer - 3.2) / 0.8);

@@ -102,6 +102,8 @@ export const HOOKS = {
   /** Barras: empezar la oleada i (cuando te has colgado), colocar el aparato (con las manos; note: el aviso), si está colocado,
    * si se está colocando y dejarlo (el botón de la muñeca): lo pone el sistema de Barras. */
   barWave: (_i: number): void => {},
+  /** Tu espacio, tal cual lo dan las gafas (sin la colocación delante de las compuertas): para colocar el aparato de Barras. */
+  rigHome: (): void => {},
   placeEq: (_note?: string): void => {},
   eqPlaced: (): boolean => true,
   placing: (): boolean => false,

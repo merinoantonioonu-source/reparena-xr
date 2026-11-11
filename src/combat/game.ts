@@ -14,6 +14,8 @@
  *  - Un puñetazo rápido al zombi que tienes delante lo aparta y lo aturde un momento (sin quitarle vida).
  *  - Oleadas de zombis cada vez algo más rápidos; si te golpean, pierdes una vida; sin vidas, se acaba la ronda.
  */
+import type { Lightning } from './bolt.js';
+import { warmHook, warmSoon } from '../style/warm.js';
 import {
   createSystem,
   Entity,
@@ -82,6 +84,24 @@ const SQUAT_SPAWN_DIST = 11; // (a cuánto salen los zombis, más o menos: con l
 const POW_DMG = [0, 1, 2, 4];
 // el nivel del rayo (RepArena, src/52_bolt.js: boltLevel): 1 el perfecto y, con carga, su nivel (de él salen su color y su sonido)
 const boltLevel = (perfect: boolean, pow: number): number => Math.max(perfect ? 1 : 0, pow > 1 ? pow : 0);
+
+/** Un rayo en camino (RepArena: projs): de dónde sale, a quién va, lo que hace al llegar y cuánto tarda. */
+interface Proj {
+  on: boolean;
+  lt: Lightning | null;
+  from: Vector3;
+  to: Vector3;
+  e: FoeTarget | null;
+  dmg: number;
+  perfect: boolean;
+  pow: number;
+  L: number;
+  col: number;
+  t: number;
+  dur: number;
+  say: boolean;
+}
+const mkProj = (): Proj => ({ on: false, lt: null, from: new Vector3(), to: new Vector3(), e: null, dmg: 0, perfect: false, pow: 1, L: 0, col: 0, t: 0, dur: 0.1, say: false });
 
 // La puntería (Opciones → Rivales y armas): automática, con las manos (de serie) o con la mirada, como en RepArena: con
 // la barra flexible, siempre automática (las dos manos están ocupadas); con pesas en las manos no se lanza con la mano,
@@ -176,6 +196,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private taken0 = 0;
   private beatK = -1;
   private wasPaused = false;
+  /** Colocarte delante de las compuertas (RepArena: arenaGlideToHead): el giro y el sitio de tu espacio, de dónde a dónde, y cuánto va. */
+  private glide = { t: 0, ry0: 0, x0: 0, z0: 0, ry1: 0, x1: 0, z1: 0 };
   // los que van a salir por una compuerta que se está abriendo (a cada uno le falta «t» para salir)
   private gates: GateSystem | null = null;
   private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0, kind: '', boss: false, hp: 1 }));
@@ -186,6 +208,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private desktopDrop = 0;
   // temporales (sin crear objetos en cada fotograma)
   private tmpA = new Vector3();
+  private projs: Proj[] = Array.from({ length: 12 }, mkProj);
   private tmpB = new Vector3();
   private tmpC = new Vector3();
   private tmpD = new Vector3();
@@ -194,6 +217,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   init(): void {
     this.enemies = this.world.getSystem(EnemySystem)!;
+    warmHook(this.world.renderer, this.scene); // (precompilar antes de cada ronda: src/style/warm.ts)
     this.gates = this.world.getSystem(GateSystem) ?? null;
     // los efectos (bola, rayos, chispas, la carga en las manos), la diana y el velo rojo de los golpes
     this.fx = new Effects();
@@ -267,6 +291,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       }
     };
     HOOKS.startRound = () => this.startRound();
+    HOOKS.rigHome = () => {
+      if (settings.mode === 'bars') this.recenter(false);
+    };
     HOOKS.barWave = (i) => this.startWave(i);
     HOOKS.campPlay = (lv) => {
       campBegin(lv);
@@ -299,6 +326,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         this.message(PLACE[settings.exercise] ?? 'Colócate', 4);
       } else {
         this.st.reset(head.p.y);
+        this.recenter();
         this.message('¡Listo!', 1.5);
       }
     };
@@ -601,6 +629,39 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   // ---------------------------------------------------------------- la ronda
 
+  // Al calibrar de pie (al empezar la ronda o al recolocarte): todo se coloca delante de ti, donde estás y hacia donde miras
+  // (RepArena: arenaGlideToHead, que movía la arena; aquí se mueve tu espacio —el del jugador de IWSDK—, que es lo mismo
+  // visto desde ti), deslizándose en 0,8 s. En Barras no (el aparato está en tu habitación) ni en realidad mixta.
+  private recenter(glide = true): void {
+    const P = this.world.player, cam = this.world.camera;
+    if (!P || !cam) return;
+    if (settings.mode === 'bars') {
+      // (los aparatos están en tu habitación: tu espacio, tal cual lo dan las gafas)
+      Object.assign(this.glide, { t: glide ? 1e-4 : 1, ry0: P.rotation.y, x0: P.position.x, z0: P.position.z, ry1: 0, x1: 0, z1: 0 });
+      if (!glide) this.stepGlide(0);
+      return;
+    }
+    const f = this.tmpA.set(0, 0, -1).applyQuaternion(head.q);
+    f.y = 0;
+    if (f.lengthSq() < 1e-4) return;
+    const a = Math.atan2(-f.x, -f.z), ry1 = P.rotation.y - a; // (girado lo que te apartas de mirar a las compuertas)
+    // tu cabeza en tu espacio, girada como quedará: el sitio que la deja en el centro de la arena
+    const c = Math.cos(ry1), s2 = Math.sin(ry1), hx = cam.position.x, hz = cam.position.z;
+    const x1 = -(hx * c + hz * s2), z1 = -(-hx * s2 + hz * c);
+    Object.assign(this.glide, { t: glide ? 1e-4 : 1, ry0: P.rotation.y, x0: P.position.x, z0: P.position.z, ry1, x1, z1 });
+    if (!glide) this.stepGlide(0);
+  }
+  private stepGlide(dt: number): void {
+    const G = this.glide, P = this.world.player;
+    if (!G.t || !P) return;
+    G.t = Math.min(1, G.t + dt / 0.8);
+    const k = G.t * G.t * (3 - 2 * G.t), w = Math.atan2(Math.sin(G.ry1 - G.ry0), Math.cos(G.ry1 - G.ry0));
+    P.rotation.y = G.ry0 + w * k;
+    P.position.x = G.x0 + (G.x1 - G.x0) * k;
+    P.position.z = G.z0 + (G.z1 - G.z0) * k;
+    if (G.t >= 1) G.t = 0;
+  }
+
   private startRound(): void {
     // Barras: sin el aparato colocado, primero se coloca (con las manos; luego, al menú) (RepArena: «Antes de empezar, coloca…»)
     if (settings.mode === 'bars' && !HOOKS.eqPlaced()) {
@@ -608,8 +669,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       return;
     }
     this.enemies.clear();
+    for (const p of this.projs) p.on = false; // (los rayos que iban de camino)
+    this.fx.bolts.clear();
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
+    // con la carátula del duelo en negro, se compila todo lo que puede salir (si no, lo nuevo daba un tirón en plena partida)
+    if (settings.mode === 'combat') this.enemies.warm();
+    warmSoon();
     // el modo y el ejercicio: los que ya hay (si lo elegido en RepArena aún no está aquí, Combate o la sentadilla)
     if (!PLAY_MODES.includes(settings.mode)) setSetting('mode', 'combat');
     const px = playableEx(settings.mode, settings.exercise);
@@ -628,6 +694,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.roundId++;
     this.dayRefresh();
     this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla)
+    if (!FLOOR_EX.includes(settings.exercise)) this.recenter(); // (de pie: las compuertas, delante de donde estás y miras)
     this.chargePow = 0;
     throwReset();
     gazeLockReset();
@@ -1282,7 +1349,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   /** Apuntando tú: el rayo sale hacia d y se engancha al zombi fijado (forced) o al de la ayuda de puntería. */
   private fireBolt(origin: Vector3, d: Vector3, lockFrom: Vector3 | null, dmg: number, perfect: boolean, forced: FoeTarget | null, pow: number): void {
     const e = forced && forced.alive ? forced : this.findLock(lockFrom ?? origin, d);
-    if (e) this.strike(origin, e, dmg, perfect, pow);
+    if (e) this.strike(origin, e, dmg, perfect, pow, true);
     else this.miss(origin, this.tmpB.copy(origin).addScaledVector(d, 9), perfect, pow, true);
   }
 
@@ -1294,32 +1361,80 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   }
 
   // el rayo llega: chispas, destello, sonido y el golpe al zombi (retrocede, o cae si se queda sin vida)
-  private strike(from: Vector3, e: FoeTarget, dmg: number, perfect: boolean, pow: number): void {
-    const tp = e.center(this.tmpA), col = boltColor(perfect, pow);
-    this.fx.bolts.fire(from, tp, pow, col);
-    this.fx.sparks.burst(tp, 18 + pow * 8, col, 2.4 + 0.6 * pow, 0.028);
-    this.fx.flashes.at(tp, col, 0.6 + 0.25 * pow);
-    this.fx.flashes.at(from, 0xff4060, 0.35, 0.15);
-    const L = boltLevel(perfect, pow);
+  // El rayo sale hacia el enemigo y viaja hasta él (RepArena: fireOrb/fireBolt con projs): el golpe llega al alcanzarlo
+  // (arrive). La puntería automática tarda algo más cuanto más lejos (0,09 s + 3,2 cs por metro); apuntando tú, a 30 m/s
+  private strike(from: Vector3, e: FoeTarget, dmg: number, perfect: boolean, pow: number, aimed = false): void {
+    const tp = e.center(this.tmpA), col = boltColor(perfect, pow), L = boltLevel(perfect, pow), dist = from.distanceTo(tp);
+    this.launch(from, tp, e, dmg, perfect, pow, L, col, aimed ? Math.max(0.09, dist / 30) : 0.09 + dist * 0.032, false);
+    this.fx.flashes.at(from, col, 0.25, 0.1); // (el fogonazo de la salida: RepArena, muzzle)
+    this.fx.sparks.burst(from, 6, col, 1.5, 0.025);
     SND.bolt(from, L);
-    SND.boltHit(tp, L);
-    const d = this.tmpC.copy(tp).sub(from).setY(0).normalize();
-    this.enemies.hit(e.entity, dmg, pow, d, perfect);
-    if (perfect) this.rw.onPerfectHit(e, tp, this.enemies.targets, (o, dist) => this.enemies.shove(o.entity, dist, 0.4, this.tmpD.copy(o.root.position).sub(tp).setY(0).normalize()));
-    if (e.alive) this.cfx.hit(tp); // (en cómic: líneas de impacto; y si cae, la estrella)
-    else this.cfx.kill(tp);
   }
 
   // sin nadie a quien dar: el rayo se pierde (apuntando tú, «Fallo»)
   private miss(from: Vector3, to: Vector3, perfect: boolean, pow: number, say: boolean): void {
-    this.fx.bolts.fire(from, to, pow, boltColor(perfect, pow));
-    this.fx.sparks.burst(to, 4, 0x99ffff, 1, 0.03);
-    SND.bolt(from, boltLevel(perfect, pow));
-    if (say) {
-      SND.miss();
-      GAME.combo = 0; // (un rayo perdido rompe el combo)
-      this.message('Fallo', 0.6);
+    const L = boltLevel(perfect, pow), col = boltColor(perfect, pow);
+    this.launch(from, to, null, 0, perfect, pow, L, col, say ? Math.max(0.09, from.distanceTo(to) / 30) : 0.09 + from.distanceTo(to) * 0.032, say);
+    this.fx.flashes.at(from, col, 0.25, 0.1);
+    SND.bolt(from, L);
+  }
+
+  private launch(from: Vector3, to: Vector3, e: FoeTarget | null, dmg: number, perfect: boolean, pow: number, L: number, col: number, dur: number, say: boolean): void {
+    let p = this.projs.find((x) => !x.on);
+    if (!p) p = this.projs.reduce((o, x) => (x.t > o.t ? x : o)); // (como mucho 12 a la vez)
+    p.on = true;
+    p.lt = this.fx.bolts.start(from, to, L, col, isTiny() ? 0.45 : 1);
+    p.from.copy(from);
+    p.to.copy(to);
+    Object.assign(p, { e, dmg, perfect, pow, L, col, t: 0, dur, say });
+  }
+
+  // los rayos en camino: la cabeza sigue al blanco (que puede moverse); al llegar, el golpe
+  private stepProjs(dt: number): void {
+    for (const p of this.projs) {
+      if (!p.on || !p.lt) continue;
+      p.t += dt;
+      if (p.e && p.e.alive) p.e.center(p.to);
+      const k = Math.min(1, p.t / p.dur);
+      p.lt.to.copy(p.to);
+      p.lt.k = Math.max(p.lt.k, k);
+      if (k < 1) continue;
+      p.on = false;
+      p.lt.arrive();
+      this.arrive(p);
     }
+  }
+
+  // al llegar (RepArena: boltArrive y updateProjectiles): destello, chispas, el impacto y el daño
+  private arrive(p: Proj): void {
+    const tp = p.to, L = p.L, e = p.e;
+    if (!e) {
+      this.fx.flashes.at(tp, p.col, 0.15, 0.12);
+      this.fx.sparks.burst(tp, 4, 0x99ffff, 1, 0.03);
+      if (p.say) {
+        SND.miss();
+        GAME.combo = 0; // (un rayo perdido rompe el combo)
+        this.message('Fallo', 0.6);
+      }
+      return;
+    }
+    if (!e.alive) {
+      this.fx.sparks.burst(tp, 5, 0xffcc66, 1.5, 0.03); // (ya había caído)
+      return;
+    }
+    SND.boltHit(tp, L);
+    this.fx.sparks.burst(tp, 18 + p.pow * 8, p.col, 2.4 + 0.6 * p.pow, 0.028);
+    this.fx.flashes.at(tp, p.col, 0.6 + 0.25 * p.pow);
+    if (L >= 2) {
+      // los cargados, con chispazos eléctricos (RepArena: fx.electric)
+      this.fx.sparks.burst(tp, 6 + L * 3, 0xe6e6ff, 2.6, 0.035, 0);
+      this.fx.flashes.at(tp, 0xff6650, 0.5, 0.12);
+    }
+    const d = this.tmpC.copy(tp).sub(p.from).setY(0).normalize();
+    this.enemies.hit(e.entity, p.dmg, p.pow, d, p.perfect);
+    if (p.perfect) this.rw.onPerfectHit(e, tp, this.enemies.targets, (o, dist) => this.enemies.shove(o.entity, dist, 0.4, this.tmpD.copy(o.root.position).sub(tp).setY(0).normalize()));
+    if (e.alive) this.cfx.hit(tp); // (en cómic: líneas de impacto; y si cae, la estrella)
+    else this.cfx.kill(tp);
   }
 
   // un puñetazo: lo aparta (hacia donde iba el puño) y lo aturde; no le quita vida
@@ -1340,6 +1455,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const dt = Math.min(delta, 0.05);
     this.stepOutcome(dt);
     spotify().tick(dt); // (la música: se pregunta a Spotify cada pocos segundos)
+    this.stepGlide(dt);
     pulse().step(dt); // (el pulso que pasa el móvil, si lo escuchas desde las gafas)
     if (this.wasPaused && !GAME.paused) BEAT.relock(); // (al seguir tras la pausa, el pulso se vuelve a enganchar a la música)
     this.wasPaused = GAME.paused;
@@ -1444,6 +1560,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.fx.ball.update(dt, this.ballTarget, playing ? this.chargePow : 0);
     GAME.ballOn = this.fx.ball.visible;
     GAME.ballPos.copy(this.fx.ball.pos);
+    this.stepProjs(dt);
     this.fx.bolts.update(dt, GAME.head);
     this.fx.sparks.update(dt);
     this.fx.flashes.update(dt);

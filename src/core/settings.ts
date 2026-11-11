@@ -21,6 +21,15 @@ export const STORE_KEY = 'reparena3-settings';
 export const COMBO_KEY = 'reparena3-combos';
 export const DEV_KEY = 'reparena3-dev';
 export const DEV_ON_KEY = 'reparena3-devon';
+/** Los ajustes que solo tiene RepArena XR (los de `xr` en el esquema): aparte, para no tocar los de RepArena. */
+export const XR_STORE_KEY = 'reparenaxr-settings';
+
+// los de RepArena (sin los de RepArena XR) y los de RepArena XR, por separado
+const splitXr = (all: Record<string, SettingValue>, xr: boolean): Record<string, SettingValue> => {
+  const o: Record<string, SettingValue> = {};
+  for (const k in all) if (!!FIELD[k]?.xr === xr) o[k] = all[k];
+  return o;
+};
 
 // ---------------------------------------------------------------- guardar en el navegador
 
@@ -115,7 +124,9 @@ export const OVERLAY: { orig: Record<string, SettingValue> | null } = { orig: nu
 /** Guarda los ajustes (durante una sesión o un nivel de la campaña, los de antes). */
 export function saveSettings(): void {
   const O = OVERLAY.orig;
-  store(STORE_KEY, O ? Object.assign({}, settings, O) : settings);
+  const all = O ? Object.assign({}, settings, O) : settings;
+  store(STORE_KEY, splitXr(all, false));
+  store(XR_STORE_KEY, splitXr(all, true));
   if (!O) comboSave();
 }
 
@@ -167,7 +178,7 @@ let comboLoading = false; // (al cargar los de un modo y ejercicio, su rango vie
 
 // Las filas: lo que marca la dificultad de este modo y ejercicio (números, interruptores y unas pocas opciones). Fuera,
 // lo que es elegir (qué enemigos, qué armas, cómo apuntar…) y lo de tu cuerpo y tus aparatos, que no es dificultad
-const DEV_NOT = new Set(['rank', 'toFail', 'foeKind', 'sword', 'swordKind', 'swordHand', 'padHands', 'pistol', 'aim', 'throwPick', 'comboBase', 'comboOrder', 'hangPit', 'supArms', 'dipBars', 'guard', 'barOffset', 'fallMargin']);
+const DEV_NOT = new Set(['rank', 'toFail', 'foeKind', 'sword', 'swordKind', 'swordHand', 'padHands', 'handLook', 'pistol', 'aim', 'throwPick', 'comboBase', 'comboOrder', 'hangPit', 'supArms', 'dipBars', 'guard', 'barOffset', 'fallMargin']);
 const DEV_CHOICE_OK = new Set(['guardDiff', 'arcTiming', 'barTarget']);
 let _devCombo: Set<string> | null = null;
 const devComboSet = (): Set<string> => _devCombo || (_devCombo = new Set(comboKeys()));
@@ -301,7 +312,7 @@ export function fieldVisible(f: FieldDef | undefined): boolean {
 // Menú sencillo: solo lo básico de cada grupo (en Ejercicio, todo menos lo de afinar)
 const BASIC = new Set(['rank', 'toFail', 'lives', 'waves', 'repsWave', 'hangTime', 'rest', 'foeKind', 'foesGate', 'foesHatch', 'foesFly', 'aim', 'walkTime', 'flySpeed', 'maxAlive', 'pistol',
   'tchArrive', 'tchHands', 'jumpHeight', 'arcJumpH', 'arcHurdles', 'arcBurpee', 'comboBase', 'comboStand', 'comboFloor', 'comboAbs', 'arcMin', 'arcMax', 'arcRate', 'arcMaxGap', 'arcSpeed', 'arcJump', 'arcMace', 'arcPlank', 'barTarget', 'barArrive', 'hangPit', 'trekSpeed', 'trekCurves', 'doorH', 'dipH',
-  'sword', 'swordKind', 'swordHand', 'padHands', 'bodyHands', 'menuLevel', 'menuWhere', 'xrHz', 'quality', 'look', 'exSort', 'goalMin', 'weight', 'hrMax', 'volume', 'ambient', 'bpm', 'scenery', 'pano', 'motes', 'depth', 'board']);
+  'sword', 'swordKind', 'swordHand', 'padHands', 'handLook', 'bodyHands', 'menuSize', 'menuLevel', 'menuWhere', 'xrHz', 'quality', 'look', 'exSort', 'goalMin', 'weight', 'hrMax', 'volume', 'ambient', 'bpm', 'scenery', 'pano', 'motes', 'depth', 'board']);
 const FINE_EX = ['thrUp', 'splDrop', 'supArms', 'perfectTime'];
 // lo que marca la dificultad lo elige el desarrollador (el ojo de su tabla); lo demás, como siempre
 export const isBasic = (f: FieldDef): boolean => (devRowOk(f) ? devEye().includes(f.key) : f.g === 'ejercicio' ? !FINE_EX.includes(f.key) : BASIC.has(f.key));
@@ -382,7 +393,9 @@ export function initSettings(): void {
 // Lo guardado, con las migraciones de RepArena (cada una, una sola vez: lo marcan aimV, rampV, deepV)
 function loadSettings(): void {
   const s = store<Record<string, SettingValue | undefined>>(STORE_KEY) || {};
-  for (const f of SCHEMA) if (s[f.key] !== undefined) settings[f.key] = clampSetting(f, s[f.key]);
+  for (const f of SCHEMA) if (!f.xr && s[f.key] !== undefined) settings[f.key] = clampSetting(f, s[f.key]);
+  const x = store<Record<string, SettingValue | undefined>>(XR_STORE_KEY) || {};
+  for (const f of SCHEMA) if (f.xr && x[f.key] !== undefined) settings[f.key] = clampSetting(f, x[f.key]);
   const mode = String(s.mode ?? '');
   if (MODE_NAMES[mode]) settings.mode = mode;
   else if (LEGACY_MODES[mode]) {
@@ -438,5 +451,5 @@ function rankMigrate(): void {
   for (const id in all) if (all[id] && all[id].rank === undefined) all[id].rank = settings.rank;
   store(COMBO_KEY, all);
   settings.rankV = 2;
-  store(STORE_KEY, settings);
+  store(STORE_KEY, splitXr(settings, false));
 }

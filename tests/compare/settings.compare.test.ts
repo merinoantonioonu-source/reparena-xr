@@ -9,6 +9,9 @@ import * as P from '../../src/core/settings.js';
 import { settings as PS } from '../../src/core/values.js';
 import { Mem, RA_DIR, raRun, raSlice } from './ra.js';
 
+// (los ajustes que solo tiene RepArena XR, aparte: RepArena no los conoce)
+const XR = new Set(SCHEMA.filter((f) => f.xr).map((f) => f.key)), RA_SCHEMA = SCHEMA.filter((f) => !f.xr);
+
 type Api = { settings: Record<string, unknown>; setSetting: (k: string, v: unknown) => void };
 
 function original(initial: Record<string, unknown>): { api: Api; mem: Mem } {
@@ -36,13 +39,14 @@ const norm = (o: Record<string, unknown>): string => JSON.stringify(Object.keys(
 function storeDiff(a: Mem, b: Mem): string {
   const out: string[] = [];
   for (const k of new Set([...a.m.keys(), ...b.m.keys()])) {
+    if (k === P.XR_STORE_KEY) continue;
     const x = JSON.parse(a.m.get(k) ?? 'null') ?? {}, y = JSON.parse(b.m.get(k) ?? 'null') ?? {};
     for (const sk of new Set([...Object.keys(x), ...Object.keys(y)])) if (JSON.stringify(x[sk]) !== JSON.stringify(y[sk])) out.push(`${k}.${sk}: portado ${JSON.stringify(x[sk])?.slice(0, 160)} / RepArena ${JSON.stringify(y[sk])?.slice(0, 160)}`);
   }
   return out.join('\n');
 }
 function setDiff(): string {
-  return [...new Set([...Object.keys(PS), ...Object.keys(O.api.settings)])].filter((x) => JSON.stringify(PS[x]) !== JSON.stringify(O.api.settings[x])).map((x) => `${x}: portado ${JSON.stringify(PS[x])} / RepArena ${JSON.stringify(O.api.settings[x])}`).join('; ');
+  return [...new Set([...Object.keys(PS), ...Object.keys(O.api.settings)])].filter((x) => !XR.has(x) && JSON.stringify(PS[x]) !== JSON.stringify(O.api.settings[x])).map((x) => `${x}: portado ${JSON.stringify(PS[x])} / RepArena ${JSON.stringify(O.api.settings[x])}`).join('; ');
 }
 let O: { api: Api; mem: Mem };
 
@@ -56,7 +60,7 @@ function randomOp(r: () => number): [string, string | number] {
   if (x < 0.3) return ['exercise', pick(EXS)];
   if (x < 0.42) return ['rank', pick(RANKS.map((o) => o[0]))];
   if (x < 0.45) return ['foes', pick(['robots', 'flyers', 'mix'])];
-  const f = pick(SCHEMA);
+  const f = pick(RA_SCHEMA);
   if (f.type === 'num') return [f.key, +(f.min! - 1 + r() * (f.max! - f.min! + 2)).toFixed(r() < 0.5 ? 0 : 2)];
   if (f.type === 'toggle') return [f.key, r() < 0.5 ? 0 : 1];
   if (f.type === 'choice') return [f.key, r() < 0.9 ? pick(f.opts!)[0] : 'basura'];

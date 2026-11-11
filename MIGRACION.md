@@ -143,6 +143,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [ ] **PR 21 · Realidad mixta** (aplazado por el usuario: se hará más adelante; nada de lo demás depende de ella. Se empezó con lo de serie de IWSDK: entrar con `launchXR` en modo `immersive-ar` con detección de planos y mallas, anclas y profundidad, `DepthSensingSystem` y `DepthOccludable` en compuertas, cajas, rocas y enemigos, y `GAME.mr`/`arenaDepth` —6 m en realidad mixta—; el plan de la habitación de RepArena, `src/37_room.js`, se porta a lógica pura con su comparación)
 - [x] **PR 22 · Música** — #29
 - [x] **PR 23 · Sincronización, pulsómetro y modo desarrollador** — #29 (juntos con el 22: comparten la pantalla de menú y la página)
+- [x] **PR 24a · Los fallos de la prueba en las gafas** (calibración con tu mirada, enemigos de espaldas, la pasarela de los Arcos, los tirones, teclado sólido y menú más pequeño, manos opacas, y los rayos de RepArena) — #30
 - [ ] **PR 24 · Cambio de casa**
 
 ## Los PR
@@ -516,11 +517,39 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   código con `setSetting` antes: cambiaría también el de RepArena.
 - La nitidez se guarda aparte (`reparenaxr-quality`), como decidió el usuario en el PR 7: solo la del juego nuevo.
 
+- PR 24a: los ajustes que solo tiene RepArena XR llevan `xr: true` en el esquema y se guardan aparte, en
+  `reparenaxr-settings` (`XR_STORE_KEY`): no tocan `reparena3-settings`, que sigue igual que el de RepArena (lo comprueban las
+  comparaciones, que los dejan fuera). Por ahora, «Manos que se ven» (`handLook`) y «Tamaño del menú» (`menuSize`).
+- PR 24a: al empezar la ronda y al recalibrar, el mundo se coloca delante de ti (`GameSystem.recenter`: gira y mueve
+  `world.player` para que tu cabeza quede en el centro mirando hacia las compuertas, en 0,8 s); en Barras, el mundo vuelve a su
+  sitio (los aparatos están donde los pusiste: `HOOKS.rigHome`).
+- PR 24a: lo que se pinta por primera vez en plena partida da un tirón en las gafas (se compila su sombreador). Lo que pueda
+  salir, que esté en la escena (aunque escondido) o en `warmKeep` (`src/style/warm.ts`) antes de la ronda; para copiar
+  materiales en plena partida, `fadeCopy` o `comicPatch` (Three no copia el sombreador propio al clonar).
+- PR 24a: un rayo se lanza con `GameSystem.launch` (viaja con `Lightning`, `src/combat/bolt.ts`); lo que pasa al llegar, en
+  `arrive`. No apliques daño al dispararlo: llega unas décimas después, como en RepArena.
+- PR 24a: la mano que se ve se aparta lo de `HOLD` (`src/input/hold.ts`) para apoyarse en los paneles; lo que pinte manos nuevas
+  (armas del PR 9…), que lo sume.
+
 - Fase 0 cerrada (PR 1-5 + el cierre de la comprobación del sonido en la VR simulada): `window.__rx.snapshot().steam`
   cuenta el vapor de las compuertas (lanzado y visto a la vez) y la partida simulada lo exige.
 
 ## Fallos conocidos
 
+- PR 24a: los rayos son los de RepArena (`src/combat/bolt.ts`) y el golpe llega al alcanzar al enemigo, pero **sin su luz**: en
+  RepArena el rayo encendía una luz que iluminaba lo de alrededor y movía las sombras; en Cómic la escena no se ilumina con luces
+  puntuales (tampoco lo hacía RepArena en Cómic). Sin el estallido que alcanza a los de alrededor con carga ×3 o más (RepArena,
+  `fireOrb`), que llegará con el repaso del Combate.
+- PR 24a: **el tirón al hacer la sentadilla, sin confirmar en las gafas**. La causa más probable (y la que vio RepArena) es que lo
+  nuevo se compila al pintarse por primera vez: ahora, al empezar cada ronda, con la carátula del duelo en negro, se compila todo
+  lo de la escena y una copia de cada enemigo de tierra y de su versión al desvanecerse (`src/style/warm.ts`); el desvanecerse
+  ya no compila nada nuevo (`fadeCopy`). Sin precompilar: los bichos de las trampillas y la sombra de los que tienen esqueleto
+  (RepArena pintaba una sombra diminuta fuera de la vista). Si el tirón sigue, el siguiente paso es portar el registro de
+  tirones de RepArena (`HITCH`, `reparena3-hitch`) para ver qué pasa en ese fotograma.
+- PR 24a: las teclas sólidas son solo de la mano que se ve (la pulsación es la de IWSDK, con el dedo de verdad: pulsa al
+  llegar a 2 cm de la tecla). Sin el imán ni las teclas pegadas de RepArena. Con mandos como manos, la mano que agarra el
+  mando se apoya igual; los guantes son solo para las manos desnudas (con mando, la mano lisa).
+- PR 24a: el menú, al 75 % de su tamaño en las gafas («Tamaño del menú», Opciones → Ajustes); en el ordenador, a su tamaño.
 - PR 22/23: **sin probar contra Spotify de verdad** (hace falta tu Client ID y Premium): el servicio se ha comparado con el código de
   RepArena con un Spotify falso. Hay que añadir en tu panel de desarrollador de Spotify la dirección nueva de la página (la que
   sale en la página, «Redirect URIs»). La música suena en la página (Web Playback SDK) o en otro dispositivo tuyo.
@@ -683,6 +712,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 Los que se han encontrado en la versión que usamos (`@iwsdk/core` 1.1.0-rc.2) y cómo se sortean. Si una versión nueva los
 arregla, se quita el apaño.
 
+- **La mano desnuda es un fantasma** (`AnimatedHand`: transparente por dentro, con un borde blanco); en las gafas se veía a
+  través de ella. No es un fallo, es su diseño; aquí se cambia por una opaca (`src/input/skin-hand.ts`) o por los guantes.
+- **Su mano solo se apoya en las teclas mientras pulsa** (`getTouchSurfaceVisualOffset`): fuera de una tecla, o en el fondo del
+  panel, el dedo lo atravesaba. Se completa con lo mismo de IWSDK (`applyVisualOffsetWorld`) en `src/ui/solid-keys.ts`.
 - **La mano que agarra el mando** (`AnimatedControllerHand`, para «Mandos como manos») no funciona tal cual: recibe los
   datos en otro orden del que le pasa IWSDK (cogía la escena entera y fallaba al crearse), le carga el modelo del mando en
   vez del de la mano, compartiría el modelo con la mano desnuda y, si una imagen tarda más de 0,1 s, los dedos se le

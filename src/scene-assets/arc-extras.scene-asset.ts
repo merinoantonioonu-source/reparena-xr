@@ -4,21 +4,42 @@
  * con dos postes, una cadena de eslabones y una bola de acero con doce pinchos) y el orbe dorado. Sin azar ni reloj: el juego
  * los mueve. Los materiales son de cada uno (la luz cambia con el peligro).
  */
-import { AdditiveBlending, BoxGeometry, CylinderGeometry, DataTexture, DoubleSide, Group, IcosahedronGeometry, LinearFilter, Mesh, MeshBasicMaterial, MeshStandardMaterial, OctahedronGeometry, PlaneGeometry, RedFormat, TorusGeometry, UnsignedByteType } from '@iwsdk/core';
+import { AdditiveBlending, BoxGeometry, CylinderGeometry, DataTexture, DoubleSide, Group, IcosahedronGeometry, LinearFilter, Mesh, MeshBasicMaterial, MeshStandardMaterial, OctahedronGeometry, PlaneGeometry, RepeatWrapping, RGBAFormat, SRGBColorSpace, TorusGeometry, UnsignedByteType } from '@iwsdk/core';
 import type { Material } from '@iwsdk/core';
 
 const steel = new MeshStandardMaterial({ color: 0x6d7280, roughness: 0.45, metalness: 0.6 });
 const dark = new MeshStandardMaterial({ color: 0x2a2d36, roughness: 0.6, metalness: 0.5 });
 const edgeMat = new MeshBasicMaterial({ color: 0x3cf0c6, toneMapped: false });
 
+// el resplandor del láser (RepArena: TX.beam): blanco, brillante en el centro y transparente hacia los extremos, para
+// teñirlo del color del material (rojo anaranjado)
 function beamTex(): DataTexture {
-  const n = 64, d = new Uint8Array(n);
+  const n = 64, d = new Uint8Array(n * 4), stops: [number, number][] = [[0, 0], [0.42, 0.35], [0.5, 1], [0.58, 0.35], [1, 0]];
   for (let i = 0; i < n; i++) {
-    const k = Math.max(0, 1 - Math.abs((i + 0.5) / n - 0.5) * 2);
-    d[i] = Math.round(255 * (0.35 * k + 0.65 * Math.pow(k, 4)));
+    const t = (i + 0.5) / n;
+    let a = 0;
+    for (let k = 0; k < stops.length - 1; k++) if (t >= stops[k][0] && t <= stops[k + 1][0]) a = stops[k][1] + ((stops[k + 1][1] - stops[k][1]) * (t - stops[k][0])) / (stops[k + 1][0] - stops[k][0]);
+    d.set([255, 255, 255, Math.round(255 * a)], i * 4);
   }
-  const t = new DataTexture(d, 1, n, RedFormat, UnsignedByteType);
+  const t = new DataTexture(d, 1, n, RGBAFormat, UnsignedByteType);
   t.magFilter = t.minFilter = LinearFilter;
+  t.needsUpdate = true;
+  return t;
+}
+
+// las franjas de peligro de las paredes (RepArena: WALL_TEX): rojo casi opaco con rayas oscuras en diagonal
+function wallTex(): DataTexture {
+  const n = 128, d = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++) {
+      const dark = (((x - (n - 1 - y)) % 64) + 64) % 64 < 32;
+      d.set(dark ? [25, 4, 10, 217] : [200, 20, 44, 209], (y * n + x) * 4);
+    }
+  const t = new DataTexture(d, n, n, RGBAFormat, UnsignedByteType);
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.repeat.set(1.4 / 0.45, 2.3 / 0.45);
+  t.magFilter = t.minFilter = LinearFilter;
+  t.colorSpace = SRGBColorSpace;
   t.needsUpdate = true;
   return t;
 }
@@ -68,7 +89,7 @@ export function createWalls(): WallsParts {
   const grp = new Group();
   grp.name = 'walls';
   const mk = (s: number): { g: Group; m: MeshBasicMaterial } => {
-    const g = new Group(), m = new MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false, side: DoubleSide });
+    const g = new Group(), m = new MeshBasicMaterial({ map: wallTex(), transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false, side: DoubleSide });
     const pl = noInk(new Mesh(new PlaneGeometry(1.4, 2.3), m));
     pl.position.set(s * 0.7, 1.15, 0);
     const edge = noInk(new Mesh(new BoxGeometry(0.07, 2.3, 0.07), edgeMat));

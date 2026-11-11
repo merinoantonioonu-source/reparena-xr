@@ -15,6 +15,8 @@ import { TouchSystem } from './modes/touch/touch-system.js';
 import { GameSystem } from './combat/game.js';
 import { GateSystem } from './combat/gates.js';
 import { HandSystem } from './input/hand-system.js';
+import { GloveSystem } from './input/glove-system.js';
+import { SolidKeysSystem } from './ui/solid-keys.js';
 import { ComicSystem } from './style/comic-system.js';
 import { SoundSystem } from './audio/sound.js';
 import { ViewSystem } from './ui/view-panels.js';
@@ -47,6 +49,8 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(ScreenSystem, { priority: 6 });
   world.registerSystem(ViewSystem, { priority: 6 });
   world.registerSystem(GoalsSystem, { priority: 6 });
+  world.registerSystem(SolidKeysSystem, { priority: 7 });
+  world.registerSystem(GloveSystem, { priority: 7 }); // (detrás de la partida: el mundo ya está en su sitio)
   world.registerSystem(ComicSystem, { priority: 7 });
   world.registerSystem(SoundSystem, { priority: 8 });
   pageWorld(world);

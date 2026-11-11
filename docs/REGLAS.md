@@ -128,7 +128,7 @@ No las cambies sin preguntarle.
   ejercicios que se hacen con las manos (`handEx`: los de pesa —curl, curl con barra, elevación frontal…— y la plancha
   con un brazo) no se inventa ninguna mano: con los brazos abajo las gafas las pierden a menudo, y la inventada subía sola
   y contaba curls y disparos que no se habían hecho. Fuera de la partida (menús), tampoco.
-- **[Con IWSDK, de serie (PR 3): la mano que se ve es la de IWSDK, sin suavizar]** La mano que se pinta usa la posición suavizada (`J.s`) y también el giro suavizado (`J.sq`, mismo filtro): con el giro
+- **[Con IWSDK, de serie (PR 3): la mano que se ve es la de IWSDK, sin suavizar. PR 24a (pedido del usuario: la de IWSDK es transparente): «Manos que se ven», de serie los guantes robóticos de RepArena (`src/input/glove-system.ts`) o la mano de IWSDK opaca; las dos, con lo que dan las gafas tal cual]** La mano que se pinta usa la posición suavizada (`J.s`) y también el giro suavizado (`J.sq`, mismo filtro): con el giro
   tal cual, la palma y las falanges temblaban. Solo para pintar: el juego sigue con lo que dan las gafas.
 - **[PR 3: la sacudida y el puñetazo, los de RepArena tal cual (comparados con su código: IWSDK no los trae); la lectura, el suavizado y el pellizco, los de IWSDK de serie; el filtro `HF` no se porta (con IWSDK, de serie; ver el PR 6 en `MIGRACION.md`)]** La lectura de las manos (suavizado, filtro `HF` de las dos manos juntas, lanzamiento, puñetazo, pellizco) está como antes
   de la auditoría externa: sus cambios (solo posturas nuevas, pellizco con puño, salto de la mano recuperada) empeoraron
@@ -237,7 +237,7 @@ No las cambies sin preguntarle.
   - se cierra con la palma izquierda hacia abajo o con el puño;
   - los menús nuevos salen solos.
 - **Cada menú sale donde estaba el anterior**: «Traer menú», «Volver», «Menú principal» y el resumen no se alejan.
-- **[Con IWSDK, de serie (pedido del usuario): la física de pulsar los menús es la de IWSDK; las teclas sólidas y el imán no se portan]** Los botones de los menús se pulsan con **las dos manos** (el botón MENÚ de la muñeca izquierda, con la derecha). Las
+- **[Con IWSDK, de serie (pedido del usuario): la física de pulsar los menús es la de IWSDK; el imán no se porta. PR 24a (pedido del usuario al probar en las gafas: «el dedo sigue hundiéndose en el teclado»): las teclas y el panel, sólidos para la mano que se ve, con el mecanismo de IWSDK para moverla (`src/ui/solid-keys.ts`); la pulsación sigue siendo la de IWSDK]** Los botones de los menús se pulsan con **las dos manos** (el botón MENÚ de la muñeca izquierda, con la derecha). Las
   teclas son **sólidas**: al llegar al fondo, la mano que se ve se queda apoyada en ella y no la atraviesa; el panel
   también (el fondo y los huecos entre teclas). Y tienen **imán** (opción B elegida): la iluminada sigue iluminada hasta que
   el dedo sale de ella más de 1 cm, la mano que se ve se acerca a ella y, al tocarla, se queda clavada donde tocó; decide la

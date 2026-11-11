@@ -46,6 +46,8 @@ import type { LockTarget } from './lockline.js';
 import { SND } from '../audio/sound.js';
 import { VOICE_PITCH } from '../audio/catalog.js';
 import { GAME, HOOKS } from '../core/state.js';
+import { comicScan, fadeCopy } from '../style/comic.js';
+import { warmKeep } from '../style/warm.js';
 import type { PunchTarget } from '../input/punch.js';
 import type { FlyerSystem } from './flyers.js';
 import type { HatchSystem } from './hatch-foes.js';
@@ -158,6 +160,7 @@ export class EnemySystem extends createSystem(
   // las animaciones de la biblioteca ya pasadas al esqueleto de cada modelo, y un material por cada color
   private ualClips = new Map<string, Map<string, AnimationClip>>();
   private texMats = new Map<string, MeshStandardMaterial>();
+  private warmed = new Set<string>();
   private hand = new Vector3();
   private slots: SlotFoe[] = [];
   private beatK = -1;
@@ -232,16 +235,13 @@ export class EnemySystem extends createSystem(
     return m;
   }
 
-  /** Saca uno de la tabla (kind: zgreen, raptor, captain…) en (x, z), mirando hacia ti, con hp de vida; boss: su jefe. */
-  spawn(kind: string, x: number, z: number, hp: number, boss = false): FoeTarget | null {
-    const d = FOE_DEF[kind] && boss ? bossDef(kind) : FOE_DEF[kind];
-    const gltf = d && AssetManager.getGLTF(d.asset);
-    if (!d || !gltf) return null;
-    const root = new Group();
-    root.name = `enemigo-${kind}`;
-    const model = gltf.scene;
+  // su modelo, a su tamaño, de pie en la base de la cápsula y mirando hacia donde va, con sus colores
+  private model(d: FoeDef, model: Object3D, tex = -1): Object3D {
     model.scale.setScalar(d.k);
     model.position.y = -d.h / 2; // los pies, en la base de la cápsula
+    // con las animaciones de la biblioteca (diablillo, lanzador y puglin), el modelo mira hacia −Z: media vuelta para que mire
+    // hacia donde va (RepArena: model.rotation.y = π; sin ella, andaban de espaldas)
+    model.rotation.y = d.ual ? Math.PI : 0;
     const palette = d.palette ? AssetManager.getTexture(d.palette) : null;
     if (palette) {
       // (el zombi de 2017: sus colores, de una paleta pequeña, sin suavizar)
@@ -250,7 +250,7 @@ export class EnemySystem extends createSystem(
       palette.magFilter = palette.minFilter = NearestFilter;
       palette.generateMipmaps = false;
     }
-    const tint = d.tex ? this.texMat(d.tex[Math.floor(Math.random() * d.tex.length)]) : null;
+    const tint = d.tex ? this.texMat(d.tex[tex >= 0 ? tex % d.tex.length : Math.floor(Math.random() * d.tex.length)]) : null;
     model.traverse((o) => {
       const m = o as Mesh;
       if (m.isMesh) {
@@ -269,6 +269,42 @@ export class EnemySystem extends createSystem(
         }
       }
     });
+    return model;
+  }
+
+  /** Antes de la ronda (con la carátula del duelo en negro): una copia de cada modelo ya cargado, con el cómic y su versión al
+   * desvanecerse, para precompilar sus sombreadores y subir sus colores (src/style/warm.ts). Una vez por modelo. */
+  warm(): void {
+    for (const kind in FOE_DEF) {
+      const d = FOE_DEF[kind];
+      if (!this.ready(kind)) continue;
+      const n = d.tex ? d.tex.length : 1;
+      for (let t = 0; t < n; t++) {
+        const key = d.asset + '#' + (d.tex ? d.tex[t] : '');
+        if (this.warmed.has(key)) continue;
+        this.warmed.add(key);
+        const gl = AssetManager.getGLTF(d.asset);
+        if (!gl) continue;
+        const a = this.model(d, gl.scene, t);
+        comicScan(a, () => false);
+        warmKeep(a);
+        if (t > 0) continue; // (desvanecido, uno basta: los colores no cambian el sombreador)
+        const b = this.model(d, AssetManager.getGLTF(d.asset)!.scene, t);
+        comicScan(b, () => false);
+        fadeCopy(b);
+        warmKeep(b);
+      }
+    }
+  }
+
+  /** Saca uno de la tabla (kind: zgreen, raptor, captain…) en (x, z), mirando hacia ti, con hp de vida; boss: su jefe. */
+  spawn(kind: string, x: number, z: number, hp: number, boss = false): FoeTarget | null {
+    const d = FOE_DEF[kind] && boss ? bossDef(kind) : FOE_DEF[kind];
+    const gltf = d && AssetManager.getGLTF(d.asset);
+    if (!d || !gltf) return null;
+    const root = new Group();
+    root.name = `enemigo-${kind}`;
+    const model = this.model(d, gltf.scene);
     root.add(model);
     const yaw = Math.atan2(GAME.head.x - x, GAME.head.z - z);
     root.position.set(x, d.h / 2 + 0.02, z);
@@ -555,15 +591,7 @@ export class EnemySystem extends createSystem(
       if (state === FoeState.Dead) {
         // tumbado un rato; luego se desvanece y desaparece
         if (timer > 3.2 && !rt.fade) {
-          rt.fade = [];
-          o.traverse((c) => {
-            const m = c as Mesh;
-            if (!m.isMesh) return;
-            const mat = (m.material as Material).clone();
-            mat.transparent = true;
-            m.material = mat;
-            rt.fade!.push(mat);
-          });
+          rt.fade = fadeCopy(o); // (sin compilar nada nuevo: precompilado antes de la ronda)
         }
         if (rt.fade) {
           const k = Math.max(0, 1 - (timer - 3.2) / 0.8);

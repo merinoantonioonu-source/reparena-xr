@@ -51,9 +51,12 @@ tabla de `README.md` dice qué hace cada archivo.
 - **Manos y mandos**: el juego lee `hands.left/right` y `head` (`src/input/hand-model.ts`): si se ve, la muñeca, las 25
   articulaciones (tal como las dan las gafas), el pellizco, el gatillo, el agarre, el rayo de apuntar y si el mando va
   como una mano (`virt`). Los llena `HandSystem` (`src/input/hand-system.ts`, justo detrás de la entrada de IWSDK) en cada
-  fotograma. La vibración, con `haptic(lado, fuerza, ms)`. Las manos y los mandos que se ven son los de IWSDK.
+  fotograma. La vibración, con `haptic(lado, fuerza, ms)`. Los mandos que se ven son los de IWSDK; las manos desnudas, los guantes de
+  RepArena (`GloveSystem`) o la mano de IWSDK opaca (`SkinHand`), según «Manos que se ven»; la que agarra el mando, la de IWSDK
+  opaca. La mano que se ve se apoya en los paneles (`HOLD`, `src/ui/solid-keys.ts`): lo que pinte manos nuevas, que lo sume.
 - **Datos**: RepArena guarda todo en el navegador con claves `reparena3-*`, y las dos versiones comparten esos datos (se
-  publican en el mismo sitio): usa las mismas claves con el mismo formato; lo nuevo, con `reparenaxr-*`.
+  publican en el mismo sitio): usa las mismas claves con el mismo formato; lo nuevo, con `reparenaxr-*` (un ajuste que solo tiene RepArena XR lleva `xr: true` en
+  el esquema y se guarda en `reparenaxr-settings`).
 - **Ajustes**: se leen con `num`, `str` u `on` (`src/core/values.ts`), con `dv` si les afecta la dificultad creciente, y
   se cambian solo con `setSetting` (`src/core/settings.ts`). `initSettings()` se llama una vez al arrancar. Lo portado de
   RepArena se compara con su código original (`tests/compare`, ver `MIGRACION.md` › Cómo probar).
@@ -104,6 +107,9 @@ tabla de `README.md` dice qué hace cada archivo.
   vive en `#stage`, escondida tras la página; «Probar en el ordenador» y VR la enseñan. En el móvil (`html.app`, que pone
   el `<head>`), la página es una app (`src/page/app.ts`). Lo que llega con PR posteriores (Spotify, sesiones, sincronización,
   pulsómetro, tabla del desarrollador) añade su apartado con su `id`.
+- **Tirones**: lo que se pinta por primera vez compila su sombreador y la imagen se para un instante en las gafas. Antes de cada
+  ronda se compila lo que hay en la escena y lo de `warmKeep` (`src/style/warm.ts`); no crees materiales en plena partida (para
+  copiar uno, `fadeCopy` o `comicPatch`).
 - La letra que trae IWSDK (Inter) no tiene tildes: los paneles usan las de `public/fonts` (ver su `LEEME.md`), que se
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee.

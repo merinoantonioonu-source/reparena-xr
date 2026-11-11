@@ -79,6 +79,9 @@ type Row = FieldDef | 'quality' | null;
 
 const opt = (on: boolean, col = '#3cf0c6') => ({ bg: on ? col : KEY.bg, fg: on ? KEY.dark : KEY.fg });
 
+/** El tamaño de los menús en las gafas («Tamaño del menú», de 0,5 a 1,2; 0,75 de serie). */
+export const menuK = (): number => Math.max(0.5, Math.min(1.2, (num('menuSize') || 75) / 100));
+
 export class MenuSystem extends createSystem({}, {}) {
   private lobby: UIKitMLAsset | null = null;
   private opts: UIKitMLAsset | null = null;
@@ -251,6 +254,7 @@ export class MenuSystem extends createSystem({}, {}) {
       H?.position.copy(this.home.hint);
       for (const o of [L, O, H]) o?.rotation.set(0, 0, 0);
       for (const o of [Sm, Pz]) o?.position.set(this.home.lobby.x, this.home.lobby.y, this.home.lobby.z + 0.05);
+      for (const o of [L, O, H, Sm, Pz, this.eHoy?.object3D]) o?.scale.setScalar(1);
       return;
     }
     const f = this.v.set(0, 0, -1).applyQuaternion(head.q).setY(0);
@@ -265,6 +269,10 @@ export class MenuSystem extends createSystem({}, {}) {
       o.position.set(head.p.x + f.x * d, top, head.p.z + f.z * d);
       o.quaternion.setFromEuler(this.e);
     }
+    // a su tamaño («Tamaño del menú»: más pequeños que en el ordenador, al alcance de la mano; la columna HOY y la
+    // explicación, al mismo)
+    const k = menuK();
+    for (const o of [L, O, H, Sm, Pz, this.eHoy?.object3D]) o?.scale.setScalar(k);
   }
 
   // ---------------------------------------------------------------- textos y colores (solo si cambian)
@@ -732,7 +740,8 @@ export class MenuSystem extends createSystem({}, {}) {
     this.text(this.hint, 'h-title', v.label);
     this.text(this.hint, 'h-text', v.hint);
     H.quaternion.copy(M.quaternion);
-    H.position.copy(M.position).add(this.v.set(0.66, -0.2, 0.02).applyQuaternion(M.quaternion)); // (a la derecha, cerca de arriba)
+    H.position.copy(M.position).add(this.v.set(0.66, -0.2, 0.02).multiplyScalar(M.scale.x).applyQuaternion(M.quaternion)); // (a la derecha, cerca de arriba)
+    H.scale.copy(M.scale);
     if (this.hint) this.hint.visible = true;
     H.visible = true;
   }
@@ -875,6 +884,7 @@ export class MenuSystem extends createSystem({}, {}) {
       L.updateMatrixWorld();
       H.position.copy(L.localToWorld(this.v.set(-0.66, 0, 0)));
       L.getWorldQuaternion(H.quaternion);
+      H.scale.copy(L.scale);
     }
     // en el menú, Enter (en el ordenador) empieza; en plena partida no hay menú
     if (GAME.phase === 'playing' && !GAME.paused && this.view !== 'none' && this.view !== 'pause') this.show('none');

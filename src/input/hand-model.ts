@@ -17,6 +17,8 @@ export interface Joint {
   p: Vector3;
   q: Quaternion;
   ok: boolean;
+  /** Su grosor (el radio que dan las gafas; para pintar los guantes). */
+  r: number;
 }
 
 export interface Hand {
@@ -51,7 +53,7 @@ export interface Hand {
   lostT: number;
 }
 
-const mkJoint = (): Joint => ({ p: new Vector3(), q: new Quaternion(), ok: false });
+const mkJoint = (): Joint => ({ p: new Vector3(), q: new Quaternion(), ok: false, r: 0.009 });
 
 export function mkHand(): Hand {
   return {

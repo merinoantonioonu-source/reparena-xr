@@ -29,6 +29,7 @@ export function career(): Career {
       cheer: (t, c, s) => HOOKS.say(t, c, s, false),
     });
     LOOK.bolt = C.lookHex('bolt');
+    LOOK.hands = C.lookHex('hands');
   }
   return C;
 }
@@ -44,4 +45,5 @@ export function setLook(k: LookKey, v: string): void {
   const c = career();
   c.lookSet(k, v);
   LOOK.bolt = c.lookHex('bolt');
+  LOOK.hands = c.lookHex('hands');
 }
