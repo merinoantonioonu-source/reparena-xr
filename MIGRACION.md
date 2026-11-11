@@ -145,6 +145,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 23 · Sincronización, pulsómetro y modo desarrollador** — #29 (juntos con el 22: comparten la pantalla de menú y la página)
 - [x] **PR 24a · Los fallos de la prueba en las gafas** (calibración con tu mirada, enemigos de espaldas, la pasarela de los Arcos, los tirones, teclado sólido y menú más pequeño, manos opacas, y los rayos de RepArena) — #30
 - [x] **PR 24 · Cambio de casa** (la dirección de siempre de RepArena trae aquí; la anterior, en `clasica.html`; pruebas de todos los ejercicios; medidor de fotogramas y registro de tirones) — #31 (y en RepArena, el PR del cambio)
+- [x] **PR 25 · Pulsar los menús como en RepArena, guantes también con mandos, la caricatura y la explicación** — #32
 
 ## Los PR
 
@@ -545,6 +546,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 25: pulsar los menús con el dedo es la pulsación de RepArena sobre el punto de toque de IWSDK (pulsa al tocar, sólida,
+  pegada y hay que retirar el dedo); **sin el imán** de RepArena (la tecla que se ilumina no atrae al dedo). Con mandos, el punto
+  de toque es la punta del mando (lo de IWSDK), no la del dedo del guante. Probado en el emulador; falta en las gafas.
 - PR 24: **el rendimiento no se ha medido en las gafas** (el emulador va sin tarjeta gráfica). Con el medidor encendido se ve
   si se pierden fotogramas; si se pierden, lo primero que pesa es el bosque (unos 340 000 triángulos con sus contornos de
   tinta). Tras jugar, la página dice cuántos tirones hubo y de qué.
@@ -726,6 +730,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 Los que se han encontrado en la versión que usamos (`@iwsdk/core` 1.1.0-rc.2) y cómo se sortean. Si una versión nueva los
 arregla, se quita el apaño.
 
+- **Pulsar con el dedo** (`PokeInteractable` y su punto de toque): pulsa al acercarse a 2 cm y solo cuenta si se suelta en
+  menos de 0,8 s sobre la misma tecla (las pulsaciones lentas o con el dedo resbalando se perdían). Apaño: su pulsación con el
+  dedo se apaga (`clickThresholdMs`) y la hace `src/ui/solid-keys.ts`, con la tecla que IWSDK tiene bajo el punto de toque.
 - **La mano desnuda es un fantasma** (`AnimatedHand`: transparente por dentro, con un borde blanco); en las gafas se veía a
   través de ella. No es un fallo, es su diseño; aquí se cambia por una opaca (`src/input/skin-hand.ts`) o por los guantes.
 - **Su mano solo se apoya en las teclas mientras pulsa** (`getTouchSurfaceVisualOffset`): fuera de una tecla, o en el fondo del

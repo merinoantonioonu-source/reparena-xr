@@ -222,7 +222,7 @@ export class MenuSystem extends createSystem({}, {}) {
     this.setOn(this.opts, this.eOpts, v === 'options');
     this.setOn(this.sum, this.eSum, v === 'summary');
     this.setOn(this.pausep, this.ePause, v === 'pause');
-    if (v === 'none') this.hideHint();
+    if (v === 'none' || this.hintT <= 0) this.hideHint(); // (la explicación, solo mientras se pide: si no, se quedaba a la vista en su sitio)
     this.place();
     this.refresh();
   }

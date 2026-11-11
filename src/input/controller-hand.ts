@@ -8,7 +8,8 @@
  * mando con mano). Si una versión nueva de IWSDK lo arregla, se quita este archivo y se usa AnimatedControllerHand tal cual.
  */
 import { AnimatedControllerHand, AssetManager } from '@iwsdk/core';
-import type { Group, PerspectiveCamera, Scene } from '@iwsdk/core';
+import type { Group, Object3D, PerspectiveCamera, Scene, SkinnedMesh } from '@iwsdk/core';
+import { str } from '../core/values.js';
 import { handModelUrl } from './input-models.js';
 import { opaqueHand } from './skin-hand.js';
 
@@ -31,14 +32,21 @@ export async function loadControllerHands(): Promise<boolean> {
 
 class ControllerHand extends AnimatedControllerHand {
   // (opaca, como la mano lisa: la de IWSDK es un fantasma transparente)
+  private skin: Object3D[] = [];
   init(): void {
     super.init();
     opaqueHand(this.model);
+    this.model.traverse((o) => {
+      if ((o as SkinnedMesh).isSkinnedMesh) this.skin.push(o);
+    });
   }
 
   // (los dedos van hacia su postura con lerp(…, delta × 20): con delta de más de 0,1 s se pasaba y se disparaba)
   update(delta: number): void {
     super.update(Math.min(delta, 0.05));
+    // con los guantes, su piel no se ve: los guantes se ponen en sus huesos (src/input/glove-system.ts)
+    const v = str('handLook') === 'skin';
+    for (const o of this.skin) if (o.visible !== v) o.visible = v;
   }
 }
 export class ControllerHandLeft extends ControllerHand {
