@@ -211,8 +211,16 @@ export function syncForm(): void {
     note.hidden = !['arcs', 'bars', 'touch'].includes(settings.mode);
     note.textContent = ({ arcs: 'El modo Arcos es solo para sentadillas.', bars: 'El modo Barras usa la barra de dominadas o las paralelas. Remo, dominadas y colgado solo se juegan en él.', touch: 'En Toques no disparas: tocas con la cabeza las amebas y con la mano que piden los diamantes que vienen hacia ti; entre un toque y otro, vuelve a la postura de partida.' } as Record<string, string>)[settings.mode] || '';
   }
+  // (cada campo y sus casillas, buscados una vez: uno a uno, con más de 200 ajustes, se notaba)
+  const wraps = new Map<string, HTMLElement>(), inputs = new Map<string, HTMLInputElement[]>();
+  for (const w of $$('[data-field]')) if (!wraps.has(w.dataset.field as string)) wraps.set(w.dataset.field as string, w);
+  for (const el of $$<HTMLInputElement>('input[data-key]')) {
+    const list = inputs.get(el.name) ?? [];
+    list.push(el);
+    inputs.set(el.name, list);
+  }
   for (const f of SCHEMA) {
-    const wrap = document.querySelector<HTMLElement>(`[data-field="${f.key}"]`);
+    const wrap = wraps.get(f.key);
     if (wrap) wrap.hidden = !fieldShown(f);
     if (f.type === 'num') {
       const a = $<HTMLInputElement>(`#f-${f.key}`), b = $<HTMLInputElement>(`#f-${f.key}-r`);
@@ -222,9 +230,9 @@ export function syncForm(): void {
       if (z) z.textContent = zeroTxt(f);
     } else if (f.type === 'multi') {
       const on = String(settings[f.key]).split(',');
-      $$<HTMLInputElement>(`input[name="f-${f.key}"]`).forEach((el) => (el.checked = on.includes(el.value)));
+      (inputs.get(`f-${f.key}`) ?? []).forEach((el) => (el.checked = on.includes(el.value)));
     } else {
-      $$<HTMLInputElement>(`input[name="f-${f.key}"]`).forEach((el) => (el.checked = String(el.value) === String(settings[f.key])));
+      (inputs.get(`f-${f.key}`) ?? []).forEach((el) => (el.checked = String(el.value) === String(settings[f.key])));
     }
   }
   for (const g of $$('.group')) g.hidden = !SCHEMA.some((f) => f.g === g.dataset.group && fieldShown(f));

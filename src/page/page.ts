@@ -11,10 +11,11 @@ import { loadCanvasFonts } from '../ui/canvas-kit.js';
 import { onSettingsChange } from '../core/settings.js';
 import { HOOKS } from '../core/state.js';
 import { $ } from './dom.js';
+import { appEnter, appMount, appSoon } from './app.js';
 import { buildForm, formHooks, syncForm } from './form.js';
-import { pageNav } from './nav.js';
+import { navHooks, pageNav } from './nav.js';
 import { demoPage, renderPick, updateSummary } from './pick.js';
-import { refreshProgress } from './today.js';
+import { refreshProgress, renderToday } from './today.js';
 
 const root = document.documentElement;
 
@@ -42,7 +43,10 @@ export function startPage(): void {
   buildForm();
   syncForm();
   pageNav();
+  navHooks.appEnter = appEnter;
   refreshProgress();
+  appSoon(); // (y lo de hoy en el inicio de la app del móvil)
+  appMount(); // (en el móvil, la página es una app: PR 14b)
   demoPage();
   $('#btnPreview')?.addEventListener('click', enterPreview);
   $('#btnExitPreview')?.addEventListener('click', exitPreview);
@@ -51,9 +55,15 @@ export function startPage(): void {
   });
   // al volver a la página (de otra pestaña o de las gafas), lo de hoy al día
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) refreshProgress();
+    if (!document.hidden) {
+      refreshProgress();
+      appSoon();
+    }
   });
-  onSettingsChange(() => updateSummary());
+  onSettingsChange((k) => {
+    updateSummary();
+    if (k === 'goalMin') renderToday(); // (tu meta cambia lo de hoy)
+  });
 }
 
 /** Con el mundo ya creado: el botón de entrar en VR. */

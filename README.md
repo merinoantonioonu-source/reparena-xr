@@ -188,6 +188,9 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/exercise/how.ts` | Cómo se hace cada ejercicio de pie (lo que dice el menú principal y el recordatorio del marcador) |
 | `src/core/run.ts` | Al acabar la ronda: lo que se guarda en el historial (el formato de RepArena), las calorías y el resumen |
 | `src/core/career.ts`, `src/core/days.ts`, `src/core/today.ts` | Tu carrera (de RepArena, con su guardado `reparena3-career`): experiencia, nivel y título, colores que se desbloquean, las tres misiones del día con su cofre y escudos de racha, récords en plena ronda; los días, la racha y lo de hoy. Sin IWSDK |
+| `index.html`, `src/page/page.css` | La página web (la de RepArena): botones de entrar, índice, modo y ejercicio, lo de hoy, progreso e historial y los ajustes; en el móvil, la app (modelo C). El logotipo y el manifiesto para instalarla, en `public/icons` y `public/manifest.webmanifest` |
+| `src/page/page.ts`, `src/page/pick.ts` | Arranque de la página (entrar en VR, «Probar en el ordenador», que se ponga al día al volver) y lo elegido con su explicación, lo que suma la ronda y la caricatura |
+| `src/page/form.ts`, `src/page/nav.ts`, `src/page/today.ts`, `src/page/today-html.ts`, `src/page/app.ts` | El formulario de ajustes (sale del esquema), el índice de la página, «Hoy» con el progreso y el historial, y la app del móvil |
 | `src/core/campaign.ts` | Jugar un nivel de la campaña: los ajustes del nivel (rango y oleadas) por encima de los tuyos, y devolverlos al acabar |
 | `src/ui/goals-intro.ts` | La carátula «METAS DE HOY» al entrar en las gafas (8 s, con todo lo demás oscurecido) |
 | `src/combat/career-hub.ts` | Tu carrera en el juego: dónde se guarda, tu meta y tu peso, qué modos y ejercicios se pueden jugar ya y los trofeos |

@@ -132,7 +132,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 12b · Carátula del duelo, caricatura y avisos de la vista** — #21
 - [x] **PR 13a · Carrera: nivel, misiones del día, cofre y escudos, metas de hoy y Progreso** — #22
 - [x] **PR 13b · La campaña y la carátula «METAS DE HOY»** — #23
-- [ ] **PR 14 · Página web y app del móvil**
+- [x] **PR 14 · Página web y app del móvil** — #24
 - [ ] **PR 15 · Arcos**
 - [ ] **PR 16 · Toques**
 - [ ] **PR 17 · Barras**
@@ -342,6 +342,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - La página con su índice y el formulario de ajustes, «Probar en el ordenador», la app del móvil (modelo C) y el
   logotipo para instalarla.
 - De RepArena: `src/page.html`, `src/63_app.js`, `src/68_prefs.js`, `icons/`, `manifest.webmanifest`.
+- **Hecho**: la página de RepArena (`index.html` y `src/page/page.css`, sacados de su `page.html`): arriba, los botones de
+  entrar (VR; «Probar en el ordenador»; la realidad mixta, en gris hasta el PR 21), el índice (`nav.ts`), el modo y el
+  ejercicio en fichas con su explicación (`pick.ts`: lo elegido, lo que suma la ronda y la caricatura), lo de hoy con tu
+  nivel y misiones, el progreso y el historial (`today.ts`), las opciones comunes, el sonido, las del modo y el ejercicio
+  (`form.ts`: salen del esquema; cada cambio, por `setSetting`, se guarda donde RepArena) y «Dentro del juego». La app del
+  móvil (`app.ts`, modelo C) y el logotipo con el manifiesto para instalarla (`public/icons`). Comparado con RepArena
+  (`tests/compare/today-page`, `form`: el mismo HTML) y probado en un navegador (la partida simulada comprueba la página,
+  el formulario, la prueba en el ordenador y la app del móvil).
 
 ### Fase 3 · Los demás modos
 
@@ -372,11 +380,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
-- PR 13b → PR 14: la carrera y la campaña se guardan en `reparena3-career` (la página y la app del móvil la leerán: nivel,
-  misiones de hoy, escudos; en RepArena, `careerHTML` en `src/73_career.js` y el panel «Hoy» de `src/00_core.js`:
-  `renderToday`, `progress`, `dayStats`, que ya están en `src/core/days.ts`). El entorno de cada región de la campaña
-  (arena, bosque, isla) se apunta en `CAMP.env` y se pondrá con el PR 20.
-
+- PR 14 → PR 15 y siguientes: la página tiene sus apartados en `index.html` (los de RepArena que aún no están —Spotify
+  y la música, las sesiones, la sincronización «Pasar a otro dispositivo», el pulsómetro y la tabla del desarrollador— se
+  añaden con su PR: su `<section class="…" id="…" data-toc="…">` en `.main`, tomada de `src/page.html` de RepArena, y su
+  parte en `src/page/`; la app del móvil ya los coloca en su grupo, ver `APP_SECS` en `src/page/app.ts`). Cada modo nuevo:
+  su ficha ya está en la página (en `#secMode`), solo hay que encenderlo en el menú de VR (`SOON_MODE`) y quitar lo de gris.
+  Los ajustes del formulario salen de `SCHEMA`: uno nuevo sale solo. La escena (IWSDK) está en `#stage`.
 - PR 12b → PR 13: los avisos de la vista ya están (`ViewSystem`, `src/ui/view-panels.ts`): lo que pide hacer algo ya, con
   `message(texto, s, color, true)` o `HOOKS.say(…, true)` (el breve); las celebraciones, sin `true` (al marcador). Los
   logros grandes (`GameSystem.trophy`) salen derechos con `VIEW_FRAME`. La carátula «METAS DE HOY» de RepArena al entrar en
@@ -484,6 +493,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   Misiones y Semana pulsados con el rayo, y una ronda ganada con las tres misiones (salen «¡TRES DE TRES!» y «¡COFRE DEL
   DÍA!» y el resumen trae el cofre con el color desbloqueado). En las gafas, por mirar: que las letras de la franja y de la
   columna se lean (son pequeñas) y que la columna no estorbe al caricatura (que sale al otro lado).
+- PR 14: probado en un navegador de ordenador (1280 × 900: la página, el índice, el formulario —cambiar un número lo guarda en
+  los ajustes de RepArena—, «Probar en el ordenador») y estrecho (390 × 800: la app del móvil con su inicio). En las gafas y
+  en un móvil de verdad, por mirar: que «Entrar en VR» funcione desde la página (con la IWSDK ya no sale su botón
+  «Enter XR»: `offer: none`), que la página se ponga al día al salir de las gafas y que la app se instale con el logotipo.
+- PR 14: la realidad mixta (el botón sale en gris) llega con el PR 21; Spotify, sesiones, sincronización, pulsómetro y la tabla del
+  desarrollador, con los suyos. El título de «Sonido» no lleva «y música» hasta el PR 22.
 - PR 13b: probado en la VR simulada: Progreso → Campaña (el mapa, el nivel elegido), jugar el nivel 1, ganarlo (tres estrellas, «¡Nivel 5!», el resumen con «Nivel 2», «Repetir» y «Mapa»), volver al mapa y jugar el nivel 2; y la carátula «METAS DE HOY» al entrar. En las gafas, por mirar: que el mapa y los botones se pulsen cómodos. El entorno de la región (bosque, isla) llega con el PR 20: por ahora, todas en la arena.
 - PR 13a: el resumen aún no propone subir o bajar de rango (RepArena: `rankFitAdd`); el colgado (`hang`) y los modos con
   metros (Arcos, Travesía) llegan con sus PR.
