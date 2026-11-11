@@ -196,6 +196,13 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/audio/catalog.ts` | Los sonidos por nombre: el archivo de cada uno (el tuyo o el de serie) y a qué distancia se oye |
 | `sounds/` | Tus sonidos (la lista, en su `LEEME.md`) y los de serie (`de-serie/`, grabados con `tests/sonidos.mjs`) |
 | `src/ui/board-ring.ts` | El rosco doble del marcador (la oleada, tu récord y la racha), pintado en un lienzo |
+| `src/ui/view.ts` | Dónde salen los avisos de la vista: siguen la mirada sin ladearse; tumbado, en el suelo bajo la cara; no tapan lo que viene |
+| `src/ui/view-panels.ts` | Los avisos de la vista (el del centro y el breve), la caricatura del ejercicio y la carátula del duelo |
+| `src/ui/demo-art.ts` | La caricatura del ejercicio (el monigote que lo hace, el rayo y el texto), pintada en un lienzo |
+| `src/ui/duel-art.ts` | La ilustración de la carátula del duelo (tú contra el jefe, el VS y las placas), pintada en un lienzo |
+| `src/ui/canvas-kit.ts`, `src/ui/canvas-panel.ts` | Lo común de lo que se pinta en un lienzo: las letras, el tamaño que cabe y el cartel |
+| `src/combat/duel.ts` | Quién es el jefe de la ronda y tu récord, para la carátula del duelo |
+| `src/input/thumbs.ts` | El pulgar arriba y los botones del mando recién pulsados (saltar la carátula) |
 | `src/ui/fonts.ts` | Pone las letras de RepArena (con tildes) en los paneles |
 | `src/ui/menu.ts` | Los menús en VR: el principal, Opciones y la explicación de cada ajuste; dónde salen y la nitidez |
 | `src/ui/fields.ts` | Lo que enseñan los menús de cada ajuste y lo que hace tocarlo, las pestañas y la ficha de la ronda, sin IWSDK |

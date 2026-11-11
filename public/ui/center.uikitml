@@ -1,0 +1,112 @@
+<!--
+  El aviso del centro de la vista, como en RepArena (src/60_ui.js: drawCenter): lo que pide colocarse o prepararse ya
+  (la calibración en los de suelo y sentado, con su barra de quieto; «¡PREPÁRATE!» con la cuenta atrás). 0,75 m de ancho
+  (medidas en centímetros, el lienzo de RepArena a 1,5 veces). Sigue adónde miras sin ladearse nunca; tumbado, en el suelo
+  bajo la cara (src/ui/view.ts). Lo llena el juego.
+-->
+<style>
+  .root {
+    width: 75;
+    min-height: 30;
+    flex-direction: column;
+    padding-top: 2.4;
+    padding-bottom: 2.4;
+    padding-left: 4.4;
+    padding-right: 4.4;
+    gap: 1.2;
+    background-color: #0e0a1c;
+    border-radius: 4.4;
+    border-width: 0.6;
+    border-color: #3cf0c6;
+  }
+  .head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .title {
+    font-size: 5.2;
+    color: #3cf0c6;
+  }
+  .note {
+    font-size: 3.2;
+    color: #3cf0c6;
+  }
+  .count {
+    font-size: 11;
+    color: #ffffff;
+  }
+  .body {
+    flex-direction: row;
+    justify-content: space-between;
+    flex-grow: 1;
+  }
+  .lines {
+    flex-direction: column;
+    gap: 0.8;
+    flex-shrink: 1;
+  }
+  .col {
+    flex-direction: column;
+    gap: 1.6;
+    flex-grow: 1;
+  }
+  .line {
+    font-size: 3.5;
+    color: #eeeaff;
+  }
+  .status {
+    font-size: 3.1;
+    color: #ff8a3d;
+  }
+  .track {
+    width: 66;
+    height: 2.2;
+    border-radius: 1.1;
+    background-color: #2f2853;
+  }
+  .fill {
+    width: 2.2;
+    height: 2.2;
+    border-radius: 1.1;
+    background-color: #3cf0c6;
+  }
+  .big {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    gap: 1;
+  }
+  .bigTitle {
+    font-size: 5.8;
+    color: #ffd166;
+  }
+  .bigCount {
+    font-size: 13;
+    color: #ffffff;
+  }
+</style>
+<div id="box" class="root">
+  <div id="calib" class="col">
+    <div class="head">
+      <span id="title" class="title display">CALIBRACIÓN</span>
+      <span id="note" class="note">manos detectadas</span>
+    </div>
+    <div class="body">
+      <div class="lines">
+        <span id="l1" class="line">De pie, mirando al frente, con sitio</span>
+        <span id="l2" class="line">delante para la plancha. Quieto 2 s.</span>
+        <span id="st" class="status">No veo tus manos: míralas</span>
+      </div>
+      <span id="count" class="count display">3</span>
+    </div>
+    <div class="track">
+      <div id="fill" class="fill"></div>
+    </div>
+  </div>
+  <div id="ready" class="big">
+    <span id="bigTitle" class="bigTitle display">¡PREPÁRATE!</span>
+    <span id="bigCount" class="bigCount display">3</span>
+  </div>
+</div>

@@ -35,7 +35,7 @@ import { applyFonts } from '../ui/fonts.js';
 import { boltColor, Effects, POW_COL } from './fx.js';
 import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
-import { IDLE, PLACE } from '../exercise/how.js';
+import { CALIB_LINES, IDLE, PLACE } from '../exercise/how.js';
 import { FLOOR_EX, FloorDetector, floorDefaults, iwReach, type FloorCfg, type FloorInput } from '../exercise/floor.js';
 import { aimForced, deepOn, flyList, foes, groundList, handsFree, isTiny, oneArm, twoShots } from '../core/rules.js';
 import { HatchSystem, hatchFoes } from './hatch-foes.js';
@@ -44,6 +44,7 @@ import { Rewards } from './rewards.js';
 import { RUSH_SECS } from './perks.js';
 import { BoardRing } from '../ui/board-ring.js';
 import { PAUSE_INFO } from '../ui/menu.js';
+import { lyingEx, VIEW_FRAME } from '../ui/view-panels.js';
 import { HIST_KEY, runRecord, summaryOf, type RunStats } from '../core/run.js';
 import { PERKS } from './perks.js';
 import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, REP_TIME, repPoints, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
@@ -54,7 +55,7 @@ import { dv, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, wav
 import { EX_NAMES, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
-import { GAME, HOOKS } from '../core/state.js';
+import { GAME, HOOKS, VIEW, type CenterInfo } from '../core/state.js';
 import { hands, head, headFwd, SIDES, type Side } from '../input/hand-model.js';
 import { haptic } from '../input/hand-system.js';
 import { HTH, throwCharge, throwReset, throwStep, type Charge, type ThrowEnv } from '../input/throw.js';
@@ -199,7 +200,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       targets: this.enemies.targets,
       fire: (side, o, d, tg, c) => this.fireFromHand(side, o, d, tg as FoeTarget, c),
       haptic,
-      say: (text, _color, secs) => this.message(text, secs),
+      say: (text, color, secs) => this.message(text, secs, color, true),
       lockShow: (e) => this.locks.show(e as FoeTarget),
     };
     this.stIn = { hands, head, fwd: new Vector3(0, 0, -1), play: false }; // (delante, en la arena: hacia las compuertas)
@@ -271,14 +272,14 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       if (FLOOR_EX.includes(settings.exercise)) {
         this.calibT = 0;
         GAME.between = true;
-        this.message(PLACE[settings.exercise] ?? 'Colócate', 3600);
+        this.message(PLACE[settings.exercise] ?? 'Colócate', 4);
       } else {
         this.st.reset(head.p.y);
         this.message('¡Listo!', 1.5);
       }
     };
-    HOOKS.say = (text, color, secs) => {
-      this.message(text, secs);
+    HOOKS.say = (text, color, secs, toast = false) => {
+      this.message(text, secs, color, toast);
       if (color === WARN_COL) this.floorWarn(text, color); // (lo que se hace mal, también en grande en el suelo)
     };
     HOOKS.sparks = (p, n, c) => this.fx.sparks.burst(p, n, c, 2.4, 0.04);
@@ -309,7 +310,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       foes.push({ kind: (ud.rt ?? ud.fly)?.kind ?? (ud.hatch ? 'h' + ud.hatch.beast : undefined), fly: !!ud.fly, hatch: !!ud.hatch, boss: !!(ud.rt?.def.boss || ud.fly?.flight.K.boss || ud.hatch?.foe.boss), state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
-    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
+    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, duel: VIEW.duel, center: VIEW.center?.kind ?? '', resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
@@ -323,7 +324,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   }
 
   // Lo que pasa ahora, en el hueco del marcador (RepArena: cheer; las celebraciones van solo al marcador)
-  private message(text: string, secs = 2.5, color = '#3cf0c6'): void {
+  // Lo que pide hacer algo ya (toast) sale delante, en la vista; las celebraciones, solo en el marcador (con «Avisos breves
+  // en la vista» apagado, todo al marcador)
+  private message(text: string, secs = 2.5, color = '#3cf0c6', toast = false): void {
+    if (toast && on('toasts') && GAME.phase === 'playing') {
+      HOOKS.toast(text, color, secs);
+      return;
+    }
     this.msgText = text;
     this.msgCol = color;
     this.msgT = secs;
@@ -525,9 +532,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       p.getElementById('sub')?.setProperties({ text: q.sub, display: q.sub ? 'flex' : 'none' });
       for (const s of ['s1', 's2', 'box']) p.getElementById(s)?.setProperties(s === 'box' ? { borderColor: q.color } : { backgroundColor: q.color });
       this.trophyT = TROPHY_SECS;
-      const f = GAME.fwd;
-      o.position.set(head.p.x + f.x * 1.6, head.p.y + 0.42, head.p.z + f.z * 1.6); // (arriba: no tapa lo que llega)
-      o.rotation.set(0, Math.atan2(-f.x, -f.z), 0);
+      // arriba (no tapa lo que llega), quieto y derecho como los demás avisos de la vista; tumbado, sobre el suelo bajo la cara
+      VIEW_FRAME.hudLocal(this.tmpA.set(0, 0.42, -1.6), o.position, head, lyingEx());
+      o.quaternion.copy(VIEW_FRAME.hudQ(head, lyingEx()));
       o.visible = true;
       SND.combo();
       haptic('left', 0.7, 160);
@@ -583,12 +590,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (FLOOR_EX.includes(settings.exercise)) {
       this.calibT = 0;
       this.restT = 0;
-      this.message(PLACE[settings.exercise] ?? 'Colócate', 3600);
+      this.message(PLACE[settings.exercise] ?? 'Colócate', 4);
     } else {
       this.calibT = -1;
       this.restT = 3;
       this.message(nWaves() ? `PREPÁRATE · ${nWaves()} OLEADAS` : 'PREPÁRATE · AL FALLO', 3);
     }
+    HOOKS.duel(); // (la carátula del duelo: mientras se ve, la ronda espera)
   }
 
   // Empieza la oleada i (desde 0): quién sale (RepArena: buildWave), cada cuánto, cuántos a la vez y lo que pide el
@@ -634,12 +642,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const t3 = nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
     this.setText(p, 't3', t3);
     p.getElementById('t3')?.setProperties({ color: nw ? '#ff8a3d' : '#3cf0c6', display: t3 ? 'flex' : 'none' });
-    // delante de ti, a la altura de los ojos y de cara (derecho: nunca se ladea con la cabeza)
-    const f = GAME.fwd;
-    o.position.set(head.p.x + f.x * 1.6, head.p.y + 0.02, head.p.z + f.z * 1.6);
-    o.rotation.set(0, Math.atan2(-f.x, -f.z), 0);
-    this.veil.position.set(head.p.x + f.x * 1.75, head.p.y, head.p.z + f.z * 1.75);
-    this.veil.rotation.set(0, Math.atan2(-f.x, -f.z), 0);
+    // delante de ti y de cara, derecho (nunca se ladea con la cabeza); tumbado, en el suelo bajo la cara
+    const V = VIEW_FRAME, ly = lyingEx();
+    V.hudLocal(this.tmpA.set(0, 0.02, -1.6), o.position, head, ly);
+    o.quaternion.copy(V.hudQ(head, ly));
+    V.hudLocal(this.tmpA.set(0, 0, -1.75), this.veil.position, head, ly);
+    this.veil.quaternion.copy(o.quaternion);
     this.introT = 0;
   }
 
@@ -678,7 +686,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.resting = true;
     this.rw.waveCleared();
     SND.victory();
-    this.message(r.note ? `¡Oleada superada! ${r.note}` : '¡Oleada superada!', 2.5);
+    this.message(r.note ? `¡Oleada superada! ${r.note}` : '¡Oleada superada!', 2.5, '#3cf0c6', true);
     if (this.restT <= 0 && !this.rw.waits()) this.endRest();
   }
 
@@ -692,6 +700,26 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // lo que piden los de suelo y sentado en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
   private readFloorCfg(lvl: number): FloorCfg {
     return { ex: settings.exercise, dipDepth: dv('dipDepth', lvl), pushDepth: dv('pushDepth', lvl), splDrop: num('splDrop'), splHold: num('splHold'), supRange: num('supRange'), supHold: num('supHold'), supArms: str('supArms') || 'yes', iwReach: num('iwReach'), perfectTime: num('perfectTime'), powHold: num('powHold'), powHoldInc: num('powHoldInc'), deepDrop: 0, power: true };
+  }
+
+  // El aviso del centro de la vista (RepArena: drawCenter): colocarse (la calibración, con su barra de quieto) o
+  // prepararse (la cuenta atrás antes de la primera oleada); si no, no se ve
+  private readonly cCalib: CenterInfo = { kind: 'calib', title: 'CALIBRACIÓN', lines: [], note: null, status: null, count: '', bar: 0 };
+  private readonly cReady: CenterInfo = { kind: 'ready', title: '¡PREPÁRATE!', lines: [], note: null, status: null, count: '3', bar: 0 };
+  private readonly cHands: [string, string] = ['manos detectadas', '#3cf0c6'];
+  private readonly cNoHands: [string, string] = ['no veo tus manos', '#ff8a3d'];
+  private centerStep(playing: boolean): void {
+    if (!playing) VIEW.center = null;
+    else if (this.calibT >= 0) {
+      const c = this.cCalib, ex = settings.exercise;
+      c.lines = CALIB_LINES[ex] ?? ['Colócate en la postura inicial', 'y quédate quieto 2 s.'];
+      c.note = ex === 'superman' ? (hands.left.ok || hands.right.ok ? this.cHands : this.cNoHands) : null;
+      c.bar = Math.min(1, this.calibT / 2);
+      VIEW.center = c;
+    } else if (!GAME.wave && !this.resting && this.restT > 0) {
+      this.cReady.count = String(Math.max(1, Math.ceil(this.restT)));
+      VIEW.center = this.cReady;
+    } else VIEW.center = null;
   }
 
   // ¿Quieto en la postura? (RepArena: calib) La cabeza, a su altura: sentado, entre 0,55 y 1,5 m; tumbado o en plancha
@@ -932,7 +960,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       else if (e.type === 'partial') this.onPartial(e.msg);
       else if (e.type === 'top') this.topCue(e.side);
       else {
-        this.message(e.msg, 1.4);
+        this.message(e.msg, 1.4, e.color, true);
         if (e.color === WARN_COL) this.floorWarn(e.msg, e.color);
       }
     }
@@ -957,7 +985,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     SND.shock(at);
     haptic('left', 1, 160 + 40 * pow);
     haptic('right', 1, 160 + 40 * pow);
-    this.message(n ? `¡ONDA EXPANSIVA${pow > 1 ? ' ×' + pow : ''}! Vuelven a su trampilla` : `¡Onda expansiva${pow > 1 ? ' ×' + pow : ''}!`, 1.4, pow > 1 ? '#ff6ae0' : '#40fff0');
+    this.message(n ? `¡ONDA EXPANSIVA${pow > 1 ? ' ×' + pow : ''}! Vuelven a su trampilla` : `¡Onda expansiva${pow > 1 ? ' ×' + pow : ''}!`, 1.4, pow > 1 ? '#ff6ae0' : '#40fff0', true);
   }
 
   // Arriba del todo en el curl, la elevación frontal o el curl con barra la repetición ya vale; el disparo sale al empezar
@@ -1004,7 +1032,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private onPartial(text: string): void {
     this.chargePow = 0;
     SND.partial();
-    this.message(text, 1.2);
+    this.message(text, 1.2, WARN_COL, true);
     this.floorWarn(text);
   }
 
@@ -1018,7 +1046,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       GAME.perfect++;
       SND.perfect();
       this.message('¡PERFECTA!', 1.0);
-    } else this.message(fast ? 'Más controlado' : '¡Bien!', fast ? 1.0 : 0.7);
+    } else this.message(fast ? 'Más controlado' : '¡Bien!', fast ? 1.0 : 0.7, '#ffffff', fast);
     const pow = Math.max(1, Math.min(4, powIn || 1)), dmg = (perfect ? 2 : 1) + POW_DMG[pow - 1];
     if (pow > 1) this.message(`¡DISPARO ×${pow}!`, 1.1);
     this.chargePow = 0;
@@ -1179,7 +1207,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.fwd.set(Math.sin(this.bodyYaw), 0, Math.cos(this.bodyYaw));
 
     const playing = GAME.phase === 'playing';
-    if (playing) {
+    this.centerStep(playing);
+    if (playing && !VIEW.duel) { // (mientras se ve la carátula del duelo, la ronda espera)
       this.exercise(time, dt);
       if (!GAME.between) this.workT += dt; // (el tiempo de oleada, para las calorías)
       // oleadas: el descanso (no sale nadie); luego van saliendo de la cola, de uno en uno (con ritmo, en el pulso), sin

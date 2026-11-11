@@ -34,6 +34,32 @@ export const PLACE: Record<string, string> = {
   inchworm: 'De pie, quieto: ahí empieza el inchworm',
 };
 
+/** Lo que dice el aviso del centro mientras te colocas (RepArena: drawCenter, 'calib'), en dos líneas. */
+export const CALIB_LINES: Record<string, [string, string]> = {
+  inchworm: ['De pie, mirando al frente, con sitio', 'delante para la plancha. Quieto 2 s.'],
+  twist: ['Sujeta la barra flexible delante del', 'pecho, con las dos manos a la vista. 2 s.'],
+  squat: ['De pie, mirando al frente, pies a la', 'anchura de los hombros. Quieto 2 s.'],
+  pushup: ['Ponte en plancha: brazos estirados,', 'cuerpo recto. Quieto 2 s.'],
+  pike: ['En pica: manos y pies en el suelo,', 'cadera alta, brazos estirados. 2 s.'],
+  plank1: ['Ponte en plancha sobre las dos manos,', 'cuerpo recto. Quieto 2 s.'],
+  superman: ['Túmbate boca abajo con los brazos', 'estirados hacia delante. Quieto 2 s.'],
+  curl: ['De pie, con las mancuernas y los', 'brazos estirados abajo. Quieto 2 s.'],
+  jump: ['De pie, mirando al frente, con', 'espacio para saltar. Quieto 2 s.'],
+  lunge: ['De pie, pies juntos, con espacio', 'delante para dar el paso. Quieto 2 s.'],
+  dips: ['En el borde de la silla, manos en el', 'asiento, brazos estirados. Quieto 2 s.'],
+  press: ['De pie, mancuernas a la altura', 'de los hombros. Quieto 2 s.'],
+  curl2: ['De pie, la barra (o la kettlebell) con las', 'dos manos y los brazos abajo. Quieto 2 s.'],
+  press2: ['De pie, la barra (o la kettlebell) a la', 'altura de los hombros. Quieto 2 s.'],
+  thruster: ['De pie, las pesas en los hombros', 'con las dos manos. Quieto 2 s.'],
+  frontsq: ['De pie, las pesas en las manos', 'con los brazos abajo. Quieto 2 s.'],
+  jsquat: ['De pie, mirando al frente, con', 'espacio para saltar. Quieto 2 s.'],
+  swing: ['De pie, la kettlebell con las dos', 'manos y los brazos abajo. Quieto 2 s.'],
+  chop: ['De pie, la kettlebell o el disco con', 'las dos manos ante el pecho. Quieto 2 s.'],
+  dlrow: ['De pie, las pesas en las manos', 'con los brazos abajo. Quieto 2 s.'],
+  splank: ['De lado sobre el antebrazo,', 'cuerpo recto, cadera arriba. Quieto 2 s.'],
+  abs: ['Túmbate boca arriba, rodillas', 'dobladas, pies al frente. Quieto 2 s.'],
+};
+
 /** El recordatorio del marcador mientras no pasa nada. */
 export const IDLE: Record<string, string> = {
   squat: 'Baja en sentadilla para cargar',

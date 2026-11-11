@@ -44,6 +44,25 @@ export const GAME = {
   ramp: 0,
 };
 
+/** Lo que dice el aviso del centro de la vista (RepArena: drawCenter): la calibración (título, dos líneas, una nota arriba a
+ * la derecha, un estado, la cuenta y la barra) o «¡PREPÁRATE!» con la cuenta atrás. */
+export interface CenterInfo {
+  kind: 'calib' | 'ready';
+  title: string;
+  lines: string[];
+  note: [string, string] | null;
+  status: [string, string] | null;
+  count: string;
+  bar: number;
+}
+
+/** Los avisos de la vista (src/ui/view-panels.ts): lo que dice el del centro (null: no se ve) y si se ve la carátula del
+ * duelo (mientras, la ronda espera: no se calibra ni empieza nada). */
+export const VIEW = {
+  center: null as CenterInfo | null,
+  duel: false,
+};
+
 /** Avisos entre sistemas (los pone el sistema del juego al arrancar). */
 export const HOOKS = {
   /** Un enemigo te ha dado (str: las vidas que quita, su fuerza). */
@@ -65,8 +84,13 @@ export const HOOKS = {
   recalibrate: (): void => {},
   endRound: (): void => {},
   toLobby: (): void => {},
-  /** Un aviso en el marcador (y, si es naranja, también en grande en el suelo): lo pone la partida. */
-  say: (_text: string, _color: string, _secs: number): void => {},
+  /** Un aviso en el marcador o, si pide hacer algo ya (toast), en la vista (y, si es naranja, también en grande en el
+   * suelo): lo pone la partida. */
+  say: (_text: string, _color: string, _secs: number, _toast?: boolean): void => {},
+  /** Un aviso breve en la vista (lo que pide hacer algo ya): lo pone el sistema de los avisos de la vista. */
+  toast: (_text: string, _color: string, _secs: number): void => {},
+  /** La carátula del duelo al empezar la ronda: la enseña el sistema de los avisos de la vista (si no toca, no hace nada). */
+  duel: (): void => {},
   /** Unas chispas (n, del color c) en p: lo pone la partida. */
   sparks: (_p: Vector3, _n: number, _c: number): void => {},
 };

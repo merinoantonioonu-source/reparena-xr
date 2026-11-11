@@ -726,6 +726,48 @@
         ],
         "scale": 1
       }
+    },
+    {
+      "id": "center-panel",
+      "name": "Aviso del centro de la vista",
+      "content": {
+        "type": "asset",
+        "asset": "center-card"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.52,
+          -1.1
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1
+      }
+    },
+    {
+      "id": "toast-panel",
+      "name": "Aviso breve en la vista",
+      "content": {
+        "type": "asset",
+        "asset": "toast-card"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.2,
+          -1.2
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1
+      }
     }
   ],
   "authoring": {

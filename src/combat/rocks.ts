@@ -56,7 +56,7 @@ export class Rocks {
     r.m.position.copy(from);
     r.m.visible = true;
     SND.whoosh(from, 'throw');
-    if (!this.thrown++) HOOKS.say('¡Te lanza piedras! Apártate o párala con la mano', '#ff8a3d', 2.2);
+    if (!this.thrown++) HOOKS.say('¡Te lanza piedras! Apártate o párala con la mano', '#ff8a3d', 2.2, true);
   }
 
   /** ¿Queda alguna en el aire? (la oleada no acaba con una piedra volando: RepArena, projs) */

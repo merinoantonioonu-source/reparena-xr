@@ -86,6 +86,12 @@ tabla de `README.md` dice qué hace cada archivo.
   RepArena) pidiendo velocidad a la física; su reloj de gestos va a su `pace`.
 - **Oleadas** (`src/combat/waves.ts`, de RepArena): `buildWave` da la cola de cada oleada con los nombres de RepArena
   (`impthrow`, `zombieboss`…); `xrFoe` dice cuál es aquí y si es jefe (`bossDef`). Los puntos y el combo, en `GAME`.
+- **Avisos de la vista** (`ViewSystem`, `src/ui/view-panels.ts`; dónde, `src/ui/view.ts`, de RepArena): siguen la mirada
+  sin ladearse nunca; tumbado, en el suelo bajo la cara; en partida, fijos; sin prueba de profundidad y apartándose de lo
+  que viene. Lo que pide hacer algo ya va al aviso breve (`message(…, true)`, `HOOKS.say(…, true)`, `HOOKS.toast`); las
+  celebraciones, al marcador. El del centro lo llena la partida en `VIEW.center` (calibración, «¡PREPÁRATE!»); la carátula
+  del duelo (`HOOKS.duel`, `VIEW.duel`: mientras, la ronda espera). Lo que no es texto (la caricatura, la carátula) se
+  pinta en un lienzo (`src/ui/canvas-kit.ts`, con las letras de `public/fonts`).
 - La letra que trae IWSDK (Inter) no tiene tildes: los paneles usan las de `public/fonts` (ver su `LEEME.md`), que se
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee.
