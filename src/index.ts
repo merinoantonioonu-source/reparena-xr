@@ -20,12 +20,15 @@ import { SoundSystem } from './audio/sound.js';
 import { ViewSystem } from './ui/view-panels.js';
 import { GoalsSystem } from './ui/goals-intro.js';
 import { MenuSystem } from './ui/menu.js';
+import { ScreenSystem } from './ui/screen.js';
 import { useLocalInputModels } from './input/input-models.js';
+import { devInit } from './core/dev.js';
 import { initSettings } from './core/settings.js';
 import { pageWorld, startPage } from './page/page.js';
 
 // tus ajustes (los mismos que en RepArena: se comparten) y las manos y mandos desde el propio juego, antes de crear el mundo
 initSettings();
+devInit(); // (las canciones de cada ejercicio, de la tabla del desarrollador)
 useLocalInputModels();
 startPage(); // (la página: se ve en cuanto carga, sin esperar a la escena)
 
@@ -41,6 +44,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(EnvSystem, { priority: 7 });
   world.registerSystem(GameSystem, { priority: 6 });
   world.registerSystem(MenuSystem, { priority: 6 });
+  world.registerSystem(ScreenSystem, { priority: 6 });
   world.registerSystem(ViewSystem, { priority: 6 });
   world.registerSystem(GoalsSystem, { priority: 6 });
   world.registerSystem(ComicSystem, { priority: 7 });

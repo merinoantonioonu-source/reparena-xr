@@ -141,8 +141,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [ ] **PR 19 · Sesiones** (aplazado por el usuario: se hará más adelante)
 - [x] **PR 20 · Entornos** — #28
 - [ ] **PR 21 · Realidad mixta** (aplazado por el usuario: se hará más adelante; nada de lo demás depende de ella. Se empezó con lo de serie de IWSDK: entrar con `launchXR` en modo `immersive-ar` con detección de planos y mallas, anclas y profundidad, `DepthSensingSystem` y `DepthOccludable` en compuertas, cajas, rocas y enemigos, y `GAME.mr`/`arenaDepth` —6 m en realidad mixta—; el plan de la habitación de RepArena, `src/37_room.js`, se porta a lógica pura con su comparación)
-- [ ] **PR 22 · Música**
-- [ ] **PR 23 · Sincronización, pulsómetro y modo desarrollador**
+- [x] **PR 22 · Música** — #29
+- [x] **PR 23 · Sincronización, pulsómetro y modo desarrollador** — #29 (juntos con el 22: comparten la pantalla de menú y la página)
 - [ ] **PR 24 · Cambio de casa**
 
 ## Los PR
@@ -381,6 +381,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 22/23 → PR 19 y siguientes: los servicios están en `src/services/` (`spotify.ts`, `bpm.ts`, `xfer.ts`, `pulse.ts`: lógica sin IWSDK, con
+  su comparación contra RepArena y mismas claves guardadas) y `src/core/dev.ts`, `src/core/beat.ts`. `src/services/hub.ts` los crea con
+  el navegador de verdad (`spotify()`, `bpm()`, `xfer()`, `sync()`, `pulse()`, `exSongsStart`). **El pulso de la música**
+  (`src/core/beat-hub.ts`: `BEAT`, `MOTES`) lo mueve `GameSystem` y lo leen Combate (los enemigos salen en el pulso), Arcos
+  (`beatP`, cada arco llega en un pulso), Toques (`beat0`) y las luciérnagas (que bailan). **Pantalla genérica del menú**
+  (`src/ui/screen.ts`, `HOOKS.openScreen(rows)`, como `openMenu` de RepArena): la usan la música, pasar datos, la sincronización y
+  el teclado de números (`src/ui/screens/`); se abren desde los botones de acceso de Opciones (Sonido: «Música y ritmo»; Ajustes:
+  «A otro aparato» y «Sincronización»). Las sesiones (PR 19) llevan canciones por bloque: `spotify().blockMusic`.
 - PR 20 → PR 21 y siguientes: los entornos viven en `src/env/` (`EnvSystem`: el fondo realista, las luciérnagas y qué entorno toca;
   `scenery.ts`: carga, instancias, cielo, suelo y mar del bosque y la isla; `placement.ts`: dónde va cada modelo, de RepArena,
   con prueba). **El fondo realista es el `DomeTexture` de IWSDK** puesto en la raíz del nivel (`activeLevel`): al elegir uno se
@@ -513,6 +521,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 22/23: **sin probar contra Spotify de verdad** (hace falta tu Client ID y Premium): el servicio se ha comparado con el código de
+  RepArena con un Spotify falso. Hay que añadir en tu panel de desarrollador de Spotify la dirección nueva de la página (la que
+  sale en la página, «Redirect URIs»). La música suena en la página (Web Playback SDK) o en otro dispositivo tuyo.
+- PR 22: sin el reproductor pequeño del menú principal ni el rótulo que se desplaza (solo la pantalla «Música y ritmo» de Opciones →
+  Sonido); sin los minimandos de la pausa. El ritmo («Al compás», «Encajar el pulso», «Ritmo de cada canción») está ahí. Los
+  enemigos que esperan **no bailan al compás** todavía, ni la luz de las compuertas late con el pulso (Combate solo saca los
+  enemigos en el pulso); el relámpago y las mejoras que siguen la música (`musicLead`) tampoco.
+- PR 23: la tabla del desarrollador **solo en la página** (cinco toques en el título: sale y se esconde); en las gafas se ve su efecto
+  (el ojo decide lo que ves en el menú) pero no se edita. Sin la carátula del pulso dibujada en el marcador (el número sale en
+  su color). Pulsómetro y sincronización: probados con Bluetooth y Firebase falsos.
 - PR 20: **el bosque y la isla no tienen compuertas de piedra** (RepArena las cambiaba por cuevas con pilares, dovelas y
   puertas de tablones): siguen las metálicas de siempre. **Los troncos, rocas y arbustos no frenan a los enemigos** (RepArena
   les marcaba círculos sólidos: `Scenery.solids` ya los calcula, pero no están conectados a la física). **Sin el viento** que

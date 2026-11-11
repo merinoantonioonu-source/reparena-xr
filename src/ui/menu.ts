@@ -32,6 +32,8 @@ import { HOW } from '../exercise/how.js';
 import { PLAY_MODES, playable, playableEx } from '../core/playable.js';
 import { curEx, eyeFields, fieldHere, fieldPick, fieldStep, fieldView, groupFields, groupName, roundInfo, settingsGroups, type FieldView } from './fields.js';
 import { applyFonts } from './fonts.js';
+import { musicScreen } from './screens/music-screens.js';
+import { syncScreen, xferScreen } from './screens/xfer-screens.js';
 import { career, history, progressNow, setLook } from '../combat/career-hub.js';
 import { CAMP_N, CAMP_REG, campId, CHEST_XP, LOOKS, MIS, MIS_XP, misGot, misShort, PROG_COL, SHIELD_COL, SHIELD_MAX, type LookKey, type MisItem } from '../core/career.js';
 import { daysTxt, dayStats, WDAY } from '../core/days.js';
@@ -518,6 +520,7 @@ export class MenuSystem extends createSystem({}, {}) {
 
   private wireOptions(): void {
     const p = this.opts;
+    for (let i = 0; i < 4; i++) this.on(p, 'sh' + i, () => this.shortcuts()[i]?.[1]());
     for (const t of TABS)
       this.on(p, 't-' + t.k, () => {
         this.tab = t.k;
@@ -567,15 +570,36 @@ export class MenuSystem extends createSystem({}, {}) {
       return { rows, note: 'Toca una ficha para que salga o no · Resiste: los disparos que aguanta · Fuerza: las vidas que te quita' };
     }
     if (this.tab === 'prog') return { rows: [], note: '' };
-    if (this.tab === 'sound') return { rows: groupFields('sonido'), note: 'Spotify y el compás de la música llegan con el PR 22' };
+    if (this.tab === 'sound') return { rows: groupFields('sonido'), note: 'La música con Spotify (se conecta en la página) y el ritmo, en el botón de arriba' };
     if (this.tab === 'scene') return { rows: ['quality', ...groupFields('entorno')], note: this.world.renderer.xr.isPresenting ? 'La nitidez nueva se aplica al volver a entrar en VR' : 'La nitidez se aplica al entrar en VR' };
     const groups = settingsGroups();
     if (!groups.includes(this.group)) this.group = groups[0] ?? 'partida';
     return { rows: groupFields(this.group), note: this.group === 'ejercicio' ? BODY_NOTE : '' };
   }
 
+  /** Las pantallas que cuelgan de cada pestaña (música, pasar datos, sincronizar…): su botón y qué abre; al volver, la misma pestaña. */
+  private shortcuts(): [string, () => void][] {
+    const back = (): void => {
+      HOOKS.closeScreen();
+      this.show('options');
+    };
+    if (this.tab === 'sound') return [['Música y ritmo', () => musicScreen(back)]];
+    if (this.tab === 'set')
+      return [
+        ['A otro aparato', () => xferScreen(back)],
+        ['Sincronización', () => syncScreen(back)],
+      ];
+    return [];
+  }
+
   private refreshOptions(): void {
     const p = this.opts, t = TABS.find((x) => x.k === this.tab)!;
+    const sc = this.shortcuts();
+    this.shown(p, 'shortcuts', sc.length > 0);
+    for (let i = 0; i < 4; i++) {
+      this.shown(p, 'sh' + i, !!sc[i]);
+      if (sc[i]) this.text(p, `sh${i}t`, sc[i][0]);
+    }
     this.set(p, 'root', { borderColor: t.col });
     this.set(p, 'o-title', { color: t.col });
     for (const x of TABS) {

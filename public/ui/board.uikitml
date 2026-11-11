@@ -93,6 +93,10 @@
     color: #eeeaff;
     font-weight: bold;
   }
+  .hr {
+    font-size: 2.6;
+    color: #ff3b5c;
+  }
   .clock {
     font-size: 2.1;
     color: #a49fc8;
@@ -142,6 +146,7 @@
   </div>
   <div class="times">
     <span id="train" class="train">0:00</span>
+    <span id="hr" class="hr">0</span>
     <span id="clock" class="clock">12:00</span>
   </div>
   <div class="main">

@@ -33,7 +33,8 @@
     <!-- La página: entrar, elegir el modo y el ejercicio, los ajustes y tu progreso (RepArena: src/page.html). Se ve en el
          ordenador y en el navegador de las gafas antes de entrar; «Probar en el ordenador» y VR la esconden -->
     <div id="page">
-  <main class="wrap">
+  <div class="syncAsk" id="syncAsk" role="alertdialog" aria-live="assertive" hidden><p id="syncAskTxt"></p><div><button class="btn small alt" id="btnSyncYes">Importar</button><button class="btn small" id="btnSyncNo">Ahora no</button></div></div>
+<main class="wrap">
   <aside class="side">
     <header class="brand">
       <p class="eyebrow">Meta Quest 3 · WebXR · manos · hecho con IWSDK</p>
@@ -167,11 +168,41 @@
     <h2>3 · Opciones comunes</h2>
     <p class="note">Valen para todos los modos y ejercicios: entorno y vista, habitación, menú y tu meta diaria. El sonido y la música, aquí debajo.</p>
     <div class="groups" id="commonGroups"></div>
+    <h3>Pulsómetro</h3>
+    <p>Tu pulso en el marcador del juego, con el color de tu zona (lo que cuenta como pulso máximo, en «Tu meta»). Vale cualquier reloj o banda que emita el pulso por Bluetooth como un pulsómetro normal. En un <b>Amazfit</b> (con Zepp OS 3 o más): en el reloj, Ajustes → Frecuencia cardíaca → <b>Emitir frecuencia cardíaca</b> (Heart Rate Push); algunos solo lo emiten durante un entrenamiento: empieza uno en el reloj. Después pulsa <b>Conectar pulsómetro</b> y elígelo en la lista. <b>Para verlo en las gafas</b>, conéctalo en el móvil (Chrome en Android; el navegador de las gafas no deja usar Bluetooth en una página) y vincula el móvil y las gafas con el mismo código de <b>sincronización automática</b>: el móvil te pasa el pulso cada segundo, cifrado. Deja esta página abierta en el móvil mientras juegas (la pantalla no se apagará).</p>
+    <div class="actions"><button class="btn alt" id="btnHr">Conectar pulsómetro</button><button class="btn small" id="btnHrOff">Desconectar</button><span class="hrnow" id="hrNow"></span></div>
+    <p class="status" id="hrStatus"></p>
   </section>
-  <section class="music" id="secMusic" data-toc="Sonido">
-    <h2>Sonido</h2>
-    <p class="note">El volumen de los efectos y del ambiente, y qué sonidos suenan. La música con Spotify llega con el PR 22.</p>
+  <section class="music" id="secMusic" data-toc="Sonido y música">
+    <h2>Sonido y música</h2>
+    <p class="note">Común a todos los modos y ejercicios. En el juego, todo esto está en «Sonido ▸».</p>
     <div class="groups" id="soundGroups"></div>
+    <h3>Música con Spotify</h3>
+    <p>El juego es también un reproductor de Spotify: aparece en tu cuenta como el dispositivo <b>RepArena (Quest)</b> y, al pulsar Play en el menú del juego (Sonido ▸), la música pasa a las gafas y suena en ellas, aunque antes sonara en el móvil. Desde el menú principal y el de pausa controlas anterior, pausa, siguiente y volumen. Hace falta <b>Spotify Premium</b>. Si ya lo habías conectado antes, <b>vuelve a pulsar Conectar con Spotify</b>: hace falta un permiso nuevo para reproducir en el navegador.</p>
+    <ol class="steps">
+      <li>Entra en <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> con tu cuenta y crea una app. El nombre y la descripción dan igual.</li>
+      <li>En <b>Redirect URIs</b> añade exactamente <code id="spRedirect"></code> y, en las API, marca <b>Web API</b>.</li>
+      <li>Copia el <b>Client ID</b> de la app, pégalo aquí debajo y pulsa <b>Conectar con Spotify</b>. Solo hay que hacerlo una vez en cada navegador (y otra vez si el juego pide permisos nuevos, como ahora para leer tus listas).</li>
+    </ol>
+    <div class="spfield"><label for="spClient">Client ID de tu app de Spotify</label><input id="spClient" type="text" autocomplete="off" spellcheck="false" placeholder="32 letras y números"></div>
+    <div class="actions">
+      <button class="btn alt" id="btnSpConnect">Conectar con Spotify</button>
+      <button class="btn small" id="btnSpTest">Probar</button>
+      <button class="btn small" id="btnSpOff">Desconectar</button>
+    </div>
+    <p class="status sp" id="spStatus"></p>
+    <p class="spnow" id="spNow"></p>
+    <div class="splists">
+      <h3>Tus listas para entrenar</h3>
+      <p class="note">Marca una o varias listas: al pulsar Play en el juego suenan ellas (varias, mezcladas) en vez de lo último que sonaba. Con <b>Abrir ▸</b> entras en una lista (o en tus canciones que te gustan, las sueltas) y ves solo sus canciones para elegir las que quieras; con <b>← Tus listas</b> sales y puedes elegir más de otras. Las elegidas suenan en un orden al azar distinto cada vez, y en bucle. Con la <b>★</b> de una canción la marcas como favorita: al abrir cualquier lista, tus favoritas salen las primeras (también en la música de cada bloque y en el juego). Con <b>▶</b> escuchas una canción aquí mismo (con <b>■</b> la paras); con <b>Compás</b>, arriba de la lista, ves solo las de un tramo de BPM o las que no tienen compás (para escribírselo). Junto a cada canción sale su <b>compás (BPM)</b>: se busca solo (en Deezer y, si no lo sabe, en ReccoBeats) y sale en gris («≈124»); si está mal, escribe otro encima o usa <b>×2</b> / <b>÷2</b> (a veces dan el doble o la mitad). Cuando suena, en Toques y en Combate el juego va a ese ritmo (con «Ritmo de cada canción», en Sonido ▸; el que escribas tú, siempre). En el juego también se guarda: marca el ritmo «Al compás» y pulsa «Guardar … BPM para esta canción». Si no marcas nada, sigue lo que estuviera sonando. Solo salen tus listas y las colaborativas: de las de otros usuarios Spotify no deja ver las canciones.</p>
+      <div class="actions"><button class="btn small" id="btnSpLists">Cargar mis listas</button></div>
+      <div class="splist" id="spLists"></div>
+    </div>
+    <div class="splists">
+      <h3>Canciones de cada ejercicio</h3>
+      <div id="exSongs"></div>
+    </div>
+    <p>No hace falta abrir la app de Spotify: basta con pulsar Play en el juego. Si el navegador no puede reproducir Spotify, el menú lo dice y la música sonará en otro dispositivo tuyo (el mando funciona igual). Si la música ya suena en otro dispositivo, el menú ofrece «Que suene en las gafas». Al acabar la partida, la música se apaga poco a poco en vez de cortarse. En una sesión, entre bloques sigue sonando la canción del que acaba y, al empezar el siguiente, se funde con la suya.</p>
   </section>
 
   <section class="secSpec" id="secSpec" data-toc="4 · Opciones del modo y el ejercicio">
@@ -181,6 +212,25 @@
     <div class="groups" id="settingsGroups"></div>
     <div class="actions"><button class="btn small" id="btnReset">Restablecer todos los ajustes</button></div>
     <div class="profiles">
+      <h3>Pasar a otro dispositivo</h3>
+      <p class="note">Lleva tus ajustes, bloques de sesión, historial y música elegida a otro dispositivo (por ejemplo, del PC a las gafas) con un código de 8 cifras. Pulsa <b>Enviar</b> aquí y escribe el código en el otro: en el juego, Opciones ▸ → Ajustes → A otro aparato → Recibir. Los datos van cifrados con el código y se guardan unas horas en un servicio público de mensajes (ntfy.sh), que no puede leerlos. La habitación escaneada, los aparatos colocados y el inicio de sesión de Spotify son de cada dispositivo y no se mandan.</p>
+      <div class="profsave"><button class="btn small alt" id="btnXferSend">Enviar desde aquí</button><input id="xferCode" type="text" inputmode="numeric" maxlength="9" placeholder="Código de 8 cifras" aria-label="Código del otro dispositivo"><button class="btn small" id="btnXferRecv">Recibir</button></div>
+      <p class="status" id="xferStatus" aria-live="polite"></p>
+      <div id="syncBox" hidden>
+        <h3>Sincronización automática</h3>
+        <p class="note">Con un <b>código fijo</b> de 16 cifras, tus ajustes, sesiones, historial y carrera pasan solos de un aparato a otro: <b>Crear código</b> en uno y escribirlo en el otro con <b>Vincular</b> (en el juego, Opciones ▸ → Ajustes → Sincronización); los dos lo recuerdan. Cada aparato guarda lo suyo, cifrado con el código, en Firebase al poco de cambiar algo, y al abrir RepArena, si el otro tiene ajustes o partidas más recientes, te pregunta si los importas. Cada ajuste lleva su hora: de cada uno se queda el que cambiaste más tarde, en cualquiera de los dos aparatos, y las partidas de los dos se juntan siempre.</p>
+        <div class="profsave" id="syncNew"><button class="btn small alt" id="btnSyncNew">Crear código</button><input id="syncCode" type="text" inputmode="numeric" maxlength="19" placeholder="16 cifras" aria-label="Código fijo del otro aparato (16 cifras)"><button class="btn small" id="btnSyncLink">Vincular</button></div>
+        <div class="profsave" id="syncLinked" hidden><button class="btn small alt" id="btnSyncNow">Sincronizar ahora</button><button class="btn small" id="btnSyncOff">Desvincular</button></div>
+        <p class="status" id="syncStatus" aria-live="polite"></p>
+      </div>
+    </div>
+    <div class="profiles">
+  </section>
+
+  <section class="secDev" id="devSection" data-toc="Tabla del desarrollador" hidden>
+    <h2>Tabla de dificultad (desarrollador)</h2>
+    <p class="note">Solo se ve en modo desarrollador. Para cada modo y ejercicio, los valores de cada rango y lo que ve el jugador en su menú (el ojo). Cuando la tengas, pulsa <b>Exportar</b> y pégamela: la dejo de serie en el juego para todos.</p>
+    <div id="devTable"></div>
   </section>
 
   <section class="how" id="secHow" data-toc="Dentro del juego">
