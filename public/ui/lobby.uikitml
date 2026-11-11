@@ -380,6 +380,13 @@
     </div>
     <span id="ex-how" class="info">Cómo se hace</span>
   </div>
+  <div id="box-eq" class="box">
+    <span id="eq-title" class="bt">Aparato</span>
+    <div class="row">
+      <button id="eq-place" class="k"><span id="eq-placet" class="kt">Colocar barra</span></button>
+    </div>
+    <span id="eq-info" class="info">Sin colocar</span>
+  </div>
   <div id="box-diff" class="box">
     <span class="bt">Dificultad</span>
     <div class="row">

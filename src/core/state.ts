@@ -99,6 +99,13 @@ export const HOOKS = {
   toast: (_text: string, _color: string, _secs: number): void => {},
   /** La carátula del duelo al empezar la ronda: la enseña el sistema de los avisos de la vista (si no toca, no hace nada). */
   duel: (): void => {},
+  /** Barras: empezar la oleada i (cuando te has colgado), colocar el aparato (con las manos; note: el aviso), si está colocado,
+   * si se está colocando y dejarlo (el botón de la muñeca): lo pone el sistema de Barras. */
+  barWave: (_i: number): void => {},
+  placeEq: (_note?: string): void => {},
+  eqPlaced: (): boolean => true,
+  placing: (): boolean => false,
+  cancelPlace: (): void => {},
   /** Unas chispas (n, del color c) en p: lo pone la partida. */
   sparks: (_p: Vector3, _n: number, _c: number): void => {},
 };

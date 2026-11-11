@@ -55,6 +55,7 @@ import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, REP_TIM
 import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
 import { ArcsSystem } from '../modes/arcs/arcs-system.js';
+import { BarsSystem } from '../modes/bars/bars-system.js';
 import { TouchSystem } from '../modes/touch/touch-system.js';
 import { curEx } from '../ui/fields.js';
 import { PLAY_MODES, playableEx } from '../core/playable.js';
@@ -262,6 +263,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       }
     };
     HOOKS.startRound = () => this.startRound();
+    HOOKS.barWave = (i) => this.startWave(i);
     HOOKS.campPlay = (lv) => {
       campBegin(lv);
       this.startRound();
@@ -280,6 +282,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         this.gates?.closeAll();
         this.arcs()?.clear();
         this.touch()?.clear();
+        this.bars()?.clear();
       }
       HOOKS.showMenu('');
     };
@@ -498,6 +501,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
           lines[2] = h.fever ? '¡FIEBRE!' : h.got ? `Orbes: ${h.got}` : '';
           if (!msg && h.fever) { msg = '¡FIEBRE! ×2'; col = '#ff4a5a'; }
         }
+      } else if (settings.mode === 'bars') {
+        // Barras: lo que queda por reventar o los segundos colgado
+        const h = this.bars()?.hud();
+        if (h) lines[0] = settings.exercise === 'hang' ? `Colgado ${Math.floor(h.hold)} de ${Math.round(h.need)} s` : `Quedan ${h.left}`;
+        const g = this.rw.ghostText();
+        if (g) lines[1] = minus(g[0]);
       } else if (settings.mode === 'touch') {
         // Toques: cuántos quedan y de dónde vienen (la ayuda de cada tipo la dan los avisos al fallar)
         const h = this.touch()?.hud();
@@ -585,6 +594,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // ---------------------------------------------------------------- la ronda
 
   private startRound(): void {
+    // Barras: sin el aparato colocado, primero se coloca (con las manos; luego, al menú) (RepArena: «Antes de empezar, coloca…»)
+    if (settings.mode === 'bars' && !HOOKS.eqPlaced()) {
+      HOOKS.placeEq(`Antes de empezar, coloca ${settings.exercise === 'row' ? 'las paralelas' : 'la barra'}`);
+      return;
+    }
     this.enemies.clear();
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
@@ -599,6 +613,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.ptsK = 1;
     if (settings.mode === 'arcs') this.arcs()?.begin(); else this.arcs()?.clear();
     if (settings.mode === 'touch') this.touch()?.begin(); else this.touch()?.clear();
+    if (settings.mode === 'bars') this.bars()?.begin(); else this.bars()?.clear();
     this.roundId++;
     this.dayRefresh();
     this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla)
@@ -632,6 +647,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.calibT = 0;
       this.restT = 0;
       this.message(PLACE[settings.exercise] ?? 'Colócate', 4);
+    } else if (settings.mode === 'bars') {
+      this.calibT = -1; // (en Barras, la cuenta atrás es colgarse de la barra: la lleva el sistema de Barras)
+      this.restT = 0;
     } else {
       this.calibT = -1;
       this.restT = 3;
@@ -649,11 +667,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const tiny = isTiny(), ground = tiny ? hatchFoes(groundList()) : gateFoes(groundList()), fly = flyFoes(flyList());
     const env: WaveEnv = { reps: waveReps(i), twoShots: twoShots(), foes: foes() as WaveEnv['foes'], ground, fly: flyList().includes('dragon') ? [...fly, 'dragon'] : fly, waves: nWaves(), rank: rankIdx(), ladder: on('foeLadder'), tiny, hp: (k) => devFoe(k).hp, tier: (k) => foeTierOf((key) => devFoe(key).tier, k) };
     const arcsMode = settings.mode === 'arcs';
-    const touchMode = settings.mode === 'touch';
-    const w = arcsMode || touchMode ? { list: [], fresh: [] as string[] } : buildWave(i, env, this.seen);
+    const touchMode = settings.mode === 'touch', barsMode = settings.mode === 'bars';
+    const w = arcsMode || touchMode || barsMode ? { list: [], fresh: [] as string[] } : buildWave(i, env, this.seen);
     this.queue = w.list;
     this.waveTarget = env.reps;
     if (arcsMode) this.arcs()?.startWave(env.reps); // (en Arcos, la oleada son los obstáculos que van saliendo)
+    if (barsMode) this.bars()?.startWave(i); // (en Barras, las pompas o los segundos colgado)
     if (touchMode) this.touch()?.startWave(i, i > 0 ? WAVE_INTRO : 0); // (en Toques, los objetivos que van llegando)
     const rk = rampK(num('ramp'), this.rampLvl, RAMP_CAP);
     this.gap = spawnGap(this.queue, REP_TIME[settings.exercise] ?? 2.4, env.foes === 'flyers', env.twoShots, num('spawnGap'), rk);
@@ -739,7 +758,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private endRest(): void {
     if (this.resting) this.rw.restEnd();
     this.resting = false;
-    this.startWave(GAME.wave);
+    if (settings.mode === 'bars') this.bars()?.toMount(GAME.wave); // (en Barras, antes de cada oleada hay que colgarse otra vez)
+    else this.startWave(GAME.wave);
   }
 
   // lo que piden los de suelo y sentado en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
@@ -754,6 +774,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private readonly cHands: [string, string] = ['manos detectadas', '#3cf0c6'];
   private readonly cNoHands: [string, string] = ['no veo tus manos', '#ff8a3d'];
   private centerStep(playing: boolean): void {
+    if (settings.mode === 'bars') {
+      VIEW.center = this.bars()?.center() ?? null; // (colocar el aparato o colgarse)
+      return;
+    }
     if (!playing) VIEW.center = null;
     else if (this.calibT >= 0) {
       const c = this.cCalib, ex = settings.exercise;
@@ -841,6 +865,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const AX = settings.mode === 'arcs' ? this.arcs()?.end(GAME.score, GAME.reps, GAME.taken) ?? null : null; // (medalla, metros, orbes y fantasma)
     this.arcs()?.clear();
     this.touch()?.clear();
+    this.bars()?.clear();
     const sum = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist, { arcs: AX && { medal: AX.medal, farther: AX.farther, orbs: AX.orbs }, streakUp: P.streak > P0.streak && P.streak > 1 ? { n: P.streak, best: P.best } : null, notes: gain?.notes ?? null });
     if (CAMP.run) {
       // en la campaña: el nivel con sus estrellas (y la medalla que dicen), y los botones de seguir
@@ -936,6 +961,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // los metros recorridos (Arcos; con la Travesía, también ella)
   private distNow(): number {
     return settings.mode === 'arcs' ? Math.floor(this.arcs()?.arx.dist ?? 0) : 0;
+  }
+
+  bars(): BarsSystem | undefined {
+    return this.world.getSystem(BarsSystem);
   }
 
   touch(): TouchSystem | undefined {
@@ -1334,7 +1363,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.centerStep(playing);
     this.stepCareer(dt);
     if (playing && !VIEW.duel) { // (mientras se ve la carátula del duelo, la ronda espera)
-      if (settings.mode !== 'arcs' && settings.mode !== 'touch') this.exercise(time, dt); // (en Arcos y Toques no hay detector: lo que cuenta es pasar los arcos o tocar)
+      if (settings.mode !== 'arcs' && settings.mode !== 'touch' && settings.mode !== 'bars') this.exercise(time, dt); // (en Arcos y Toques no hay detector: lo que cuenta es pasar los arcos o tocar)
       if (!GAME.between) this.workT += dt; // (el tiempo de oleada, para las calorías)
       // oleadas: el descanso (no sale nadie); luego van saliendo de la cola, de uno en uno (con ritmo, en el pulso), sin
       // pasar de «Máximo a la vez»; cuando no queda nadie, oleada superada
@@ -1358,6 +1387,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         if (!this.arcs()?.waveLeft()) this.waveCleared(); // (Arcos: sin nada por salir ni por pasar)
       } else if (!GAME.between && settings.mode === 'touch') {
         if (!this.touch()?.waveLeft()) this.waveCleared(); // (Toques: sin nada por llegar ni por tocar)
+      } else if (!GAME.between && settings.mode === 'bars') {
+        if (this.bars()?.waveCleared()) this.waveCleared(); // (Barras: sin pompas por reventar, o aguantado el colgado)
       } else if (!GAME.between) {
         this.spawnT -= dt * this.rw.spawnK(); // (en el relámpago, el doble de seguidos)
         this.stepPending(dt);

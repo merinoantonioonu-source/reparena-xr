@@ -58,7 +58,7 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]['k'];
 // Lo que aún no está (se enciende con su PR): los modos y Sesiones, y los ejercicios de suelo
-const SOON_MODE: Record<string, string> = { bars: 'Barras llega con el PR 17', trek: 'La Travesía llega con el PR 18', ses: 'Las sesiones llegan con el PR 19' };
+const SOON_MODE: Record<string, string> = { trek: 'La Travesía llega con el PR 18', ses: 'Las sesiones llegan con el PR 19' };
 const SOON_EX = 'Este ejercicio aún no está';
 /** Todos los botones de ejercicio del menú principal (cada modo enseña los suyos). */
 const ALL_EX = [...new Set(Object.values(MODE_EX).flat())];
@@ -313,6 +313,7 @@ export class MenuSystem extends createSystem({}, {}) {
     this.on(p, 'opt-button', () => this.show('options'));
     for (const m of Object.keys(MODE_NAMES)) this.on(p, 'm-' + m, () => (PLAY_MODES.includes(m) ? this.pickMode(m) : this.note(SOON_MODE[m])));
     this.on(p, 'm-ses', () => this.note(SOON_MODE.ses));
+    this.on(p, 'eq-place', () => HOOKS.placeEq());
     for (const ex of ALL_EX) this.on(p, 'e-' + ex, () => (playable(settings.mode, ex) ? this.pickEx(ex) : this.note(SOON_EX)));
     RANKS.forEach(([v], i) => this.on(p, 'r-' + i, () => setSetting('rank', v)));
     this.on(p, 'fail', () => setSetting('toFail', num('toFail') ? 0 : 1));
@@ -490,6 +491,13 @@ export class MenuSystem extends createSystem({}, {}) {
       this.shown(p, 'e-' + e, here);
       if (here) this.key(p, 'e-' + e, !ok ? KEY.off : sel ? EX_COL : KEY.bg, !ok ? KEY.offFg : sel ? KEY.dark : KEY.fg);
     }
+    // Barras: colocar el aparato con las manos (se recuerda entre sesiones)
+    const bars = settings.mode === 'bars', row = settings.exercise === 'row', placedEq = HOOKS.eqPlaced();
+    this.shown(p, 'box-eq', bars);
+    this.text(p, 'eq-title', row ? 'Aparato · paralelas' : 'Aparato · barra');
+    this.text(p, 'eq-placet', placedEq ? (row ? 'Colocar de nuevo' : 'Colocar de nuevo') : row ? 'Colocar paralelas' : 'Colocar barra');
+    this.key(p, 'eq-place', placedEq ? KEY.bg : '#3cf0c6', placedEq ? KEY.fg : KEY.dark);
+    this.text(p, 'eq-info', placedEq ? (row ? `Paralelas colocadas a ${num('dipH')} cm de altura` : `Barra colocada a ${num('doorH')} cm de altura`) : 'Agárrala con las dos manos por encima de la cabeza: así se coloca y se recuerda');
     // la dificultad: los galones de cada rango, «Al fallo», la ficha de la ronda y lo del ojo
     this.set(p, 'box-diff', { borderColor: DIFF_COL });
     const ri = rankIdx();
@@ -770,6 +778,11 @@ export class MenuSystem extends createSystem({}, {}) {
 
   // El botón MENÚ (o X/Y del mando izquierdo): en la ronda, la pausa; fuera, el menú delante (RepArena: onWatch)
   private onWatch(): void {
+    if (HOOKS.placing()) {
+      HOOKS.cancelPlace(); // (colocando el aparato: la muñeca lo deja)
+      SND.tick();
+      return;
+    }
     if (GAME.phase === 'playing' && !GAME.paused && this.view === 'none') {
       this.pause();
       return;
@@ -810,7 +823,7 @@ export class MenuSystem extends createSystem({}, {}) {
       o.position.copy(h.wrist).addScaledVector(this.wu, Math.sign(this.wu.dot(this.wh) || 1) * 0.045);
       if (h.virt) o.position.copy(h.wrist).add(this.wh.set(0, 0.08, 0));
       o.lookAt(head.p);
-      this.text(this.wrist, 'w-t', GAME.phase === 'playing' ? 'PAUSA' : menuUp ? 'TRAER MENÚ' : 'MENÚ');
+      this.text(this.wrist, 'w-t', HOOKS.placing() ? 'CANCELAR' : GAME.phase === 'playing' ? 'PAUSA' : menuUp ? 'TRAER MENÚ' : 'MENÚ');
     }
     // el menú se recoge con la palma izquierda hacia abajo o con el puño (un momento, para no recogerlo sin querer)
     const closing = inXR && (this.view === 'lobby' || this.view === 'options') && h.ok && !h.virt && (isFist(h) || this.wu.set(0, 1, 0).applyQuaternion(h.wristQ).y > 0.85);

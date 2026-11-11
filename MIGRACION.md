@@ -135,7 +135,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 14 · Página web y app del móvil** — #24
 - [x] **PR 15 · Arcos** — #25
 - [x] **PR 16 · Toques** — #26
-- [ ] **PR 17 · Barras**
+- [x] **PR 17a · Barras: el modo (aparatos que se recuerdan, dominadas, remo, colgado y objetivos)** — #27
+- [ ] **PR 17b · Barras: el bosque nocturno, el remolino y los tentáculos**
 - [ ] **PR 18 · Travesía**
 - [ ] **PR 19 · Sesiones**
 - [ ] **PR 20 · Entornos**
@@ -380,6 +381,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 17a → PR 17b y siguientes: Barras sigue la receta de Arcos y Toques (`src/modes/bars/`: `detect.ts`, `targets.ts`, `place.ts`
+  y `equip.ts` son la lógica de RepArena, comparada con su código; `bars-system.ts` pinta, suena y puntúa; los objetos, en
+  `src/scene-assets/bars.scene-asset.ts`). Lo que añade: **antes de cada oleada hay que colgarse** (la cuenta atrás de 3 s la
+  lleva `BarDetector`; al acabarla, `HOOKS.barWave(i)` hace que `GameSystem` empiece la oleada) y, si te sueltas, se vuelve a
+  la barra sin perder la oleada. El aparato se coloca con las manos (`Placer`: «Colocar barra» en el menú, o al empezar si
+  aún no está; el botón de la muñeca pasa a CANCELAR) y se guarda en `reparena3-equip` (el mismo guardado que RepArena). El
+  aviso del centro de la vista (`VIEW.center`) lo lleva `BarsSystem.center()`. Para 17b: lo de debajo del que cuelga
+  (`hangPit`: charco con tentáculos o remolino), el bosque nocturno (`forestOn` en RepArena: solo colgado) y el tentáculo
+  animado (`tentaculo.glb` de RepArena, Pirate Kit CC0, con Idle/Poke/Attack/Attack2); al caerse, `fall` ya avisa
+  (`door: true` es el charco). La arena es el mundo (no se mueve al colgarte, `arenaFromHead` no hace nada).
 - PR 16 → PR 17 y siguientes: Toques sigue la receta de Arcos (`src/modes/touch/`: lógica pura en `targets.ts`/`wave.ts` con su
   `TouchEnv`, comparada con RepArena; `touch-system.ts` pinta, suena y puntúa; sus objetos, en `touch.scene-asset.ts`). Cada
   toque cuenta como una repetición por `HOOKS.arcRep(perfect)` (es el `registerRep` sin disparo; sirve a cualquier modo sin
@@ -496,6 +507,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 17a: **Barras sin lo de debajo del que cuelga** (bosque, charco con tentáculos, remolino): llega con el PR 17b; mientras, se
+  cuelga en la escena de siempre. Al caerte en la barra de puerta (`¡AL CHARCO!`) solo hay el aviso y la vibración.
+- PR 17a: los aparatos se recuerdan por su **pose** (`reparena3-equip`), **sin anclas de WebXR ni el suelo del guardián** (las
+  anclas y la realidad mixta, con el PR 21): si el origen de la sesión cambia, hay que volver a colocarlos. Sin los ajustes
+  finos con menú (mover y girar el aparato): se vuelve a colocar con las manos. Sin sesión de prueba en el ordenador.
+- PR 17a: **los bichos** (avispas, zánganos, la reina, el portador) **salen con la abeja del catálogo** (los de RepArena eran
+  hechos a mano: regla del usuario de no crear enemigos de cero); sin el aguijón que se dobla ni sus amagos pintados. Las
+  pompas son una esfera de cristal sencilla (sin la película irisada). Sin el rastro de luz entre la cabeza y el objetivo.
 - PR 16: **Toques sin espadas ni abdominales ni combinado**: hasta el PR 9 no hay espada (los bloques que se cortan salen como
   diamantes, como en RepArena sin mandos); Slam, Saltos y Flexiones se juegan; Abdominales (boca arriba) y Combinado, no todavía.
   Los aros no llevan los filamentos eléctricos ni el zumbido que traía RepArena (el aro de neón, sus flechas y su estallido

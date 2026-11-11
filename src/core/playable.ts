@@ -1,6 +1,6 @@
 /**
  * Qué modos y ejercicios se pueden jugar ya en RepArena XR (los demás salen en gris en los menús y se encienden con su PR):
- * RepArena los tiene todos; aquí llegan poco a poco (Combate, Arcos y Toques hasta ahora). Sin IWSDK.
+ * RepArena los tiene todos; aquí llegan poco a poco (Combate, Arcos, Toques y Barras hasta ahora). Sin IWSDK.
  */
 import { MODE_EX } from './catalog.js';
 
@@ -8,13 +8,14 @@ import { MODE_EX } from './catalog.js';
 export const COMBAT_PLAY_EX = ['squat', 'lunge', 'jsquat', 'curl', 'curl2', 'twist', 'fraise', 'thruster', 'frontsq', 'swing', 'dlrow', 'dips', 'splank', 'superman', 'pushup', 'plank1', 'inchworm'];
 
 /** Los modos que ya se pueden jugar. Cada PR de modo (15 a 18) añade el suyo. */
-export const PLAY_MODES: string[] = ['combat', 'arcs', 'touch'];
+export const PLAY_MODES: string[] = ['combat', 'arcs', 'touch', 'bars'];
 
 /** Los ejercicios que ya se pueden jugar en cada modo (los de MODE_EX del modo que ya están). */
 export const PLAY_MODE_EX: Record<string, string[]> = {
   combat: COMBAT_PLAY_EX,
   arcs: ['squat'],
   touch: ['slam', 'jump', 'pushup'],
+  bars: ['row', 'pullup', 'hang'],
 };
 
 /** ¿Se puede jugar este ejercicio en este modo? */
