@@ -298,7 +298,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     };
     HOOKS.sparks = (p, n, c) => this.fx.sparks.burst(p, n, c, 2.4, 0.04);
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
-    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot() };
+    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS };
     // la letra de la ×N de la bola (Bungee, para el lienzo)
     try {
       const face = new FontFace('Bungee', `url(${import.meta.env.BASE_URL}fonts/Bungee-Regular.ttf)`);
@@ -324,7 +324,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       foes.push({ kind: (ud.rt ?? ud.fly)?.kind ?? (ud.hatch ? 'h' + ud.hatch.beast : undefined), fly: !!ud.fly, hatch: !!ud.hatch, boss: !!(ud.rt?.def.boss || ud.fly?.flight.K.boss || ud.hatch?.foe.boss), state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
-    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, duel: VIEW.duel, center: VIEW.center?.kind ?? '', resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
+    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, arcs: this.arcs()?.hud() ?? null, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, duel: VIEW.duel, center: VIEW.center?.kind ?? '', resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
