@@ -55,6 +55,7 @@ import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, REP_TIM
 import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
 import { ArcsSystem } from '../modes/arcs/arcs-system.js';
+import { TouchSystem } from '../modes/touch/touch-system.js';
 import { curEx } from '../ui/fields.js';
 import { PLAY_MODES, playableEx } from '../core/playable.js';
 import { dv, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, waveReps } from '../core/settings.js';
@@ -278,6 +279,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         this.enemies.vanishAll();
         this.gates?.closeAll();
         this.arcs()?.clear();
+        this.touch()?.clear();
       }
       HOOKS.showMenu('');
     };
@@ -496,6 +498,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
           lines[2] = h.fever ? '¡FIEBRE!' : h.got ? `Orbes: ${h.got}` : '';
           if (!msg && h.fever) { msg = '¡FIEBRE! ×2'; col = '#ff4a5a'; }
         }
+      } else if (settings.mode === 'touch') {
+        // Toques: cuántos quedan y de dónde vienen (la ayuda de cada tipo la dan los avisos al fallar)
+        const h = this.touch()?.hud();
+        if (h) lines[0] = `Quedan ${h.left}`;
+        const g = this.rw.ghostText();
+        if (g) lines[1] = minus(g[0]);
       } else {
         const g = this.rw.ghostText();
         if (g) lines[1] = minus(g[0]);
@@ -590,6 +598,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.rampLvl = GAME.ramp = 0;
     GAME.ptsK = 1;
     if (settings.mode === 'arcs') this.arcs()?.begin(); else this.arcs()?.clear();
+    if (settings.mode === 'touch') this.touch()?.begin(); else this.touch()?.clear();
     this.roundId++;
     this.dayRefresh();
     this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla)
@@ -640,10 +649,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const tiny = isTiny(), ground = tiny ? hatchFoes(groundList()) : gateFoes(groundList()), fly = flyFoes(flyList());
     const env: WaveEnv = { reps: waveReps(i), twoShots: twoShots(), foes: foes() as WaveEnv['foes'], ground, fly: flyList().includes('dragon') ? [...fly, 'dragon'] : fly, waves: nWaves(), rank: rankIdx(), ladder: on('foeLadder'), tiny, hp: (k) => devFoe(k).hp, tier: (k) => foeTierOf((key) => devFoe(key).tier, k) };
     const arcsMode = settings.mode === 'arcs';
-    const w = arcsMode ? { list: [], fresh: [] as string[] } : buildWave(i, env, this.seen);
+    const touchMode = settings.mode === 'touch';
+    const w = arcsMode || touchMode ? { list: [], fresh: [] as string[] } : buildWave(i, env, this.seen);
     this.queue = w.list;
     this.waveTarget = env.reps;
     if (arcsMode) this.arcs()?.startWave(env.reps); // (en Arcos, la oleada son los obstáculos que van saliendo)
+    if (touchMode) this.touch()?.startWave(i, i > 0 ? WAVE_INTRO : 0); // (en Toques, los objetivos que van llegando)
     const rk = rampK(num('ramp'), this.rampLvl, RAMP_CAP);
     this.gap = spawnGap(this.queue, REP_TIME[settings.exercise] ?? 2.4, env.foes === 'flyers', env.twoShots, num('spawnGap'), rk);
     this.spawnT = 0.6;
@@ -765,6 +776,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     else this.calibT = Math.max(0, this.calibT - dt * 2);
     if (this.calibT < 2) return;
     this.calibT = -1;
+    this.touch()?.calibrated(y);
     this.fl.reset(y, { left: hands.left.ok ? hands.left.wrist.y : null, right: hands.right.ok ? hands.right.wrist.y : null });
     this.rw.standY = 1.6;
     // la arena diminuta: las trampillas delante de tus manos; en el inchworm, su origen es donde quedará tu cabeza en la
@@ -828,6 +840,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const P = progressNow(), gain = career().take();
     const AX = settings.mode === 'arcs' ? this.arcs()?.end(GAME.score, GAME.reps, GAME.taken) ?? null : null; // (medalla, metros, orbes y fantasma)
     this.arcs()?.clear();
+    this.touch()?.clear();
     const sum = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist, { arcs: AX && { medal: AX.medal, farther: AX.farther, orbs: AX.orbs }, streakUp: P.streak > P0.streak && P.streak > 1 ? { n: P.streak, best: P.best } : null, notes: gain?.notes ?? null });
     if (CAMP.run) {
       // en la campaña: el nivel con sus estrellas (y la medalla que dicen), y los botones de seguir
@@ -925,7 +938,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     return settings.mode === 'arcs' ? Math.floor(this.arcs()?.arx.dist ?? 0) : 0;
   }
 
-  private arcs(): ArcsSystem | undefined {
+  touch(): TouchSystem | undefined {
+    return this.world.getSystem(TouchSystem);
+  }
+
+  arcs(): ArcsSystem | undefined {
     return this.world.getSystem(ArcsSystem);
   }
 
@@ -1317,7 +1334,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.centerStep(playing);
     this.stepCareer(dt);
     if (playing && !VIEW.duel) { // (mientras se ve la carátula del duelo, la ronda espera)
-      if (settings.mode !== 'arcs') this.exercise(time, dt); // (en Arcos no hay detector: lo que cuenta es pasar los arcos)
+      if (settings.mode !== 'arcs' && settings.mode !== 'touch') this.exercise(time, dt); // (en Arcos y Toques no hay detector: lo que cuenta es pasar los arcos o tocar)
       if (!GAME.between) this.workT += dt; // (el tiempo de oleada, para las calorías)
       // oleadas: el descanso (no sale nadie); luego van saliendo de la cola, de uno en uno (con ritmo, en el pulso), sin
       // pasar de «Máximo a la vez»; cuando no queda nadie, oleada superada
@@ -1339,6 +1356,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         if (this.restT <= 0 && !(this.resting && this.rw.waits())) this.endRest();
       } else if (!GAME.between && settings.mode === 'arcs') {
         if (!this.arcs()?.waveLeft()) this.waveCleared(); // (Arcos: sin nada por salir ni por pasar)
+      } else if (!GAME.between && settings.mode === 'touch') {
+        if (!this.touch()?.waveLeft()) this.waveCleared(); // (Toques: sin nada por llegar ni por tocar)
       } else if (!GAME.between) {
         this.spawnT -= dt * this.rw.spawnK(); // (en el relámpago, el doble de seguidos)
         this.stepPending(dt);

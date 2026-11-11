@@ -6,6 +6,7 @@ import { createArenaFloor, createCrate, createPlayerPad, createRock } from './sc
 import { createGate } from './scene-assets/gate.scene-asset.js';
 import { createHatch } from './scene-assets/hatch.scene-asset.js';
 import { createArc } from './scene-assets/arc.scene-asset.js';
+import { createTouchGem, createTouchPad, createTouchRing } from './scene-assets/touch.scene-asset.js';
 import { createLaser, createMace, createOrb, createWalls } from './scene-assets/arc-extras.scene-asset.js';
 import { createComicClouds } from './scene-assets/comic-sky.scene-asset.js';
 import { createComicValley } from './scene-assets/comic-valley.scene-asset.js';
@@ -36,6 +37,9 @@ export default defineAssets({
   'arc-walls': createWalls().grp,
   'arc-mace': createMace(2.4, 2).grp,
   'arc-orb': createOrb().grp,
+  'touch-ring': createTouchRing().grp,
+  'touch-gem': createTouchGem().grp,
+  'touch-pad': createTouchPad().grp,
   'comic-clouds': createComicClouds(),
   'comic-valley': createComicValley(),
   'zombie-basic': glb('zombie_basic.glb', 'Zombi verde'),
