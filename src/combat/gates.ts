@@ -4,7 +4,7 @@
  *  - Se abre cuando sale un zombi (las puertas se deslizan 1,25 m a los lados) y, cuando ya no la usa nadie, se cierra.
  *  - Abierta, la baliza gira y echa sus haces rojos; cerrada, se apaga.
  *  - Es sólida con la física de IWSDK: los pilares, los bloques de los lados y el túnel, cuerpos fijos; las puertas,
- *    cuerpos que se mueven con ellas. Y los zombis la rodean (Obstacle), como las cajas y las rocas.
+ *    cuerpos que se mueven con ellas. Y los zombis la rodean (Obstacle), como la bola de energía.
  *  - Al abrirse, suena y echa vapor a los lados.
  */
 import { createSystem, Entity, Group, Mesh, MeshBasicMaterial, Object3D, PhysicsBody, PhysicsShape, PhysicsShapeType, PhysicsState, PhysicsSystem, Quaternion, Vector3 } from '@iwsdk/core';

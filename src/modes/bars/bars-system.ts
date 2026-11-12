@@ -97,8 +97,8 @@ export class BarsSystem extends createSystem({}) {
     this.line.visible = false;
     this.root.add(this.line);
     this.hang = new HangScene(this.root, this.world.scene);
-    // la arena de siempre (compuertas, cajas, rocas, suelo, valle y nubes), que de noche se esconde en el bosque
-    const arena = ['arena-floor', 'gate-left', 'gate-center', 'gate-right', 'crate-a', 'crate-b', 'crate-c', 'rock-a', 'rock-b', 'comic-valley', 'comic-clouds'];
+    // la arena de siempre (compuertas, suelo, valle y nubes), que de noche se esconde en el bosque
+    const arena = ['arena-floor', 'gate-left', 'gate-center', 'gate-right', 'comic-valley', 'comic-clouds'];
     this.hang.arenaOf = () => arena.map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is NonNullable<typeof o> => !!o);
     HOOKS.placeEq = (note) => this.startPlace(() => HOOKS.showMenu(''), note ?? '');
     HOOKS.eqPlaced = () => this.placed();

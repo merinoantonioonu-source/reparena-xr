@@ -1,6 +1,6 @@
 /**
  * Los enemigos de las compuertas (la tabla, en src/combat/foes.ts), con física de verdad (Havok): cada uno es una cápsula
- * dinámica que choca con el suelo, las cajas, las rocas, la bola de energía y los demás. Andan dirigiendo su velocidad (no
+ * dinámica que choca con el suelo, las compuertas, la bola de energía y los demás. Andan dirigiendo su velocidad (no
  * se teletransportan) hacia su puesto de ataque, en un arco delante de ti (RepArena: robotSlot): rodean la bola y los
  * obstáculos, se separan entre ellos y, si chocan, se empujan; si la primera fila está llena, esperan en la de atrás y,
  * con ritmo marcado, bailan al compás. En su puesto preparan el golpe y golpean (con ritmo, en el pulso): te quitan su
@@ -272,9 +272,14 @@ export class EnemySystem extends createSystem(
     return model;
   }
 
-  /** Antes de la ronda (con la carátula del duelo en negro): una copia de cada modelo ya cargado, con el cómic y su versión al
-   * desvanecerse, para precompilar sus sombreadores y subir sus colores (src/style/warm.ts). Una vez por modelo. */
+  /** Una copia de cada modelo ya cargado, con el cómic y su versión al desvanecerse, para precompilar sus sombreadores y subir
+   * sus colores (src/style/warm.ts). Una vez por modelo; todas las que falten de golpe (en el menú se hacen de una en una). */
   warm(): void {
+    while (this.warmNext());
+  }
+
+  /** Prepara la siguiente copia que falte (una por llamada, para hacerlo poco a poco en el menú); false si no queda ninguna. */
+  warmNext(): boolean {
     for (const kind in FOE_DEF) {
       const d = FOE_DEF[kind];
       if (!this.ready(kind)) continue;
@@ -288,13 +293,17 @@ export class EnemySystem extends createSystem(
         const a = this.model(d, gl.scene, t);
         comicScan(a, () => false);
         warmKeep(a);
-        if (t > 0) continue; // (desvanecido, uno basta: los colores no cambian el sombreador)
-        const b = this.model(d, AssetManager.getGLTF(d.asset)!.scene, t);
-        comicScan(b, () => false);
-        fadeCopy(b);
-        warmKeep(b);
+        if (t === 0) {
+          // (desvanecido, uno basta: los colores no cambian el sombreador)
+          const b = this.model(d, gl.scene, t);
+          comicScan(b, () => false);
+          fadeCopy(b);
+          warmKeep(b);
+        }
+        return true;
       }
     }
+    return false;
   }
 
   /** Saca uno de la tabla (kind: zgreen, raptor, captain…) en (x, z), mirando hacia ti, con hp de vida; boss: su jefe. */
@@ -488,7 +497,7 @@ export class EnemySystem extends createSystem(
     e.addComponent(PhysicsManipulation, m);
   }
 
-  // Dirección deseada (horizontal, en des) para ir hacia el jugador rodeando la bola, las cajas, las rocas y a los
+  // Dirección deseada (horizontal, en des) para ir hacia el jugador rodeando la bola, las compuertas y a los
   // demás zombis
   private steer(e: Entity, p: Vector3, r: number, side: number, to: Vector3): void {
     const tx = to.x - p.x, tz = to.z - p.z;
