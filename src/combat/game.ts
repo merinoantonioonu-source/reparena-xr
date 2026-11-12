@@ -64,7 +64,7 @@ import { exSongsStart, pulse, spotify } from '../services/hub.js';
 import { TouchSystem } from '../modes/touch/touch-system.js';
 import { curEx } from '../ui/fields.js';
 import { PLAY_MODES, playableEx } from '../core/playable.js';
-import { dv, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, waveReps } from '../core/settings.js';
+import { dv, onSettingsChange, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, waveReps } from '../core/settings.js';
 import { EX_NAMES, EX_SHORT, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
@@ -247,6 +247,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.world.createTransformEntity(this.hurt);
     // los paneles (los menús, en src/ui/menu.ts)
     this.board = this.world.getSceneObject<UIKitMLAsset>('board-panel') ?? null;
+    this.placeBoard(); // (también en el menú: el marcador, ya en su sitio)
+    this.cleanupFuncs.push(onSettingsChange((k) => (k === 'board' || k === '*') && this.placeBoard()));
     this.warn = this.world.getSceneObject<UIKitMLAsset>('warn-panel') ?? null;
     this.warnEntity = this.world.getSceneEntity('warn-panel');
     this.chargeP = this.world.getSceneObject<UIKitMLAsset>('charge-panel') ?? null;
@@ -569,7 +571,6 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private placeBoard(): void {
     const o = this.world.getSceneEntity('board-panel')?.object3D;
     if (!o) return;
-    if (!this.boardHome) this.boardHome = { x: o.position.x, y: o.position.y, z: o.position.z, ry: o.rotation.y, k: o.scale.x };
     const hs = this.world.getSystem(HatchSystem);
     if (hs?.on) {
       // en la batalla diminuta, tumbado en el suelo delante de tus manos (76 cm, como en RepArena), sólido para ellos
@@ -578,12 +579,23 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       o.scale.setScalar(0.76 / 0.64);
       return;
     }
-    const right = str('board') === 'right';
-    o.position.set(right ? -this.boardHome.x : this.boardHome.x, this.boardHome.y, this.boardHome.z);
-    o.rotation.set(0, right ? -this.boardHome.ry : this.boardHome.ry, 0);
-    o.scale.setScalar(this.boardHome.k);
+    // como en RepArena (src/30_env.js: layoutArena): a un lado, flotando, por delante (a unos 50° y 5 m), grande (4,2 m de
+    // ancho), justo por fuera de la compuerta de ese lado (no tapa lo que sale de ella), girado hacia ti y algo inclinado;
+    // «Compuertas»: encima de la del centro, enorme, para leerlo de lejos
+    const mode = str('board'), side = mode === 'right' ? 1 : -1, D = 11, sp = 4.62, PW = 0.64; // (las compuertas, a 11 m y 4,62 m de lado; el panel mide 64 cm)
+    if (mode === 'gate') {
+      const W = Math.min(4.2, Math.max(1.8, D * 0.36)) * 3, H = W * 0.445, yc = 4.75 + H / 2;
+      o.position.set(0, yc, -D - 0.35);
+      o.rotation.set(Math.atan((yc - 1.6) / D) * 0.8, 0, 0, 'YXZ');
+      o.scale.setScalar(W / PW);
+      return;
+    }
+    const R = 5.0, W = 4.2, yc = 2.15, edge = Math.atan((sp + 1.3) / D), a = Math.min(1.2, Math.max(0.85, edge + Math.atan(W / 2 / R) + 0.03));
+    const cx = side * R * Math.sin(a), cz = -R * Math.cos(a);
+    o.position.set(cx, yc, cz);
+    o.rotation.set(Math.atan((yc - 1.6) / R) * 0.8, Math.atan2(-cx, -cz), 0, 'YXZ');
+    o.scale.setScalar(W / PW);
   }
-  private boardHome: { x: number; y: number; z: number; ry: number; k: number } | null = null;
 
   private boardSet(p: UIKitMLAsset, id: string, props: Record<string, unknown>): void {
     const k = id + '#' + p.assetId, v = JSON.stringify(props);
