@@ -146,6 +146,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 24a · Los fallos de la prueba en las gafas** (calibración con tu mirada, enemigos de espaldas, la pasarela de los Arcos, los tirones, teclado sólido y menú más pequeño, manos opacas, y los rayos de RepArena) — #30
 - [x] **PR 24 · Cambio de casa** (la dirección de siempre de RepArena trae aquí; la anterior, en `clasica.html`; pruebas de todos los ejercicios; medidor de fotogramas y registro de tirones) — #31 (y en RepArena, el PR del cambio)
 - [x] **PR 25 · Pulsar los menús como en RepArena, guantes también con mandos, la caricatura y la explicación** — #32
+- [x] **PR 26 · Arreglos de la prueba del PR 25: se vuelve a poder pulsar, sin manos blancas y la calibración al empezar el ejercicio** — #33
 
 ## Los PR
 
@@ -524,6 +525,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   código con `setSetting` antes: cambiaría también el de RepArena.
 - La nitidez se guarda aparte (`reparenaxr-quality`), como decidió el usuario en el PR 7: solo la del juego nuevo.
 
+- PR 26: una tecla nueva de un panel se escucha con `onPress` (`src/ui/press.ts`), nunca con `addEventListener('click')`: le
+  llegan dos pulsaciones (la de IWSDK y la del dedo) y solo debe contar una. De pie también se calibra (quieto 2 s tras la
+  carátula, como en RepArena); entonces el mundo se coloca delante de ti (`recenter`).
 - PR 24: un ejercicio nuevo necesita su prueba con movimientos de persona en `tests/unit/exercises.test.ts` (cinco bien hechas
   cuentan cinco, quieto no cuenta nada, lo mal hecho avisa): la última prueba falla si alguno de los que se pueden jugar no la
   tiene. Lo que pueda congelar la imagen, que marque `HITCH.f` (`src/core/hitch.ts`) para que el registro de tirones lo diga.
@@ -731,8 +735,11 @@ Los que se han encontrado en la versión que usamos (`@iwsdk/core` 1.1.0-rc.2) y
 arregla, se quita el apaño.
 
 - **Pulsar con el dedo** (`PokeInteractable` y su punto de toque): pulsa al acercarse a 2 cm y solo cuenta si se suelta en
-  menos de 0,8 s sobre la misma tecla (las pulsaciones lentas o con el dedo resbalando se perdían). Apaño: su pulsación con el
-  dedo se apaga (`clickThresholdMs`) y la hace `src/ui/solid-keys.ts`, con la tecla que IWSDK tiene bajo el punto de toque.
+  menos de 0,8 s sobre la misma tecla (las pulsaciones lentas o con el dedo resbalando se perdían). Apaño: `src/ui/solid-keys.ts`
+  pulsa además al tocar, con la tecla que IWSDK tiene bajo el punto de toque; la de IWSDK sigue (en el PR 25 se apagó y, en las
+  gafas, no se podía pulsar nada) y cada tecla atiende solo la primera (`onPress`, `src/ui/press.ts`).
+- **IWSDK vuelve a enseñar su mano en cada fotograma** (pone `model.visible`): para esconderla bajo los guantes, se esconde su
+  piel por dentro, y solo mientras se pinta el guante de ese lado (`GLOVE_ON`).
 - **La mano desnuda es un fantasma** (`AnimatedHand`: transparente por dentro, con un borde blanco); en las gafas se veía a
   través de ella. No es un fallo, es su diseño; aquí se cambia por una opaca (`src/input/skin-hand.ts`) o por los guantes.
 - **Su mano solo se apoya en las teclas mientras pulsa** (`getTouchSurfaceVisualOffset`): fuera de una tecla, o en el fondo del

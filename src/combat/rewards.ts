@@ -8,6 +8,7 @@
  *  - el cofre del descanso (el del Pirate Kit), que se abre saltando: una mejora más, una vida o 300 puntos;
  *  - la carrera contra tu récord (en el marcador), que se guarda donde RepArena.
  */
+import { onPress } from '../ui/press.js';
 import { AdditiveBlending, AssetManager, CanvasTexture, Entity, Group, Object3D, PokeInteractable, RayInteractable, Sprite, SpriteMaterial, UIKitMLAsset, Vector3, VisibilityState, World } from '@iwsdk/core';
 import { chestRoll, Ghost, GHOST_KEY, goldRoll, HIST_KEY, Perks, PERKS, rushPlan, RUSH_SECS, RUSH_SPAWN_K, type PerkNote } from './perks.js';
 import type { FoeTarget } from './enemies.js';
@@ -78,11 +79,12 @@ export class Rewards {
     this.showPanel(false);
     for (let i = 0; i < 3; i++) {
       const el = this.panel?.getElementById('p' + i);
-      el?.addEventListener('click', () => {
-        unlockAudio();
-        SND.click();
-        this.pick(i);
-      });
+      if (el)
+        onPress(el, () => {
+          unlockAudio();
+          SND.click();
+          this.pick(i);
+        }); // (una sola vez por pulsación: src/ui/press.ts)
     }
     this.chest.g.visible = false;
     world.createTransformEntity(this.chest.g);

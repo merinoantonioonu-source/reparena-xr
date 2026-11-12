@@ -4,7 +4,8 @@
  * toque (la punta del índice con las manos; la punta del mando con mandos), que pulsa al acercarse a 2 cm y cuenta la
  * pulsación si se suelta en menos de 0,8 s sobre la misma tecla (las lentas no contaban y, al resbalar, se perdían), y que
  * apoya su mano en la tecla solo mientras pulsa. Aquí, sobre ese mismo punto de toque y la tecla que IWSDK tiene debajo:
- *  - la tecla se pulsa al tocarla (sin prisa por soltar) y una sola vez: para la siguiente hay que retirar el dedo;
+ *  - la tecla se pulsa al tocarla (sin prisa por soltar) y una sola vez: para la siguiente hay que retirar el dedo (la de
+ *    IWSDK sigue también, por si esta falla; cada tecla atiende solo la primera: src/ui/press.ts);
  *  - pegada: desde que toca, la punta que se ve se queda en el punto de la tecla que tocó hasta que el dedo sale por
  *    delante (o se va más de 7 cm de lado, `KEEP`), y no se desliza por el panel;
  *  - sólida: ni las teclas ni el resto del panel se atraviesan; la mano que se ve se queda apoyada (`HOLD`);
@@ -124,9 +125,7 @@ export class SolidKeysSystem extends createSystem({ poke: { required: [PokeInter
       }
     }
     for (const s of SIDES) {
-      const h = hands[s], S = this.P[s], tp = xi.multiPointers[s].getPointer('touch');
-      // (la pulsación de IWSDK con el dedo, fuera: la hace esta; la del rayo sigue siendo la suya)
-      (tp.options as { clickThresholdMs?: number }).clickThresholdMs = -1;
+      const h = hands[s], S = this.P[s];
       this.want.set(0, 0, 0);
       const real = inXR && h.ok;
       // el punto de toque de IWSDK (la punta del índice; con mandos, la del mando)

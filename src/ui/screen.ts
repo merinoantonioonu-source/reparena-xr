@@ -4,6 +4,7 @@
  * desarrollador y el teclado de números. Se abre en el mismo sitio donde estaba el menú y, al cerrarla, se llama a `back` (que
  * suele volver al menú). Los paneles son los de IWSDK (UIKitML, `public/ui/screen.uikitml`), con sus botones de siempre.
  */
+import { onPress } from './press.js';
 import { createSystem, PokeInteractable, RayInteractable } from '@iwsdk/core';
 import type { Entity, UIKitMLAsset } from '@iwsdk/core';
 import { unlockAudio } from '../audio/sound.js';
@@ -46,8 +47,7 @@ export class ScreenSystem extends createSystem({}, {}) {
           const r = this.rows[i];
           if (r && r.t === 'btns') r.items[j]?.onPress();
         };
-        el.addEventListener('click', h);
-        this.cleanupFuncs.push(() => el.removeEventListener('click', h));
+        this.cleanupFuncs.push(onPress(el, h)); // (una sola vez por pulsación: src/ui/press.ts)
       }
     this.setOn(false);
     HOOKS.openScreen = (rows, opts) => this.open(rows as ScreenRow[], opts);
