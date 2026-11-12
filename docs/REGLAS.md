@@ -237,7 +237,7 @@ No las cambies sin preguntarle.
   - se cierra con la palma izquierda hacia abajo o con el puño;
   - los menús nuevos salen solos.
 - **Cada menú sale donde estaba el anterior**: «Traer menú», «Volver», «Menú principal» y el resumen no se alejan.
-- **[PR 25 (el usuario, al probar en las gafas: con lo de IWSDK «el dedo atraviesa el panel y resbala por las teclas pulsadas»; IWSDK no trae más que su punto de toque): la pulsación de RepArena sobre el punto de toque de IWSDK (`src/ui/solid-keys.ts`): pulsa al tocar, sólidas, pegadas y retirar el dedo; el imán, aún no]** Los botones de los menús se pulsan con **las dos manos** (el botón MENÚ de la muñeca izquierda, con la derecha). Las
+- **[PR 25 (el usuario, al probar en las gafas: con lo de IWSDK «el dedo atraviesa el panel y resbala por las teclas pulsadas»; IWSDK no trae más que su punto de toque): la pulsación de RepArena sobre el punto de toque de IWSDK (`src/ui/solid-keys.ts`): pulsa al tocar, sólidas, pegadas y retirar el dedo; la de IWSDK sigue también (cada tecla atiende una sola: `src/ui/press.ts`); el imán, aún no]** Los botones de los menús se pulsan con **las dos manos** (el botón MENÚ de la muñeca izquierda, con la derecha). Las
   teclas son **sólidas**: al llegar al fondo, la mano que se ve se queda apoyada en ella y no la atraviesa; el panel
   también (el fondo y los huecos entre teclas). Y tienen **imán** (opción B elegida): la iluminada sigue iluminada hasta que
   el dedo sale de ella más de 1 cm, la mano que se ve se acerca a ella y, al tocarla, se queda clavada donde tocó; decide la

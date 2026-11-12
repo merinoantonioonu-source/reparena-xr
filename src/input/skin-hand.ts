@@ -8,6 +8,7 @@
 import { AnimatedHand, MeshStandardMaterial, outlineMaterial } from '@iwsdk/core';
 import type { Object3D, SkinnedMesh } from '@iwsdk/core';
 import { str } from '../core/values.js';
+import { GLOVE_ON } from './hold.js';
 
 /** El material de la mano lisa (uno para todas). */
 export const skinMat = new MeshStandardMaterial({ color: 0xd6dbe6, roughness: 0.6, metalness: 0.05 });
@@ -27,16 +28,33 @@ export function opaqueHand(model: Object3D): void {
   for (const m of ghost) m.removeFromParent(); // (el borde blanco: después de recorrer)
 }
 
-/** La mano desnuda de IWSDK, opaca; con «Guantes», escondida (se ven los guantes en su sitio). */
+/** La mano desnuda de IWSDK, opaca; con «Guantes», escondida mientras se pinta el guante de esa mano. (IWSDK vuelve a
+ * enseñar su modelo en cada fotograma: se esconde lo de dentro, la piel; en las gafas, si no, tapaba los guantes). */
 export class SkinHand extends AnimatedHand {
+  private side: 'left' | 'right' = 'left';
+  private skin: Object3D[] = [];
+
   init(): void {
     super.init();
     opaqueHand(this.model);
+    this.model.traverse((o) => {
+      if ((o as SkinnedMesh).isSkinnedMesh) this.skin.push(o);
+    });
+  }
+
+  connect(src: XRInputSource, enabled: boolean): void {
+    super.connect(src, enabled);
+    this.side = src.handedness === 'right' ? 'right' : 'left';
   }
 
   update(): void {
     super.update();
-    const v = this.enabled && str('handLook') === 'skin';
-    if (this.model.visible !== v) this.model.visible = v;
+    skinShown(this.skin, this.side);
   }
+}
+
+/** La piel de una mano de IWSDK, a la vista solo si no se está pintando el guante de ese lado. */
+export function skinShown(skin: Object3D[], side: 'left' | 'right'): void {
+  const v = !(str('handLook') !== 'skin' && GLOVE_ON[side]);
+  for (const o of skin) if (o.visible !== v) o.visible = v;
 }

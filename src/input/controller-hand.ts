@@ -9,9 +9,8 @@
  */
 import { AnimatedControllerHand, AssetManager } from '@iwsdk/core';
 import type { Group, Object3D, PerspectiveCamera, Scene, SkinnedMesh } from '@iwsdk/core';
-import { str } from '../core/values.js';
 import { handModelUrl } from './input-models.js';
-import { opaqueHand } from './skin-hand.js';
+import { opaqueHand, skinShown } from './skin-hand.js';
 
 type Layout = ConstructorParameters<typeof AnimatedControllerHand>[3];
 type Side = 'left' | 'right';
@@ -33,6 +32,11 @@ export async function loadControllerHands(): Promise<boolean> {
 class ControllerHand extends AnimatedControllerHand {
   // (opaca, como la mano lisa: la de IWSDK es un fantasma transparente)
   private skin: Object3D[] = [];
+  private side: Side = 'left';
+  connect(src: XRInputSource, enabled: boolean): void {
+    super.connect(src, enabled);
+    this.side = src.handedness === 'right' ? 'right' : 'left';
+  }
   init(): void {
     super.init();
     opaqueHand(this.model);
@@ -45,8 +49,7 @@ class ControllerHand extends AnimatedControllerHand {
   update(delta: number): void {
     super.update(Math.min(delta, 0.05));
     // con los guantes, su piel no se ve: los guantes se ponen en sus huesos (src/input/glove-system.ts)
-    const v = str('handLook') === 'skin';
-    for (const o of this.skin) if (o.visible !== v) o.visible = v;
+    skinShown(this.skin, this.side);
   }
 }
 export class ControllerHandLeft extends ControllerHand {

@@ -12,7 +12,7 @@ import { settings, str } from '../core/values.js';
 import { TCH_COL } from '../modes/touch/targets.js';
 import { createGloveParts, createGlovePalm, type GloveParts } from '../scene-assets/glove.scene-asset.js';
 import { HJ, hands, SIDES, type Joint, type Side } from './hand-model.js';
-import { HOLD } from './hold.js';
+import { GLOVE_ON, HOLD } from './hold.js';
 
 // las falanges (de una articulación a la siguiente), los nudillos, las puntas y los nudillos de la mano (RepArena: G_*)
 const SEGS: [number, number][] = [[1, 2], [2, 3], [3, 4]];
@@ -103,6 +103,7 @@ export class GloveSystem extends createSystem({}, {}) {
     const inXR = this.world.visibilityState.peek() !== VisibilityState.NonImmersive, want = inXR && str('handLook') !== 'skin';
     for (const side of SIDES) {
       const h = hands[side], G = this.g[side], pj = want && h.virt && h.ok ? this.padJoints(side) : null, show = want && h.ok && (h.isHand || !!pj);
+      GLOVE_ON[side] = show;
       if (!show) {
         if (G.palm.visible) {
           G.palm.visible = false;

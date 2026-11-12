@@ -16,6 +16,7 @@
  * inclinado hacia ti; cada menú nuevo sale donde estaba el anterior. En el ordenador, quieto donde lo pone la escena.
  * Lo que se enseña de cada ajuste y lo que hace tocarlo, sin IWSDK, en src/ui/fields.ts.
  */
+import { onPress } from './press.js';
 import { HITCH } from '../core/hitch.js';
 import { createSystem, Entity, Euler, PokeInteractable, RayInteractable, UIKitMLAsset, Vector3, VisibilityState } from '@iwsdk/core';
 import { BODY_NOTE, EX_NAMES, EX_SHORT, FOE_FLY, FOE_GATE, MODE_EX, MODE_NAMES, RANKS } from '../core/catalog.js';
@@ -305,8 +306,7 @@ export class MenuSystem extends createSystem({}, {}) {
       fn();
       this.refresh();
     };
-    el.addEventListener('click', h);
-    this.cleanupFuncs.push(() => el.removeEventListener('click', h));
+    this.cleanupFuncs.push(onPress(el, h)); // (una sola vez por pulsación, venga del dedo o del rayo: src/ui/press.ts)
   }
 
   private note(text: string): void {

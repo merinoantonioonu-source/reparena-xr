@@ -693,8 +693,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (settings.mode === 'bars') this.bars()?.begin(); else this.bars()?.clear();
     this.roundId++;
     this.dayRefresh();
-    this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla)
-    if (!FLOOR_EX.includes(settings.exercise)) this.recenter(); // (de pie: las compuertas, delante de donde estás y miras)
+    this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla; al calibrar, la de tu postura)
     this.chargePow = 0;
     throwReset();
     gazeLockReset();
@@ -729,9 +728,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.calibT = -1; // (en Barras, la cuenta atrás es colgarse de la barra: la lleva el sistema de Barras)
       this.restT = 0;
     } else {
-      this.calibT = -1;
-      this.restT = 3;
-      this.message(nWaves() ? `PREPÁRATE · ${nWaves()} OLEADAS` : 'PREPÁRATE · AL FALLO', 3);
+      // de pie, como en RepArena: tras la carátula, quieto 2 s en tu sitio; entonces el mundo se coloca delante de ti (donde
+      // estás y hacia donde miras al empezar el ejercicio, no al salir la carátula) y empieza la cuenta de 3 s
+      this.calibT = 0;
+      this.restT = 0;
     }
     HOOKS.duel(); // (la carátula del duelo: mientras se ve, la ronda espera)
   }
@@ -872,13 +872,24 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // ¿Quieto en la postura? (RepArena: calib) La cabeza, a su altura: sentado, entre 0,55 y 1,5 m; tumbado o en plancha
   // lateral, por debajo de 1 m. Dos segundos quieto y se toma esa postura
   private calibStep(dt: number): void {
-    const y = head.p.y, ex = settings.exercise;
-    const ok = ex === 'inchworm' ? y > 1.1 : ex === 'dips' ? y > 0.55 && y < 1.5 : y < 1.0 && y > (ex === 'superman' ? 0.04 : 0.15);
+    const y = head.p.y, ex = settings.exercise, stand = !FLOOR_EX.includes(ex);
+    // (de pie, la cabeza por encima de 1,1 m; los antebrazos, con las dos manos a la vista: RepArena, calib)
+    const ok = stand ? (ex === 'twist' ? y > 0.55 && hands.left.ok && hands.right.ok : y > 1.1) : ex === 'inchworm' ? y > 1.1 : ex === 'dips' ? y > 0.55 && y < 1.5 : y < 1.0 && y > (ex === 'superman' ? 0.04 : 0.15);
     if (ok && head.speed < 0.07) this.calibT += dt;
     else this.calibT = Math.max(0, this.calibT - dt * 2);
     if (this.calibT < 2) return;
     this.calibT = -1;
     this.touch()?.calibrated(y);
+    if (stand) {
+      // de pie: tu postura, y el mundo se desliza hasta quedar delante de ti (RepArena: calibrate, arenaGlideToHead)
+      this.st.reset(y);
+      this.recenter();
+      this.placeBoard();
+      this.restT = 3;
+      SND.charge();
+      this.message(nWaves() ? `PREPÁRATE · ${nWaves()} OLEADAS` : 'PREPÁRATE · AL FALLO', 3);
+      return;
+    }
     this.fl.reset(y, { left: hands.left.ok ? hands.left.wrist.y : null, right: hands.right.ok ? hands.right.wrist.y : null });
     this.rw.standY = 1.6;
     // la arena diminuta: las trampillas delante de tus manos; en el inchworm, su origen es donde quedará tu cabeza en la

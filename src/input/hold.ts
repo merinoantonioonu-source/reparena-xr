@@ -10,3 +10,7 @@ import type { Side } from './hand-model.js';
 
 /** Lo que se aparta cada mano que se ve (en el mundo). */
 export const HOLD: Record<Side, Vector3> = { left: new Vector3(), right: new Vector3() };
+
+/** ¿Se está pintando el guante de cada mano? (lo pone GloveSystem): mientras sí, la mano de IWSDK se esconde por dentro; si
+ * el guante no se pinta, se sigue viendo la de IWSDK (nunca te quedas sin mano). */
+export const GLOVE_ON: Record<Side, boolean> = { left: false, right: false };
