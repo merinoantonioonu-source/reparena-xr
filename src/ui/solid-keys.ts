@@ -169,7 +169,11 @@ export class SolidKeysSystem extends createSystem({ poke: { required: [PokeInter
     for (const s of SIDES) {
       const h = hands[s], S = this.P[s];
       // (la pulsación de IWSDK con el dedo, fuera: pulsaba también desde detrás; la del rayo, con la pinza, sigue)
-      (xi.multiPointers[s].getPointer('touch').options as { clickThresholdMs?: number }).clickThresholdMs = -1;
+      // y su «toque» solo ilumina con el dedo ya encima (OUT): de serie lo hace desde 20 cm, con la tecla más cercana a la
+      // punta aunque el rayo señale otra (el puntero invisible que veía el usuario)
+      const tp = xi.multiPointers[s].getPointer('touch').options as { clickThresholdMs?: number; hoverRadius?: number };
+      tp.clickThresholdMs = -1;
+      tp.hoverRadius = OUT;
       this.want.set(0, 0, 0);
       const real = inXR && h.ok;
       if (real) xi.xrOrigin.indexTipSpaces[s].getWorldPosition(this.tip);

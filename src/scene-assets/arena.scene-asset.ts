@@ -1,20 +1,17 @@
 /**
  * La arena, hecha en código (sin descargas): el suelo de arena con grietas a tinta del estilo Cómic, el aro donde te
- * pones, las cajas y las rocas que hacen de obstáculo. Todo determinista (sin azar ni reloj): el editor y el juego evalúan este módulo por
+ * pones. Todo determinista (sin azar ni reloj): el editor y el juego evalúan este módulo por
  * separado y tienen que sacar lo mismo.
  */
 import {
-  BoxGeometry,
   CircleGeometry,
   DataTexture,
   DoubleSide,
   Group,
-  IcosahedronGeometry,
   LinearFilter,
   LinearMipmapLinearFilter,
   Mesh,
   MeshBasicMaterial,
-  MeshStandardMaterial,
   RepeatWrapping,
   RGBAFormat,
   RingGeometry,
@@ -143,53 +140,4 @@ export function createPlayerPad(): Group {
   disc.rotation.x = -Math.PI / 2;
   g.add(ring, disc);
   return g;
-}
-
-// La caja de madera: tablas con su marco oscuro
-function crateTexture(): DataTexture {
-  const S = 128;
-  return makeTexture(S, (x, y) => {
-    const frame = x < 12 || y < 12 || x > S - 13 || y > S - 13;
-    const plank = Math.floor(y / 26.0);
-    const seam = !frame && y % 26 < 2;
-    const tone = 0.85 + 0.25 * hash(plank, 0, 3);
-    const grain = 0.9 + 0.1 * Math.sin(x * 0.35 + hash(plank, 1, 4) * 6.0) + 0.06 * hash(x, y, 5);
-    if (frame) return [96 * grain, 62 * grain, 36 * grain];
-    if (seam) return [70, 44, 26];
-    return [176 * tone * grain, 122 * tone * grain, 70 * tone * grain];
-  }, 1);
-}
-
-const crateMaterial = new MeshStandardMaterial({ map: crateTexture(), roughness: 0.82, metalness: 0 });
-
-/** Caja de 0,8 m centrada en su origen (el colisionador de física va centrado: la escena la pone a 0,4 m). */
-export function createCrate(size = 0.8): Mesh {
-  const m = new Mesh(new BoxGeometry(size, size, size), crateMaterial);
-  m.castShadow = true;
-  m.receiveShadow = true;
-  return m;
-}
-
-// La roca: un icosaedro abollado (el bollo sale de la posición, no del índice: los vértices repetidos se mueven igual y
-// no se abren grietas), de caras planas
-function rockGeometry(radius: number): IcosahedronGeometry {
-  const geo = new IcosahedronGeometry(radius, 1);
-  const p = geo.attributes.position;
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const k = 0.78 + 0.34 * hash(Math.round(x * 100), Math.round(y * 100), Math.round(z * 100));
-    p.setXYZ(i, x * k, y * k * 0.8, z * k);
-  }
-  geo.computeVertexNormals();
-  return geo;
-}
-
-const rockMaterial = new MeshStandardMaterial({ color: 0x8d8a84, roughness: 0.95, metalness: 0, flatShading: true });
-
-/** Roca de unos 1,1 m, centrada en su origen (colisionador: una esfera de 0,5 m). */
-export function createRock(radius = 0.6): Mesh {
-  const m = new Mesh(rockGeometry(radius), rockMaterial);
-  m.castShadow = true;
-  m.receiveShadow = true;
-  return m;
 }

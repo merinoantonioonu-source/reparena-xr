@@ -14,8 +14,9 @@
  *  - Un puñetazo rápido al zombi que tienes delante lo aparta y lo aturde un momento (sin quitarle vida).
  *  - Oleadas de zombis cada vez algo más rápidos; si te golpean, pierdes una vida; sin vidas, se acaba la ronda.
  */
+import { FIT_LOG } from '../ui/fit-text.js';
 import type { Lightning } from './bolt.js';
-import { warmHook, warmSoon } from '../style/warm.js';
+import { warmBusy, warmHook, warmSoon } from '../style/warm.js';
 import {
   createSystem,
   Entity,
@@ -24,6 +25,7 @@ import {
   MeshBasicMaterial,
   PlaneGeometry,
   SphereGeometry,
+  AlwaysDepth,
   BackSide,
   UIKitMLAsset,
   Vector3,
@@ -177,6 +179,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private outAt = 0;
   private outK = 0;
   private black!: Mesh;
+  private outVeil!: Mesh;
+  /** El aviso grande del final (en el centro de la vista, encima del velo); sin él, al terminarla tú. */
+  private readonly cOut: CenterInfo = { kind: 'ready', title: '', lines: [], note: null, status: null, count: '', bar: 0 };
+  private outTitle = false;
+  private outFade = 0.8;
+  private readonly obp = new Vector3();
   private workT = 0;
   private warnLog: string[] = [];
   // los premios (cartas de mejora, dorado, relámpago, cofre y carrera contra tu récord) y si se está descansando
@@ -258,10 +266,21 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (this.waveE?.object3D) this.waveE.object3D.visible = false;
     this.veil = new Mesh(new PlaneGeometry(14, 9), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false }));
     this.veil.userData.noInk = true;
-    // el negro del final: una esfera a tu alrededor (más lejos que el resumen y tus manos, que quedan a la vista)
-    this.black = new Mesh(new SphereGeometry(2.4, 24, 12), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, side: BackSide, depthWrite: false, toneMapped: false, fog: false }));
-    this.black.renderOrder = 10;
+    // el negro del final (RepArena: OUT.veil y OUT.black). Mientras funde, un velo pegado a los ojos que tapa todo (sin prueba
+    // de profundidad), menos el aviso del centro («¡VICTORIA!», «DERROTA»: se pinta después, a 50). Ya en negro, una esfera
+    // opaca que se pinta la primera (detrás del cielo) y deja su profundidad: lo que quede más lejos (el suelo, el paisaje,
+    // el marcador) no se ve, y el resumen y tus manos, dentro, sí. Su radio sigue al resumen
+    this.outVeil = new Mesh(new SphereGeometry(0.3, 24, 12), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, side: BackSide, depthTest: false, depthWrite: false, toneMapped: false, fog: false }));
+    this.outVeil.renderOrder = 40;
+    this.outVeil.frustumCulled = false;
+    this.outVeil.visible = false;
+    this.outVeil.userData.noInk = true;
+    this.world.createTransformEntity(this.outVeil);
+    this.black = new Mesh(new SphereGeometry(1, 24, 12), new MeshBasicMaterial({ color: 0x000000, side: BackSide, depthFunc: AlwaysDepth, toneMapped: false, fog: false }));
+    this.black.renderOrder = -5e8; // (después del cielo, que va a −1e9, y antes que todo lo demás)
+    this.black.frustumCulled = false;
     this.black.visible = false;
+    this.black.userData.noInk = true;
     this.world.createTransformEntity(this.black);
     this.veil.visible = false;
     this.world.createTransformEntity(this.veil);
@@ -338,7 +357,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     };
     HOOKS.sparks = (p, n, c) => this.fx.sparks.burst(p, n, c, 2.4, 0.04);
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
-    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS, sceneryOn: () => this.world.getSystem(EnvSystem)?.sceneryOn ?? false };
+    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS, sceneryOn: () => this.world.getSystem(EnvSystem)?.sceneryOn ?? false, fitLog: FIT_LOG };
     // la letra de la ×N de la bola (Bungee, para el lienzo)
     try {
       const face = new FontFace('Bungee', `url(${import.meta.env.BASE_URL}fonts/Bungee-Regular.ttf)`);
@@ -685,9 +704,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.fx.bolts.clear();
     this.gates?.closeAll();
     for (const p of this.pending) p.gate = null;
-    // con la carátula del duelo en negro, se compila todo lo que puede salir (si no, lo nuevo daba un tirón en plena partida)
-    if (settings.mode === 'combat') this.enemies.warm();
-    warmSoon();
+    // lo que puede salir se compila antes (si no, lo nuevo daba un tirón en plena partida): las copias de los enemigos, de una
+    // en una en el menú (stepWarm); lo que falte, cuando la carátula del duelo ya lo tapa todo de negro (~0,4 s), no al
+    // pulsar EMPEZAR (la imagen se quedaba congelada y seguía a la cabeza)
+    warmSoon(30);
     // el modo y el ejercicio: los que ya hay (si lo elegido en RepArena aún no está aquí, Combate o la sentadilla)
     if (!PLAY_MODES.includes(settings.mode)) setSetting('mode', 'combat');
     const px = playableEx(settings.mode, settings.exercise);
@@ -719,6 +739,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.workT = 0;
     this.warnLog.length = 0;
     this.outT = -1;
+    this.outTitle = false;
     this.summary = null;
     this.world.getSystem(HatchSystem)?.layout(false, head.p, false);
     this.world.getSystem(HatchSystem)?.inchLayout(false, 1);
@@ -868,7 +889,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       VIEW.center = this.bars()?.center() ?? null; // (colocar el aparato o colgarse)
       return;
     }
-    if (!playing) VIEW.center = null;
+    if (this.outTitle && this.outT >= 0.3) VIEW.center = this.cOut; // (el final: «¡VICTORIA!» o «DERROTA», encima del negro)
+    else if (!playing) VIEW.center = null;
     else if (this.calibT >= 0) {
       const c = this.cCalib, ex = settings.exercise;
       c.lines = CALIB_LINES[ex] ?? ['Colócate en la postura inicial', 'y quédate quieto 2 s.'];
@@ -980,7 +1002,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     campEnd(); // (los ajustes del nivel, fuera: el resumen ya está hecho)
     this.summary = sum;
     this.outT = 0;
-    this.outAt = manual ? 0.4 : win ? 1.4 : 2.6;
+    // (RepArena: OUT_FADE y OUT_DELAY; el resumen sale ya en negro)
+    this.outFade = manual ? 0.35 : win ? 0.8 : 1;
+    this.outAt = manual ? 0.4 : win ? 1.8 : 2.6;
+    this.outTitle = !manual;
+    this.cOut.title = win ? 'Has superado todas las oleadas' : 'Te han quitado todas las vidas';
+    this.cOut.count = win ? '¡VICTORIA!' : 'DERROTA';
   }
 
   // La ronda, al historial (el de RepArena: las dos versiones comparten tu progreso) y a tu carrera (RepArena: saveRun y
@@ -1032,23 +1059,44 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     return { ex: settings.exercise, mode: settings.mode, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, win, failWave: num('toFail') ? GAME.wave : null, time: this.clock - GAME.startTime, work: this.workT, score: GAME.score, bestCombo: GAME.bestCombo, kg: num('weight') || 70, dist: this.distNow() };
   }
 
+  // En el menú (y con la carátula del duelo en negro), una copia de un enemigo cada poco, para compilarla antes de la ronda
+  // (RepArena: warmQueue): de una en una, sin parar la imagen
+  private warmT = 0;
+  private stepWarm(dt: number, playing: boolean): void {
+    if ((playing && !VIEW.duel) || warmBusy() || (this.warmT -= dt) > 0) return;
+    this.warmT = 0.12;
+    this.enemies.warmNext();
+  }
+
   // el final: la escena funde a negro (del todo; solo quedan el resumen y tus manos) y sale el resumen
   private stepOutcome(dt: number): void {
     if (this.outT < 0) {
       if (this.outK > 0 && GAME.menu !== 'summary') this.outK = Math.max(0, this.outK - dt * 2);
     } else {
       this.outT += dt;
-      this.outK = Math.min(1, this.outT / 0.8);
+      this.outK = Math.min(1, this.outT / this.outFade);
       if (this.outT >= this.outAt && this.summary) {
         HOOKS.showSummary(this.summary);
         this.summary = null;
         this.outT = -1;
+        this.outTitle = false;
       }
     }
-    this.black.visible = this.outK > 0.01;
-    if (this.black.visible) {
+    // fundiendo, el velo; ya en negro (o con el resumen), la esfera opaca hasta un poco más allá del resumen
+    const black = this.outK >= 1;
+    const k = this.outK * this.outK * (3 - 2 * this.outK);
+    this.outVeil.visible = !black && this.outK > 0.01;
+    if (this.outVeil.visible) {
+      this.outVeil.position.copy(head.p);
+      (this.outVeil.material as MeshBasicMaterial).opacity = k;
+    }
+    this.black.visible = black;
+    if (black) {
+      let R = 0.9;
+      const sum = this.world.getSceneEntity('summary-panel')?.object3D;
+      if (sum?.visible) R = Math.max(R, sum.getWorldPosition(this.obp).distanceTo(head.p) + 0.6);
       this.black.position.copy(head.p);
-      (this.black.material as MeshBasicMaterial).opacity = 0.94 * this.outK;
+      this.black.scale.setScalar(R);
     }
   }
 
@@ -1517,6 +1565,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.fwd.set(Math.sin(this.bodyYaw), 0, Math.cos(this.bodyYaw));
 
     const playing = GAME.phase === 'playing';
+    this.stepWarm(dt, playing);
     this.centerStep(playing);
     this.stepCareer(dt);
     if (playing && !VIEW.duel) { // (mientras se ve la carátula del duelo, la ronda espera)

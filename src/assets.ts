@@ -2,7 +2,7 @@
  * El catálogo de recursos (lo evalúan por separado el juego y el editor: determinista y sin efectos).
  */
 import { AssetType, defineAssets } from '@iwsdk/core';
-import { createArenaFloor, createCrate, createPlayerPad, createRock } from './scene-assets/arena.scene-asset.js';
+import { createArenaFloor, createPlayerPad } from './scene-assets/arena.scene-asset.js';
 import { createGate } from './scene-assets/gate.scene-asset.js';
 import { createHatch } from './scene-assets/hatch.scene-asset.js';
 import { createArc } from './scene-assets/arc.scene-asset.js';
@@ -28,8 +28,6 @@ for (const n of Object.keys(SOUNDS)) {
 export default defineAssets({
   'arena-floor': createArenaFloor(),
   'player-pad': createPlayerPad(),
-  crate: createCrate(),
-  rock: createRock(),
   gate: createGate(),
   hatch: createHatch(),
   arc: createArc().grp,

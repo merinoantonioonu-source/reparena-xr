@@ -164,7 +164,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/gates.ts` | Las compuertas: abrirse para sacar a un zombi, la baliza y sus cuerpos de física |
 | `src/style/comic.ts`, `src/style/comic-system.ts` | El estilo Cómic: el sombreado, los colores y los contornos de tinta, y el sistema que lo aplica a todo |
 | `src/core/hitch.ts`, `src/ui/perf-system.ts` | El registro de tirones (de RepArena) y el medidor de fotogramas: qué congela la imagen y cuántos fotogramas se pierden |
-| `src/style/warm.ts` | Precompilar los sombreadores antes de cada ronda (con la carátula en negro), para que nada nuevo dé un tirón en plena partida |
+| `src/style/warm.ts` | Precompilar los sombreadores: en el menú, de uno en uno; lo que falte, al empezar la ronda con la carátula ya en negro (que nada nuevo dé un tirón en plena partida ni al pulsar EMPEZAR) |
 | `src/style/comic-fx.ts` | Los efectos de cómic: líneas de impacto y estrella al derribar |
 | `src/scene-assets/gate.scene-asset.ts` | La compuerta (hecha en código) |
 | `src/scene-assets/comic-valley.scene-asset.ts`, `src/scene-assets/comic-sky.scene-asset.ts` | El valle de dibujo y las nubes |
@@ -223,6 +223,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/duel.ts` | Quién es el jefe de la ronda y tu récord, para la carátula del duelo |
 | `src/input/thumbs.ts` | El pulgar arriba y los botones del mando recién pulsados (saltar la carátula) |
 | `src/ui/fonts.ts` | Pone las letras de RepArena (con tildes) en los paneles |
+| `src/ui/fit.ts`, `src/ui/fit-text.ts` | Que las letras quepan en sus botones y cajas: encoge la que no cabe (la fila entera a la vez) en los paneles que se ven |
 | `src/ui/menu.ts` | Los menús en VR: el principal, Opciones y la explicación de cada ajuste; dónde salen y la nitidez |
 | `src/ui/fields.ts` | Lo que enseñan los menús de cada ajuste y lo que hace tocarlo, las pestañas y la ficha de la ronda, sin IWSDK |
 | `src/input/hand-system.ts` | Las manos y los mandos en cada fotograma (lo que da IWSDK, en `hands` y `head`), la vibración y «Mandos como manos» |

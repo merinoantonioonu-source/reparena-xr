@@ -140,7 +140,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [ ] **PR 18 · Travesía** (aplazado por el usuario: se hará más adelante; su lógica pura ya está portada y comparada en `src/modes/trek/`)
 - [ ] **PR 19 · Sesiones** (aplazado por el usuario: se hará más adelante)
 - [x] **PR 20 · Entornos** — #28
-- [ ] **PR 21 · Realidad mixta** (aplazado por el usuario: se hará más adelante; nada de lo demás depende de ella. Se empezó con lo de serie de IWSDK: entrar con `launchXR` en modo `immersive-ar` con detección de planos y mallas, anclas y profundidad, `DepthSensingSystem` y `DepthOccludable` en compuertas, cajas, rocas y enemigos, y `GAME.mr`/`arenaDepth` —6 m en realidad mixta—; el plan de la habitación de RepArena, `src/37_room.js`, se porta a lógica pura con su comparación)
+- [ ] **PR 21 · Realidad mixta** (aplazado por el usuario: se hará más adelante; nada de lo demás depende de ella. Se empezó con lo de serie de IWSDK: entrar con `launchXR` en modo `immersive-ar` con detección de planos y mallas, anclas y profundidad, `DepthSensingSystem` y `DepthOccludable` en compuertas, cajas, rocas (ya quitadas, PR 28) y enemigos, y `GAME.mr`/`arenaDepth` —6 m en realidad mixta—; el plan de la habitación de RepArena, `src/37_room.js`, se porta a lógica pura con su comparación)
 - [x] **PR 22 · Música** — #29
 - [x] **PR 23 · Sincronización, pulsómetro y modo desarrollador** — #29 (juntos con el 22: comparten la pantalla de menú y la página)
 - [x] **PR 24a · Los fallos de la prueba en las gafas** (calibración con tu mirada, enemigos de espaldas, la pasarela de los Arcos, los tirones, teclado sólido y menú más pequeño, manos opacas, y los rayos de RepArena) — #30
@@ -148,6 +148,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 25 · Pulsar los menús como en RepArena, guantes también con mandos, la caricatura y la explicación** — #32
 - [x] **PR 26 · Arreglos de la prueba del PR 25: se vuelve a poder pulsar, sin manos blancas y la calibración al empezar el ejercicio** — #33
 - [x] **PR 27 · Pulsar solo por delante (con su forma de tecla), la pinza para el rayo y el marcador grande de RepArena** — #34
+- [x] **PR 28 · Sin el puntero invisible, letras que caben, el negro del final, EMPEZAR sin congelarse y sin las cajas y rocas del prototipo** — #35
 
 ## Los PR
 
@@ -391,6 +392,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 28 → los siguientes: **las letras se ajustan solas** (`src/ui/fit.ts`, `FitTextSystem`): un texto que no cabe en su caja o
+  en su botón encoge (la fila de botones, a la vez); un panel nuevo se añade a `PANELS` de `src/ui/fit-text.ts`. A las letras de
+  `public/fonts` se les añadieron `− ▸ ◀ ◂ › ‹ ✔` como copias de `– ▶ ← ← » « ✓` (no los tenían: salía un punto). **Precompilar**
+  (`src/style/warm.ts`): las copias que se guardan con `warmKeep` se compilan de una en una mientras estás en el menú (los
+  enemigos, `EnemySystem.warmNext`, una cada 0,12 s); al empezar la ronda solo se compila lo que falte, con la carátula del duelo
+  ya en negro (`warmSoon(30)`): nada pesado en el fotograma de EMPEZAR. **El negro del final** (`stepOutcome`, como el
+  `OUT.veil`/`OUT.black` de RepArena): un velo pegado a los ojos mientras funde, con «¡VICTORIA!» o «DERROTA» encima (el aviso
+  del centro), y ya en negro una esfera opaca que se pinta la primera, con el radio justo para dejar dentro el resumen y tus
+  manos. Las cajas y rocas del prototipo se quitaron (RepArena no las tenía): lo sólido que rodean los enemigos son las
+  compuertas y la bola.
 - PR 22/23 → PR 19 y siguientes: los servicios están en `src/services/` (`spotify.ts`, `bpm.ts`, `xfer.ts`, `pulse.ts`: lógica sin IWSDK, con
   su comparación contra RepArena y mismas claves guardadas) y `src/core/dev.ts`, `src/core/beat.ts`. `src/services/hub.ts` los crea con
   el navegador de verdad (`spotify()`, `bpm()`, `xfer()`, `sync()`, `pulse()`, `exSongsStart`). **El pulso de la música**
@@ -754,6 +765,11 @@ arregla, se quita el apaño.
   datos en otro orden del que le pasa IWSDK (cogía la escena entera y fallaba al crearse), le carga el modelo del mando en
   vez del de la mano, compartiría el modelo con la mano desnuda y, si una imagen tarda más de 0,1 s, los dedos se le
   disparan (planos blancos enormes y luego la mano desaparece). Apaño: `src/input/controller-hand.ts`.
+- **El toque del dedo ilumina desde 20 cm** (el puntero de toque, `hoverRadius`): con la mano a esa distancia del menú
+  iluminaba la tecla más cercana a la punta del dedo aunque el rayo señalara otra (el «puntero invisible» que veía el
+  usuario). Apaño (PR 28): su radio baja a 3 cm (`src/ui/solid-keys.ts`), lo justo para cuando el dedo ya va a tocar.
+- **UIKit no encoge la letra**: una palabra más ancha que su botón se sale y pisa a las vecinas. Apaño (PR 28): `src/ui/fit.ts`
+  la ajusta en los paneles que se ven (`FitTextSystem`, `src/ui/fit-text.ts`), como RepArena al pintar cada tecla.
 - **El sonido suelto** (`AudioUtils.createOneShot`) no se coloca donde se le dice ni se borra al acabar. Apaño: cada sonido
   tiene unas pocas fuentes fijas que se colocan al tocarlas (`src/audio/sound.ts`).
 - **AudioSource no cambia el tono**: se les pone a sus voces (`AudioPool`, que IWSDK deja usar para casos así).

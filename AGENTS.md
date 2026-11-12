@@ -108,13 +108,15 @@ tabla de `README.md` dice qué hace cada archivo.
   el `<head>`), la página es una app (`src/page/app.ts`). Lo que llega con PR posteriores (Spotify, sesiones, sincronización,
   pulsómetro, tabla del desarrollador) añade su apartado con su `id`.
 - **Tirones**: lo que se pinta por primera vez compila su sombreador y la imagen se para un instante en las gafas. Antes de cada
-  ronda se compila lo que hay en la escena y lo de `warmKeep` (`src/style/warm.ts`); no crees materiales en plena partida (para
-  copiar uno, `fadeCopy` o `comicPatch`).
+  ronda, lo de `warmKeep` (`src/style/warm.ts`) se compila de uno en uno en el menú y lo que falte, con la carátula del duelo
+  ya en negro; nada pesado en el fotograma de EMPEZAR (la imagen se congelaba y seguía a la cabeza). No crees materiales en
+  plena partida (para copiar uno, `fadeCopy` o `comicPatch`).
 - **Casa**: RepArena XR es la única; la dirección vieja (`…/reparena/`) trae aquí y RepArena sigue en `…/reparena/clasica.html`
   para lo aplazado. Un ejercicio nuevo, con su prueba de movimientos en `tests/unit/exercises.test.ts`.
 - La letra que trae IWSDK (Inter) no tiene tildes: los paneles usan las de `public/fonts` (ver su `LEEME.md`), que se
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
-  `display` y el código les pone Bungee.
+  `display` y el código les pone Bungee. Las letras se encogen solas si no caben (`src/ui/fit.ts`; un panel nuevo, en `PANELS`
+  de `src/ui/fit-text.ts`); un carácter que no esté en las letras sale como un punto (ver su `LEEME.md`).
 - Los modelos de las manos y los mandos se sirven desde el juego (`public/input-profiles`, `src/input/input-models.ts`).
 - **Entornos** (`src/env/`): `EnvSystem` pone el fondo realista como `DomeTexture` de IWSDK en la raíz del nivel (`ajustes pano`) y las luciérnagas (`motes`); `Scenery` pinta el bosque o la isla (`scenery`) con instancias; dónde va cada modelo, `placement.ts`. El fondo realista y el entorno de día esconden el valle, las nubes y el suelo de cómic; Barras colgado (de noche, `nightForest`) los aparta.
 - **Estilo Cómic** (el de serie): `ComicSystem` (`src/style/`) prepara todo lo que aparece con material estándar: su

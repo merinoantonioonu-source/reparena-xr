@@ -161,6 +161,9 @@
     text-align: center;
     width: 82;
   }
+  .pnote {
+    width: 78;
+  }
   .cards {
     flex-direction: row;
     flex-wrap: wrap;
@@ -661,7 +664,7 @@
           <button id="lk-bolt-2" class="pk"><span id="lk-bolt-2t" class="pkt">·</span></button>
           <button id="lk-bolt-3" class="pk"><span id="lk-bolt-3t" class="pkt">·</span></button>
         </div></div>
-      <span id="pl-note" class="note">Cada repetición da experiencia</span>
+      <span id="pl-note" class="note pnote">Cada repetición da experiencia</span>
     </div>
     <div id="pg-mis" class="psec">
       <div class="prow">
@@ -697,8 +700,8 @@
         <span id="pm-streak" class="pline">Racha</span>
         <div id="ps0" class="psh"></div><div id="ps1" class="psh"></div><div id="ps2" class="psh"></div>
       </div>
-      <span id="pm-note" class="note">Tres nuevas cada día</span>
-      <span id="pm-shnote" class="note">Escudos de racha</span>
+      <span id="pm-note" class="note pnote">Tres nuevas cada día</span>
+      <span id="pm-shnote" class="note pnote">Escudos de racha</span>
     </div>
     <div id="pg-camp" class="psec">
       <div id="pc-map" class="pmap">
@@ -716,7 +719,7 @@
         <button id="pc-play" class="pplay"><span id="pc-playt" class="pplayt display">JUGAR NIVEL 1</span></button>
         <button id="pc-next" class="pside"><span id="pc-nextt" class="psidet">Región +</span></button>
       </div>
-      <span id="pc-note" class="note">Nivel 1</span>
+      <span id="pc-note" class="note pnote">Nivel 1</span>
     </div>
     <div id="pg-week" class="psec">
       <span class="pwtitle">Tu semana (minutos)</span>
@@ -729,8 +732,8 @@
         <div class="pcolw"><span id="wk5-v" class="pwv">0</span><div class="ptrack"><div id="wk5-f" class="pcfill"></div><div id="wk5-g" class="pgoal"></div></div><span id="wk5-l" class="pwl">hoy</span></div>
         <div class="pcolw"><span id="wk6-v" class="pwv">0</span><div class="ptrack"><div id="wk6-f" class="pcfill"></div><div id="wk6-g" class="pgoal"></div></div><span id="wk6-l" class="pwl">hoy</span></div>
       </div>
-      <span id="wk-goal" class="note">Meta</span>
-      <span id="wk-best" class="note">Mejor ronda</span>
+      <span id="wk-goal" class="note pnote">Meta</span>
+      <span id="wk-best" class="note pnote">Mejor ronda</span>
     </div>
   </div>
   <div id="obody" class="body">

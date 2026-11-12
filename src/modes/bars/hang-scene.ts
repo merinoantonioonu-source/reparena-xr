@@ -275,7 +275,7 @@ export class HangScene {
     this.forest.visible = on;
     for (const o of this.hidden) o.visible = !on;
   }
-  /** Los objetos de la arena que se esconden de noche (los pone el sistema de Barras: compuertas, cajas, rocas, valle, nubes). */
+  /** Los objetos de la arena que se esconden de noche (los pone el sistema de Barras: compuertas, valle, nubes). */
   setArena(list: Object3D[]): void {
     this.hidden = list;
     for (const o of list) o.visible = !this.forestOn;

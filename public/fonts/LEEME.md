@@ -18,3 +18,7 @@ como letras MSDF (las que usan los paneles de UIKit: se ven nítidas a cualquier
 Cada `.json` lleva dentro su imagen de letras. Se generaron con el mismo generador de UIKit (`TTFLoader`), a partir de
 los `.ttf` de los paquetes `@expo-google-fonts/rubik` y `@expo-google-fonts/bungee`, con los caracteres ASCII más
 `áéíóúÁÉÍÓÚñÑüÜ¿¡×·—–…ºª€«»“”‘’•°→←↑↓▶`. Si hace falta otro carácter, hay que volver a generarlas.
+
+Después se les añadieron, como copias de otros que sí tienen (en la lista de caracteres del `.json`, con su mismo dibujo):
+`−` (el de `–`), `▸` (`▶`), `◀` y `◂` (`←`), `›` (`»`), `‹` (`«`) y `✔` (`✓`); sin ellos, en los botones salía un punto («Vol −»,
+«Listas y canciones ▸»).
