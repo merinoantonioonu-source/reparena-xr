@@ -167,6 +167,10 @@ export class Spotify {
   mine: SpList[] | null = null;
   /** Ya ha sonado lo tuyo una vez (luego Play reanuda). */
   started = false;
+  /** Lo que ha puesto el juego (canciones y listas): Play solo reanuda lo que suena si es de aquí. */
+  ours = new Set<string>();
+  /** Lo acaba de poner el juego y aún no se ha vuelto a leer lo que suena (hasta entonces, es suyo). */
+  private oursLive = false;
   /** La música del bloque que suena (sus uris) y lo pedido a la cola de la ronda. */
   block: string | null = null;
   want: string | null = null;
@@ -324,6 +328,7 @@ export class Spotify {
     // sin reproductor (204) se mantiene el aviso de abrir Spotify: si no, se borraba medio segundo después de pulsar Play
     try {
       this.st = await this.api<SpState>('GET', '/me/player');
+      this.oursLive = false; // (ya se sabe lo que suena: si es del juego, lo dicen sus canciones)
       if (this.st || this.err !== errText(new Error('NO_DEVICE'))) this.err = '';
     } catch (e) {
       this.err = errText(e);
@@ -491,8 +496,10 @@ export class Spotify {
     if (!lists.length) return;
     const dev = this.dev(),
       q = dev ? '?device_id=' + encodeURIComponent(dev) : '';
-    if (lists.length === 1) await this.api('PUT', '/me/player/play' + q, { context_uri: lists[0].uri });
-    else {
+    if (lists.length === 1) {
+      await this.api('PUT', '/me/player/play' + q, { context_uri: lists[0].uri });
+      this.mark([], lists[0].uri);
+    } else {
       let uris: string[] = [];
       for (const l of lists) {
         try {
@@ -504,6 +511,7 @@ export class Spotify {
       this.shuffle(uris);
       uris = uris.slice(0, 150);
       await this.api('PUT', '/me/player/play' + q, uris.length ? { uris } : { context_uri: lists[0].uri }); // (si no se puede leer ninguna, la primera entera)
+      this.mark(uris, uris.length ? undefined : lists[0].uri);
     }
     try {
       await this.api('PUT', '/me/player/shuffle?state=true' + (dev ? '&device_id=' + encodeURIComponent(dev) : ''));
@@ -561,6 +569,7 @@ export class Spotify {
   async playList(l: SpList, fromUri?: string, shuffle?: boolean): Promise<void> {
     const q = this.q();
     await this.api('PUT', '/me/player/play' + q, fromUri ? { context_uri: l.uri, offset: { uri: fromUri } } : { context_uri: l.uri });
+    this.mark([], l.uri);
     try {
       await this.api('PUT', '/me/player/shuffle?state=' + !!shuffle + (q ? '&' + q.slice(1) : ''));
     } catch {
@@ -580,6 +589,7 @@ export class Spotify {
     this.shuffle(uris);
     const q = this.q();
     await this.api('PUT', '/me/player/play' + q, { uris });
+    this.mark(uris);
     try {
       await this.api('PUT', '/me/player/shuffle?state=false' + (q ? '&' + q.slice(1) : ''));
       await this.api('PUT', '/me/player/repeat?state=context' + (q ? '&' + q.slice(1) : ''));
@@ -650,17 +660,31 @@ export class Spotify {
     return this.fade(0, v0, ms);
   }
 
+  /** Apunta lo que acaba de poner el juego (sus canciones o su lista). */
+  private mark(uris: string[], ctx?: string): void {
+    this.ours.clear();
+    for (const u of uris) this.ours.add(u);
+    if (ctx) this.ours.add(ctx);
+    this.oursLive = true;
+  }
+  /** ¿Lo que suena (o está en pausa) en Spotify lo puso el juego? Si no (lo que escuchabas en el móvil u otro aparato), Play
+   * pone tus canciones elegidas en vez de seguir con ello. */
+  isOurs(): boolean {
+    const st = this.st, it = st?.item?.uri, cx = (st?.context as { uri?: string } | null | undefined)?.uri;
+    return this.oursLive || (!!it && this.ours.has(it)) || (!!cx && this.ours.has(cx));
+  }
+
   /* ---------- Play, pausa, siguiente… ---------- */
   toggle(): Promise<void> {
     return this.act(async () => {
       if (this.playing()) {
         await this.api('PUT', '/me/player/pause');
         (this.st as SpState).is_playing = false;
-      } else if (this.picks().length && !this.started) {
-        // la primera vez, tus canciones elegidas (al azar y en bucle)…
+      } else if (this.picks().length && (!this.started || !this.isOurs())) {
+        // tus canciones elegidas (al azar y en bucle), no lo que estuvieras escuchando en otro aparato…
         await this.playTracks(this.picks());
         this.block = null;
-      } else if (this.lists().length && !this.started) await this.playLists(); // …o tus listas; luego Play reanuda
+      } else if (this.lists().length && (!this.started || !this.isOurs())) await this.playLists(); // …o tus listas; luego Play reanuda
       else if (this.hereOk() && !this.hereNow()) await this.toHere(); // en pausa en otro dispositivo: Play la trae a las gafas
       else if (this.st && this.st.device) {
         await this.api('PUT', '/me/player/play');

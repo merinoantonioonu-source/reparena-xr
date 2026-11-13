@@ -423,12 +423,16 @@ describe.skipIf(!RA_DIR)('Spotify como en RepArena', () => {
   it('Play y pausa: elegidas, una lista, varias mezcladas, despertar un dispositivo', async () => {
     await same({ stored: CONN({ picks: [...tracks(4), { name: 'sin uri' }], lists: [{ id: 'x', uri: 'spotify:playlist:x' }] }) }, [
       ['sin nada que leer: despertar sin dispositivos', (a) => a.call('toggle')],
-      ['despertar el activo', (a) => { a.srv.devices = [dev('d1'), dev('d2', 50, { is_active: true })]; a.call('toggle'); }],
-      ['leer', (a) => { a.srv.player = playing('d2', 50); a.call('refresh'); }],
+      // (sin canciones ni listas elegidas, como RepArena: despierta el aparato activo. Con elegidas, RepArena XR pone las
+      // elegidas en vez de lo que sonara en otro aparato, que lo pidió el usuario: tests/unit/spotify.test.ts)
+      ['despertar el activo (sin elegidas)', (a) => { a.set('keep', a.get('cfg')); a.set('cfg', { ...a.get('cfg'), picks: [], lists: [] }); a.srv.devices = [dev('d1'), dev('d2', 50, { is_active: true })]; a.call('toggle'); }],
+      ['leer', (a) => { a.set('cfg', a.get('keep')); a.srv.player = playing('d2', 50); a.call('refresh'); }],
       ['pausa', (a) => a.call('toggle')],
-      ['la primera vez, las elegidas', (a) => a.call('toggle')],
+      // (lo que suena lo pusiste en otro aparato: RepArena XR pone las elegidas; RepArena, la primera vez que tocas Play)
+      ['la primera vez, las elegidas', (a) => { a.set('started', false); a.call('toggle'); }],
       ['pausa', (a) => a.call('toggle')],
-      ['luego reanuda', (a) => a.call('toggle')],
+      // (como el Spotify de verdad: lo que suena ya es una de las elegidas; el falso no lo cambia solo)
+      ['luego reanuda', (a) => { a.set('st', { ...(a.get('st') as object), item: { uri: 'spotify:track:p0' } }); a.call('toggle'); }],
       ['una lista', (a) => { a.set('started', false); a.set('cfg', { ...a.get('cfg'), picks: [] }); a.set('st', playing('d2', 50, false)); a.call('toggle'); }],
       ['varias mezcladas (ajena fuera, vieja por /tracks)', (a) => { a.set('started', false); a.set('st', playing('d2', 50, false)); a.set('cfg', { ...a.get('cfg'), lists: [{ id: 'a', uri: 'spotify:playlist:a' }, { id: 'ajena', uri: 'spotify:playlist:ajena' }, { id: 'vieja', uri: 'spotify:playlist:vieja' }, { id: 'nouri' }] }); a.call('toggle'); }],
       ['grandes: 150 como mucho', (a) => a.call('playLists', [{ id: 'g1', uri: 'spotify:playlist:g1' }, { id: 'g2', uri: 'spotify:playlist:g2' }])],

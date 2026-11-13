@@ -51,26 +51,25 @@ export function createDoorBar(W = 0.9, H = 2.2): BarRigParts {
   return { grp, glowMat, own: [steel, dark, glowMat] };
 }
 
-/** Las paralelas del remo: dos barras (o una) a lo largo de Z, con dos patas cada una. */
+/** Las paralelas del remo: dos barras (o una) a lo largo de Z, con dos patas cada una (RepArena: buildEquipVis). */
 export function createDipBars(gap = 0.58, len = 0.7, H = 0.95, one = false): BarRigParts {
   const grp = new Group();
   grp.name = 'dip-bars';
   const steel = new MeshStandardMaterial({ color: 0x9aa0ae, roughness: 0.35, metalness: 0.85 }), dark = new MeshStandardMaterial({ color: 0x2a2d36, roughness: 0.6, metalness: 0.5 });
   const glowMat = new MeshBasicMaterial({ color: 0x3cf0c6, transparent: true, opacity: 0.35, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
-  // (una sola: cruzada, a lo largo de X)
-  const xs = one ? [0] : [-gap / 2, gap / 2], L = one ? 0.95 : len + 0.1;
+  // (una sola, también a lo largo de Z, como en RepArena: se coloca con las manos a lo largo de ella y te tumbas cruzado debajo)
+  const xs = one ? [0] : [-gap / 2, gap / 2], L = len + 0.1;
   for (const x of xs) {
-    const rail = tube(L, 0.017, steel, one ? 'x' : 'z');
+    const rail = tube(L, 0.017, steel, 'z');
     rail.position.set(x, H, 0);
-    const glow = noInk(tube(L, 0.05, glowMat, one ? 'x' : 'z'));
+    const glow = noInk(tube(L, 0.05, glowMat, 'z'));
     glow.position.set(x, H, 0);
     grp.add(rail, glow);
     for (const s of [-1, 1]) {
-      const leg = tube(H, 0.025, dark, 'y');
-      const px = one ? s * (L / 2 - 0.05) : x, pz = one ? 0 : (s * (len + 0.1)) / 2 - s * 0.05;
-      leg.position.set(px, H / 2, pz);
-      const foot = new Mesh(new BoxGeometry(one ? 0.1 : 0.4, 0.03, one ? 0.4 : 0.1), dark);
-      foot.position.set(px, 0.015, pz);
+      const leg = tube(H, 0.025, dark, 'y'), pz = (s * L) / 2 - s * 0.05;
+      leg.position.set(x, H / 2, pz);
+      const foot = new Mesh(new BoxGeometry(0.4, 0.03, 0.1), dark);
+      foot.position.set(x, 0.015, pz);
       grp.add(leg, foot);
     }
   }

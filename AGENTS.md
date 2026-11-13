@@ -95,7 +95,7 @@ tabla de `README.md` dice qué hace cada archivo.
   fila: los saca `FlyerSystem` (`src/combat/flyers.ts`) con su vuelo (`Flight`, `src/combat/flight.ts`, de RepArena) y su
   número en `FLYER_KIND`; sin cuerpo de física mientras vuelan. Los blancos (`EnemySystem.targets`) son de todos.
   Los de tierra andan con su marcha (`Gait`, `src/combat/gait.ts`: forma de moverse, velocidades, amenaza y esquivas, de
-  RepArena) pidiendo velocidad a la física; su reloj de gestos va a su `pace`.
+  RepArena) pidiendo velocidad a la física; su reloj de gestos va a su `pace`; sin contorno de tinta, `noInk` en su fila.
 - **Oleadas** (`src/combat/waves.ts`, de RepArena): `buildWave` da la cola de cada oleada con los nombres de RepArena
   (`impthrow`, `zombieboss`…); `xrFoe` dice cuál es aquí y si es jefe (`bossDef`). Los puntos y el combo, en `GAME`.
 - **Avisos de la vista** (`ViewSystem`, `src/ui/view-panels.ts`; dónde, `src/ui/view.ts`, de RepArena): siguen la mirada

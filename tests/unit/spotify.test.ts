@@ -154,6 +154,18 @@ describe('Spotify: reproducir', () => {
     expect(h.sp.started).toBe(true);
     expect(h.sp.playing()).toBe(true);
   });
+  it('Play pone tus canciones elegidas, no lo que escuchabas en otro aparato; lo suyo, en pausa, lo reanuda', async () => {
+    const h = harness(CONN({ picks: [{ uri: 'spotify:track:1' }, { uri: 'spotify:track:2' }] }));
+    h.sp.started = true; // (ya sonó lo tuyo antes…)
+    h.sp.st = { is_playing: false, device: { id: 'm' }, item: { uri: 'spotify:track:otra' }, context: { uri: 'spotify:playlist:del-movil' } };
+    await h.sp.toggle(); // (…pero lo que hay ahora lo pusiste en el móvil: suenan las elegidas)
+    expect(h.reqs[0].url).toBe('https://api.spotify.com/v1/me/player/play?device_id=m');
+    expect(JSON.parse(h.reqs[0].body).uris.sort()).toEqual(['spotify:track:1', 'spotify:track:2']);
+    h.reqs.length = 0;
+    h.sp.st = { is_playing: false, device: { id: 'm' }, item: { uri: 'spotify:track:2' } };
+    await h.sp.toggle(); // (en pausa y es de las elegidas: sigue donde iba)
+    expect(h.reqs.map((r) => r.url.replace('https://api.spotify.com/v1', ''))).toEqual(['/me/player/play']);
+  });
   it('la ronda: al acabar baja y pausa; al empezar, entra subiendo', async () => {
     const h = harness(CONN());
     h.sp.st = { is_playing: true, device: { id: 'm', volume_percent: 80, supports_volume: true } };
