@@ -10,7 +10,7 @@
  *    gatillo (IWSDK: RayInteractable en el grupo de los menús).
  */
 import { AdditiveBlending, BoxGeometry, CylinderGeometry, Group, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, Sprite, SpriteMaterial, TorusGeometry, Vector3 } from '@iwsdk/core';
-import type { Object3D } from '@iwsdk/core';
+import type { Object3D, Texture } from '@iwsdk/core';
 import { FIELD, type FieldDef } from '../../core/schema.js';
 import { decimals, fmtNum, fmtVal, setSetting } from '../../core/settings.js';
 import { num, settings } from '../../core/values.js';
@@ -113,6 +113,8 @@ export const ENV = {
   onWatch: (): void => {},
   /** En plena ronda (no en los menús). */
   playing: (): boolean => false,
+  /** Para subir las texturas de un menú nuevo a la tarjeta gráfica antes de pintarlo (WebGLRenderer.initTexture). */
+  renderer: null as { initTexture(t: Texture): void } | null,
 };
 
 export const UI = {
@@ -282,6 +284,22 @@ function makeStand(): void {
 }
 
 // ---------------------------------------------------------------- abrir un menú
+
+/** Sube ya a la tarjeta gráfica las texturas de un menú recién hecho (su fondo y sus teclas): si no, se suben al pintarlo y,
+ * con muchas, ese fotograma se para o sale a medias (en las gafas, el fondo del menú en blanco un instante). Las que ya
+ * estaban subidas no se vuelven a subir. */
+export function upTex(o: Object3D): void {
+  const r = ENV.renderer;
+  if (!r) return;
+  try {
+    o.traverse((c) => {
+      const map = ((c as Mesh).material as { map?: Texture | null } | undefined)?.map;
+      if (map) r.initTexture(map);
+    });
+  } catch {
+    /* (si no se puede, se sube al pintarlo, como antes) */
+  }
+}
 
 /** Abre un menú (en el mismo sitio que el que hubiera). */
 export function openMenu(rows: Row[], opts: MenuOpts = {}, kind = 'options'): Menu {
@@ -586,6 +604,7 @@ function openMenuNow(rows: Row[], opts: MenuOpts, kind: string): Menu {
   BTN.later = false;
   flatKeys(widgets.filter((w): w is Btn => w.kind === 'btn'), KEY_H / ksc);
   ENV.root?.add(group);
+  upTex(group);
   const m: Menu = { group, widgets, fieldRows, rows, W: MW, H, wrist, age: reuse ? 0.4 : 0, keypad: null, closed: false, kind };
   UI.menu = m;
   if (wrist) {
@@ -671,6 +690,7 @@ export function openKeypad(f: FieldDef, row: FieldRow | null, opt: Keypad['opt']
   flatKeys(kp.widgets as Btn[], kkh);
   m.keypad = kp;
   drawKeypad();
+  upTex(grp);
 }
 function drawKeypad(): void {
   const kp = UI.menu?.keypad;
@@ -800,6 +820,7 @@ function hintShow(f: FieldDef, group: Group, cy: number): void {
   P.mesh.position.set(-MW / 2 - HINT_W / 2 - 0.02, cy, 0.02);
   group.add(P.mesh);
   Object.assign(HINT, { p: P, key: f.key, t: HINT_T });
+  upTex(P.mesh);
   SND.tick();
 }
 function hintStep(dt: number): void {
