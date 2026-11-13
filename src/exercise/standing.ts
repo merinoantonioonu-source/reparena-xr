@@ -12,13 +12,14 @@
  *    pesa) y la elevación frontal. Arriba, aguantando, carga; el disparo sale al empezar a bajar.
  *  - Antebrazos (barra flexible): un giro de las muñecas en sentidos contrarios carga; el siguiente, al revés, dispara.
  *
- * Las manos, tal como las da IWSDK (`hands`: si se ven y dónde): RepArena filtraba antes las manos (`HF`: al alcance y sin
- * saltos imposibles) para tapar los fallos de su lectura; aquí no se porta (criterio del usuario: IWSDK de serie; ver
- * MIGRACION.md › PR 6). Si una mano no se ve, cuenta como perdida, igual que en RepArena.
+ * Las manos, como en RepArena: antes de cada paso se filtran (`HF`, src/input/hand-filter.ts: al alcance y sin saltos
+ * imposibles; opción B del usuario, PR 30) y, donde RepArena lo usaba (la cadena de dos tiempos, la elevación frontal y el
+ * curl con barra), solo vale la mano que pasa el filtro. Si una mano no se ve, cuenta como perdida.
  */
 import { Quaternion, Vector3 } from 'three';
 import type { Hand, Side } from '../input/hand-model.js';
 import { powLevel, VertDetector, type VertConfig, type VertEvent } from './vertical.js';
+import { handFilter, mkHF } from '../input/hand-filter.js';
 
 /** Los ejercicios de pie de Combate (los de MODE_EX.combat que no van en el suelo ni sentados). */
 export const STAND_EX = ['squat', 'lunge', 'jsquat', 'thruster', 'frontsq', 'swing', 'dlrow', 'curl', 'curl2', 'fraise', 'twist'];
@@ -127,6 +128,8 @@ export class StandingDetector {
   private out: StandEvent[] = [];
   private c!: StandCfg;
   private I!: StandInput;
+  /** Las manos que valen en este fotograma (RepArena: HF). */
+  readonly HF = mkHF();
   private t = 0;
   private dt = 0;
   private tmp = new Vector3();
@@ -161,6 +164,7 @@ export class StandingDetector {
     this.I = I;
     this.t = t;
     this.dt = dt;
+    handFilter(this.HF, I.hands, I.head.p, c.ex, dt); // (las manos que valen, sin los errores del seguimiento: RepArena)
     const ex = c.ex;
     if (ex === 'lunge') {
       // zancada: como la sentadilla, con su propia bajada (y su carga al aguantar abajo); después de cada una toca la otra pierna
@@ -274,7 +278,8 @@ export class StandingDetector {
     } else
       for (const s of ['left', 'right'] as const) {
         const h = I.hands[s];
-        if (h.ok) {
+        if (this.HF[s].ok) {
+          // (sin los errores del seguimiento)
           const r = h.wrist.y - hp.y, f = this.tmp.subVectors(h.wrist, hp).dot(I.fwd); // f: cuánto está por delante de los ojos
           if (K.ok!(r, f, this.c)) T.seen[s] = true;
           T.last[s] = r;
@@ -380,10 +385,10 @@ export class StandingDetector {
     // la altura de la pesa: juntas, su media; si no, las que se vean
     let y: number;
     if (clasp) y = (hl.wrist.y + hr.wrist.y) / 2 - hp.y;
-    else if (hl.ok && hr.ok) {
+    else if (this.HF.left.ok && this.HF.right.ok) {
       const a = hl.wrist.y - hp.y, b = hr.wrist.y - hp.y;
       y = Math.abs(a - b) <= 0.15 ? (Math.max(a, b) + Math.min(a, b)) / 2 : B.hv.left >= B.hv.right ? a : b; // (no coinciden: la que se mueve)
-    } else if (hl.ok || hr.ok) y = (hl.ok ? hl : hr).wrist.y - hp.y;
+    } else if (this.HF.left.ok || this.HF.right.ok) y = (this.HF.left.ok ? hl : hr).wrist.y - hp.y; // (las que valen: HF)
     else {
       B.lost += dt;
       if (B.state === 'hold' && B.lost > 0.25) {
@@ -448,7 +453,7 @@ export class StandingDetector {
     const d = this.fr, c = this.c, range = c.fraiseRange / 100, t = this.t, hp = this.I.head.p, m = this.tmp.set(0, 0, 0);
     let n = 0;
     for (const s of ['left', 'right'] as const)
-      if (this.I.hands[s].ok) {
+      if (this.HF[s].ok) {
         m.add(this.I.hands[s].wrist);
         n++;
       }

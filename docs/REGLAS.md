@@ -17,6 +17,11 @@ hacerlas, primará IWSDK). Primarán siempre las soluciones de IWSDK de serie, e
 cosas (van marcados **[Con IWSDK, de serie]**) no se portan; si en las gafas vuelve el problema, se busca primero lo que
 ofrezca IWSDK y, si no hay nada, se le proponen al usuario.
 
+**Excepción decidida por el usuario (PR 30, opción B): las manos y los menús, los de RepArena enteros.** IWSDK no especifica
+cómo deben comportarse (no tiene opciones para el toque ni para la mano) y con lo de serie iban peor que en RepArena: se
+traen su lectura de las manos (suavizado, saltos, mano perdida, pellizco, `HF`) y sus menús (paneles, teclas pintadas y su
+pulsación sólida, pegada y con imán).
+
 ## Lecciones del motor viejo que siguen valiendo
 
 - Dianas y marcas en las gafas: tiras planas de cara al jugador (como los corchetes y las líneas de enfoque). Las de
@@ -119,7 +124,7 @@ No las cambies sin preguntarle.
 - Arcos de semipuente (`arcLow`): inclinados tan bajos que hay que apartarse al lado alto y bajar hasta apoyar una mano en
   el suelo; llegan más despacio, con aviso grande y la huella de la mano en el suelo.
 - El marcador tumbado en el suelo (flexiones, planchas, inchworm) es sólido: los bichos lo rodean.
-- **[Con IWSDK, de serie (PR 3): las manos las lee y las pinta IWSDK tal cual: sin manos inventadas ni el seguimiento del cuerpo; la mano que se pierde, IWSDK la deja de pintar. La sacudida perdida a medias sí sale (es de la sacudida, `src/input/throw.ts`). «Manos con el cuerpo» no hace nada aquí: IWSDK no pide el seguimiento del cuerpo]** Manos perdidas (solo manos desnudas): la que iba deprisa sigue su gesto un instante (`h.est = 'pred'`) y, con «Manos
+- **[PR 30: portado de RepArena (opción B del usuario: con lo de serie de IWSDK las manos iban peor): la mano perdida sigue su gesto o la coloca el cuerpo, que se pide al entrar con «Manos con el cuerpo»; no se pinta ni pulsa menús (`src/input/hand-filter.ts`)]** Manos perdidas (solo manos desnudas): la que iba deprisa sigue su gesto un instante (`h.est = 'pred'`) y, con «Manos
   con el cuerpo» (Ajustes → Menú, de serie) y si el navegador da el cuerpo, la perdida se coloca en la muñeca del
   cuerpo con su última forma (`h.est = 'body'`). Ninguna mano con `h.est` se pinta (salían volando hacia delante o delante
   de la cara): la que se ve se queda donde se la vio 0,3 s y desaparece. Un salto imposible de la muñeca (más de 30 cm entre
@@ -128,9 +133,9 @@ No las cambies sin preguntarle.
   ejercicios que se hacen con las manos (`handEx`: los de pesa —curl, curl con barra, elevación frontal…— y la plancha
   con un brazo) no se inventa ninguna mano: con los brazos abajo las gafas las pierden a menudo, y la inventada subía sola
   y contaba curls y disparos que no se habían hecho. Fuera de la partida (menús), tampoco.
-- **[Con IWSDK, de serie (PR 3): la mano que se ve es la de IWSDK, sin suavizar. PR 24a/25 (pedido del usuario: la de IWSDK es transparente y blanca): «Manos que se ven», de serie los guantes robóticos de RepArena (`src/input/glove-system.ts`, también en la mano que agarra el mando) o la mano de IWSDK opaca; las dos, con lo que dan las gafas tal cual]** La mano que se pinta usa la posición suavizada (`J.s`) y también el giro suavizado (`J.sq`, mismo filtro): con el giro
+- **[PR 30: portado de RepArena (opción B del usuario): los guantes se pintan con la mano suavizada (`J.s`, `J.sq`) y la que se pierde se queda 0,3 s donde se la vio; con «Mano lisa», la de IWSDK opaca (esa la pinta IWSDK, sin suavizar)]** La mano que se pinta usa la posición suavizada (`J.s`) y también el giro suavizado (`J.sq`, mismo filtro): con el giro
   tal cual, la palma y las falanges temblaban. Solo para pintar: el juego sigue con lo que dan las gafas.
-- **[PR 3: la sacudida y el puñetazo, los de RepArena tal cual (comparados con su código: IWSDK no los trae); la lectura, el suavizado y el pellizco, los de IWSDK de serie; el filtro `HF` no se porta (con IWSDK, de serie; ver el PR 6 en `MIGRACION.md`)]** La lectura de las manos (suavizado, filtro `HF` de las dos manos juntas, lanzamiento, puñetazo, pellizco) está como antes
+- **[PR 30: todo como en RepArena (opción B del usuario): la lectura, el suavizado, el pellizco (las puntas del pulgar y el índice a menos de 2 cm) y el filtro `HF`, comparados con su código (`tests/compare/hands.compare.test.ts`, `standing.compare.test.ts`); la sacudida y el puñetazo, desde el PR 3]** La lectura de las manos (suavizado, filtro `HF` de las dos manos juntas, lanzamiento, puñetazo, pellizco) está como antes
   de la auditoría externa: sus cambios (solo posturas nuevas, pellizco con puño, salto de la mano recuperada) empeoraron
   mucho los dos curls en las gafas y el usuario pidió quitarlos. No vuelvas a tocarla sin probarlo con él en las gafas.
 - Espada: corta solo con el brazo (la mano también a ≥ 0,6 m/s, `SWORD_ARM`); el bloqueo, con la hoja en la marca en los

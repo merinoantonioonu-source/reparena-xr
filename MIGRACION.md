@@ -150,6 +150,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 27 · Pulsar solo por delante (con su forma de tecla), la pinza para el rayo y el marcador grande de RepArena** — #34
 - [x] **PR 28 · Sin el puntero invisible, letras que caben, el negro del final, EMPEZAR sin congelarse y sin las cajas y rocas del prototipo** — #35
 - [x] **PR 29 · Registro de diagnóstico** (los últimos 30 s de las manos, el rayo, las teclas y los tirones, para arreglar con datos de las gafas) — #36
+- [x] **PR 30 · Las manos de RepArena** (opción B del usuario: la lectura, el suavizado, los saltos imposibles, la mano perdida con el cuerpo, el pellizco y el filtro `HF`) — #37
+- [ ] **PR 31 · Los menús de RepArena enteros** (opción B: sus paneles, sus teclas planas pintadas y su pulsación con imán, sólida y pegada, el menú de muñeca, el atril y el teclado de números; sustituyen a los de UIKitML)
 
 ## Los PR
 
@@ -393,6 +395,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 30 → PR 31: **el usuario eligió la opción B**: con lo de serie de IWSDK las manos y los menús iban peor que en
+  RepArena, así que se traen los de RepArena enteros. Las manos ya están (`src/input/hand-filter.ts`, comparado con
+  `src/80_main.js` y el `HF` de `src/70_game.js`): el juego usa `J.p`/`J.q`/`tip`; lo que se pinta y lo que pulsa los menús,
+  `J.s`/`J.sq`/`tipS`; una mano con `h.est` (calculada al perderla) no se pinta, no pulsa menús, no saca el botón de la muñeca ni
+  coloca barras; `h.back`, el fotograma en que reaparece (no es sacudida ni puñetazo). El cuerpo (`body-tracking`) se pide al
+  entrar (`askBodyTracking`, `src/input/hand-system.ts`: IWSDK no tiene opción). Falta el PR 31: los menús de RepArena
+  (`src/60_ui.js`: `openMenu`, `Btn`, `flatKeys`, `keyCached`, `pokeWidgets` con `fingers` = las `tipS`, el menú de muñeca, el
+  atril, `menuOccluder`, el teclado; y los menús de `src/70_game.js`), que sustituyen a los de UIKitML.
 - PR 29 → los siguientes: **antes de arreglar algo de las manos, el rayo, las teclas o los tirones, pide al usuario el registro
   de diagnóstico** (`src/core/diag.ts`, `src/ui/diag-system.ts`): se guarda solo al salir de la VR o al abrir el menú de las
   gafas, y con «Guardar diagnóstico» de la pausa; en la página, «Copiar el último» o «Descargar todos». Lleva cada 0,1 s la
@@ -740,9 +750,8 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   encienden con su PR.
 - PR 7: los galones de los rangos son su nombre abreviado (RepArena los dibujaba); «Restablecer» una pestaña, «A otro
   aparato» y la sincronización, con el PR 23.
-- PR 6: el filtro de las manos de RepArena (`HF`: manos al alcance y sin saltos imposibles, en todo lo que va con las
-  dos manos en una pesa) no se porta, como pidió el usuario (IWSDK de serie). Si en las gafas vuelven los rayos al azar
-  (sobre todo en el curl con barra), se busca primero en IWSDK y, si no hay nada, se le propone el `HF` al usuario.
+- PR 6: el filtro de las manos de RepArena (`HF`) no se portó entonces (IWSDK de serie); desde el PR 30 sí (opción B del
+  usuario: las manos de RepArena enteras).
 - PR 6: en las gafas, por probar todos los ejercicios de pie; en la VR simulada se han probado la sentadilla (con el aviso
   en el suelo y la carga hasta ×4) y el curl (carga arriba, chasquido, ×2-×4 y el rayo al bajar), elegidos en el
   selector con el mando. En el emulador, al pasar a manos, aparecen a media altura: cuenta un curl que no se ha hecho

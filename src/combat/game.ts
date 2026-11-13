@@ -41,7 +41,7 @@ import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
 import { CALIB_LINES, IDLE, PLACE } from '../exercise/how.js';
 import { FLOOR_EX, FloorDetector, floorDefaults, iwReach, type FloorCfg, type FloorInput } from '../exercise/floor.js';
-import { aimForced, deepOn, flyList, foes, groundList, handsFree, isTiny, oneArm, twoShots } from '../core/rules.js';
+import { aimForced, aimManual, deepOn, flyList, foes, groundList, handsFree, holdsWeights, isTiny, oneArm, pistolOn, twoShots } from '../core/rules.js';
 import { HatchSystem, hatchFoes } from './hatch-foes.js';
 import { devFoe, flyFoes, FOE_DEF, foeName, gateFoes } from './foes.js';
 import { Rewards } from './rewards.js';
@@ -72,7 +72,7 @@ import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
 import { GAME, HOOKS, VIEW, type CenterInfo } from '../core/state.js';
 import { hands, head, headFwd, SIDES, type Side } from '../input/hand-model.js';
-import { haptic } from '../input/hand-system.js';
+import { BODY, haptic } from '../input/hand-system.js';
 import { HTH, throwCharge, throwReset, throwStep, type Charge, type ThrowEnv } from '../input/throw.js';
 import { gazeLock, gazeLockReset, gazeLockStep } from '../input/gaze-lock.js';
 import { PUNCH, punchReset, punchStep, type PunchTarget } from '../input/punch.js';
@@ -883,6 +883,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private readonly cCalib: CenterInfo = { kind: 'calib', title: 'CALIBRACIÓN', lines: [], note: null, status: null, count: '', bar: 0 };
   private readonly cReady: CenterInfo = { kind: 'ready', title: '¡PREPÁRATE!', lines: [], note: null, status: null, count: '3', bar: 0 };
   private readonly cHands: [string, string] = ['manos detectadas', '#3cf0c6'];
+  private readonly cBody: [string, string] = ['manos y cuerpo detectados', '#3cf0c6'];
   private readonly cNoHands: [string, string] = ['no veo tus manos', '#ff8a3d'];
   private centerStep(playing: boolean): void {
     if (settings.mode === 'bars') {
@@ -894,7 +895,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     else if (this.calibT >= 0) {
       const c = this.cCalib, ex = settings.exercise;
       c.lines = CALIB_LINES[ex] ?? ['Colócate en la postura inicial', 'y quédate quieto 2 s.'];
-      c.note = ex === 'superman' ? (hands.left.ok || hands.right.ok ? this.cHands : this.cNoHands) : null;
+      // (si se ven las manos, en lo que se hace con ellas; y el cuerpo, si el navegador lo da: RepArena)
+      c.note = (holdsWeights() && ex !== 'dlrow') || oneArm() || ex === 'superman' || (aimManual() && settings.aim === 'hands' && handsFree()) || pistolOn() ? (hands.left.ok || hands.right.ok ? (BODY.now ? this.cBody : this.cHands) : this.cNoHands) : null;
       c.bar = Math.min(1, this.calibT / 2);
       VIEW.center = c;
     } else if (!GAME.wave && !this.resting && this.restT > 0) {

@@ -114,7 +114,7 @@ export class DiagSystem extends createSystem({}, {}) {
     if (!h.ok) return `${L[s]}: -`;
     const mp = this.input.xr.multiPointers?.[s], P = this.solid?.P[s];
     const ri = mp ? hitOf(mp.getPointer('ray')) : undefined, ti = mp ? hitOf(mp.getPointer('touch')) : undefined;
-    let out = `${L[s]}: ${h.isHand ? 'h' : 'm'}${h.pinch ? ' p' : ''} w(${xyz(h.wrist)}) i(${xyz(h.tip)})`;
+    let out = `${L[s]}: ${h.isHand ? 'h' : 'm'}${h.est ? ' calculada:' + h.est : ''}${h.pinch ? ' p' : ''} w(${xyz(h.wrist)}) i(${xyz(h.tip)})`;
     if (ri) out += ` r=${nameOf(keyOf(ri.object))}@(${xyz(ri.point)})`;
     if (ti) out += ` t=${nameOf(keyOf(ti.object))}/${cm(ti.distance)}`;
     out += ` act=${mp?.getActiveKind() ?? '-'}`;

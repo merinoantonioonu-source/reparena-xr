@@ -20,7 +20,7 @@ export type PlaceEvent = Extract<BarEvent, { type: 'snd' }> | { type: 'adjust' }
 /** Punto de agarre: entre la base del dedo corazón y su nudillo (o el mando) (RepArena: gripPoint). */
 export function gripPoint(env: PlaceEnv, side: Side, out: Vector3): Vector3 | null {
   const h = env.hands[side];
-  if (!h.ok) return null;
+  if (!h.ok || h.est) return null; // (colocar las barras, solo con la mano que ven las cámaras: RepArena)
   if (h.isHand) {
     const a = h.J[10], b = h.J[11];
     return a.ok && b.ok ? out.lerpVectors(a.p, b.p, 0.75) : null;

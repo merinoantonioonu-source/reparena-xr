@@ -5,9 +5,8 @@
 // girando las muñecas), con los mismos ajustes; tienen que salir las mismas cargas, los mismos niveles, las mismas
 // repeticiones (PERFECTA, rápida, carga y brazo), los mismos avisos y los mismos chasquidos arriba, en el mismo fotograma.
 //
-// La única diferencia a propósito: RepArena filtraba antes las manos (HF: al alcance y sin saltos imposibles); aquí se
-// usan tal como las da IWSDK (criterio del usuario). Para comparar lo demás, al original se le pasa el filtro como «la
-// mano vale si se ve». (Se salta sin RA_DIR: ver tests/compare/ra.ts.)
+// También el filtro de las manos (HF: al alcance y sin saltos imposibles), portado en el PR 30 (src/input/hand-filter.ts).
+// (Se salta sin RA_DIR: ver tests/compare/ra.ts.)
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { mkHand, type Hand, type Side } from '../../src/input/hand-model.js';
@@ -43,8 +42,6 @@ function original(c: StandCfg, hands: Record<Side, Hand>, head: { p: THREE.Vecto
     raSlice('70_game.js', 'const _frm', 'function chopStep', false),
     raSlice('70_game.js', 'const _tw0', '/* =================== FLEXIONES INCHWORM', false),
     raSlice('70_game.js', 'function runDetectors', '/* =================== APUNTADO', false),
-    // las manos, tal como llegan (sin el filtro HF de RepArena: ver arriba)
-    "handFilter = () => { for (const s of ['left', 'right']) HF[s].ok = hands[s].ok; };",
   ].join('\n');
   const settings: Record<string, unknown> = { mode: 'combat', exercise: c.ex, ...c };
   const api = raRun<RAApi>(code, '{ runDetectors, JUMP, DET, HL, REC, frame }', {
