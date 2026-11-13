@@ -6,6 +6,7 @@
  */
 import { createSystem, VisibilityState } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
+import { texUploads } from '../style/tex-upload.js';
 import { DIAG, DIAG_KEY, DIAG_STEP, diagEvent, diagLine, diagSave, type DiagCapture } from '../core/diag.js';
 import { GAME, HOOKS } from '../core/state.js';
 import { store } from '../core/settings.js';
@@ -40,6 +41,8 @@ export class DiagSystem extends createSystem({}, {}) {
   private T: Record<Side, Track> = { left: mkTrack(), right: mkTrack() };
   private acc = 0;
   private worst = 0;
+  /** Los dibujos subidos antes de pintar hasta la muestra anterior (src/style/tex-upload.ts). */
+  private up = 0;
   private menu = '';
   private phase = '';
   private vis = false;
@@ -102,7 +105,9 @@ export class DiagSystem extends createSystem({}, {}) {
     this.acc += delta;
     if (this.acc < DIAG_STEP) return;
     this.acc = 0;
-    diagLine(`${GAME.menu}/${GAME.phase} | ${Math.round(this.worst * 1000)} | ${xyz(head.p)} | ${this.hand('left')} | ${this.hand('right')}`);
+    const up = texUploads(), sub = up - this.up;
+    this.up = up;
+    diagLine(`${GAME.menu}/${GAME.phase} | ${Math.round(this.worst * 1000)}${sub ? ` +${sub}` : ''} | ${xyz(head.p)} | ${this.hand('left')} | ${this.hand('right')}`);
     this.worst = 0;
   }
 

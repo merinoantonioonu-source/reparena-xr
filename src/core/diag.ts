@@ -51,7 +51,7 @@ function ring(a: string[], i: number): string[] {
 
 /** Cómo leer las líneas (va arriba en cada captura). */
 export const DIAG_LEGEND = [
-  'Muestras cada 0,1 s: t | menú/fase | imagen: peor ms | cabeza x,y,z (cm) | I: mano izquierda | D: derecha',
+  'Muestras cada 0,1 s: t | menú/fase | imagen: peor ms (+N: dibujos subidos a la gráfica antes de pintar) | cabeza x,y,z (cm) | I: mano izquierda | D: derecha',
   '  mano: «-» no se ve; si no: m=mando, h=mano; calculada:pred|body (perdida, la calcula el juego); p=pellizco; muñeca w(x,y,z); punta del índice i(x,y,z) (cm, del mundo)',
   '  r=tecla a la que apunta el rayo @punto; t=tecla más cerca del dedo (toque de IWSDK) y su distancia (cm);',
   '  act=puntero activo de IWSDK (ray, touch o -); dedo=la tecla que ilumina el dedo (y si la está hundiendo); apoyado: la mano que se ve, parada en el panel',

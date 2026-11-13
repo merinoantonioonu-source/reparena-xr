@@ -152,7 +152,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 29 · Registro de diagnóstico** (los últimos 30 s de las manos, el rayo, las teclas y los tirones, para arreglar con datos de las gafas) — #36
 - [x] **PR 30 · Las manos de RepArena** (opción B del usuario: la lectura, el suavizado, los saltos imposibles, la mano perdida con el cuerpo, el pellizco y el filtro `HF`) — #37
 - [x] **PR 31 · Los menús de RepArena enteros** (opción B: sus paneles, sus teclas planas pintadas y su pulsación con imán, sólida y pegada, el menú de muñeca, el atril y el teclado de números; sustituyen a los de UIKitML) — #38
-- [ ] **PR 32 · Cuatro arreglos vistos en las gafas** (el menú de música ya no se rehace cada 5 s y los menús suben sus texturas antes de pintarse; los mandos de Spotify, otra vez en el menú principal; en los ejercicios de suelo el mundo se orienta hacia tu cuerpo al calibrar; en la plancha con un brazo, el rayo sale de la mano levantada)
+- [x] **PR 32 · Cuatro arreglos vistos en las gafas** (el menú de música ya no se rehace cada 5 s y los menús suben sus texturas antes de pintarse; los mandos de Spotify, otra vez en el menú principal; en los ejercicios de suelo el mundo se orienta hacia tu cuerpo al calibrar; en la plancha con un brazo, el rayo sale de la mano levantada) — #39
+- [ ] **PR 33 · El menú ya no desaparece a trozos al mover un deslizador** (los dibujos que cambian se suben antes de pintar cada fotograma; el deslizador ya no se repinta al arrastrarlo ni con el rayo encima; el diagnóstico apunta lo que se sube)
 
 ## Los PR
 
@@ -396,6 +397,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 33 → los siguientes: **nada se sube a la tarjeta gráfica con la imagen de las gafas abierta**. En las gafas, el Three de
+  IWSDK aparca los dibujos que cambian mientras pinta y los sube justo después (ver Fallos de IWSDK); eso hacía que el menú
+  desapareciera a trozos (se veía el fondo a través) al mover un deslizador, que se repintaba en cada paso y al pasar el rayo.
+  Ahora `texUploadHook` (`src/style/tex-upload.ts`, puesto al crear el mundo) apunta cada lienzo o imagen marcado con
+  `needsUpdate` y lo sube al empezar el fotograma siguiente (`scene.onBeforeRender`). Aun así, **no repintes un lienzo en cada
+  fotograma ni al iluminar algo**: muévelo o cambia el color de su material (como las teclas planas y ahora el deslizador,
+  `Slider` en `btn.ts`: la ranura se pinta una vez; el relleno rosa y la bolita son planos que se mueven, y la bolita se pone
+  amarilla con el color de su material). En el diagnóstico, «peor ms +N» dice cuántos dibujos se subieron en esa muestra.
+
 - PR 32 → los siguientes: **lo que cambia en Spotify ya no rehace el menú a ciegas**. `HOOKS.spChanged` lo reparte un solo
   manejador fijo (`spSync`, `src/ui/screens/music-screens.ts`, puesto por `RaMenuSystem`): la pantalla de la música se rehace
   solo si cambia su firma (`musicSig`, `src/services/music-sig.ts`: lo que suena, dónde, las listas, los errores y el ritmo) y
@@ -613,6 +623,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 33: **sin confirmar en las gafas** (la VR simulada no tiene la tarjeta gráfica de las Quest). En el vídeo del usuario, el
+  menú de Ajustes perdía trozos (se veía la foto del fondo a través) al mover un deslizador, y el diagnóstico daba fotogramas de
+  33-42 ms con el rayo o el dedo en un deslizador (11 ms es lo normal; sin tocar el menú, 16-20 ms, que también es mucho y queda
+  por mirar). Si vuelve a pasar, el diagnóstico dice ya si coincide con dibujos subidos («peor ms +N»).
 - PR 32: **los saltos del menú al mover la cabeza, sin confirmar en las gafas**. Se ha quitado lo que se vio en el vídeo (el menú
   de música rehecho cada 5 s, con un fotograma pálido) y los menús suben ya sus texturas al hacerse; si al mover la cabeza
   sigue saltando con el menú quieto, hace falta el registro de diagnóstico (pausa → «Guardar diagnóstico») para ver si son
@@ -817,6 +831,11 @@ arregla, se quita el apaño.
   atiende una pulsación cada vez (`onPress`, `src/ui/press.ts`).
 - **IWSDK vuelve a enseñar su mano en cada fotograma** (pone `model.visible`): para esconderla bajo los guantes, se esconde su
   piel por dentro, y solo mientras se pinta el guante de ese lado (`GLOVE_ON`).
+- **Los dibujos que cambian se suben con la imagen de las gafas abierta.** Con las dos vistas a la vez (multiview, en las
+  Quest), su Three (super-three 0.185) no sube las texturas mientras pinta: las aparca y IWSDK las sube justo después de
+  pintar (`runtime/deferred-texture-uploads.js`), cuando la imagen aún no se ha entregado. Con un deslizador que se repintaba en
+  cada paso, el menú perdía trozos y se veía el fondo a través. Apaño (PR 33): `src/style/tex-upload.ts` sube los lienzos e
+  imágenes marcados al empezar el fotograma siguiente, antes de borrar la imagen (así la cola de IWSDK llega vacía).
 - **La mano desnuda es un fantasma** (`AnimatedHand`: transparente por dentro, con un borde blanco); en las gafas se veía a
   través de ella. No es un fallo, es su diseño; aquí se cambia por una opaca (`src/input/skin-hand.ts`) o por los guantes.
 - **Su mano solo se apoya en las teclas mientras pulsa** (`getTouchSurfaceVisualOffset`): fuera de una tecla, o en el fondo del

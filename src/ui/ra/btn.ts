@@ -331,6 +331,27 @@ export function flatKeys(list: Btn[], kh: number): void {
 
 // ---------------------------------------------------------------- el deslizador
 
+/** El orden de pintado de la bolita y el relleno: encima de la ranura (RO.widget, 21) y por debajo del teclado (RO.keypad). */
+const SLIDER_TOP = 21.5;
+/** La bolita, tocada o con el rayo encima: amarilla, #ffd166 (el color del material multiplica su blanco #eeeaff, en lineal). */
+const KNOB_HOT = [1.17, 0.775, 0.133] as const;
+
+/** Un plano pintado una vez (la bolita o el relleno del deslizador), hijo de la ranura y sin rayo propio. */
+function sliderPart(w: number, h: number, pxW: number, paint: (c: CanvasRenderingContext2D, W: number, H: number) => void): Mesh {
+  const p = makePanel(w, h, pxW);
+  paint(p.ctx, p.W, p.H);
+  p.tex.needsUpdate = true;
+  p.mesh.renderOrder = SLIDER_TOP;
+  p.mesh.raycast = () => {}; // (el rayo y el dedo, a la ranura: es la que dice qué valor es)
+  return p.mesh;
+}
+
+/**
+ * El deslizador de los números: la ranura (con sus marcas) se pinta una sola vez; el relleno rosa y la bolita son planos
+ * aparte que se mueven. Al arrastrarlo, o al pasar el rayo por encima, no se repinta ni se sube nada a la tarjeta gráfica:
+ * repintarlo en cada paso hacía que el menú desapareciera a trozos en las gafas y la imagen fuera a saltos
+ * (src/style/tex-upload.ts). Se ve igual que en RepArena (la bolita, amarilla con el dedo o el rayo encima).
+ */
 export class Slider implements Widget {
   readonly kind = 'slider' as const;
   value: number;
@@ -342,6 +363,11 @@ export class Slider implements Widget {
   baseZ = 0;
   pending = false;
   cool = 0;
+  private knob: Mesh;
+  private fill: Mesh;
+  /** Del relleno: dónde empieza y lo que mide entero (metros). */
+  private fx0: number;
+  private fLen: number;
 
   constructor(
     readonly f: FieldDef,
@@ -353,13 +379,39 @@ export class Slider implements Widget {
     this.p = makePanel(w, h, Math.round(clamp(4200 * w, 256, 2048)));
     this.mesh = this.p.mesh;
     this.mesh.userData.widget = this;
-    this.draw();
+    this.drawTrack();
+    // el relleno: una píldora rosa de punta a punta, de la que se enseña lo que toca (su final queda bajo la bolita)
+    const r = h * 0.12, x0 = -w / 2 + this.pad, x1 = w / 2 - this.pad;
+    this.fx0 = x0 - r;
+    this.fLen = x1 - x0 + r * 2;
+    this.fill = sliderPart(this.fLen, r * 2, 1024, (c, W, H) => {
+      rr(c, 0, 0, W, H, H / 2);
+      c.fillStyle = '#ff4fa3';
+      c.fill();
+    });
+    this.fill.geometry.translate(this.fLen / 2, 0, 0); // (crece desde su punta izquierda)
+    this.fill.position.set(this.fx0, 0, 0.0008);
+    // la bolita (con su borde de tinta): el tamaño de la de RepArena, un 30 % del alto a cada lado
+    const kd = h * 0.68;
+    this.knob = sliderPart(kd, kd, 128, (c, W) => {
+      c.beginPath();
+      c.arc(W / 2, W / 2, W * (0.3 / 0.68), 0, TAU);
+      c.fillStyle = '#eeeaff';
+      c.fill();
+      c.lineWidth = Math.max(2, W * 0.035);
+      c.strokeStyle = '#1a0716';
+      c.stroke();
+    });
+    this.knob.position.z = 0.0016;
+    this.mesh.add(this.fill, this.knob);
+    this.place();
   }
   frac(): number {
     return (this.value - this.f.min!) / (this.f.max! - this.f.min!);
   }
-  draw(): void {
-    const c = this.p.ctx, W = this.p.W, H = this.p.H, pad = (this.pad / this.w) * W, y = H / 2, x0 = pad, x1 = W - pad, x = x0 + (x1 - x0) * this.frac();
+  /** La ranura hundida y sus marcas (una vez). */
+  private drawTrack(): void {
+    const c = this.p.ctx, W = this.p.W, H = this.p.H, pad = (this.pad / this.w) * W, y = H / 2, x0 = pad, x1 = W - pad;
     c.clearRect(0, 0, W, H);
     rr(c, x0 - H * 0.12, y - H * 0.12, x1 - x0 + H * 0.24, H * 0.24, H * 0.12);
     c.fillStyle = '#120e26';
@@ -367,34 +419,44 @@ export class Slider implements Widget {
     c.lineWidth = 3;
     c.strokeStyle = '#30284f';
     c.stroke(); // (ranura hundida)
-    rr(c, x0 - H * 0.12, y - H * 0.12, Math.max(H * 0.24, x - x0 + H * 0.12), H * 0.24, H * 0.12);
-    c.fillStyle = '#ff4fa3';
-    c.fill();
     c.fillStyle = 'rgba(238,234,255,0.35)';
     for (let i = 0; i <= 10; i++) {
       const tx = x0 + ((x1 - x0) * i) / 10;
       c.fillRect(tx - 1, y + H * 0.2, 2, H * 0.1);
     }
-    c.beginPath();
-    c.arc(x, y, H * 0.3, 0, TAU);
-    c.fillStyle = this.hover || this.rayHover ? '#ffd166' : '#eeeaff';
-    c.fill();
-    c.lineWidth = 4;
-    c.strokeStyle = '#1a0716';
-    c.stroke(); // la bolita
     this.p.tex.needsUpdate = true;
+  }
+  /** Coloca el relleno y la bolita en el valor (sin repintar). */
+  private place(): void {
+    const r = this.h * 0.12, x = -this.w / 2 + this.pad + (this.w - this.pad * 2) * clamp(this.frac(), 0, 1), len = Math.max(r * 2, x + r - this.fx0);
+    this.fill.scale.x = len / this.fLen;
+    const t = (this.fill.material as MeshBasicMaterial).map!;
+    t.repeat.x = len / this.fLen; // (se enseña la parte izquierda de la píldora, sin estirarla)
+    this.knob.position.x = x;
+  }
+  /** La bolita, amarilla con el dedo o el rayo encima (solo cambia su color). */
+  recolor(): void {
+    const on = this.hover || this.rayHover;
+    (this.knob.material as MeshBasicMaterial).color.setRGB(on ? KNOB_HOT[0] : 1, on ? KNOB_HOT[1] : 1, on ? KNOB_HOT[2] : 1);
+  }
+  setHover(): void {
+    this.recolor();
+  }
+  draw(): void {
+    this.place();
+    this.recolor();
   }
   set(v: number): void {
     if (v === this.value) return;
     this.value = v;
-    this.draw();
+    this.place();
   }
   /** u: dónde está el dedo a lo largo de la ranura (0 a 1). */
   drag(u: number): void {
     const f = this.f, v = Number(clampSetting(f, f.min! + u * (f.max! - f.min!)));
     if (v === this.value) return;
     this.value = v;
-    this.draw();
+    this.place();
     this.pending = true;
     SND.tick();
     this.onDrag(v, false);
