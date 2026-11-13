@@ -84,6 +84,8 @@ export const HOOKS = {
   showSummary: (_s: unknown): void => {},
   /** La pausa: pararla y seguir (los pone el menú), recolocarse, terminar la ronda y volver al menú (los pone la partida). */
   pause: (): void => {},
+  /** Guarda el registro de diagnóstico de los últimos 30 s (src/ui/diag-system.ts). */
+  diagSave: (_reason: string): void => {},
   resume: (): void => {},
   recalibrate: (): void => {},
   endRound: (): void => {},

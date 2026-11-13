@@ -97,7 +97,7 @@ export const groupFields = (g: string): FieldDef[] => SCHEMA.filter((f) => f.g =
 export function summaryText(): string {
   const n = nWaves() ? `${nWaves()} oleadas` : num('toFail') ? 'al fallo' : 'oleadas sin fin';
   const first = settings.exercise === 'hang' ? `${hangSecs(0)} s colgado la primera (+${num('hangInc')})` : `${waveReps(0)} reps la primera (+${num('repsInc')})`;
-  return `${n} · ${first} · vidas ${nLives() || '∞'} · descanso ${num('rest')} s`;
+  return `${n} · ${first} · vidas ${nLives() || 'sin límite'} · descanso ${num('rest')} s`;
 }
 
 /** La ficha de la ronda, bajo los galones: el rango, el ejercicio y cómo es la ronda. */

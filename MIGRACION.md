@@ -149,6 +149,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 26 · Arreglos de la prueba del PR 25: se vuelve a poder pulsar, sin manos blancas y la calibración al empezar el ejercicio** — #33
 - [x] **PR 27 · Pulsar solo por delante (con su forma de tecla), la pinza para el rayo y el marcador grande de RepArena** — #34
 - [x] **PR 28 · Sin el puntero invisible, letras que caben, el negro del final, EMPEZAR sin congelarse y sin las cajas y rocas del prototipo** — #35
+- [x] **PR 29 · Registro de diagnóstico** (los últimos 30 s de las manos, el rayo, las teclas y los tirones, para arreglar con datos de las gafas) — #36
 
 ## Los PR
 
@@ -392,6 +393,23 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 29 → los siguientes: **antes de arreglar algo de las manos, el rayo, las teclas o los tirones, pide al usuario el registro
+  de diagnóstico** (`src/core/diag.ts`, `src/ui/diag-system.ts`): se guarda solo al salir de la VR o al abrir el menú de las
+  gafas, y con «Guardar diagnóstico» de la pausa; en la página, «Copiar el último» o «Descargar todos». Lleva cada 0,1 s la
+  cabeza, las dos manos (muñeca, punta del índice, pellizco), a qué tecla apunta el rayo y dónde, sobre qué tecla está el
+  toque de IWSDK y a qué distancia, el puntero activo de IWSDK y lo que hace el dedo con el panel (`SolidKeysSystem.P`); y los
+  sucesos: teclas que se iluminan y se pulsan (y quién: IWSDK con el rayo o el dedo de las teclas sólidas), pulsaciones
+  repetidas que no cuentan, manos que se pierden, pellizcos, menús, tirones y avisos de la consola. Lo nuevo que convenga
+  seguir, con `diagEvent`. `tests/unit/glyphs.test.ts` avisa de los caracteres que no están en las letras.
+- **Lo que trae IWSDK para el toque y las manos** (consultado en su código y documentación al hacer el PR 29; en npm, la última
+  sigue siendo la 1.1.0-rc.2): `RayInteractable` y `PokeInteractable` no tienen opciones; las distancias del toque son fijas
+  (`TOUCH_DEFAULTS`: se ilumina a 20 cm, pulsa a 2 cm; con histéresis de 15/20 cm, las de la guía de Meta) y la pulsación es
+  una esfera sin lado (`@pmndrs/pointer-events`: por eso pulsa también desde detrás); lo que impide que el dedo atraviese
+  (`getTouchSurfaceVisualOffset`) solo actúa pulsando y en una mano. Meta (guías de toque y de la Interaction SDK) pide que
+  solo cuente la punta que entra por delante, que el dedo que se ve se pare en la superficie («touch limiting»), que la
+  pulsación se mantenga aunque la mano resbale un poco («position pinning») y teclas de al menos 22 mm. En `main` de IWSDK, sin
+  publicar: `PokeInteractable` con `hand` (que pulse solo una mano) y arreglos del pellizco para agarrar. Por eso
+  `src/ui/solid-keys.ts` completa lo de IWSDK como pide Meta, y se revisará cuando IWSDK publique una versión nueva.
 - PR 28 → los siguientes: **las letras se ajustan solas** (`src/ui/fit.ts`, `FitTextSystem`): un texto que no cabe en su caja o
   en su botón encoge (la fila de botones, a la vez); un panel nuevo se añade a `PANELS` de `src/ui/fit-text.ts`. A las letras de
   `public/fonts` se les añadieron `− ▸ ◀ ◂ › ‹ ✔` como copias de `– ▶ ← ← » « ✓` (no los tenían: salía un punto). **Precompilar**

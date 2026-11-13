@@ -19,6 +19,8 @@ import { Box3, createSystem, Matrix4, PokeInteractable, Vector3, VisibilityState
 import type { Entity, InstancedMesh, Object3D } from '@iwsdk/core';
 import { hands, SIDES, type Side } from '../input/hand-model.js';
 import { HOLD } from '../input/hold.js';
+import { diagEvent } from '../core/diag.js';
+import { keyName } from './key-name.js';
 import { haptic } from '../input/hand-system.js';
 
 const TIPS = [4, 9, 14, 19, 24];
@@ -41,7 +43,9 @@ interface Face {
   n: number;
 }
 
-interface Press {
+export interface Press {
+  /** Lo que la punta está por delante del panel más cercano (m; Infinity si no hay ninguno debajo): para el diagnóstico. */
+  f: number;
   /** Ha entrado por delante y sigue apoyado (sólido) hasta retirarse. */
   in: boolean;
   /** Pegado a la tecla que pulsó (en `pin`). */
@@ -54,7 +58,7 @@ interface Press {
 }
 
 type Listening = Object3D & { _listeners?: Record<string, unknown[]>; isVisible?: { peek(): boolean } };
-const mkPress = (): Press => ({ in: false, on: false, armed: false, face: null, pin: new Vector3(), n: new Vector3() });
+const mkPress = (): Press => ({ f: Infinity, in: false, on: false, armed: false, face: null, pin: new Vector3(), n: new Vector3() });
 
 export class SolidKeysSystem extends createSystem({ poke: { required: [PokeInteractable] } }, {}) {
   private faces = new Map<Entity, Face>();
@@ -70,7 +74,8 @@ export class SolidKeysSystem extends createSystem({ poke: { required: [PokeInter
   private a = new Vector3();
   private b = new Vector3();
   private L = new Vector3();
-  private P: Record<Side, Press> = { left: mkPress(), right: mkPress() };
+  /** Lo que hace el dedo de cada mano con los paneles (público: lo lee el diagnóstico). */
+  readonly P: Record<Side, Press> = { left: mkPress(), right: mkPress() };
   private click = { type: 'click', stopPropagation: (): void => {} };
 
   private add(e: Entity): void {
@@ -188,6 +193,7 @@ export class SolidKeysSystem extends createSystem({ poke: { required: [PokeInter
             F0 = F;
           }
         }
+      S.f = F0 ? f0 : Infinity;
       if (!F0) {
         // fuera de todo panel: suelto (y para pulsar habrá que llegar por delante)
         S.in = S.on = S.armed = false;
@@ -213,8 +219,9 @@ export class SolidKeysSystem extends createSystem({ poke: { required: [PokeInter
             S.n.copy(this.n);
             this.want.copy(S.pin).sub(this.tip);
             haptic(s, 0.35, 25);
+            diagEvent(`${s === 'left' ? 'I' : 'D'} dedo pulsa ${keyName(key)}`);
             key.dispatchEvent(this.click as never);
-          }
+          } else diagEvent(`${s === 'left' ? 'I' : 'D'} dedo toca el panel (sin tecla debajo)`);
         } else if (wasIn || S.in) {
           // sólido: lo más hundido de las puntas que se ven (solo de la mano que entró por delante)
           let n = 0;

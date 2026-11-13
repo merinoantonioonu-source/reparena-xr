@@ -5,14 +5,20 @@
  * de las dos falla, la otra sigue funcionando.
  */
 import type { Object3D } from '@iwsdk/core';
+import { diagEvent } from '../core/diag.js';
+import { keyName } from './key-name.js';
 
 const GAP = 800, last = new WeakMap<object, number>();
 
 /** Escucha la pulsación de una tecla; devuelve cómo dejar de escucharla. */
 export function onPress(el: Object3D, fn: () => void): () => void {
-  const h = (): void => {
-    const now = performance.now(), t = last.get(el);
-    if (t !== undefined && now - t < GAP) return;
+  const h = (e?: { pointerType?: string }): void => {
+    const now = performance.now(), t = last.get(el), by = e?.pointerType ? `IWSDK ${e.pointerType}` : 'dedo (teclas sólidas)';
+    if (t !== undefined && now - t < GAP) {
+      diagEvent(`pulsación repetida, no cuenta: ${keyName(el)} (${by})`);
+      return;
+    }
+    diagEvent(`se pulsa ${keyName(el)} (${by})`);
     last.set(el, now);
     fn();
   };

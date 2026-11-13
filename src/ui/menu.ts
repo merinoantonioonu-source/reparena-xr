@@ -169,6 +169,10 @@ export class MenuSystem extends createSystem({}, {}) {
       HOOKS.resume();
       HOOKS.toLobby();
     });
+    this.on(this.pausep, 'p-diag', () => {
+      HOOKS.diagSave('con el botón de la pausa');
+      HOOKS.toast('Diagnóstico guardado: en la página, «Copiar el último»', '#3cf0c6', 3);
+    });
     this.on(this.wrist, 'w-btn', () => this.onWatch());
     HOOKS.showSummary = (s) => this.showSummary(s as Summary);
     HOOKS.pause = () => this.pause();
