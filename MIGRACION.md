@@ -154,7 +154,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 31 · Los menús de RepArena enteros** (opción B: sus paneles, sus teclas planas pintadas y su pulsación con imán, sólida y pegada, el menú de muñeca, el atril y el teclado de números; sustituyen a los de UIKitML) — #38
 - [x] **PR 32 · Cuatro arreglos vistos en las gafas** (el menú de música ya no se rehace cada 5 s y los menús suben sus texturas antes de pintarse; los mandos de Spotify, otra vez en el menú principal; en los ejercicios de suelo el mundo se orienta hacia tu cuerpo al calibrar; en la plancha con un brazo, el rayo sale de la mano levantada) — #39
 - [x] **PR 33 · El menú ya no desaparece a trozos al mover un deslizador** (los dibujos que cambian se suben antes de pintar cada fotograma; el deslizador ya no se repinta al arrastrarlo ni con el rayo encima; el diagnóstico apunta lo que se sube) — #40
-- [ ] **PR 34 · Sin congelarse al pulsar el menú ni fuera del juego, y salir acaba la ronda** (las teclas ya no crean un lienzo cada una; el fondo del menú se reutiliza; con la página a la vista el juego descansa y no suena; al salir de las gafas la ronda se acaba y se guarda; con el menú de Meta, se pausa)
+- [x] **PR 34 · Sin congelarse al pulsar el menú ni fuera del juego, y salir acaba la ronda** (las teclas ya no crean un lienzo cada una; el fondo del menú se reutiliza; con la página a la vista el juego descansa y no suena; al salir de las gafas la ronda se acaba y se guarda; con el menú de Meta, se pausa) — #41
+- [ ] **PR 35 · Compuertas, contornos, Spotify y la paralela** (las compuertas esperan a que salga el que tienen dentro; el diablillo y el lanzador, sin contorno; Play pone tus canciones elegidas, no lo que sonaba en otro aparato; la paralela única se coloca a lo largo de tus manos)
 
 ## Los PR
 
@@ -397,6 +398,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- PR 35 → los siguientes: **compuertas**: `GateSystem` no cierra una compuerta con un enemigo vivo en su túnel (`occupied`; como
+  mucho 10 s más). **Sin contorno**: un enemigo con `noInk` en su fila de `FOE_DEF` (el diablillo y el lanzador). **Spotify**:
+  `ours` apunta lo que puso el juego; Play reanuda solo si lo que suena es suyo (`isOurs`); si no, pone las elegidas (o tus
+  listas). La comparación con RepArena (`spotify.compare.test.ts`) prueba ese paso sin elegidas, donde coinciden. **Barras**: la
+  paralela única va a lo largo de Z, como en RepArena y como la tratan la detección y los objetivos
+  (`tests/unit/bars-place.test.ts`).
+  **Pendiente de que el usuario elija**: el menú sin relieve (modelos A plano, B solo texto, C lista grande) y pasar los
+  paneles informativos (marcador, avisos, oleada, trofeos, carga, aviso del suelo) de UIKit a los lienzos de RepArena, con su
+  letra y su ajuste de líneas (en UIKit el texto se sale del panel).
 
 - PR 34 → los siguientes: **el juego descansa con la página a la vista** (fuera de las gafas y sin «Probar en el ordenador»,
   como RepArena): `pageWorld` (`src/page/page.ts`) envuelve `world.update` y `renderer.render` y, con la página a la vista, da

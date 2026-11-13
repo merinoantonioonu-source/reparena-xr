@@ -257,6 +257,7 @@ export class EnemySystem extends createSystem(
         if (tint) m.material = tint;
         m.castShadow = true;
         m.receiveShadow = false;
+        if (d.noInk) m.userData.noInk = true; // (sin contorno de tinta: diablillo y lanzador)
         // (animado, se sale de su caja de reposo: sin esto, desaparecía a ratos por el borde de la vista)
         if ((o as SkinnedMesh).isSkinnedMesh) m.frustumCulled = false;
         if (palette) {

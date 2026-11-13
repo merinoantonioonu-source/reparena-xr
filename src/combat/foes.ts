@@ -57,6 +57,8 @@ export interface FoeDef {
   ual?: boolean;
   /** Sus colores: uno de estos al azar (texturas del catálogo de recursos). */
   tex?: string[];
+  /** Sin contorno de tinta en el cómic (el diablillo y el lanzador: con él no quedaban bien, lo pidió el usuario). */
+  noInk?: boolean;
   /** El lanzador: se queda lejos y te tira piedras en vez de golpear. */
   thrower?: boolean;
   /** Vuela (src/combat/flight.ts): no va a un puesto ni pisa el suelo. */
@@ -105,10 +107,10 @@ const UAL_CLIPS: FoeClips = { idle: 'Idle_Loop', walk: 'Walk_Loop', run: 'Jog_Fw
 const IMP_CLIPS: FoeClips = { ...UAL_CLIPS, taunt: 'Spell_Simple_Shoot' };
 const texOf = (k: string): string[] => [1, 2, 3].map((v) => `foe-${k}-color${v}`);
 Object.assign(FOE_DEF, {
-  imp: { asset: 'foe-imp', h: 1.68, k: 1, r: 0.4, stop: 1.2, speedF: 1, heavy: false, walk: 1.25, run: 2.9, minTs: 0.5, maxTs: 1.8, clips: IMP_CLIPS, atk: [0.15, 0.3], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp') },
+  imp: { asset: 'foe-imp', h: 1.68, k: 1, r: 0.4, stop: 1.2, speedF: 1, heavy: false, walk: 1.25, run: 2.9, minTs: 0.5, maxTs: 1.8, clips: IMP_CLIPS, atk: [0.15, 0.3], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp'), noInk: true },
   puglin: { asset: 'foe-puglin', h: 1.07, k: 1.15, r: 0.4, stop: 1.0, speedF: 1.25, heavy: false, walk: 0.92, run: 2.2, minTs: 0.5, maxTs: 1.8, clips: UAL_CLIPS, atk: [0.15, 0.3], voice: 'puglin', grp: 'beast', ctr: 0.6, ual: true, tex: texOf('puglin') },
   // el lanzador: un diablillo algo más pequeño que se queda lejos (a 4,2 m) y te tira piedras (RepArena: impthrow)
-  thrower: { asset: 'foe-imp', h: 1.6, k: 0.95, r: 0.38, stop: 4.2, speedF: 1, heavy: false, walk: 1.19, run: 2.75, minTs: 0.5, maxTs: 1.8, clips: { ...IMP_CLIPS, attack: 'OverhandThrow' }, atk: [0.25, 0.35], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp'), thrower: true },
+  thrower: { asset: 'foe-imp', h: 1.6, k: 0.95, r: 0.38, stop: 4.2, speedF: 1, heavy: false, walk: 1.19, run: 2.75, minTs: 0.5, maxTs: 1.8, clips: { ...IMP_CLIPS, attack: 'OverhandThrow' }, atk: [0.25, 0.35], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp'), thrower: true, noInk: true },
 } satisfies Record<string, FoeDef>);
 
 // Los monstruitos que vuelan (Cute Animated Monsters): solo su vuelo, su mordisco, su golpe y su muerte; el tamaño, el de

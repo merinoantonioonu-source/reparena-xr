@@ -8,7 +8,7 @@
  *  - Al abrirse, suena y echa vapor a los lados.
  */
 import { createSystem, Entity, Group, Mesh, MeshBasicMaterial, Object3D, PhysicsBody, PhysicsShape, PhysicsShapeType, PhysicsState, PhysicsSystem, Quaternion, Vector3 } from '@iwsdk/core';
-import { Gate, Obstacle } from './components.js';
+import { Flyer, Foe, FoeState, Gate, Obstacle } from './components.js';
 import { SND } from '../audio/sound.js';
 import { Puffs } from '../style/comic-fx.js';
 
@@ -24,6 +24,8 @@ interface GateRt {
   lastOpen: number;
   /** ¿Se le pidió abrirse el fotograma anterior? (al pedírselo, suena y echa vapor) */
   was: boolean;
+  /** Lo que lleva esperando, abierta, a que salga el que tiene dentro (s). */
+  wait: number;
 }
 
 // las partes sólidas, en el marco de la compuerta: [x, y, z, ancho, alto, hondo, giro y, radio para rodearla (0: no)]
@@ -38,7 +40,7 @@ const SOLIDS: [number, number, number, number, number, number, number, number][]
 ];
 const DOOR = { w: 1.23, h: 3.0, d: 0.16, x: 0.62, y: 1.5, z: 0.06, slide: 1.25 };
 
-export class GateSystem extends createSystem({ gates: { required: [Gate] } }, {}) {
+export class GateSystem extends createSystem({ gates: { required: [Gate] }, foes: { required: [Foe] }, flyers: { required: [Flyer] } }, {}) {
   private physics!: PhysicsSystem;
   private rt = new Map<Entity, GateRt>();
   private v = new Vector3();
@@ -88,7 +90,7 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] } }, {}
       if (r > 0) s.addComponent(Obstacle, { radius: r });
     }
     for (const sx of [-1, 1]) doors.push(this.collider(root, sx * DOOR.x, DOOR.y, DOOR.z, 0, [DOOR.w, DOOR.h, DOOR.d], PhysicsState.Kinematic));
-    this.rt.set(e, { root, doorL: root.getObjectByName('door-left') ?? null, doorR: root.getObjectByName('door-right') ?? null, spin: root.getObjectByName('beacon-spin') ?? null, beams, body, doors, lastOpen: -1, was: false });
+    this.rt.set(e, { root, doorL: root.getObjectByName('door-left') ?? null, doorR: root.getObjectByName('door-right') ?? null, spin: root.getObjectByName('beacon-spin') ?? null, beams, body, doors, lastOpen: -1, was: false, wait: 0 });
   }
 
   // un cuerpo de física (una caja) en (x, y, z) del marco de la compuerta
@@ -171,8 +173,16 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] } }, {}
       let busy = e.getValue(Gate, 'busy') ?? 0;
       if (busy > 0) {
         busy = Math.max(0, busy - dt);
+        // no se cierra con uno dentro: espera a que salga del túnel (como mucho 10 s más, por si uno se queda atascado)
+        if (busy === 0 && r.wait < 10 && this.occupied(r)) {
+          busy = 0.25;
+          r.wait += 0.25;
+        }
         e.setValue(Gate, 'busy', busy);
-        if (busy === 0) e.setValue(Gate, 'want', 0);
+        if (busy === 0) {
+          e.setValue(Gate, 'want', 0);
+          r.wait = 0;
+        }
       }
       const want = e.getValue(Gate, 'want') ?? 0;
       if (want > 0 && !r.was) this.opened(r);
@@ -200,6 +210,19 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] } }, {}
       r.body?.color.setHex(on ? (Math.sin(time * 12) > 0 ? 0xff2a08 : 0xc81e06) : 0x3a0c04);
     }
     this.puffs.update(dt);
+  }
+
+  /** ¿Hay algún enemigo vivo en su túnel o entre las puertas? (antes se cerraba a los 3,2 s y alguno se quedaba dentro) */
+  private occupied(r: GateRt): boolean {
+    for (const q of [this.queries.foes.entities, this.queries.flyers.entities]) {
+      for (const f of q) {
+        const o = f.object3D;
+        if (!o || (f.hasComponent(Foe) && f.getValue(Foe, 'state') === FoeState.Dead)) continue;
+        r.root.worldToLocal(o.getWorldPosition(this.sp));
+        if (Math.abs(this.sp.x) < 1.35 && this.sp.z > -1.7 && this.sp.z < 0.7) return true;
+      }
+    }
+    return false;
   }
 
   // al abrirse: el ruido de la compuerta y seis bocanadas de vapor a cada lado, que salen hacia fuera (RepArena: SND.door y
