@@ -203,7 +203,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/env/` | Los entornos: `env-system.ts` (el fondo realista con el `DomeTexture` de IWSDK, las luciérnagas y qué entorno toca), `scenery.ts` (el bosque de día y la isla pirata: modelos con instancias, cielo, suelo y mar) y `placement.ts` (dónde va cada modelo, de RepArena, con prueba) |
 | `src/services/` | Los servicios con la red y el Bluetooth (sin IWSDK, comparados con RepArena): `spotify.ts` (conectar, listas, reproductor, fundidos), `bpm.ts` (el compás de cada canción), `xfer.ts` (pasar datos por código y sincronizar), `pulse.ts` (pulsómetro) y `hub.ts` (los crea con el navegador de verdad) |
 | `src/core/beat.ts`, `src/core/beat-hub.ts`, `src/core/dev.ts` | El reloj de pulsos de la música (y el baile de las luciérnagas), el pulso del juego y el modo desarrollador (tabla de dificultad y canciones de cada ejercicio) |
-| `src/ui/screen.ts`, `src/ui/screens/` | La pantalla genérica del menú (título y filas de texto o botones) y lo que se abre con ella: música, pasar datos, sincronización y teclado |
+| `src/ui/screens/` | Lo que se abre como pantalla del menú (filas de texto o botones, con `HOOKS.openScreen`): la música, pasar datos, sincronizar y el teclado |
 | `src/page/music-page.ts`, `xfer-page.ts`, `pulse-page.ts`, `dev-page.ts` | La página: Spotify, pasar datos y sincronizar, pulsómetro y la tabla del desarrollador |
 | `src/core/playable.ts` | Qué modos y ejercicios se pueden jugar ya (lo leen el menú, las misiones y la página) |
 | `src/core/state.ts` | Lo que comparten los sistemas (fase, cabeza, bola, marcador) |
@@ -225,7 +225,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/ui/fonts.ts` | Pone las letras de RepArena (con tildes) en los paneles |
 | `src/core/diag.ts`, `src/ui/diag-system.ts`, `src/ui/key-name.ts` | El registro de diagnóstico: los últimos 30 s de las manos, el rayo, las teclas y los tirones; se guarda al salir de la VR o desde la pausa, y la página lo copia o descarga |
 | `src/ui/fit.ts`, `src/ui/fit-text.ts` | Que las letras quepan en sus botones y cajas: encoge la que no cabe (la fila entera a la vez) en los paneles que se ven |
-| `src/ui/menu.ts` | Los menús en VR: el principal, Opciones y la explicación de cada ajuste; dónde salen y la nitidez |
+| `src/ui/ra/` | Los menús de RepArena enteros (opción B del usuario): `kit.ts` (los paneles pintados y sus dibujos), `btn.ts` (las teclas planas y el deslizador), `poke.ts` (pulsar con el dedo: sólidas, pegadas, con imán), `menu-core.ts` (openMenu, el teclado de números, la «?», el atril, la muñeca y su botón MENÚ), `menus.ts` (el principal, Opciones, la pausa, el resumen y las cartas), `career-draw.ts` y `summary-draw.ts` (los dibujos de la carrera y del resumen) y `menu-system.ts` (cada fotograma, el rayo de IWSDK y la nitidez) |
 | `src/ui/fields.ts` | Lo que enseñan los menús de cada ajuste y lo que hace tocarlo, las pestañas y la ficha de la ronda, sin IWSDK |
 | `src/input/hand-system.ts` | Las manos y los mandos en cada fotograma (leídos como en RepArena, en `hands` y `head`), el cuerpo para las manos perdidas, la vibración y «Mandos como manos» |
 | `src/input/hand-filter.ts` | La lectura de las manos de RepArena: el suavizado para pintarlas, los saltos imposibles, la mano perdida (su gesto o el cuerpo) y el filtro `HF` de las dos manos en la pesa |
@@ -234,7 +234,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/gaze-lock.ts`, `src/input/punch.ts`, `src/input/target.ts` | La mirada que fija al enemigo, el puñetazo y lo que ven de cada enemigo (de RepArena, sin IWSDK) |
 | `src/input/controller-hand.ts` | La mano de IWSDK que agarra el mando, con sus fallos de esta versión arreglados |
 | `src/input/skin-hand.ts`, `src/input/glove-system.ts`, `src/scene-assets/glove.scene-asset.ts` | Las manos que se ven («Manos que se ven»): los guantes robóticos de RepArena (de serie) o la mano de IWSDK, opaca |
-| `src/input/hold.ts`, `src/ui/solid-keys.ts` | Las teclas sólidas: la mano que se ve se queda apoyada en el panel que toca (con el mecanismo de IWSDK para moverla) |
+| `src/input/hold.ts` | Las teclas sólidas: cuánto se aparta la mano que se ve para quedarse apoyada en la tecla o en el panel |
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |
 | `src/assets.ts`, `src/scene-assets/arena.scene-asset.ts` | Los recursos: suelo de arena, aro del jugador, cajas, rocas, compuertas, valle, nubes, zombis y paneles |
 | `public/scenes/main.iwsdk.scene.json` | La escena: cielo, neblina, suelo, compuertas, valle, nubes, cajas y rocas con su física, paneles y luces |

@@ -41,8 +41,8 @@ pulsación sólida, pegada y con imán).
 
 ## Apaños del motor viejo que no se portan
 
-- Las teclas pintadas en texturas y su caché (`keyCached`, `KEY_PXM`): los paneles de UIKit escriben el texto con letras
-  MSDF, sin texturas por tecla.
+- ~~Las teclas pintadas en texturas y su caché~~: desde el PR 31 sí se portan (opción B del usuario: los menús de RepArena
+  enteros, `src/ui/ra/`).
 - Los módulos concatenados en una sola función, Three.js r128 desde CDN, los simulacros de las pruebas (`three-mock`,
   `env-mock`) y el cuidado con `//` en mitad de una línea.
 
@@ -242,24 +242,24 @@ No las cambies sin preguntarle.
   - se cierra con la palma izquierda hacia abajo o con el puño;
   - los menús nuevos salen solos.
 - **Cada menú sale donde estaba el anterior**: «Traer menú», «Volver», «Menú principal» y el resumen no se alejan.
-- **[PR 25 (el usuario, al probar en las gafas: con lo de IWSDK «el dedo atraviesa el panel y resbala por las teclas pulsadas»; IWSDK no trae más que su punto de toque): la pulsación de RepArena sobre el punto de toque de IWSDK (`src/ui/solid-keys.ts`): solo con el dedo que llega por delante, pulsa al tocar, sólidas, pegadas y retirar el dedo; la de IWSDK con el dedo, apagada (pulsaba desde detrás); con el rayo, solo con la pinza (PR 27, pedido del usuario); el imán, aún no]** Los botones de los menús se pulsan con **las dos manos** (el botón MENÚ de la muñeca izquierda, con la derecha). Las
+- **[PR 31: la pulsación de RepArena entera (opción B del usuario), con el dedo de cualquier mano y con el rayo de IWSDK y la pinza (`src/ui/ra/poke.ts`)]** Los botones de los menús se pulsan con **las dos manos** (el botón MENÚ de la muñeca izquierda, con la derecha). Las
   teclas son **sólidas**: al llegar al fondo, la mano que se ve se queda apoyada en ella y no la atraviesa; el panel
   también (el fondo y los huecos entre teclas). Y tienen **imán** (opción B elegida): la iluminada sigue iluminada hasta que
   el dedo sale de ella más de 1 cm, la mano que se ve se acerca a ella y, al tocarla, se queda clavada donde tocó; decide la
   punta suavizada (la que se ve) y el barrido de lado se juzga por el movimiento de ~0,1 s, no por un fotograma.
-- **[Con IWSDK, de serie: los botones de UIKit, con su pulsación]** Las teclas son **planas** (opción B del usuario; `flatKeys`, `src/60_ui.js`): cada una, un solo panel con su cara de
+- **[PR 31: las teclas planas de RepArena enteras, con su caché (opción B del usuario; `src/ui/ra/btn.ts`)]** Las teclas son **planas** (opción B del usuario; `flatKeys`, `src/60_ui.js`): cada una, un solo panel con su cara de
   color, su borde y su texto, que flota un poco sobre la bandeja con su sombra. **No se hunden** (pedido del usuario: al
   pulsar, el menú se rehace y la tecla nueva salía sin hundir, con el dedo dentro): con el dedo delante se aclara, tocada
   brilla y, al pulsar, destella con un fogonazo de luz donde está el dedo; nada de eso repinta el panel (solo su color).
   Las de relieve (una malla con laterales y contorno de tinta, y la etiqueta encima) pesaban demasiado.
-- **[PR 25: portado (el usuario lo pidió al volver el problema en las gafas)]** **Pegadas** (pedido del usuario): la tecla pulsada retiene el dedo que se ve hasta que lo apartas por delante; aunque la
+- **[PR 31: como en RepArena (opción B)]** **Pegadas** (pedido del usuario): la tecla pulsada retiene el dedo que se ve hasta que lo apartas por delante; aunque la
   mano de verdad resbale de lado (hasta `POKE_KEEP`, 7 cm), la punta sigue sobre ella y no se desliza por el panel ni
   ilumina las vecinas. En las planas, la punta se queda en el punto exacto que tocó (`pinW`, en el candado `POKE.lock`),
   también cuando la pulsación rehace el menú con teclas nuevas en el mismo sitio.
-- **[Decidido en el PR 7 (usuario): no se pone; si en las gafas el menú va a saltos al mover la cabeza, se pone]** Detrás del fondo de cada menú (y de la columna HOY), una pantalla invisible que solo escribe profundidad y se pinta la
+- **[PR 31: puesto, con los menús de RepArena enteros (opción B del usuario; `menuOccluder`, `src/ui/ra/menu-core.ts`)]** Detrás del fondo de cada menú (y de la columna HOY), una pantalla invisible que solo escribe profundidad y se pinta la
   primera (`menuOccluder`, `src/60_ui.js`): así no se pinta el paisaje tapado por el menú. Sin ella, el menú principal, que
   cubre casi toda la vista, iba a saltos al mover la cabeza (el resumen, pequeño, no). Un panel de menú nuevo, con la suya.
-- **[PR 25: portado (el usuario lo pidió al volver el problema en las gafas)]** Tras pulsar un botón, hay que **retirar el dedo** antes de que cuente otra pulsación, para que no se toquen dos
+- **[PR 31: como en RepArena (opción B)]** Tras pulsar un botón, hay que **retirar el dedo** antes de que cuente otra pulsación, para que no se toquen dos
   opciones ni el menú siguiente.
 - Menús compactos y al alcance de la mano:
   - lo poco usado va en submenús (Sonido, Entorno, Ajustes…);

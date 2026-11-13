@@ -4,23 +4,21 @@
  * da el cofre y la racha con sus escudos. Se va sola a los 8 s o con cualquier botón del mando, el pulgar arriba o una tecla
  * (en el ordenador no sale), como la del duelo. Sale una vez por entrada y no si ya has empezado a jugar.
  */
-import { BackSide, createSystem, Entity, Mesh, MeshBasicMaterial, SphereGeometry, UIKitMLAsset, Vector3, VisibilityState } from '@iwsdk/core';
-import { career, progressNow } from '../combat/career-hub.js';
-import { CHEST_XP, MIS, MIS_XP, misGot, SHIELD_COL } from '../core/career.js';
-import { daysTxt } from '../core/days.js';
+import { BackSide, createSystem, Mesh, MeshBasicMaterial, SphereGeometry, Vector3, VisibilityState } from '@iwsdk/core';
 import { GAME, VIEW } from '../core/state.js';
 import { hands, head } from '../input/hand-model.js';
 import { padMask, thumbsUp } from '../input/thumbs.js';
 import { SND } from '../audio/sound.js';
-import { applyFonts } from './fonts.js';
+import { makePanel, type RaPanel } from './ra/kit.js';
+import { drawHoy } from './ra/career-draw.js';
 import { clamp, smooth } from './canvas-kit.js';
 import { lyingEx, VIEW_FRAME } from './view-panels.js';
 
 const GOALS_DUR = 8;
 
 export class GoalsSystem extends createSystem({}) {
-  private panel: UIKitMLAsset | null = null;
-  private entity: Entity | undefined;
+  /** La carátula, pintada como en RepArena (drawHoy, src/ui/ra/career-draw.ts). */
+  private p!: RaPanel;
   private veil!: Mesh;
   private t = -1;
   private shown = false;
@@ -30,13 +28,10 @@ export class GoalsSystem extends createSystem({}) {
   private readonly mask = { left: 0, right: 0 };
 
   init(): void {
-    this.panel = this.world.getSceneObject<UIKitMLAsset>('metas-panel') ?? null;
-    this.entity = this.world.getSceneEntity('metas-panel');
-    if (this.panel) {
-      applyFonts(this.panel);
-      this.panel.getElementById('box')?.setProperties({ depthTest: false, renderOrder: 62 }); // (encima de todo, como la del duelo)
-    }
-    if (this.entity?.object3D) this.entity.object3D.visible = false;
+    this.p = makePanel(1.3, 0.95, 1024, { depthTest: false, hd: 1.5 });
+    this.p.mesh.renderOrder = 62; // (encima de todo, como la del duelo)
+    this.p.mesh.visible = false;
+    this.world.createTransformEntity(this.p.mesh);
     this.veil = new Mesh(new SphereGeometry(0.5, 20, 10), new MeshBasicMaterial({ color: 0x05030c, transparent: true, opacity: 0, depthTest: false, depthWrite: false, side: BackSide, fog: false, toneMapped: false }));
     this.veil.userData.noInk = true;
     this.veil.renderOrder = 61;
@@ -50,28 +45,12 @@ export class GoalsSystem extends createSystem({}) {
   }
 
   private fill(): void {
-    const p = this.panel;
-    if (!p) return;
-    const set = (id: string, props: Record<string, unknown>): void => void p.getElementById(id)?.setProperties(props);
-    const c = career(), M = c.misToday(), P = progressNow(), done = M.list.filter((m) => m.done).length;
-    set('sub', { text: M.chest ? '¡Las tres cumplidas! El cofre de hoy ya es tuyo' : `${done} de 3 · cumple las tres y se abre el cofre del día` });
-    M.list.forEach((m, i) => {
-      const id = `g${i + 1}`, got = misGot(m);
-      set(`${id}-c`, { backgroundColor: m.done ? '#3cf0c6' : '#3a4152' });
-      set(`${id}-ct`, { text: m.done ? '✓' : '' });
-      set(`${id}-t`, { text: MIS[m.t].txt(m), color: m.done ? '#2bd4ad' : '#eeeaff' });
-      set(`${id}-f`, { width: Math.max(1.8, (80 * got) / m.n), backgroundColor: m.done ? '#3cf0c6' : '#c8f560' });
-      set(`${id}-n`, { text: m.done ? `+${MIS_XP} XP` : `${got} / ${m.n}` });
-    });
-    set('chest', { backgroundColor: M.chest ? '#ffd166' : '#7a4318' });
-    set('chest-t', { text: M.chest ? '¡Cofre del día abierto!' : `Cofre: +${CHEST_XP} XP, un escudo y un color` });
-    set('streak-t', { text: `Racha: ${daysTxt(P.streak)}` });
-    ['s0', 's1', 's2'].forEach((id, i) => set(id, { backgroundColor: i < c.cr.shield ? SHIELD_COL : '#3a4152' }));
+    drawHoy(this.p.ctx, this.p.W, this.p.H, true);
+    this.p.tex.needsUpdate = true;
   }
 
   private start(): void {
-    const o = this.entity?.object3D;
-    if (!o || !this.panel) return;
+    const o = this.p.mesh;
     this.shown = true;
     this.fill();
     const ly = lyingEx();
@@ -89,7 +68,7 @@ export class GoalsSystem extends createSystem({}) {
   private clear(): void {
     this.t = -1;
     this.veil.visible = false;
-    if (this.entity?.object3D) this.entity.object3D.visible = false;
+    this.p.mesh.visible = false;
   }
 
   update(dt: number): void {
@@ -103,8 +82,7 @@ export class GoalsSystem extends createSystem({}) {
       if (!this.shown && GAME.menu === 'lobby' && GAME.phase !== 'playing' && !VIEW.duel) this.start();
       return;
     }
-    const o = this.entity?.object3D;
-    if (!o) return;
+    const o = this.p.mesh;
     this.t += Math.min(dt, 0.1);
     if (GAME.phase === 'playing') this.skip = true; // (si empiezas a jugar, se va)
     for (const s of ['left', 'right'] as const) {
@@ -122,6 +100,7 @@ export class GoalsSystem extends createSystem({}) {
     this.veil.position.copy(head.p);
     (this.veil.material as MeshBasicMaterial).opacity = a * 0.78;
     this.veil.visible = a > 0.01;
+    (o.material as MeshBasicMaterial).opacity = a;
     o.visible = a > 0.01;
     o.scale.setScalar(1 + 0.05 * Math.max(0, 1 - this.t / 0.4));
     if (this.t >= GOALS_DUR) this.clear();

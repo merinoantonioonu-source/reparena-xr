@@ -10,6 +10,7 @@
  * que viene (se van a otro hueco o se aclaran). Los paneles de texto son de UIKit; la caricatura y la carátula, dibujos
  * en un lienzo (como en RepArena).
  */
+import { MW, UI } from './ra/menu-core.js';
 import { HITCH } from '../core/hitch.js';
 import { createSystem, BackSide, Entity, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, UIKitMLAsset, Vector3, VisibilityState } from '@iwsdk/core';
 import { GAME, HOOKS, VIEW, type CenterInfo } from '../core/state.js';
@@ -45,7 +46,6 @@ export class ViewSystem extends createSystem({}) {
   private centerE: Entity | undefined;
   private toast: UIKitMLAsset | null = null;
   private toastE: Entity | undefined;
-  private lobbyE: Entity | undefined;
   private readonly C = hudSpot([[0, -0.08], [0, 0.42], [0, -0.5]], -1.1, 0.5 * CENTER_SC, 0.2 * CENTER_SC);
   private readonly T = hudSpot([[0, -0.4], [0, 0.4], [-0.5, -0.24], [0.5, -0.24]], -1.2, 0.62, 0.1);
   private readonly lzC = mkLazy();
@@ -80,7 +80,6 @@ export class ViewSystem extends createSystem({}) {
     this.centerE = this.world.getSceneEntity('center-panel');
     this.toast = this.world.getSceneObject<UIKitMLAsset>('toast-panel') ?? null;
     this.toastE = this.world.getSceneEntity('toast-panel');
-    this.lobbyE = this.world.getSceneEntity('lobby-panel');
     // encima de todo, como en RepArena (sin prueba de profundidad): tumbado, el aviso queda en el suelo bajo tu cara y se ve
     for (const p of [this.center, this.toast]) {
       if (!p) continue;
@@ -184,7 +183,8 @@ export class ViewSystem extends createSystem({}) {
   private stepCenter(dt: number, lying: boolean, n: number): void {
     const o = this.centerE?.object3D, c = VIEW.center;
     if (!o) return;
-    if (!c || VIEW.duel) {
+    if (!c || VIEW.duel || GAME.paused) {
+      // (en la pausa, escondido: se pintaba encima del menú; RepArena: openPause)
       o.visible = false;
       this.lzC.init = false;
       return;
@@ -218,7 +218,7 @@ export class ViewSystem extends createSystem({}) {
   private stepToast(dt: number, lying: boolean, n: number): void {
     const o = this.toastE?.object3D;
     if (!o) return;
-    if (this.toastT <= 0 || GAME.phase !== 'playing' || VIEW.duel) {
+    if (this.toastT <= 0 || GAME.phase !== 'playing' || VIEW.duel || GAME.paused) {
       o.visible = false;
       this.lzT.init = false;
       this.toastT = 0;
@@ -265,12 +265,13 @@ export class ViewSystem extends createSystem({}) {
     } else this.demoInit = false;
     m.visible = wait;
     // junto al menú principal (a su derecha, colgando de su borde de arriba como él)
-    const lo = this.lobbyE?.object3D, menu = show && GAME.menu === 'lobby' && !!lo?.visible;
-    if (menu && lo) {
+    // (RepArena: demoAttach; el menú principal es el de RepArena, src/ui/ra/menu-core.ts)
+    const M = UI.menu, lo = M && M.kind === 'lobby' && !M.closed && M.group.visible ? M.group : null, menu = show && GAME.menu === 'lobby' && !!lo;
+    if (menu && lo && M) {
       lo.updateMatrixWorld();
       // (a la escala del menú, que en las gafas es más pequeño: si no, se metía encima de él; y un poco por delante, para que
       // no parpadee si llegan a tocarse)
-      this.demoMenu.position.copy(lo.localToWorld(this.v.set(0.45 + (DEMO_W * DEMO_MS) / 2 + 0.03, (-DEMO_H * DEMO_MS) / 2, 0.004)));
+      this.demoMenu.position.copy(lo.localToWorld(this.v.set(MW / 2 + (DEMO_W * DEMO_MS) / 2 + 0.02, M.H / 2 - (DEMO_H * DEMO_MS) / 2, 0.004)));
       lo.getWorldQuaternion(this.demoMenu.quaternion);
       this.demoMenu.scale.setScalar(DEMO_MS * lo.getWorldScale(this.v).x);
     }

@@ -12,7 +12,7 @@ import { store } from '../core/settings.js';
 import { settings } from '../core/values.js';
 import { hands, head, type Side } from '../input/hand-model.js';
 import { keyOf, nameOf } from './key-name.js';
-import { SolidKeysSystem } from './solid-keys.js';
+import { POKE } from './ra/poke.js';
 
 const SIDES: Side[] = ['left', 'right'];
 const L = { left: 'I', right: 'D' } as const;
@@ -43,13 +43,11 @@ export class DiagSystem extends createSystem({}, {}) {
   private menu = '';
   private phase = '';
   private vis = false;
-  private solid: SolidKeysSystem | undefined;
   /** La cabecera, rehecha cada segundo en la VR (al salir ya no se sabe qué mandos o manos había). */
   private hdr = '';
   private hdrT = 0;
 
   init(): void {
-    this.solid = this.world.getSystem(SolidKeysSystem);
     // los avisos y errores de la consola, también (sin los de depuración del emulador)
     let last = '';
     for (const k of ['warn', 'error'] as const) {
@@ -112,13 +110,16 @@ export class DiagSystem extends createSystem({}, {}) {
   private hand(s: Side): string {
     const h = hands[s];
     if (!h.ok) return `${L[s]}: -`;
-    const mp = this.input.xr.multiPointers?.[s], P = this.solid?.P[s];
+    const mp = this.input.xr.multiPointers?.[s];
     const ri = mp ? hitOf(mp.getPointer('ray')) : undefined, ti = mp ? hitOf(mp.getPointer('touch')) : undefined;
     let out = `${L[s]}: ${h.isHand ? 'h' : 'm'}${h.est ? ' calculada:' + h.est : ''}${h.pinch ? ' p' : ''} w(${xyz(h.wrist)}) i(${xyz(h.tip)})`;
     if (ri) out += ` r=${nameOf(keyOf(ri.object))}@(${xyz(ri.point)})`;
     if (ti) out += ` t=${nameOf(keyOf(ti.object))}/${cm(ti.distance)}`;
     out += ` act=${mp?.getActiveKind() ?? '-'}`;
-    if (P && P.f !== Infinity) out += ` f=${cm(P.f)}${P.in ? ' in' : ''}${P.on ? ' on' : ''}${P.armed ? ' armed' : ''}`;
+    // el dedo con el menú (RepArena: POKE): la tecla iluminada, si la está hundiendo, y si la mano que se ve está apoyada
+    const S = POKE.st.menu?.[s], Lk = POKE.lock[s];
+    if (S?.cand) out += ` dedo=${nameOf(S.cand.mesh)}${S.push ? ' hundiendo' : ''}`;
+    if (Lk) out += ' apoyado';
     return out;
   }
 

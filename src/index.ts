@@ -18,14 +18,12 @@ import { HandSystem } from './input/hand-system.js';
 import { GloveSystem } from './input/glove-system.js';
 import { DiagSystem } from './ui/diag-system.js';
 import { FitTextSystem } from './ui/fit-text.js';
-import { SolidKeysSystem } from './ui/solid-keys.js';
 import { PerfStartSystem, PerfSystem } from './ui/perf-system.js';
 import { ComicSystem } from './style/comic-system.js';
 import { SoundSystem } from './audio/sound.js';
 import { ViewSystem } from './ui/view-panels.js';
 import { GoalsSystem } from './ui/goals-intro.js';
-import { MenuSystem } from './ui/menu.js';
-import { ScreenSystem } from './ui/screen.js';
+import { RaMenuSystem } from './ui/ra/menu-system.js';
 import { useLocalInputModels } from './input/input-models.js';
 import { devInit } from './core/dev.js';
 import { initSettings } from './core/settings.js';
@@ -49,11 +47,9 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(BarsSystem, { priority: 5 });
   world.registerSystem(EnvSystem, { priority: 7 });
   world.registerSystem(GameSystem, { priority: 6 });
-  world.registerSystem(MenuSystem, { priority: 6 });
-  world.registerSystem(ScreenSystem, { priority: 6 });
+  world.registerSystem(RaMenuSystem, { priority: 6 }); // (los menús de RepArena: opción B del usuario, PR 31)
   world.registerSystem(ViewSystem, { priority: 6 });
   world.registerSystem(GoalsSystem, { priority: 6 });
-  world.registerSystem(SolidKeysSystem, { priority: 7 });
   world.registerSystem(GloveSystem, { priority: 7 }); // (detrás de la partida: el mundo ya está en su sitio)
   world.registerSystem(ComicSystem, { priority: 7 });
   world.registerSystem(SoundSystem, { priority: 8 });

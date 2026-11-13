@@ -2,7 +2,7 @@
  * Los menús, sin IWSDK: qué se enseña de cada ajuste del esquema (su nombre, su valor, sus opciones) y qué pasa al tocar
  * − / + o una opción, las pestañas de Ajustes, la ficha de la ronda y los ajustes «del ojo» del menú principal. Como en
  * RepArena (src/70_game.js: lobbyMenu, lobbyDiffRows, summaryText, settingsRows; src/60_ui.js: los campos), sin dibujar:
- * los paneles (src/ui/menu.ts) solo ponen estos textos en sus teclas. Se prueba en tests/unit/fields.test.ts.
+ * la página los usa para sus campos (los menús de las gafas son los de RepArena: src/ui/ra/). Se prueba en tests/unit/fields.test.ts.
  */
 import { FIELD, SCHEMA, type FieldDef } from '../core/schema.js';
 import { devEye, fieldShown, fieldVisible, fmtVal, hangSecs, menuFull, nLives, nWaves, rankName, setSetting, speedKey, waveReps } from '../core/settings.js';

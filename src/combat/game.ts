@@ -47,7 +47,7 @@ import { devFoe, flyFoes, FOE_DEF, foeName, gateFoes } from './foes.js';
 import { Rewards } from './rewards.js';
 import { RUSH_SECS } from './perks.js';
 import { BoardRing } from '../ui/board-ring.js';
-import { PAUSE_INFO } from '../ui/menu.js';
+import { PAUSE_INFO } from '../ui/ra/menu-system.js';
 import { lyingEx, VIEW_FRAME } from '../ui/view-panels.js';
 import { HIST_KEY, kcalOf, runRecord, summaryOf, type RunStats } from '../core/run.js';
 import { career, history, progressNow } from './career-hub.js';
@@ -253,7 +253,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.hurt.renderOrder = 20;
     this.hurt.visible = false;
     this.world.createTransformEntity(this.hurt);
-    // los paneles (los menús, en src/ui/menu.ts)
+    // los paneles (los menús, en src/ui/ra/)
     this.board = this.world.getSceneObject<UIKitMLAsset>('board-panel') ?? null;
     this.placeBoard(); // (también en el menú: el marcador, ya en su sitio)
     this.cleanupFuncs.push(onSettingsChange((k) => (k === 'board' || k === '*') && this.placeBoard()));

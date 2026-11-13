@@ -8,7 +8,7 @@ import { fitPanel } from './fit.js';
 export { FIT_LOG } from './fit.js';
 
 /** Los paneles de la escena (`public/scenes/main.iwsdk.scene.json`; todos de UIKitML). */
-const PANELS = ['lobby', 'hoy', 'metas', 'options', 'hint', 'board', 'warn', 'charge', 'wave', 'perks', 'trophy', 'summary', 'pause', 'screen', 'wrist', 'center', 'toast'].map((n) => `${n}-panel`);
+const PANELS = ['board', 'warn', 'charge', 'wave', 'trophy', 'center', 'toast'].map((n) => `${n}-panel`);
 
 const shown = (o: Object3D): boolean => {
   for (let p: Object3D | null = o; p; p = p.parent) if (!p.visible) return false;

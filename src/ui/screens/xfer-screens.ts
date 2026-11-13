@@ -6,7 +6,7 @@ import { HOOKS } from '../../core/state.js';
 import { sync, xfer } from '../../services/hub.js';
 import { XFER_HOURS, syncFmt, xferFmt, xferSummary, type SyncAsk, type XferPacket } from '../../services/xfer.js';
 import { openKeypad } from './keypad.js';
-import type { ScreenRow } from '../screen.js';
+import type { Row as ScreenRow } from '../ra/menu-core.js';
 
 const ACC = '#ffd166';
 const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
