@@ -49,6 +49,8 @@ import { RUSH_SECS } from './perks.js';
 import { BoardRing } from '../ui/board-ring.js';
 import { PAUSE_INFO } from '../ui/ra/menu-system.js';
 import { bodyYaw } from '../ui/ra/menu-core.js';
+import { menuBusy } from '../ui/ra/poke.js';
+import { diagEvent } from '../core/diag.js';
 import { floorOrigin, recenterPose } from './recenter.js';
 import { lyingEx, VIEW_FRAME } from '../ui/view-panels.js';
 import { HIST_KEY, kcalOf, runRecord, summaryOf, type RunStats } from '../core/run.js';
@@ -260,6 +262,25 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.board = this.world.getSceneObject<UIKitMLAsset>('board-panel') ?? null;
     this.placeBoard(); // (también en el menú: el marcador, ya en su sitio)
     this.cleanupFuncs.push(onSettingsChange((k) => (k === 'board' || k === '*') && this.placeBoard()));
+    // al salir de las gafas (con «Salir del juego» o con el botón de Meta), la ronda se acaba: se guarda lo hecho y vuelve el menú
+    // principal, como en RepArena (al acabar la sesión de VR). Antes la partida seguía en la página y los enemigos te
+    // mataban sin estar jugando. Al abrir el menú de las gafas (Meta), la ronda se pausa
+    let vis = this.world.visibilityState.peek();
+    this.cleanupFuncs.push(
+      this.world.visibilityState.subscribe((v) => {
+        const was = vis;
+        vis = v;
+        if (GAME.phase !== 'playing') return;
+        if (v === VisibilityState.NonImmersive && was !== VisibilityState.NonImmersive) {
+          diagEvent('fuera de las gafas: la ronda se acaba y se guarda');
+          GAME.paused = false;
+          HOOKS.toLobby();
+        } else if (v === VisibilityState.VisibleBlurred && !GAME.paused) {
+          diagEvent('menú de las gafas: la ronda se pausa');
+          HOOKS.pause();
+        }
+      }),
+    );
     this.warn = this.world.getSceneObject<UIKitMLAsset>('warn-panel') ?? null;
     this.warnEntity = this.world.getSceneEntity('warn-panel');
     this.chargeP = this.world.getSceneObject<UIKitMLAsset>('charge-panel') ?? null;
@@ -1074,7 +1095,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // (RepArena: warmQueue): de una en una, sin parar la imagen
   private warmT = 0;
   private stepWarm(dt: number, playing: boolean): void {
-    if ((playing && !VIEW.duel) || warmBusy() || (this.warmT -= dt) > 0) return;
+    // (no mientras tocas el menú, como en RepArena: cada copia puede parar la imagen un instante)
+    if ((playing && !VIEW.duel) || warmBusy() || (!playing && menuBusy()) || (this.warmT -= dt) > 0) return;
     this.warmT = 0.12;
     this.enemies.warmNext();
   }

@@ -26,7 +26,7 @@ import { FB, fitFont, rr } from '../canvas-kit.js';
 import { drawCampMap, drawGoal, drawHoy, drawMissions, drawStreakTile, drawWeek, drawXP } from './career-draw.js';
 import { drawSummary, SUM_CHIP, SUM_H } from './summary-draw.js';
 import { drawRank, MC, makePanel, type FoeCard } from './kit.js';
-import { GAP, hideMenu, menuOccluder, MW, openMenu, RO, UI, type Menu, type Row, type RowItem } from './menu-core.js';
+import { GAP, hideMenu, menuOccluder, MW, openMenu, poolPanel, RO, UI, type Menu, type Row, type RowItem } from './menu-core.js';
 import { CARD_H } from './kit.js';
 
 /** Lo que estos menús necesitan del juego (lo pone el sistema de los menús). */
@@ -158,7 +158,7 @@ function goalTiles(): RowItem[] {
 // La columna «HOY», a la izquierda del menú principal (se va con él)
 const HOY_W = 0.36, HOY_H = 0.52;
 function goalSide(m: Menu): void {
-  const p = makePanel(HOY_W, HOY_H, 512, { hd: 1.5 });
+  const p = poolPanel(HOY_W, HOY_H, 512, 1.5); // (la del menú anterior, repintada)
   drawHoy(p.ctx, p.W, p.H, false);
   p.tex.needsUpdate = true;
   p.mesh.position.set(-MW / 2 - 0.03 - HOY_W / 2, m.H / 2 - HOY_H / 2, 0);

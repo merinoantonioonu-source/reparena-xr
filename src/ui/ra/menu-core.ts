@@ -207,13 +207,45 @@ export function menuOccluder(panelMesh: Mesh, w: number, h: number, inset = 0.02
   panelMesh.parent!.add(o);
   return o;
 }
-/** Libera lo que se hizo para un menú (los paneles pintados; las teclas guardadas se sueltan, no se tiran). */
+// Los fondos de los menús (la bandeja, de unos 3,6 millones de píxeles en el principal, y la columna HOY) se guardan al quitar
+// el menú y se vuelven a pintar en el siguiente si mide lo mismo: al pulsar, el menú se rehace entero, y crear y tirar en cada
+// pulsación un lienzo así (y su textura en la tarjeta gráfica) congelaba la imagen en las gafas
+const POOL: RaPanel[] = [], POOL_MAX = 3;
+/** Un panel pintado para el fondo de un menú: uno guardado de la misma medida (limpio) o uno nuevo. */
+export function poolPanel(w: number, h: number, px: number, hd: number): RaPanel {
+  const i = POOL.findIndex((p) => p.w === w && p.h === h && p.c.width === Math.round(px * hd));
+  if (i >= 0) {
+    const p = POOL.splice(i, 1)[0], c = p.ctx as CanvasRenderingContext2D & { reset?: () => void };
+    if (typeof c.reset === 'function') {
+      c.reset(); // (como nuevo: sin escala, sombras ni estilos del menú anterior)
+      c.scale(hd, hd);
+    } else c.clearRect(0, 0, p.W, p.H);
+    const m = p.mesh;
+    m.position.set(0, 0, 0);
+    m.rotation.set(0, 0, 0);
+    m.scale.set(1, 1, 1);
+    m.renderOrder = 0;
+    m.visible = true;
+    return p;
+  }
+  const p = makePanel(w, h, px, { hd });
+  p.mesh.userData.pool = p;
+  return p;
+}
+/** Libera lo que se hizo para un menú (los paneles pintados; las teclas guardadas se sueltan, no se tiran; los fondos se
+ * guardan para el siguiente). */
 export function disposeTree(o: Object3D): void {
   o.traverse((n) => {
     const m = n as Mesh;
     if (n.userData.own === 'geo') m.geometry.dispose();
     const mat = m.material as MeshBasicMaterial | undefined;
     if (!mat?.map) return;
+    const pp = n.userData.pool as RaPanel | undefined;
+    if (pp) {
+      POOL.push(pp);
+      if (POOL.length > POOL_MAX) freePanel(POOL.shift()!);
+      return;
+    }
     if (keyFree(mat.map)) {
       mat.dispose();
       (n.userData.ownTex as { dispose(): void } | undefined)?.dispose();
@@ -336,7 +368,7 @@ function openMenuNow(rows: Row[], opts: MenuOpts, kind: string): Menu {
   const group = new Group();
   group.rotation.order = 'YXZ';
   group.name = 'Menú';
-  const bg = makePanel(MW, H, 1024, { hd: 1.75 });
+  const bg = poolPanel(MW, H, 1024, 1.75);
   bg.mesh.renderOrder = RO.menu;
   group.add(bg.mesh);
   menuOccluder(bg.mesh, MW, H); // (lienzo de 1792 px: letras nítidas; detrás, la pantalla que ahorra pintar el paisaje)

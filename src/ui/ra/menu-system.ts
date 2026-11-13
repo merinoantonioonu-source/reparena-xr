@@ -147,6 +147,7 @@ export class RaMenuSystem extends createSystem({}, {}) {
   /** Abre un menú (en las gafas, con «Muñeca», sale delante). */
   private open(fn: () => void): void {
     HITCH.f.menu = 1; // (para el registro de tirones)
+    POKE.busyT = performance.now() / 1000; // (lo pesado de fondo, como precompilar enemigos, espera: src/ui/ra/poke.ts)
     fn();
     if (UI.menu?.wrist && !WM.on) wristOpen();
   }

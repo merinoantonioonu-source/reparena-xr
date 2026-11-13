@@ -84,7 +84,8 @@ tabla de `README.md` dice qué hace cada archivo.
   en cada fotograma, en `RaMenuSystem` (`menu-system.ts`). La partida y el menú se avisan con `HOOKS.startRound`,
   `HOOKS.showMenu`, `HOOKS.hideMenu`, `HOOKS.showSummary`, `HOOKS.pause`/`resume`, `HOOKS.perksOpen`/`perksClose` y
   `HOOKS.openScreen` (una pantalla de filas: la música, pasar datos…); `GAME.menu` dice cuál se ve (en pausa, `GAME.paused`
-  para a todos). Un panel de menú nuevo, con su `menuOccluder` y sus texturas subidas al hacerlo (`upTex`). Lo que cambia en
+  para a todos). Un panel de menú nuevo, con su `menuOccluder`, sus texturas subidas al hacerlo (`upTex`) y, si es un fondo,
+  sacado de `poolPanel` (se reutiliza al rehacer el menú); las teclas no crean lienzo si no se pintan (`lazyPanel`). Lo que cambia en
   Spotify lo reparte `spSync` (`HOOKS.spChanged`): pone al día sin rehacer el menú si no cambia lo que enseña (`musicSig`).
 - **Enemigos**: cada uno sale de su fila en `FOE_DEF` (`src/combat/foes.ts`: su modelo del catálogo, tamaño, nombres de sus
   animaciones —`idle`, `walk`, `run`, `attack`, `hit`, `death`, `dance`—, cuándo empieza y llega su golpe, su voz); su
@@ -118,6 +119,8 @@ tabla de `README.md` dice qué hace cada archivo.
 - **Dibujos que cambian** (lienzos): `texUploadHook` (`src/style/tex-upload.ts`) los sube al empezar el fotograma (en las
   gafas, IWSDK los subía con la imagen abierta y el menú perdía trozos). Aun así, no repintes un lienzo en cada fotograma ni
   para iluminar algo: mueve piezas o cambia el color del material (las teclas planas, el deslizador).
+- **Fuera del juego**: con la página a la vista, el juego da un paso cada medio segundo y no suena (`src/page/idle.ts`); lo
+  que deba pasar al salir de las gafas, con `world.visibilityState.subscribe` (al salir, la ronda se acaba y se guarda).
 - **Tirones**: lo que se pinta por primera vez compila su sombreador y la imagen se para un instante en las gafas. Antes de cada
   ronda, lo de `warmKeep` (`src/style/warm.ts`) se compila de uno en uno en el menú y lo que falte, con la carátula del duelo
   ya en negro; nada pesado en el fotograma de EMPEZAR (la imagen se congelaba y seguía a la cabeza). No crees materiales en

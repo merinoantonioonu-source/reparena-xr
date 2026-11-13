@@ -15,7 +15,7 @@ import { clampSetting } from '../../core/settings.js';
 import { settings } from '../../core/values.js';
 import { SND } from '../../audio/sound.js';
 import { clamp, FB, fitFont, mkCanvas, rr, TAU } from '../canvas-kit.js';
-import { comicOn, drawFoeCard, drawIcon, drawRank, hexDim, keyc, makePanel, STY, type FoeCard, type RaPanel } from './kit.js';
+import { comicOn, drawFoeCard, drawIcon, drawRank, hexDim, keyc, lazyPanel, makePanel, STY, type FoeCard, type LazyPanel, type RaPanel } from './kit.js';
 
 /** Lo que flota la tecla sobre la bandeja, en metros reales. */
 export const KEY_H = 0.012;
@@ -83,14 +83,13 @@ function keyCached(w: Btn): void {
   let e = KEYTEX.get(sig);
   if (!e) {
     // nueva: se pinta una vez en su propio lienzo, que ya no cambia
-    const p = w.own, c = mkCanvas(p.c.width, p.c.height), ctx = c.getContext('2d')!, tex = new CanvasTexture(c) as KeyTex['tex'];
-    if (p.c.width !== p.W) ctx.scale(p.c.width / p.W, p.c.width / p.W);
+    const p = w.own, c = mkCanvas(p.W, p.H), ctx = c.getContext('2d')!, tex = new CanvasTexture(c) as KeyTex['tex'];
     tex.colorSpace = SRGBColorSpace;
     tex.anisotropy = 8;
     e = { c, ctx, tex, refs: 0, t: 0 };
     tex._keyc = e;
     const was = w.p;
-    w.p = { ...p, c, ctx, tex };
+    w.p = { c, ctx, tex, mesh: p.mesh, w: p.w, h: p.h, W: p.W, H: p.H }; // (sin tocar su propio lienzo: no se crea)
     w.sig = sig;
     w.flat = 'paint';
     try {
@@ -113,7 +112,17 @@ function keyUse(w: Btn, e: KeyTex): void {
   e.t = performance.now();
   m.map = e.tex;
   m.needsUpdate = true;
-  w.mesh.userData.ownTex = w.own.tex;
+  w.mesh.userData.ownTex = w.own.ready() ? w.own.tex : undefined; // (su propio lienzo, si llegó a tenerlo)
+}
+/** La tecla se pinta en su propio lienzo: su material lo lleva (y suelta el guardado que llevara). */
+function ownMap(w: Btn): void {
+  const m = w.mesh.material as MeshBasicMaterial, t = w.own.tex;
+  if (m.map === t) return;
+  if (m.map) keyFree(m.map);
+  m.map = t;
+  m.needsUpdate = true;
+  w.mesh.userData.ownTex = undefined;
+  w.sig = '';
 }
 /** Suelta una textura guardada (al quitar el menú); devuelve si lo era. */
 export function keyFree(tex: unknown): boolean {
@@ -152,7 +161,8 @@ export class Btn implements Widget {
   paint?: BtnOpts['paint'];
   fill?: string;
   p: RaPanel;
-  readonly own: RaPanel;
+  /** Su propio lienzo (solo se crea si se pinta en él: las planas llevan el dibujo guardado de otra igual). */
+  readonly own: LazyPanel;
   mesh: Mesh;
   hover = false;
   rayHover = false;
@@ -189,7 +199,7 @@ export class Btn implements Widget {
     this.card = o.card;
     this.paint = o.paint;
     this.fill = o.fill;
-    this.p = this.own = makePanel(w, h, Math.round(clamp(KEY_PXM * w, 256, 2048)), { depthTest: o.depthTest });
+    this.p = this.own = lazyPanel(w, h, Math.round(clamp(KEY_PXM * w, 256, 2048)), { depthTest: o.depthTest });
     this.mesh = this.p.mesh;
     this.mesh.userData.widget = this; // (para el rayo: a qué tecla pertenece lo que toca)
     if (!BTN.later) this.draw();
@@ -218,11 +228,12 @@ export class Btn implements Widget {
   }
 
   draw(): void {
-    const c = this.p.ctx, W = this.p.W, H = this.p.H;
     if (this.flat === true && !this.paint && !this.card) {
       keyCached(this); // (ya pintada igual en otro menú: la misma textura)
       return;
     }
+    const c = this.p.ctx, W = this.p.W, H = this.p.H;
+    if (this.p === this.own) ownMap(this);
     if (this.flat) {
       // tecla plana: su cara de color con el borde (en cómic, de tinta) y lo que va impreso encima
       const tc = this.fill ? (this.style === 'selected' ? '#1a0716' : '#ffffff') : keyc(this.style)[1];
