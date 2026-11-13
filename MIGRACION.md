@@ -153,7 +153,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 30 · Las manos de RepArena** (opción B del usuario: la lectura, el suavizado, los saltos imposibles, la mano perdida con el cuerpo, el pellizco y el filtro `HF`) — #37
 - [x] **PR 31 · Los menús de RepArena enteros** (opción B: sus paneles, sus teclas planas pintadas y su pulsación con imán, sólida y pegada, el menú de muñeca, el atril y el teclado de números; sustituyen a los de UIKitML) — #38
 - [x] **PR 32 · Cuatro arreglos vistos en las gafas** (el menú de música ya no se rehace cada 5 s y los menús suben sus texturas antes de pintarse; los mandos de Spotify, otra vez en el menú principal; en los ejercicios de suelo el mundo se orienta hacia tu cuerpo al calibrar; en la plancha con un brazo, el rayo sale de la mano levantada) — #39
-- [ ] **PR 33 · El menú ya no desaparece a trozos al mover un deslizador** (los dibujos que cambian se suben antes de pintar cada fotograma; el deslizador ya no se repinta al arrastrarlo ni con el rayo encima; el diagnóstico apunta lo que se sube)
+- [x] **PR 33 · El menú ya no desaparece a trozos al mover un deslizador** (los dibujos que cambian se suben antes de pintar cada fotograma; el deslizador ya no se repinta al arrastrarlo ni con el rayo encima; el diagnóstico apunta lo que se sube) — #40
+- [ ] **PR 34 · Sin congelarse al pulsar el menú ni fuera del juego, y salir acaba la ronda** (las teclas ya no crean un lienzo cada una; el fondo del menú se reutiliza; con la página a la vista el juego descansa y no suena; al salir de las gafas la ronda se acaba y se guarda; con el menú de Meta, se pausa)
 
 ## Los PR
 
@@ -397,6 +398,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 34 → los siguientes: **el juego descansa con la página a la vista** (fuera de las gafas y sin «Probar en el ordenador»,
+  como RepArena): `pageWorld` (`src/page/page.ts`) envuelve `world.update` y `renderer.render` y, con la página a la vista, da
+  un paso cada medio segundo (`idleStep`, `src/page/idle.ts`) y calla el sonido (`soundSleep`, `src/audio/sound.ts`). Lo que
+  tenga que pasar al salir de las gafas, con `visibilityState.subscribe` (no en `update`, que ya va a ratos). Al salir de las
+  gafas en plena ronda, `GameSystem` llama a `HOOKS.toLobby()` (se guarda lo hecho); con el menú de Meta, `HOOKS.pause()`.
+  **Menús**: cada tecla tiene su lienzo propio solo si se pinta en él (`lazyPanel`, `kit.ts`: las planas llevan el dibujo
+  guardado); el fondo de un menú y la columna HOY salen de `poolPanel` (`menu-core.ts`), que reutiliza el del menú anterior si
+  mide lo mismo: un panel de fondo nuevo, con `poolPanel` y no con `makePanel`. Lo pesado de fondo (precompilar enemigos)
+  espera mientras tocas el menú o se abre uno (`menuBusy`, como RepArena).
+
 - PR 33 → los siguientes: **nada se sube a la tarjeta gráfica con la imagen de las gafas abierta**. En las gafas, el Three de
   IWSDK aparca los dibujos que cambian mientras pinta y los sube justo después (ver Fallos de IWSDK); eso hacía que el menú
   desapareciera a trozos (se veía el fondo a través) al mover un deslizador, que se repintaba en cada paso y al pasar el rayo.
@@ -623,6 +634,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 34: **sin confirmar en las gafas**. Al pulsar una tecla del menú principal, el menú se rehace entero (RepArena hace
+  igual): ahora sin crear 65 lienzos (11 millones de píxeles) cada vez y repintando el fondo en el mismo lienzo; aún se
+  repinta y se sube el fondo (unos 4 millones de píxeles) y las teclas que se pintan solas (las metas de hoy, los
+  deslizadores). Si la imagen aún se congela al pulsar, el siguiente paso es no rehacer el menú entero en cada pulsación
+  (cambiar solo lo que cambia). Con la página a la vista, el juego pinta dos veces por segundo (para terminar de cargar y
+  precompilar); si las gafas aún se congelan fuera del juego, se puede parar del todo.
 - PR 33: **sin confirmar en las gafas** (la VR simulada no tiene la tarjeta gráfica de las Quest). En el vídeo del usuario, el
   menú de Ajustes perdía trozos (se veía la foto del fondo a través) al mover un deslizador, y el diagnóstico daba fotogramas de
   33-42 ms con el rayo o el dedo en un deslizador (11 ms es lo normal; sin tocar el menú, 16-20 ms, que también es mucho y queda

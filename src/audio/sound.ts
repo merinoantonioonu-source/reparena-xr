@@ -215,7 +215,19 @@ function tune(e: Entity, r: number): void {
 /** Abre el sonido (desde un toque o una tecla: los navegadores no dejan sonar antes; al entrar en la VR, lo abre IWSDK). */
 export function unlockAudio(): void {
   const c = sys?.ctx;
-  if (c && c.state === 'suspended') void c.resume();
+  if (c && c.state === 'suspended' && !SLEEP.on) void c.resume();
+}
+
+/** Con la página a la vista (fuera de las gafas y sin «Probar en el ordenador»), el juego no suena (RepArena: ambientStop al
+ * salir de la VR): ni el ambiente de la arena ni lo que quedara sonando. Tocar la página no lo despierta. */
+const SLEEP = { on: false };
+export function soundSleep(on: boolean): void {
+  if (SLEEP.on === on) return;
+  SLEEP.on = on;
+  const c = sys?.ctx;
+  if (!c || c.state === 'closed') return;
+  if (on && c.state === 'running') void c.suspend();
+  else if (!on && c.state === 'suspended') void c.resume();
 }
 
 /** Un sonido en bucle: se coloca donde está lo que suena (set) y se para al acabar (stop). */

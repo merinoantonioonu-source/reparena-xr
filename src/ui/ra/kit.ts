@@ -35,6 +35,50 @@ export function makePanel(w: number, h: number, px = 1024, opts: { depthTest?: b
   return { c, ctx, tex, mesh: m, w, h, W: Math.round(c.width / k), H: Math.round(c.height / k) };
 }
 
+/** Un panel cuyo lienzo se crea solo si se pinta en él (`ready()` dice si ya existe). Las teclas planas casi nunca lo
+ * necesitan: llevan el dibujo guardado de otra igual (src/ui/ra/btn.ts). Crearlo de todas formas reservaba, en cada
+ * pulsación del menú principal, unos 65 lienzos (11 millones de píxeles) que se tiraban sin usar: en las gafas, memoria de
+ * la tarjeta gráfica que iba y venía y congelaba la imagen. */
+export interface LazyPanel extends RaPanel {
+  ready(): boolean;
+}
+export function lazyPanel(w: number, h: number, px = 1024, opts: { depthTest?: boolean } = {}): LazyPanel {
+  const W = Math.round(px), H = Math.round((px * h) / w);
+  const mat = new MeshBasicMaterial({ transparent: true, depthTest: opts.depthTest !== false, alphaTest: 0.04, toneMapped: false, fog: false });
+  const m = new Mesh(new PlaneGeometry(w, h), mat);
+  m.userData.noInk = true; // (sin contorno de tinta: es un cartel)
+  if (opts.depthTest === false) m.renderOrder = 30;
+  let c: HTMLCanvasElement | null = null, ctx: CanvasRenderingContext2D | null = null, tex: CanvasTexture | null = null;
+  const make = (): void => {
+    if (c) return;
+    c = mkCanvas(W, H);
+    ctx = c.getContext('2d')!;
+    tex = new CanvasTexture(c);
+    tex.colorSpace = SRGBColorSpace;
+    tex.anisotropy = 8;
+  };
+  return {
+    get c() {
+      make();
+      return c!;
+    },
+    get ctx() {
+      make();
+      return ctx!;
+    },
+    get tex() {
+      make();
+      return tex!;
+    },
+    ready: () => !!c,
+    mesh: m,
+    w,
+    h,
+    W,
+    H,
+  };
+}
+
 /** Libera un panel (su lienzo, su material y su plano). */
 export function freePanel(p: RaPanel): void {
   p.tex.dispose();

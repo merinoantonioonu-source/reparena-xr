@@ -10,6 +10,8 @@ import { VisibilityState, type World } from '@iwsdk/core';
 import { loadCanvasFonts } from '../ui/canvas-kit.js';
 import { onSettingsChange } from '../core/settings.js';
 import { HOOKS } from '../core/state.js';
+import { soundSleep } from '../audio/sound.js';
+import { idleStep, type IdleState } from './idle.js';
 import { $ } from './dom.js';
 import { devInitPage } from './dev-page.js';
 import { musicPage } from './music-page.js';
@@ -97,6 +99,17 @@ export function pageWorld(world: World): void {
       if (st) st.textContent = 'No se ha podido entrar en VR: ' + (e instanceof Error ? e.message : String(e));
     }
   });
+  // con la página a la vista, el juego descansa: un paso cada medio segundo, sin sonido (src/page/idle.ts)
+  const S: IdleState = { last: -9, run: true }, update = world.update.bind(world), r = world.renderer, render = r.render;
+  const idle = (): boolean => !root.classList.contains('stage') && world.visibilityState.peek() === VisibilityState.NonImmersive;
+  world.update = (delta: number, time: number): void => {
+    const i = idle();
+    soundSleep(i);
+    if (idleStep(S, i, performance.now() / 1000)) update(delta, time);
+  };
+  r.render = function (this: typeof r, ...a: Parameters<typeof render>) {
+    if (S.run) render.apply(this, a);
+  };
   // al salir de las gafas, la página con lo que hayas hecho
   world.visibilityState.subscribe((v) => {
     if (v === VisibilityState.NonImmersive) {
