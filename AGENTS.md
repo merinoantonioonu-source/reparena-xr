@@ -84,7 +84,8 @@ tabla de `README.md` dice qué hace cada archivo.
   en cada fotograma, en `RaMenuSystem` (`menu-system.ts`). La partida y el menú se avisan con `HOOKS.startRound`,
   `HOOKS.showMenu`, `HOOKS.hideMenu`, `HOOKS.showSummary`, `HOOKS.pause`/`resume`, `HOOKS.perksOpen`/`perksClose` y
   `HOOKS.openScreen` (una pantalla de filas: la música, pasar datos…); `GAME.menu` dice cuál se ve (en pausa, `GAME.paused`
-  para a todos). Un panel de menú nuevo, con su `menuOccluder`.
+  para a todos). Un panel de menú nuevo, con su `menuOccluder` y sus texturas subidas al hacerlo (`upTex`). Lo que cambia en
+  Spotify lo reparte `spSync` (`HOOKS.spChanged`): pone al día sin rehacer el menú si no cambia lo que enseña (`musicSig`).
 - **Enemigos**: cada uno sale de su fila en `FOE_DEF` (`src/combat/foes.ts`: su modelo del catálogo, tamaño, nombres de sus
   animaciones —`idle`, `walk`, `run`, `attack`, `hit`, `death`, `dance`—, cuándo empieza y llega su golpe, su voz); su
   resistencia y su fuerza, de `devFoe` (la tabla del desarrollador). Uno nuevo: su fila, su modelo en `src/assets.ts`

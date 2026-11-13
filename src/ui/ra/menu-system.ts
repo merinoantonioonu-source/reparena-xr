@@ -21,6 +21,7 @@ import { activeWidgets, ENV, hideMenu, menuClose, noteStand, openMenu, refreshFi
 import { endMenu, lobbyMenu, MENU_ENV, pauseMenu, perkClose, perkMenu } from './menus.js';
 import { fingers, pokeHold, pokeWidgets, POKE } from './poke.js';
 import type { Summary } from '../../core/run.js';
+import { marqStep, spSync } from '../screens/music-screens.js';
 
 /** Nitidez en las gafas (la del juego nuevo: decisión del usuario en el PR 7): la resolución que se pide al entrar y la
  * foveación. Se guarda aparte de la «Calidad de imagen» de RepArena. */
@@ -69,6 +70,9 @@ export class RaMenuSystem extends createSystem({}, {}) {
     ENV.placing = () => HOOKS.placing();
     ENV.onWatch = () => this.onWatch();
     ENV.playing = () => GAME.phase === 'playing';
+    ENV.renderer = this.world.renderer;
+    // lo que cambia en Spotify (cada pocos segundos se le pregunta): se pone al día sin rehacer el menú si no hace falta
+    HOOKS.spChanged = spSync;
     // el rayo: sobre una tecla, la ilumina; al pulsar (el pellizco o el gatillo), la pulsa como el dedo
     const R = this.root as unknown as { addEventListener(t: string, f: (e: Ev) => void): void };
     R.addEventListener('pointerover', (ev) => this.rayHover(widgetOf(ev.object), true));
@@ -246,6 +250,7 @@ export class RaMenuSystem extends createSystem({}, {}) {
       w.mesh.position.z = w.baseZ;
     }
     updateWristMenu(dt);
+    marqStep(dt); // (el rótulo de lo que suena en el menú principal, si no cabe, se desplaza)
     // el menú: se pulsa cuando ya está quieto (medio segundo) y, en la muñeca, del todo abierto
     const m = UI.menu;
     if (m) {

@@ -10,8 +10,12 @@ import { HOOKS } from '../../core/state.js';
 import { num } from '../../core/values.js';
 import { BPM_NAME } from '../../services/bpm.js';
 import { bpm, spotify } from '../../services/hub.js';
+import { musicSig as musicSigOf } from '../../services/music-sig.js';
 import { errText, type SpList, type SpTrack } from '../../services/spotify.js';
-import type { Row as ScreenRow } from '../ra/menu-core.js';
+import { RO, UI, upTex, type Menu, type Row as ScreenRow } from '../ra/menu-core.js';
+import { makePanel, type RaPanel } from '../ra/kit.js';
+import type { Btn } from '../ra/btn.js';
+import { FB, rr } from '../canvas-kit.js';
 
 const ACC = '#a68bff', N_LIST = 8, N_TRK = 8, N_PICK = 6;
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
@@ -33,12 +37,30 @@ const favFirst = (T: SpTrack[]): SpTrack[] => {
 const pager = (p: number, pages: number, go: (p: number) => void): ScreenRow => ({ t: 'btns', items: [{ label: '◀', onPress: () => go(p - 1) }, { label: `${p + 1} / ${pages}`, onPress: () => {} }, { label: '▶', onPress: () => go(p + 1) }] });
 const act = (fn: () => Promise<unknown>): void => void spotify().act(fn);
 
-/** La pantalla de la música: lo que suena, sus mandos, tus listas y el ritmo. Se rehace sola cuando cambia lo que suena. */
+/** La pantalla de la música abierta (su menú y cómo se rehace) y lo que enseñaba al hacerla. */
+export const MUSIC = { menu: null as Menu | null, again: null as (() => void) | null, sig: '' };
+
+/** Lo que enseña la pantalla de la música (src/services/music-sig.ts): si cambia, se rehace; si no, se queda como está. */
+export const musicSig = (): string => musicSigOf(spotify(), bpm(), num('bpm'));
+
+/** Lo que cambia en Spotify (HOOKS.spChanged): la pantalla de la música, rehecha solo si cambia lo que enseña; el menú
+ * principal, puesto al día sin rehacerlo (el rótulo y Play/Pausa), salvo si te conectas o desconectas. Con el teclado de
+ * números abierto, nada. */
+export function spSync(): void {
+  const m = UI.menu;
+  if (!m || m.keypad) return;
+  if (m === MUSIC.menu && MUSIC.again) {
+    if (musicSig() !== MUSIC.sig) MUSIC.again();
+    return;
+  }
+  if (m.kind !== 'lobby') return;
+  if (spotify().connected() !== WIDE.conn) m.rebuild?.();
+  else if (WIDE.conn) wideSync(m);
+}
+
+/** La pantalla de la música: lo que suena, sus mandos, tus listas y el ritmo. Se rehace sola cuando cambia lo que enseña. */
 export function musicScreen(back: () => void): void {
   const sp = spotify(), again = (): void => musicScreen(back);
-  HOOKS.spChanged = () => {
-    if (HOOKS.screenOn()) again();
-  };
   const rows: ScreenRow[] = [{ t: 'title', text: 'MÚSICA' }];
   if (!sp.connected()) rows.push({ t: 'text', text: 'Spotify sin conectar: en la página del juego (Sonido y música) pon el Client ID de tu app de Spotify y pulsa «Conectar con Spotify». Solo hace falta una vez en cada navegador.', color: '#ffd166' });
   else {
@@ -50,7 +72,7 @@ export function musicScreen(back: () => void): void {
     rows.push({ t: 'btns', items: [
       ...L.slice(0, 2).map((l) => ({ label: l.name, onPress: () => act(() => sp.playLists([l])) })),
       ...(L.length > 1 ? [{ label: `Mezcladas (${L.length})`, onPress: () => act(() => sp.playLists(L)) }] : []),
-      { label: 'Listas y canciones ▸', accent: ACC, flex: 1.4, onPress: () => { state.loadErr = ''; listsScreen(again); } },
+      { label: 'Listas y canciones ▸', accent: ACC, flex: 1.4, onPress: () => { state.loadErr = ''; MUSIC.menu = null; listsScreen(again); } },
     ] });
     if (sp.player.state === 'error') rows.push({ t: 'text', text: sp.player.err, color: '#ffd166' });
     rows.push({ t: 'btns', items: [
@@ -62,9 +84,116 @@ export function musicScreen(back: () => void): void {
     ] });
   }
   rows.push(...tempoRows(again));
-  rows.push({ t: 'btns', items: [{ label: 'Volver', onPress: () => { HOOKS.spChanged = () => {}; back(); } }] });
+  rows.push({ t: 'btns', items: [{ label: 'Volver', onPress: () => { MUSIC.menu = null; back(); } }] });
   HOOKS.openScreen(rows, { accent: ACC });
+  Object.assign(MUSIC, { menu: UI.menu, again, sig: musicSig() });
 }
+
+// ---------------------------------------------------------------- el reproductor del menú principal
+
+// (RepArena: spPlayerRows y spWideRows) Arriba, un rótulo con lo que suena, que se desplaza si no cabe; debajo, anterior,
+// play/pausa, siguiente y el volumen. Se pone al día sin rehacer el menú
+const WIDE = { conn: false };
+const MARQ = { p: null as RaPanel | null, text: '', col: ACC, x: 0, t: 0, fits: false, dirty: false };
+const spPrev = (): void => void spotify().previous();
+const spToggle = (): void => void spotify().toggle();
+const spNext = (): void => void spotify().next();
+// (la nota se pinta en un lienzo, no con las letras de los paneles: el navegador la saca de sus letras si a la nuestra le falta)
+const NOTE = String.fromCodePoint(0x266a);
+const marqText = (): void => {
+  const sp = spotify(), it = sp.st?.item;
+  MARQ.text = sp.err || (it ? `${NOTE} ${it.name}${it.artists?.length ? ' — ' + it.artists.map((a) => a.name).join(', ') : ''}` : 'Spotify: no suena nada');
+  MARQ.col = sp.err ? '#ff8a3d' : ACC;
+};
+
+/** Las filas del reproductor para el menú principal (nada si Spotify no está conectado). */
+export function spWideRows(): ScreenRow[] {
+  const sp = spotify();
+  WIDE.conn = sp.connected();
+  if (!WIDE.conn) return [];
+  if (Date.now() - sp.lastRef > 3000) sp.pollT = 0; // (lo que suena, al día en cuanto sale el menú)
+  marqText();
+  const playing = sp.playing();
+  return [
+    {
+      t: 'canvas', h: 0.04,
+      draw: (c, x, y, w, h) => {
+        rr(c, x, y, w, h, h * 0.3);
+        c.fillStyle = 'rgba(166,139,255,0.12)';
+        c.fill();
+      },
+      mount: (g, x0, cy, cw, h) => {
+        const P = makePanel(cw - 0.012, h - 0.008, 512);
+        P.mesh.position.set(x0 + cw / 2, cy, 0.002);
+        P.mesh.renderOrder = RO.widget;
+        g.add(P.mesh);
+        Object.assign(MARQ, { p: P, x: 0, t: 0.05 });
+        marqDraw();
+      },
+    },
+    { t: 'btns', h: 0.05, items: [
+      { label: 'Anterior', icon: 'prev', onPress: spPrev },
+      { label: playing ? 'Pausa' : 'Play', icon: playing ? 'pause' : 'play', style: 'primary', onPress: spToggle },
+      { label: 'Siguiente', icon: 'next', onPress: spNext },
+      { label: 'Vol −', icon: 'voldown', onPress: () => spotify().setVol(-10) },
+      { label: 'Vol +', icon: 'volup', onPress: () => spotify().setVol(10) },
+    ] },
+  ];
+}
+
+/** Pone al día el reproductor del menú principal sin rehacerlo: el rótulo y la tecla Play/Pausa. */
+function wideSync(m: Menu): void {
+  const was = MARQ.text + MARQ.col;
+  marqText();
+  if (MARQ.text + MARQ.col !== was) {
+    MARQ.x = 0;
+    MARQ.dirty = true; // (se repinta en el paso siguiente)
+  }
+  const b = m.widgets.find((w): w is Btn => w.kind === 'btn' && (w as Btn).onPress === spToggle), playing = spotify().playing();
+  if (b && b.label !== (playing ? 'Pausa' : 'Play')) {
+    b.icon = playing ? 'pause' : 'play';
+    b.setLabel(playing ? 'Pausa' : 'Play');
+    upTex(b.mesh);
+  }
+}
+
+function marqDraw(): void {
+  const P = MARQ.p!, c = P.ctx, W = P.W, H = P.H;
+  c.clearRect(0, 0, W, H);
+  c.font = `600 ${Math.round(H * 0.62)}px ${FB}`;
+  c.textBaseline = 'middle';
+  c.textAlign = 'left';
+  c.fillStyle = MARQ.col;
+  const tw = c.measureText(MARQ.text).width, gap = W * 0.25;
+  MARQ.fits = tw <= W * 0.96;
+  MARQ.dirty = false;
+  if (MARQ.fits) c.fillText(MARQ.text, (W - tw) / 2, H / 2); // (si cabe, quieto y en medio)
+  else {
+    const x = -(MARQ.x % (tw + gap));
+    c.fillText(MARQ.text, x, H / 2);
+    c.fillText(MARQ.text, x + tw + gap, H / 2);
+  }
+  P.tex.needsUpdate = true;
+  upTex(P.mesh);
+}
+
+/** Cada fotograma (RaMenuSystem): el rótulo que no cabe se desplaza, a unos 20 dibujos por segundo y solo con el menú a la
+ * vista; el que cabe se pinta una vez (y otra si cambia). */
+export function marqStep(dt: number): void {
+  const P = MARQ.p, m = UI.menu;
+  if (!P) return;
+  if (!m || P.mesh.parent !== m.group) {
+    MARQ.p = null; // (el menú ya no está: su panel se ha liberado con él)
+    return;
+  }
+  if (m.closed || !m.group.visible || (MARQ.fits && !MARQ.dirty)) return; // (quieto si cabe: no se repinta)
+  MARQ.x += dt * P.W * 0.18;
+  MARQ.t -= dt;
+  if (MARQ.t > 0 && !MARQ.dirty) return;
+  MARQ.t = 0.05;
+  marqDraw();
+}
+
 
 /** El ritmo de la música (RepArena: tempoRows): «Al compás» (cuatro toques), «Encajar el pulso» y «Ritmo de cada canción». */
 export function tempoRows(back: () => void): ScreenRow[] {

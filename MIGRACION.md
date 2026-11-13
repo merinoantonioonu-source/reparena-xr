@@ -152,6 +152,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 29 · Registro de diagnóstico** (los últimos 30 s de las manos, el rayo, las teclas y los tirones, para arreglar con datos de las gafas) — #36
 - [x] **PR 30 · Las manos de RepArena** (opción B del usuario: la lectura, el suavizado, los saltos imposibles, la mano perdida con el cuerpo, el pellizco y el filtro `HF`) — #37
 - [x] **PR 31 · Los menús de RepArena enteros** (opción B: sus paneles, sus teclas planas pintadas y su pulsación con imán, sólida y pegada, el menú de muñeca, el atril y el teclado de números; sustituyen a los de UIKitML) — #38
+- [ ] **PR 32 · Cuatro arreglos vistos en las gafas** (el menú de música ya no se rehace cada 5 s y los menús suben sus texturas antes de pintarse; los mandos de Spotify, otra vez en el menú principal; en los ejercicios de suelo el mundo se orienta hacia tu cuerpo al calibrar; en la plancha con un brazo, el rayo sale de la mano levantada)
 
 ## Los PR
 
@@ -395,6 +396,19 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 32 → los siguientes: **lo que cambia en Spotify ya no rehace el menú a ciegas**. `HOOKS.spChanged` lo reparte un solo
+  manejador fijo (`spSync`, `src/ui/screens/music-screens.ts`, puesto por `RaMenuSystem`): la pantalla de la música se rehace
+  solo si cambia su firma (`musicSig`, `src/services/music-sig.ts`: lo que suena, dónde, las listas, los errores y el ritmo) y
+  si sigue a la vista (`MUSIC.menu`; desde «Listas y canciones» ya no salta de vuelta); el menú principal, al día sin
+  rehacerse (el rótulo y Play/Pausa) salvo al conectar o desconectar Spotify; con el teclado de números abierto, nada. Una
+  pantalla nueva que dependa de Spotify: su firma y su sitio en `spSync`, no otro `HOOKS.spChanged`. Los menús, el teclado de
+  números y la «?» suben sus texturas al hacerse (`upTex`, `menu-core.ts`, con `ENV.renderer`); lo que se repinte después
+  (una tecla, el rótulo), igual. Los ejercicios de suelo y sentado recolocan tu espacio al calibrar como los de pie, pero
+  hacia donde apunta el cuerpo (`bodyYaw`: en plancha, la coronilla): la arena diminuta sale en (0, 0) con delante hacia −Z
+  (`recenterPose`/`floorOrigin`, `src/combat/recenter.ts`). En la plancha con un brazo, el rayo sale de la muñeca levantada
+  (nunca de la bola) y la bola va a esa mano en cuanto la levantas. En el simulador, `window.__rx.spotify()` deja fingir
+  Spotify conectado (cambiando sus métodos) para probar el reproductor sin red.
+
 - PR 31 → los siguientes: **los menús son los de RepArena enteros** (`src/ui/ra/`; ver AGENTS.md › Menús). Se portaron de
   `src/60_ui.js` (Btn, Slider, flatKeys y su caché, pokeWidgets, openMenu, el teclado de números, la «?», el atril, la
   muñeca y su botón MENÚ), `src/70_game.js` (lobbyMenu, optionsMenu, los rivales y las armas, la dificultad, la pausa y el
@@ -598,6 +612,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   cuenta el vapor de las compuertas (lanzado y visto a la vez) y la partida simulada lo exige.
 
 ## Fallos conocidos
+
+- PR 32: **los saltos del menú al mover la cabeza, sin confirmar en las gafas**. Se ha quitado lo que se vio en el vídeo (el menú
+  de música rehecho cada 5 s, con un fotograma pálido) y los menús suben ya sus texturas al hacerse; si al mover la cabeza
+  sigue saltando con el menú quieto, hace falta el registro de diagnóstico (pausa → «Guardar diagnóstico») para ver si son
+  tirones de la imagen o de la posición de la cabeza. En la batalla diminuta (suelo), al calibrar el mundo se desliza 0,8 s
+  hasta quedar delante de ti; en realidad mixta también (como ya pasaba de pie). La VR simulada solo prueba posiciones: que
+  el rayo y las trampillas se sientan bien tumbado, en las gafas.
 
 - PR 27: el entorno cambia en cada ronda solo con «Alternar» (Opciones → Entorno → Entorno; el ajuste se comparte con
   RepArena): con «Fortaleza», siempre el mismo. El marcador, como en RepArena: a un lado a 5 m y 4,2 m de ancho («Compuertas»:

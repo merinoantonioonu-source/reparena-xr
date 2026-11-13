@@ -48,6 +48,8 @@ import { Rewards } from './rewards.js';
 import { RUSH_SECS } from './perks.js';
 import { BoardRing } from '../ui/board-ring.js';
 import { PAUSE_INFO } from '../ui/ra/menu-system.js';
+import { bodyYaw } from '../ui/ra/menu-core.js';
+import { floorOrigin, recenterPose } from './recenter.js';
 import { lyingEx, VIEW_FRAME } from '../ui/view-panels.js';
 import { HIST_KEY, kcalOf, runRecord, summaryOf, type RunStats } from '../core/run.js';
 import { career, history, progressNow } from './career-hub.js';
@@ -206,6 +208,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private wasPaused = false;
   /** Colocarte delante de las compuertas (RepArena: arenaGlideToHead): el giro y el sitio de tu espacio, de dónde a dónde, y cuánto va. */
   private glide = { t: 0, ry0: 0, x0: 0, z0: 0, ry1: 0, x1: 0, z1: 0 };
+  private rcPose = { ry1: 0, x1: 0, z1: 0 };
   // los que van a salir por una compuerta que se está abriendo (a cada uno le falta «t» para salir)
   private gates: GateSystem | null = null;
   private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0, kind: '', boss: false, hp: 1 }));
@@ -357,7 +360,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     };
     HOOKS.sparks = (p, n, c) => this.fx.sparks.burst(p, n, c, 2.4, 0.04);
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
-    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS, sceneryOn: () => this.world.getSystem(EnvSystem)?.sceneryOn ?? false, fitLog: FIT_LOG };
+    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS, spotify, sceneryOn: () => this.world.getSystem(EnvSystem)?.sceneryOn ?? false, fitLog: FIT_LOG };
     // la letra de la ×N de la bola (Bungee, para el lienzo)
     try {
       const face = new FontFace('Bungee', `url(${import.meta.env.BASE_URL}fonts/Bungee-Regular.ttf)`);
@@ -663,24 +666,25 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // Al calibrar de pie (al empezar la ronda o al recolocarte): todo se coloca delante de ti, donde estás y hacia donde miras
   // (RepArena: arenaGlideToHead, que movía la arena; aquí se mueve tu espacio —el del jugador de IWSDK—, que es lo mismo
   // visto desde ti), deslizándose en 0,8 s. En Barras no (el aparato está en tu habitación) ni en realidad mixta.
-  private recenter(glide = true): void {
+  // yaw: hacia dónde queda «delante» (de serie, hacia donde mira la cabeza); en el suelo, hacia donde apunta el cuerpo.
+  // Devuelve si se ha podido (entonces tu cabeza queda en el centro de la arena, mirando a las compuertas)
+  private recenter(glide = true, yaw: number | null = null): boolean {
     const P = this.world.player, cam = this.world.camera;
-    if (!P || !cam) return;
+    if (!P || !cam) return false;
     if (settings.mode === 'bars') {
       // (los aparatos están en tu habitación: tu espacio, tal cual lo dan las gafas)
       Object.assign(this.glide, { t: glide ? 1e-4 : 1, ry0: P.rotation.y, x0: P.position.x, z0: P.position.z, ry1: 0, x1: 0, z1: 0 });
       if (!glide) this.stepGlide(0);
-      return;
+      return false;
     }
     const f = this.tmpA.set(0, 0, -1).applyQuaternion(head.q);
     f.y = 0;
-    if (f.lengthSq() < 1e-4) return;
-    const a = Math.atan2(-f.x, -f.z), ry1 = P.rotation.y - a; // (girado lo que te apartas de mirar a las compuertas)
-    // tu cabeza en tu espacio, girada como quedará: el sitio que la deja en el centro de la arena
-    const c = Math.cos(ry1), s2 = Math.sin(ry1), hx = cam.position.x, hz = cam.position.z;
-    const x1 = -(hx * c + hz * s2), z1 = -(-hx * s2 + hz * c);
-    Object.assign(this.glide, { t: glide ? 1e-4 : 1, ry0: P.rotation.y, x0: P.position.x, z0: P.position.z, ry1, x1, z1 });
+    if (yaw === null && f.lengthSq() < 1e-4) return false;
+    // tu cabeza en tu espacio, girada como quedará: el sitio que la deja en el centro de la arena (src/combat/recenter.ts)
+    const R = recenterPose(P.rotation.y, yaw ?? Math.atan2(-f.x, -f.z), cam.position.x, cam.position.z, this.rcPose);
+    Object.assign(this.glide, { t: glide ? 1e-4 : 1, ry0: P.rotation.y, x0: P.position.x, z0: P.position.z, ry1: R.ry1, x1: R.x1, z1: R.z1 });
     if (!glide) this.stepGlide(0);
+    return true;
   }
   private stepGlide(dt: number): void {
     const G = this.glide, P = this.world.player;
@@ -932,7 +936,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // plancha (la línea), a tu alcance por delante de donde estás de pie (RepArena: IW_OFF, arenaFromHead, iwLayout)
     const hs = this.world.getSystem(HatchSystem), inch = ex === 'inchworm', reach = iwReach(num('iwReach'), y);
     this.flIn.standY = y;
-    hs?.layout(isTiny(), inch ? this.tmpA.copy(head.p).addScaledVector(GAME.fwd, reach + 0.12) : head.p, oneArm());
+    // En el suelo o sentado, el mundo también se coloca delante de ti, hacia donde apunta tu cuerpo (RepArena: arenaFromHead con
+    // bodyYaw: en plancha, hacia donde apunta la coronilla): las trampillas quedan ante tus manos y las compuertas, de frente.
+    // Sin esto, la arena diminuta salía siempre mirando a las compuertas aunque te tumbaras hacia otro lado (las trampillas, a
+    // un lado, y «a su lado» de cada brazo no casaba con tu cuerpo). Tu cabeza queda en el centro (0, 0); delante es −Z
+    const turned = this.recenter(true, bodyYaw());
+    hs?.layout(isTiny(), floorOrigin(turned, inch, reach, head.p, GAME.fwd, this.tmpA), oneArm());
     hs?.inchLayout(inch, reach);
     this.placeBoard();
     this.restT = 3;
@@ -1362,8 +1371,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     }
     const mode = aimNow(), inXR = this.world.visibilityState.peek() !== VisibilityState.NonImmersive;
     if (import.meta.env.DEV) console.info(`rxdbg repetición ${perfect ? 'perfecta' : 'normal'} ×${pow} (puntería ${mode})`);
-    // (sin la bola, de la mano del brazo que hizo el curl, o del pecho)
-    const origin = bp ?? (side && hands[side].ok ? this.tmpD.copy(hands[side].wrist) : this.chestPoint(this.tmpD));
+    // (sin la bola, de la mano del brazo que hizo el curl, o del pecho; en la plancha con un brazo, siempre de la mano que
+    // levantas, nunca de la bola: RepArena, onRep)
+    const arm = oneArm() && side && hands[side].ok;
+    const origin = arm ? this.tmpD.copy(hands[side!].wrist) : (bp ?? (side && hands[side].ok ? this.tmpD.copy(hands[side].wrist) : this.chestPoint(this.tmpD)));
     if (mode === 'auto') this.fireOrb(origin, dmg, perfect, pow, side);
     else if (!throwCharge(dmg, perfect, pow, mode === 'hands', inXR, this.env.say)) {
       if (mode === 'hands') this.fireOrb(origin, dmg, perfect, pow); // (en el ordenador, sin manos: al más cercano)
@@ -1630,7 +1641,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     }
     this.locks.step(dt, head.p);
     // la bola: a un metro del pecho, a su altura (por debajo de los ojos), hacia donde mira el cuerpo
-    this.ballTarget.set(GAME.head.x + GAME.fwd.x * 1.0, GAME.head.y - 0.32 + 0.012 * Math.sin(time * 1.7), GAME.head.z + GAME.fwd.z * 1.0);
+    // (tumbado o en plancha, el pecho va casi a ras de la cabeza; en la plancha con un brazo, en cuanto levantas uno, la bola
+    // se va a esa mano: el rayo sale de ella, no de la bola. RepArena: sorbAt)
+    const lift: Side | null = oneArm() && settings.exercise === 'plank1' ? (this.fl.pl.left.state === 'up' && hands.left.ok ? 'left' : this.fl.pl.right.state === 'up' && hands.right.ok ? 'right' : null) : null;
+    if (lift) this.ballTarget.copy(hands[lift].wrist).setY(hands[lift].wrist.y + 0.06);
+    else this.ballTarget.set(GAME.head.x + GAME.fwd.x * 1.0, (GAME.head.y < 1.0 ? Math.max(0.22, GAME.head.y - 0.12) : GAME.head.y - 0.32) + 0.012 * Math.sin(time * 1.7), GAME.head.z + GAME.fwd.z * 1.0);
     this.fx.ball.update(dt, this.ballTarget, playing ? this.chargePow : 0);
     GAME.ballOn = this.fx.ball.visible;
     GAME.ballPos.copy(this.fx.ball.pos);

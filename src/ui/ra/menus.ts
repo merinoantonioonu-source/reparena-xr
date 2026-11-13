@@ -20,7 +20,7 @@ import { PLAY_MODES, playable, playableEx } from '../../core/playable.js';
 import { settingsGroups, groupName, summaryText } from '../fields.js';
 import { uiPrefs, uiSave } from '../../page/dom.js';
 import { resetGroup } from '../../page/form.js';
-import { musicScreen, tempoRows } from '../screens/music-screens.js';
+import { musicScreen, spWideRows, tempoRows } from '../screens/music-screens.js';
 import { syncScreen, xferScreen } from '../screens/xfer-screens.js';
 import { FB, fitFont, rr } from '../canvas-kit.js';
 import { drawCampMap, drawGoal, drawHoy, drawMissions, drawStreakTile, drawWeek, drawXP } from './career-draw.js';
@@ -187,6 +187,7 @@ export function lobbyMenu(last = ''): void {
     ...box('Modo', MODE_BOX, [{ t: 'btns', h: 0.06, items: modes }]),
     ...box(`Ejercicio · ${MODE_NAMES[settings.mode]}`, EX_COL, exR),
     ...box('Dificultad', DIFF_COL, lobbyDiffRows(again).filter((r) => r.t !== 'field' || fieldVisible(FIELD[r.key]))),
+    ...spWideRows(), // (Spotify: lo que suena y sus mandos, si está conectado; RepArena: spWideRows)
     { t: 'btns', h: 0.052, items: [{ label: 'Opciones  ▸', flex: 3, accent: MC.set, onPress: () => optionsMenu() }, vr ? { label: 'Entrar en VR', style: 'primary', onPress: vr } : { label: 'Salir', style: 'danger', onPress: () => MENU_ENV.exit() }] },
   ];
   const m = openMenu(rows, {}, 'lobby');
