@@ -151,7 +151,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 28 · Sin el puntero invisible, letras que caben, el negro del final, EMPEZAR sin congelarse y sin las cajas y rocas del prototipo** — #35
 - [x] **PR 29 · Registro de diagnóstico** (los últimos 30 s de las manos, el rayo, las teclas y los tirones, para arreglar con datos de las gafas) — #36
 - [x] **PR 30 · Las manos de RepArena** (opción B del usuario: la lectura, el suavizado, los saltos imposibles, la mano perdida con el cuerpo, el pellizco y el filtro `HF`) — #37
-- [ ] **PR 31 · Los menús de RepArena enteros** (opción B: sus paneles, sus teclas planas pintadas y su pulsación con imán, sólida y pegada, el menú de muñeca, el atril y el teclado de números; sustituyen a los de UIKitML)
+- [x] **PR 31 · Los menús de RepArena enteros** (opción B: sus paneles, sus teclas planas pintadas y su pulsación con imán, sólida y pegada, el menú de muñeca, el atril y el teclado de números; sustituyen a los de UIKitML) — #38
 
 ## Los PR
 
@@ -395,6 +395,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- PR 31 → los siguientes: **los menús son los de RepArena enteros** (`src/ui/ra/`; ver AGENTS.md › Menús). Se portaron de
+  `src/60_ui.js` (Btn, Slider, flatKeys y su caché, pokeWidgets, openMenu, el teclado de números, la «?», el atril, la
+  muñeca y su botón MENÚ), `src/70_game.js` (lobbyMenu, optionsMenu, los rivales y las armas, la dificultad, la pausa y el
+  resumen), `src/73_career.js` (Progreso, las metas de hoy, la columna HOY y la carátula «METAS DE HOY») y `src/79_perks.js`
+  (las cartas). Los paneles de UIKitML de los menús se quitaron (siguen los avisos: marcador, centro, breve, suelo, carga,
+  oleada y trofeo). Lo propio de RepArena XR se conserva: la nitidez (Opciones → Entorno), «Guardar diagnóstico» (en la
+  pausa), el rayo de IWSDK con la pinza (además del dedo de RepArena), cerrar con la palma abajo o el puño, «Entrar en VR» en
+  el ordenador y lo que aún no hay (Travesía, Sesiones) en gris. Una pantalla nueva: `HOOKS.openScreen(rows)` con las filas de
+  `openMenu`. En el simulador, `window.__rxMenu` (UI, WM, POKE, fingers) deja leer el menú y pulsar con `onPress`.
 - PR 30 → PR 31: **el usuario eligió la opción B**: con lo de serie de IWSDK las manos y los menús iban peor que en
   RepArena, así que se traen los de RepArena enteros. Las manos ya están (`src/input/hand-filter.ts`, comparado con
   `src/80_main.js` y el `HF` de `src/70_game.js`): el juego usa `J.p`/`J.q`/`tip`; lo que se pinta y lo que pulsa los menús,
@@ -772,6 +781,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - Los sonidos del usuario suenan sin el eco de sala que les añadía RepArena (IWSDK no lo tiene); los de serie lo llevan.
 
 ## Fallos de IWSDK
+
+*(Desde el PR 31, los menús son los de RepArena y no usan `PokeInteractable` ni los paneles de UIKitML: los apaños de abajo
+para el toque, la mano que atraviesa y la letra se quedan apuntados por si se vuelve a lo de IWSDK.)*
 
 Los que se han encontrado en la versión que usamos (`@iwsdk/core` 1.1.0-rc.2) y cómo se sortean. Si una versión nueva los
 arregla, se quita el apaño.

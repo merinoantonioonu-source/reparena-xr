@@ -86,7 +86,8 @@ try {
   // la página (en el ordenador): sus apartados, el formulario de ajustes y los botones de entrar; «Probar en el ordenador»
   // enseña la escena y esconde la página
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.waitForFunction(() => !document.documentElement.classList.contains('app'), null, { timeout: 10000 });
+  // (agrandar el lienzo con la tarjeta gráfica simulada tarda: 5 s en local y más de 10 en GitHub, también en main)
+  await page.waitForFunction(() => !document.documentElement.classList.contains('app'), null, { timeout: 40000 });
   const pg = await page.evaluate(() => ({ secs: [...document.querySelectorAll('.main > section')].map((x) => x.id), rest: !!document.querySelector('#f-rest'), vr: !!document.querySelector('#btnVR'), shown: !!document.querySelector('#page')?.offsetParent, toc: document.querySelectorAll('#toc .tocList li').length, today: !!document.querySelector('#todayBox .ring') }));
   if (!pg.shown || !pg.rest || !pg.vr || pg.secs.length < 7 || pg.toc < 7 || !pg.today) throw new Error('la página no está bien: ' + JSON.stringify(pg));
   console.log(`  ✓ la página: ${pg.secs.length} apartados, el índice, lo de hoy y el formulario de ajustes`);
@@ -246,7 +247,7 @@ try {
   // en el móvil (estrecho y fuera de las gafas), la página es una app: el inicio con sus listas y cada apartado, una pantalla
   await page.click('#btnExitPreview');
   await page.setViewportSize({ width: 390, height: 800 });
-  await page.waitForFunction(() => document.documentElement.classList.contains('app') && !!document.querySelector('#appHome'), null, { timeout: 10000 });
+  await page.waitForFunction(() => document.documentElement.classList.contains('app') && !!document.querySelector('#appHome'), null, { timeout: 40000 });
   const rows = await page.evaluate(() => document.querySelectorAll('#appHome [data-app]').length);
   if (!(rows >= 5)) throw new Error('la app del móvil no tiene sus filas: ' + rows);
   console.log(`  ✓ en el móvil, la página es una app (${rows} filas en el inicio)`);

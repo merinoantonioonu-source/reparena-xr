@@ -11,7 +11,7 @@ import { num } from '../../core/values.js';
 import { BPM_NAME } from '../../services/bpm.js';
 import { bpm, spotify } from '../../services/hub.js';
 import { errText, type SpList, type SpTrack } from '../../services/spotify.js';
-import type { ScreenRow } from '../screen.js';
+import type { Row as ScreenRow } from '../ra/menu-core.js';
 
 const ACC = '#a68bff', N_LIST = 8, N_TRK = 8, N_PICK = 6;
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));

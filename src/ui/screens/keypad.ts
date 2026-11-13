@@ -3,7 +3,7 @@
  * los botones de la pantalla del menú. Cada cifra se pulsa; «Borrar» quita la última; «OK» da el código.
  */
 import { HOOKS } from '../../core/state.js';
-import type { ScreenRow } from '../screen.js';
+import type { Row as ScreenRow } from '../ra/menu-core.js';
 
 export interface KeypadOpts {
   /** Qué se escribe («Código de 8 cifras»). */

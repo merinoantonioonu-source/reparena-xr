@@ -30,7 +30,7 @@ export function keyName(o: Object3D): string {
 export function keyOf(o: Object3D | null | undefined): Object3D | null {
   let panel: Object3D | null = null;
   for (let p = o as El | null, k = 0; p && k < 14; p = p.parent as El | null, k++) {
-    if (k < 8 && p._listeners?.click) return p;
+    if (k < 8 && (p.userData.widget || p._listeners?.click)) return p; // (una tecla de los menús de RepArena o de UIKit)
     if (!panel && typeof (p as { getElementById?: unknown }).getElementById === 'function') panel = p; // (un panel de UIKitML)
   }
   return panel;
@@ -39,6 +39,8 @@ export function keyOf(o: Object3D | null | undefined): Object3D | null {
 /** El nombre de lo que devuelve keyOf: la tecla (id «texto»), [el panel] o «-». */
 export function nameOf(k: Object3D | null): string {
   if (!k) return '-';
+  const w = k.userData.widget as { label?: string; kind?: string } | undefined;
+  if (w) return w.kind === 'slider' ? '«deslizador»' : `«${w.label ?? '?'}»`;
   if ((k as El)._listeners?.click) return keyName(k);
   for (let p: Object3D | null = k; p; p = p.parent) if (p.name) return `[${p.name}]`; // (el panel, por el nombre de su nodo)
   return '[panel]';

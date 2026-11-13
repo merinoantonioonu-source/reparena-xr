@@ -1,9 +1,8 @@
 /**
- * Las teclas sólidas (pedido otra vez por el usuario al probar en las gafas: «el dedo sigue hundiéndose en el teclado»):
- * cuánto se aparta la mano que se ve para quedarse apoyada en el panel que toca en vez de atravesarlo. Mientras pulsa una
- * tecla, lo decide IWSDK (su «touch surface visual offset»); en el resto del panel, SolidKeysSystem (src/ui/solid-keys.ts),
- * con el mismo mecanismo de IWSDK para moverla (applyVisualOffsetWorld). Lo usan también los guantes al pintarse. Solo
- * para pintar: la pulsación es la de IWSDK, con el dedo de verdad.
+ * Las teclas sólidas (RepArena: gloveHold): cuánto se aparta la mano que se ve para quedarse apoyada en la tecla o en el panel
+ * que toca en vez de atravesarlo, y pegada a la tecla que pulsó. Lo calcula la pulsación de los menús de RepArena
+ * (src/ui/ra/poke.ts) y lo aplica su sistema (src/ui/ra/menu-system.ts); lo usan también los guantes al pintarse. Solo para
+ * pintar: la pulsación es con el dedo de verdad.
  */
 import { Vector3 } from 'three';
 import type { Side } from './hand-model.js';

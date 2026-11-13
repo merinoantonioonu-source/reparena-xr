@@ -41,7 +41,7 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
 | `tests/unit/` | Pruebas de la lógica pura (Vitest: `npm test`) |
 | `tests/e2e/` | La partida simulada en un navegador sin gafas (`npm run test:e2e`) |
 
-Los demás modos, en `src/modes/<modo>/` (Arcos: `arcs-system.ts` pinta lo que la lógica de `arc.ts`/`patterns.ts`/`state.ts` decide; qué modos y ejercicios se pueden jugar, `src/core/playable.ts`; los metros, `dist` en el historial); Spotify, el compás, la sincronización y el pulsómetro, en `src/services/` (los crea `hub.ts`; el pulso del juego, `src/core/beat-hub.ts`; las pantallas del menú, `src/ui/screen.ts` con `HOOKS.openScreen`). La
+Los demás modos, en `src/modes/<modo>/` (Arcos: `arcs-system.ts` pinta lo que la lógica de `arc.ts`/`patterns.ts`/`state.ts` decide; qué modos y ejercicios se pueden jugar, `src/core/playable.ts`; los metros, `dist` en el historial); Spotify, el compás, la sincronización y el pulsómetro, en `src/services/` (los crea `hub.ts`; el pulso del juego, `src/core/beat-hub.ts`; las pantallas del menú, `HOOKS.openScreen` con las filas de `openMenu` (`src/ui/ra/menu-core.ts`)). La
 tabla de `README.md` dice qué hace cada archivo.
 
 ## Cómo está hecho
@@ -56,7 +56,7 @@ tabla de `README.md` dice qué hace cada archivo.
   fotograma, como RepArena (`src/input/hand-filter.ts`): lo que se pinta y pulsa menús va con la mano suavizada (`J.s`,
   `J.sq`, `tipS`); una mano calculada al perderla (`h.est`) no se pinta ni pulsa; `h.back`, el fotograma en que reaparece. La vibración, con `haptic(lado, fuerza, ms)`. Los mandos que se ven son los de IWSDK; las manos desnudas, los guantes de
   RepArena (`GloveSystem`) o la mano de IWSDK opaca (`SkinHand`), según «Manos que se ven»; la que agarra el mando, la de IWSDK
-  opaca. La mano que se ve se apoya en los paneles (`HOLD`, `src/ui/solid-keys.ts`): lo que pinte manos nuevas, que lo sume.
+  opaca. La mano que se ve se apoya en los paneles (`HOLD`, `src/ui/ra/poke.ts`): lo que pinte manos nuevas, que lo sume.
 - **Datos**: RepArena guarda todo en el navegador con claves `reparena3-*`, y las dos versiones comparten esos datos (se
   publican en el mismo sitio): usa las mismas claves con el mismo formato; lo nuevo, con `reparenaxr-*` (un ajuste que solo tiene RepArena XR lleva `xr: true` en
   el esquema y se guarda en `reparenaxr-settings`).
@@ -75,12 +75,16 @@ tabla de `README.md` dice qué hace cada archivo.
 - La física (Havok) manda en la posición de los cuerpos dinámicos y cinemáticos: no se mueven escribiendo en su
   `object3D` (se pisa en cada paso). Los zombis se mueven pidiendo velocidad (`PhysicsManipulation`); la bola y tu
   cuerpo, teletransportándolos (`setBodyTransform`). Una `PhysicsManipulation` con todo a cero significa «no cambies».
-- **Menús** (`src/ui/menu.ts`): paneles UIKitML de la escena (`lobby-panel`, `options-panel`, `hint-panel`) con teclas de
-  id fijo que el sistema llena (textos, colores y `display`) desde el esquema (`src/ui/fields.ts`); las filas de ajuste
-  (`o1`…`o9`, `l1`…`l4`) se repiten con la misma forma. Se pulsan con `RayInteractable` y `PokeInteractable` (los de IWSDK)
-  mientras se ven. Cuelgan de su borde de arriba (`anchor-y: top`). La partida y el menú se avisan con `HOOKS.startRound`,
-  `HOOKS.showMenu` y `HOOKS.hideMenu`; `GAME.menu` dice cuál se ve (también el resumen y la pausa: `HOOKS.showSummary`,
-  `HOOKS.pause`/`resume`; en pausa, `GAME.paused` para a todos). El botón MENÚ de la muñeca, en `stepWrist`.
+- **Menús** (los de RepArena enteros, opción B del usuario: `src/ui/ra/`): cada menú es una lista de filas (`Row`: título,
+  texto, dibujo, botones, pestañas, fichas, opciones, ajustes del esquema o columnas en cajas) que pinta `openMenu`
+  (`menu-core.ts`) en una bandeja de 90 cm con teclas planas (`btn.ts`). Se pulsan con el dedo de cualquier mano (`poke.ts`:
+  sólidas, pegadas, con imán y retirar el dedo) y con el rayo de IWSDK y la pinza o el gatillo (`RayInteractable` en el grupo
+  de los menús). En las gafas salen de la muñeca («Menú en: Muñeca», de serie) o en el atril; cada menú nuevo, donde estaba el
+  anterior. Los menús concretos, en `menus.ts` (`lobbyMenu`, `optionsMenu`, `pauseMenu`, `endMenu`, `perkMenu`); lo que pasa
+  en cada fotograma, en `RaMenuSystem` (`menu-system.ts`). La partida y el menú se avisan con `HOOKS.startRound`,
+  `HOOKS.showMenu`, `HOOKS.hideMenu`, `HOOKS.showSummary`, `HOOKS.pause`/`resume`, `HOOKS.perksOpen`/`perksClose` y
+  `HOOKS.openScreen` (una pantalla de filas: la música, pasar datos…); `GAME.menu` dice cuál se ve (en pausa, `GAME.paused`
+  para a todos). Un panel de menú nuevo, con su `menuOccluder`.
 - **Enemigos**: cada uno sale de su fila en `FOE_DEF` (`src/combat/foes.ts`: su modelo del catálogo, tamaño, nombres de sus
   animaciones —`idle`, `walk`, `run`, `attack`, `hit`, `death`, `dance`—, cuándo empieza y llega su golpe, su voz); su
   resistencia y su fuerza, de `devFoe` (la tabla del desarrollador). Uno nuevo: su fila, su modelo en `src/assets.ts`

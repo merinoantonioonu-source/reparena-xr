@@ -1,24 +1,22 @@
 /**
  * Los premios en la partida (la lógica, de RepArena, en src/combat/perks.ts):
- *  - las cartas de mejora, en su panel (public/ui/perks.uikitml), delante de ti y a tu alcance, que se pulsa como los menús
- *    (el rayo o el dedo de IWSDK); la oleada siguiente espera a que elijas; si el panel se va sin elegir, vuelve;
+ *  - las cartas de mejora, en el menú de RepArena (perkMenu, src/ui/ra/menus.ts), delante de ti como los menús; la oleada
+ *    siguiente espera a que elijas; si el menú se va sin elegir, vuelve;
  *  - el escudo, el combo de hierro, la escarcha y la onda en cada disparo perfecto, el corazón y la calma;
  *  - el enemigo dorado (un halo dorado que se ve también por delante del cuerpo, y ×3 puntos);
  *  - el relámpago (20 s en los que llegan el doble de seguidos y todo vale el doble);
  *  - el cofre del descanso (el del Pirate Kit), que se abre saltando: una mejora más, una vida o 300 puntos;
  *  - la carrera contra tu récord (en el marcador), que se guarda donde RepArena.
  */
-import { onPress } from '../ui/press.js';
-import { AdditiveBlending, AssetManager, CanvasTexture, Entity, Group, Object3D, PokeInteractable, RayInteractable, Sprite, SpriteMaterial, UIKitMLAsset, Vector3, VisibilityState, World } from '@iwsdk/core';
+import { AdditiveBlending, AssetManager, CanvasTexture, Group, Object3D, Sprite, SpriteMaterial, Vector3, World } from '@iwsdk/core';
 import { chestRoll, Ghost, GHOST_KEY, goldRoll, HIST_KEY, Perks, PERKS, rushPlan, RUSH_SECS, RUSH_SPAWN_K, type PerkNote } from './perks.js';
 import type { FoeTarget } from './enemies.js';
 import { store } from '../core/settings.js';
 import { num, on, settings } from '../core/values.js';
-import { GAME } from '../core/state.js';
+import { GAME, HOOKS } from '../core/state.js';
 import { head } from '../input/hand-model.js';
-import { SND, unlockAudio } from '../audio/sound.js';
+import { SND } from '../audio/sound.js';
 import { haptic } from '../input/hand-system.js';
-import { applyFonts } from '../ui/fonts.js';
 import { STAND_EX } from '../exercise/standing.js';
 
 /** Lo que los premios piden a la partida. */
@@ -54,10 +52,7 @@ export class Rewards {
   readonly ghost = new Ghost();
   /** El relámpago: si va, lo que le queda y cuándo empieza (-1: no toca). */
   readonly rush = { on: false, left: 0, planT: -1 };
-  private panel: UIKitMLAsset | null;
-  private panelE: Entity | undefined;
   private panelOn = false;
-  private home = new Vector3();
   private gold: { t: FoeTarget; s: Sprite }[] = [];
   private goldN = 0;
   private haloGroup = new Group();
@@ -72,20 +67,7 @@ export class Rewards {
     private host: RewardHost,
   ) {
     world.createTransformEntity(this.haloGroup);
-    this.panel = world.getSceneObject<UIKitMLAsset>('perks-panel') ?? null;
-    this.panelE = world.getSceneEntity('perks-panel');
-    if (this.panel) applyFonts(this.panel);
-    this.panelE?.object3D?.getWorldPosition(this.home);
     this.showPanel(false);
-    for (let i = 0; i < 3; i++) {
-      const el = this.panel?.getElementById('p' + i);
-      if (el)
-        onPress(el, () => {
-          unlockAudio();
-          SND.click();
-          this.pick(i);
-        }); // (una sola vez por pulsación: src/ui/press.ts)
-    }
     this.chest.g.visible = false;
     world.createTransformEntity(this.chest.g);
   }
@@ -318,44 +300,18 @@ export class Rewards {
 
   // ---------------------------------------------------------------- las cartas
 
+  // las cartas, en el menú de RepArena (perkMenu: src/ui/ra/menus.ts), delante de ti como los menús
   private fillPanel(): void {
-    const p = this.panel, o = this.perks.offer;
-    if (!p || !o) return;
-    for (let i = 0; i < 3; i++) {
-      const k = o[i], d = k ? PERKS[k] : null;
-      p.getElementById('p' + i)?.setProperties({ display: d ? 'flex' : 'none', borderColor: d?.col ?? '#ffd166' });
-      if (!d) continue;
-      p.getElementById(`p${i}n`)?.setProperties({ text: d.name, color: d.col });
-      p.getElementById(`p${i}d`)?.setProperties({ text: d.desc });
-    }
-    this.place();
-    this.showPanel(true);
-  }
-
-  // delante de ti y a tu alcance, colgando a la altura del pecho e inclinado hacia ti (como los menús)
-  private place(): void {
-    const o = this.panelE?.object3D;
+    const o = this.perks.offer;
     if (!o) return;
-    if (this.world.visibilityState.peek() === VisibilityState.NonImmersive) {
-      o.position.copy(this.home);
-      o.rotation.set(0, 0, 0);
-      return;
-    }
-    const f = this.f.copy(GAME.fwd), d = (0.75 * Math.max(30, num('menuDist') || 85)) / 100;
-    o.position.set(head.p.x + f.x * d, head.p.y - 0.18, head.p.z + f.z * d);
-    o.rotation.set(-Math.atan2(0.58, d) * 0.6, Math.atan2(-f.x, -f.z), 0, 'YXZ');
+    const cards = o.map((k) => PERKS[k]).filter(Boolean).map((d) => ({ name: d.name, desc: d.desc, col: d.col }));
+    this.panelOn = true;
+    HOOKS.perksOpen(cards, (i) => this.pick(i));
   }
 
   private showPanel(on: boolean): void {
+    if (!on && this.panelOn) HOOKS.perksClose();
     this.panelOn = on;
-    if (this.panel) this.panel.visible = on;
-    const e = this.panelE;
-    if (e?.object3D) e.object3D.visible = on;
-    if (!e) return;
-    for (const C of [RayInteractable, PokeInteractable]) {
-      if (on && !e.hasComponent(C)) e.addComponent(C);
-      else if (!on && e.hasComponent(C)) e.removeComponent(C);
-    }
   }
 
   /** ¿Se ven las cartas? (para la partida simulada) */

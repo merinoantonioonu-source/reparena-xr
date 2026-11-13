@@ -120,7 +120,7 @@ export class GloveSystem extends createSystem({}, {}) {
       }
       const hex = settings.mode === 'touch' ? TCH_COL[side] : LOOK.hands;
       if (hex !== G.hex) G.tipMat.color.setHex((G.hex = hex));
-      // (apoyada en el panel que toca, sin atravesarlo: src/ui/solid-keys.ts; la del mando ya lleva el apartado en su modelo)
+      // (apoyada en el panel que toca, sin atravesarlo: src/ui/ra/poke.ts; la del mando ya lleva el apartado en su modelo)
       const J = pj ?? h.J, hold = pj ? this.zeroV : HOLD[side], sm = !pj; // (sm: con la mano suavizada)
       this.held = held;
       for (let i = 0; i < SEGS.length; i++) {
