@@ -152,7 +152,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 29 · Registro de diagnóstico** (los últimos 30 s de las manos, el rayo, las teclas y los tirones, para arreglar con datos de las gafas) — #36
 - [x] **PR 30 · Las manos de RepArena** (opción B del usuario: la lectura, el suavizado, los saltos imposibles, la mano perdida con el cuerpo, el pellizco y el filtro `HF`) — #37
 - [x] **PR 31 · Los menús de RepArena enteros** (opción B: sus paneles, sus teclas planas pintadas y su pulsación con imán, sólida y pegada, el menú de muñeca, el atril y el teclado de números; sustituyen a los de UIKitML) — #38
-- [ ] **PR 32 · Cuatro arreglos vistos en las gafas** (el menú de música ya no se rehace cada 5 s y los menús suben sus texturas antes de pintarse; los mandos de Spotify, otra vez en el menú principal; en los ejercicios de suelo el mundo se orienta hacia tu cuerpo al calibrar; en la plancha con un brazo, el rayo sale de la mano levantada)
+- [x] **PR 32 · Cuatro arreglos vistos en las gafas** (el menú de música ya no se rehace cada 5 s y los menús suben sus texturas antes de pintarse; los mandos de Spotify, otra vez en el menú principal; en los ejercicios de suelo el mundo se orienta hacia tu cuerpo al calibrar; en la plancha con un brazo, el rayo sale de la mano levantada) — #39
 
 ## Los PR
 
