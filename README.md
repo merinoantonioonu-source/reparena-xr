@@ -227,7 +227,8 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/ui/fit.ts`, `src/ui/fit-text.ts` | Que las letras quepan en sus botones y cajas: encoge la que no cabe (la fila entera a la vez) en los paneles que se ven |
 | `src/ui/menu.ts` | Los menús en VR: el principal, Opciones y la explicación de cada ajuste; dónde salen y la nitidez |
 | `src/ui/fields.ts` | Lo que enseñan los menús de cada ajuste y lo que hace tocarlo, las pestañas y la ficha de la ronda, sin IWSDK |
-| `src/input/hand-system.ts` | Las manos y los mandos en cada fotograma (lo que da IWSDK, en `hands` y `head`), la vibración y «Mandos como manos» |
+| `src/input/hand-system.ts` | Las manos y los mandos en cada fotograma (leídos como en RepArena, en `hands` y `head`), el cuerpo para las manos perdidas, la vibración y «Mandos como manos» |
+| `src/input/hand-filter.ts` | La lectura de las manos de RepArena: el suavizado para pintarlas, los saltos imposibles, la mano perdida (su gesto o el cuerpo) y el filtro `HF` de las dos manos en la pesa |
 | `src/input/hand-model.ts` | Lo que el juego sabe de cada mano (muñeca, articulaciones, pellizco, gatillo, agarre, rayo) y el puño |
 | `src/input/throw.ts` | La sacudida que lanza el rayo y el gatillo con mandos como manos (los de RepArena), sin IWSDK |
 | `src/input/gaze-lock.ts`, `src/input/punch.ts`, `src/input/target.ts` | La mirada que fija al enemigo, el puñetazo y lo que ven de cada enemigo (de RepArena, sin IWSDK) |

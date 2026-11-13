@@ -19,6 +19,9 @@ export interface Joint {
   ok: boolean;
   /** Su grosor (el radio que dan las gafas; para pintar los guantes). */
   r: number;
+  /** La posición y el giro suavizados, para pintarla (RepArena: J.s, J.sq; src/input/hand-filter.ts). El juego usa p y q. */
+  s: Vector3;
+  sq: Quaternion;
 }
 
 export interface Hand {
@@ -34,6 +37,13 @@ export interface Hand {
   /** La punta del índice (con mandos, un poco por delante del mando). */
   tip: Vector3;
   tipOk: boolean;
+  /** La punta del índice que se ve (suavizada; RepArena: tipS, tipSm). */
+  tipS: Vector3;
+  tipSm: boolean;
+  /** La mano que calcula el juego al perderla (RepArena: h.est): 'pred', sigue su gesto; 'body', la coloca el cuerpo. No se
+   * pinta ni pulsa menús. back: el fotograma en que las cámaras la vuelven a ver tras una colocada por el cuerpo. */
+  est: 'pred' | 'body' | null;
+  back: boolean;
   /** Pellizco (el de IWSDK: el «select» de la mano); con las manos, pellizcar es el gatillo. */
   pinch: boolean;
   trig: boolean;
@@ -53,7 +63,7 @@ export interface Hand {
   lostT: number;
 }
 
-const mkJoint = (): Joint => ({ p: new Vector3(), q: new Quaternion(), ok: false, r: 0.009 });
+const mkJoint = (): Joint => ({ p: new Vector3(), q: new Quaternion(), ok: false, r: 0.009, s: new Vector3(), sq: new Quaternion() });
 
 export function mkHand(): Hand {
   return {
@@ -64,6 +74,10 @@ export function mkHand(): Hand {
     wristQ: new Quaternion(),
     tip: new Vector3(),
     tipOk: false,
+    tipS: new Vector3(),
+    tipSm: false,
+    est: null,
+    back: false,
     pinch: false,
     trig: false,
     grip: false,

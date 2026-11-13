@@ -36,9 +36,10 @@ export function punchStep(dt: number, on: boolean, targets: Iterable<PunchTarget
   for (const s of SIDES) {
     const h = hands[s], P = PUNCH[s];
     P.cd -= dt;
-    if (!h.ok) {
+    if (!h.ok || h.back) {
+      // (al volver tras una mano calculada, el salto no es un puñetazo: RepArena)
       P.ok = false;
-      continue;
+      if (!h.ok) continue;
     }
     if (!P.ok) {
       P.last.copy(h.wrist);

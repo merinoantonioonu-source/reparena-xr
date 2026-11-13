@@ -19,7 +19,9 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
   de RepArena: la migración es precisamente para ver si así se van los problemas que tenía RepArena. IWSDK prima en todas
   las soluciones. De RepArena se porta lo que IWSDK no trae (la lógica del juego). Si en las gafas un problema vuelve, se
   busca primero lo que ofrezca IWSDK y, si no hay nada, se le proponen al usuario los apaños de RepArena; si la solución
-  de IWSDK tiene un fallo, se arregla lo mínimo y se apunta en `MIGRACION.md` › Fallos de IWSDK.
+  de IWSDK tiene un fallo, se arregla lo mínimo y se apunta en `MIGRACION.md` › Fallos de IWSDK. **Excepción (PR 30,
+  decidida por el usuario: opción B): las manos y los menús son los de RepArena enteros** (IWSDK no especifica cómo deben
+  comportarse y lo de serie iba peor).
 
 ## Dónde está cada cosa
 
@@ -28,7 +30,7 @@ objetivo es **hacer ejercicio**: cada mecánica tiene que pedir movimiento real 
 | `src/index.ts` | Arranca el mundo y registra los sistemas (detrás de la física: leen las posiciones ya calculadas) |
 | `src/assets.ts`, `src/components.ts`, `src/scene-assets/` | Los catálogos de IWSDK: recursos, componentes y objetos hechos en código |
 | `src/core/` | Lo común: el estado compartido de la partida y los ajustes (los de RepArena: esquema, guardado, rangos) |
-| `src/input/` | Manos, mandos y gestos: lo que da IWSDK, pasado a `hands` y `head` (`hand-system.ts`), y la lógica pura de RepArena (sacudida, mirada, puñetazo), con pruebas |
+| `src/input/` | Manos, mandos y gestos, como en RepArena (opción B del usuario): leídos en `hands` y `head` (`hand-system.ts`), su suavizado, la mano perdida y el filtro `HF` (`hand-filter.ts`), y la sacudida, la mirada y el puñetazo, con pruebas |
 | `src/exercise/` | Los detectores de repeticiones (`StandingDetector`: los de pie): lógica pura (sin IWSDK), con pruebas y comparados con RepArena |
 | `src/combat/` | El modo Combate: la partida, los enemigos, las compuertas, los efectos y sus componentes |
 | `src/style/` | El estilo Cómic: sombreado, contornos de tinta y efectos (se aplica solo a lo que aparece en la escena) |
@@ -51,7 +53,8 @@ tabla de `README.md` dice qué hace cada archivo.
 - **Manos y mandos**: el juego lee `hands.left/right` y `head` (`src/input/hand-model.ts`): si se ve, la muñeca, las 25
   articulaciones (tal como las dan las gafas), el pellizco, el gatillo, el agarre, el rayo de apuntar y si el mando va
   como una mano (`virt`). Los llena `HandSystem` (`src/input/hand-system.ts`, justo detrás de la entrada de IWSDK) en cada
-  fotograma. La vibración, con `haptic(lado, fuerza, ms)`. Los mandos que se ven son los de IWSDK; las manos desnudas, los guantes de
+  fotograma, como RepArena (`src/input/hand-filter.ts`): lo que se pinta y pulsa menús va con la mano suavizada (`J.s`,
+  `J.sq`, `tipS`); una mano calculada al perderla (`h.est`) no se pinta ni pulsa; `h.back`, el fotograma en que reaparece. La vibración, con `haptic(lado, fuerza, ms)`. Los mandos que se ven son los de IWSDK; las manos desnudas, los guantes de
   RepArena (`GloveSystem`) o la mano de IWSDK opaca (`SkinHand`), según «Manos que se ven»; la que agarra el mando, la de IWSDK
   opaca. La mano que se ve se apoya en los paneles (`HOLD`, `src/ui/solid-keys.ts`): lo que pinte manos nuevas, que lo sume.
 - **Datos**: RepArena guarda todo en el navegador con claves `reparena3-*`, y las dos versiones comparten esos datos (se

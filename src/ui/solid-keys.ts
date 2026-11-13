@@ -180,7 +180,7 @@ export class SolidKeysSystem extends createSystem({ poke: { required: [PokeInter
       tp.clickThresholdMs = -1;
       tp.hoverRadius = OUT;
       this.want.set(0, 0, 0);
-      const real = inXR && h.ok;
+      const real = inXR && h.ok && !h.est; // (la mano que calcula el juego al perderla no pulsa: RepArena)
       if (real) xi.xrOrigin.indexTipSpaces[s].getWorldPosition(this.tip);
       // el panel bajo el punto de toque (el más cercano por delante)
       let F0: Face | null = null, f0 = Infinity;

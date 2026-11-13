@@ -835,7 +835,7 @@ export class MenuSystem extends createSystem({}, {}) {
   // ¿Te miras la muñeca izquierda? (el dorso o la palma hacia la cara; con mando, levantado delante) (RepArena: wristLook)
   private wristLook(): boolean {
     const h = hands.left;
-    if (!h.ok) return false;
+    if (!h.ok || h.est) return false; // (una mano calculada, perdida para las cámaras, no saca el botón: RepArena)
     const d = h.wrist.distanceTo(head.p);
     if (h.virt || !h.J.length || !h.J[0].ok) return d < 0.65 && h.wrist.y < head.p.y - 0.1;
     this.wu.set(0, 1, 0).applyQuaternion(h.wristQ);

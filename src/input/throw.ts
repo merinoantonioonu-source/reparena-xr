@@ -295,6 +295,15 @@ export function throwStep(dt: number, t: number, env: ThrowEnv): void {
     const lostFor = T.lost;
     T.lost = 0;
     T.cool = Math.max(0, T.cool - dt);
+    if (h.back) {
+      // vuelve a verse tras una mano colocada por el cuerpo: la sacudida que llevaba sale con lo recorrido; el salto hasta la
+      // de verdad no es otra (RepArena)
+      if (T.have && T.burst) throwTry(s, T.last, _thd.subVectors(T.lastR, T.from), env);
+      T.have = false;
+      T.burst = false;
+      T.hist.clear();
+      T.gone.set(0, 0, 0);
+    }
     _thr.set(h.wrist.x - head.p.x, h.wrist.y, h.wrist.z - head.p.z);
     T.last.copy(h.wrist);
     T.lastR.copy(_thr);
