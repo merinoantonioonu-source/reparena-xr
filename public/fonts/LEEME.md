@@ -20,5 +20,5 @@ los `.ttf` de los paquetes `@expo-google-fonts/rubik` y `@expo-google-fonts/bung
 `áéíóúÁÉÍÓÚñÑüÜ¿¡×·—–…ºª€«»“”‘’•°→←↑↓▶`. Si hace falta otro carácter, hay que volver a generarlas.
 
 Después se les añadieron, como copias de otros que sí tienen (en la lista de caracteres del `.json`, con su mismo dibujo):
-`−` (el de `–`), `▸` (`▶`), `◀` y `◂` (`←`), `›` (`»`), `‹` (`«`) y `✔` (`✓`); sin ellos, en los botones salía un punto («Vol −»,
-«Listas y canciones ▸»).
+`−` (el de `–`), `▸` (`▶`), `◀` y `◂` (`←`), `›` (`»`), `‹` (`«`), `✔` (`✓`), `≈` (`~`), `▲` (`↑`), `▼` (`↓`) y `✕` (`×`); sin ellos, en los botones salía un punto («Vol −»,
+«Listas y canciones ▸»). La prueba `tests/unit/glyphs.test.ts` avisa si un panel o un menú escribe un carácter que no tienen.

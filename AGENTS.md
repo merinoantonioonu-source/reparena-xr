@@ -117,6 +117,9 @@ tabla de `README.md` dice qué hace cada archivo.
   ponen al cargar (`src/ui/fonts.ts`). En el UIKitML solo se pueden nombrar letras de IWSDK: los títulos llevan la clase
   `display` y el código les pone Bungee. Las letras se encogen solas si no caben (`src/ui/fit.ts`; un panel nuevo, en `PANELS`
   de `src/ui/fit-text.ts`); un carácter que no esté en las letras sale como un punto (ver su `LEEME.md`).
+- **Diagnóstico** (`src/core/diag.ts`, `src/ui/diag-system.ts`): los últimos 30 s de las manos, el rayo, las teclas y los
+  tirones; se guarda al salir de la VR y desde la pausa, y la página lo copia. Para un fallo de las gafas, pídeselo al usuario
+  antes de arreglar nada; lo nuevo que convenga seguir, con `diagEvent`.
 - Los modelos de las manos y los mandos se sirven desde el juego (`public/input-profiles`, `src/input/input-models.ts`).
 - **Entornos** (`src/env/`): `EnvSystem` pone el fondo realista como `DomeTexture` de IWSDK en la raíz del nivel (`ajustes pano`) y las luciérnagas (`motes`); `Scenery` pinta el bosque o la isla (`scenery`) con instancias; dónde va cada modelo, `placement.ts`. El fondo realista y el entorno de día esconden el valle, las nubes y el suelo de cómic; Barras colgado (de noche, `nightForest`) los aparta.
 - **Estilo Cómic** (el de serie): `ComicSystem` (`src/style/`) prepara todo lo que aparece con material estándar: su

@@ -16,6 +16,7 @@ import { GameSystem } from './combat/game.js';
 import { GateSystem } from './combat/gates.js';
 import { HandSystem } from './input/hand-system.js';
 import { GloveSystem } from './input/glove-system.js';
+import { DiagSystem } from './ui/diag-system.js';
 import { FitTextSystem } from './ui/fit-text.js';
 import { SolidKeysSystem } from './ui/solid-keys.js';
 import { PerfStartSystem, PerfSystem } from './ui/perf-system.js';
@@ -57,6 +58,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(ComicSystem, { priority: 7 });
   world.registerSystem(SoundSystem, { priority: 8 });
   world.registerSystem(FitTextSystem, { priority: 8 }); // (que las letras quepan en sus botones)
+  world.registerSystem(DiagSystem, { priority: 99 }); // (el registro de diagnóstico: lo que pasó en los últimos 30 s)
   world.registerSystem(PerfSystem, { priority: 100 }); // (el medidor y el registro de tirones: después de todo)
   pageWorld(world);
 });

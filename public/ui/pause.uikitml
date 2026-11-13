@@ -63,4 +63,5 @@
   <button id="p-recal" class="btn"><span class="bt display">RECOLOCARME</span></button>
   <button id="p-end" class="btn"><span class="bt display">TERMINAR RONDA</span></button>
   <button id="p-menu" class="btn"><span class="bt display">MENÚ PRINCIPAL</span></button>
+  <button id="p-diag" class="btn"><span class="bt display">GUARDAR DIAGNÓSTICO</span></button>
 </div>

@@ -223,6 +223,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/duel.ts` | Quién es el jefe de la ronda y tu récord, para la carátula del duelo |
 | `src/input/thumbs.ts` | El pulgar arriba y los botones del mando recién pulsados (saltar la carátula) |
 | `src/ui/fonts.ts` | Pone las letras de RepArena (con tildes) en los paneles |
+| `src/core/diag.ts`, `src/ui/diag-system.ts`, `src/ui/key-name.ts` | El registro de diagnóstico: los últimos 30 s de las manos, el rayo, las teclas y los tirones; se guarda al salir de la VR o desde la pausa, y la página lo copia o descarga |
 | `src/ui/fit.ts`, `src/ui/fit-text.ts` | Que las letras quepan en sus botones y cajas: encoge la que no cabe (la fila entera a la vez) en los paneles que se ven |
 | `src/ui/menu.ts` | Los menús en VR: el principal, Opciones y la explicación de cada ajuste; dónde salen y la nitidez |
 | `src/ui/fields.ts` | Lo que enseñan los menús de cada ajuste y lo que hace tocarlo, las pestañas y la ficha de la ronda, sin IWSDK |
