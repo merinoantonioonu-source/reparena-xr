@@ -28,6 +28,7 @@ import { useLocalInputModels } from './input/input-models.js';
 import { devInit } from './core/dev.js';
 import { initSettings } from './core/settings.js';
 import { pageWorld, startPage } from './page/page.js';
+import { texUploadHook } from './style/tex-upload.js';
 
 // tus ajustes (los mismos que en RepArena: se comparten) y las manos y mandos desde el propio juego, antes de crear el mundo
 initSettings();
@@ -36,6 +37,7 @@ useLocalInputModels();
 startPage(); // (la página: se ve en cuanto carga, sin esperar a la escena)
 
 World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
+  texUploadHook(world.renderer, world.scene); // (los dibujos que cambian, subidos antes de pintar: src/style/tex-upload.ts)
   world.registerSystem(PerfStartSystem, { priority: -100 }); // (el medidor: cuándo empieza el fotograma)
   world.registerSystem(HandSystem, { priority: 4 });
   world.registerSystem(GateSystem, { priority: 4 });

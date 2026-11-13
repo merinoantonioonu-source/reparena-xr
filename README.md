@@ -165,6 +165,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/style/comic.ts`, `src/style/comic-system.ts` | El estilo Cómic: el sombreado, los colores y los contornos de tinta, y el sistema que lo aplica a todo |
 | `src/core/hitch.ts`, `src/ui/perf-system.ts` | El registro de tirones (de RepArena) y el medidor de fotogramas: qué congela la imagen y cuántos fotogramas se pierden |
 | `src/style/warm.ts` | Precompilar los sombreadores: en el menú, de uno en uno; lo que falte, al empezar la ronda con la carátula ya en negro (que nada nuevo dé un tirón en plena partida ni al pulsar EMPEZAR) |
+| `src/style/tex-upload.ts` | Los dibujos que cambian (lienzos e imágenes) se suben a la tarjeta gráfica al empezar cada fotograma, no con la imagen de las gafas abierta (el menú perdía trozos al mover un deslizador) |
 | `src/style/comic-fx.ts` | Los efectos de cómic: líneas de impacto y estrella al derribar |
 | `src/scene-assets/gate.scene-asset.ts` | La compuerta (hecha en código) |
 | `src/scene-assets/comic-valley.scene-asset.ts`, `src/scene-assets/comic-sky.scene-asset.ts` | El valle de dibujo y las nubes |
@@ -226,7 +227,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/ui/fonts.ts` | Pone las letras de RepArena (con tildes) en los paneles |
 | `src/core/diag.ts`, `src/ui/diag-system.ts`, `src/ui/key-name.ts` | El registro de diagnóstico: los últimos 30 s de las manos, el rayo, las teclas y los tirones; se guarda al salir de la VR o desde la pausa, y la página lo copia o descarga |
 | `src/ui/fit.ts`, `src/ui/fit-text.ts` | Que las letras quepan en sus botones y cajas: encoge la que no cabe (la fila entera a la vez) en los paneles que se ven |
-| `src/ui/ra/` | Los menús de RepArena enteros (opción B del usuario): `kit.ts` (los paneles pintados y sus dibujos), `btn.ts` (las teclas planas y el deslizador), `poke.ts` (pulsar con el dedo: sólidas, pegadas, con imán), `menu-core.ts` (openMenu, el teclado de números, la «?», el atril, la muñeca y su botón MENÚ), `menus.ts` (el principal, Opciones, la pausa, el resumen y las cartas), `career-draw.ts` y `summary-draw.ts` (los dibujos de la carrera y del resumen) y `menu-system.ts` (cada fotograma, el rayo de IWSDK y la nitidez) |
+| `src/ui/ra/` | Los menús de RepArena enteros (opción B del usuario): `kit.ts` (los paneles pintados y sus dibujos), `btn.ts` (las teclas planas y el deslizador, que se mueve sin repintarse), `poke.ts` (pulsar con el dedo: sólidas, pegadas, con imán), `menu-core.ts` (openMenu, el teclado de números, la «?», el atril, la muñeca y su botón MENÚ), `menus.ts` (el principal, Opciones, la pausa, el resumen y las cartas), `career-draw.ts` y `summary-draw.ts` (los dibujos de la carrera y del resumen) y `menu-system.ts` (cada fotograma, el rayo de IWSDK y la nitidez) |
 | `src/ui/fields.ts` | Lo que enseñan los menús de cada ajuste y lo que hace tocarlo, las pestañas y la ficha de la ronda, sin IWSDK |
 | `src/input/hand-system.ts` | Las manos y los mandos en cada fotograma (leídos como en RepArena, en `hands` y `head`), el cuerpo para las manos perdidas, la vibración y «Mandos como manos» |
 | `src/input/hand-filter.ts` | La lectura de las manos de RepArena: el suavizado para pintarlas, los saltos imposibles, la mano perdida (su gesto o el cuerpo) y el filtro `HF` de las dos manos en la pesa |

@@ -115,6 +115,9 @@ tabla de `README.md` dice qué hace cada archivo.
   vive en `#stage`, escondida tras la página; «Probar en el ordenador» y VR la enseñan. En el móvil (`html.app`, que pone
   el `<head>`), la página es una app (`src/page/app.ts`). Lo que llega con PR posteriores (Spotify, sesiones, sincronización,
   pulsómetro, tabla del desarrollador) añade su apartado con su `id`.
+- **Dibujos que cambian** (lienzos): `texUploadHook` (`src/style/tex-upload.ts`) los sube al empezar el fotograma (en las
+  gafas, IWSDK los subía con la imagen abierta y el menú perdía trozos). Aun así, no repintes un lienzo en cada fotograma ni
+  para iluminar algo: mueve piezas o cambia el color del material (las teclas planas, el deslizador).
 - **Tirones**: lo que se pinta por primera vez compila su sombreador y la imagen se para un instante en las gafas. Antes de cada
   ronda, lo de `warmKeep` (`src/style/warm.ts`) se compila de uno en uno en el menú y lo que falte, con la carátula del duelo
   ya en negro; nada pesado en el fotograma de EMPEZAR (la imagen se congelaba y seguía a la cabeza). No crees materiales en
