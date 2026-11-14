@@ -15,7 +15,7 @@ import { BEAT, MOTES } from '../core/beat-hub.js';
 import { moteBpm } from '../core/beat.js';
 import { bpm as bpmSvc, spotify } from '../services/hub.js';
 import { settings } from '../core/values.js';
-import { GAME } from '../core/state.js';
+import { GAME, LITE } from '../core/state.js';
 import { head } from '../input/hand-model.js';
 
 const TAU = Math.PI * 2;
@@ -137,6 +137,7 @@ export class EnvSystem extends createSystem({}) {
     if (!this.floor.length) this.floor = ['arena-floor', 'comic-valley', 'comic-clouds'].map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is Object3D => !!o);
     const on = this.scenery.visible;
     if (!night) for (const o of this.floor) o.visible = !on && !(this.panoWanted() && o !== this.floor[0]);
+    this.scenery.lite(LITE.on); // (con un menú abierto en las gafas, sin el bosque: va más fluido)
     this.scenery.update(dt, time, head.p, (at, isl) => (isl ? SND.gull(this.tmp.copy(at)) : SND.bird(this.tmp.copy(at))));
   }
 

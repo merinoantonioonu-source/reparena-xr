@@ -84,8 +84,10 @@ tabla de `README.md` dice qué hace cada archivo.
   en cada fotograma, en `RaMenuSystem` (`menu-system.ts`). La partida y el menú se avisan con `HOOKS.startRound`,
   `HOOKS.showMenu`, `HOOKS.hideMenu`, `HOOKS.showSummary`, `HOOKS.pause`/`resume`, `HOOKS.perksOpen`/`perksClose` y
   `HOOKS.openScreen` (una pantalla de filas: la música, pasar datos…); `GAME.menu` dice cuál se ve (en pausa, `GAME.paused`
-  para a todos). Un panel de menú nuevo, con su `menuOccluder`, sus texturas subidas al hacerlo (`upTex`) y, si es un fondo,
-  sacado de `poolPanel` (se reutiliza al rehacer el menú); las teclas no crean lienzo si no se pintan (`lazyPanel`). Lo que cambia en
+  para a todos). Un panel de menú nuevo, con su `menuOccluder` y sus texturas subidas al hacerlo (`upTex`). La bandeja es de
+  formas de color liso (`plate`, `ring`) y sus textos, dibujos guardados (`cachedQuad`): rehacer un menú no pinta ni sube nada;
+  las teclas, sin relieve (modelo A del usuario), no crean lienzo si no se pintan (`lazyPanel`). Con un menú abierto en las
+  gafas, `LITE.on` aligera la escena (sin bosque ni enemigos). Lo que cambia en
   Spotify lo reparte `spSync` (`HOOKS.spChanged`): pone al día sin rehacer el menú si no cambia lo que enseña (`musicSig`).
 - **Enemigos**: cada uno sale de su fila en `FOE_DEF` (`src/combat/foes.ts`: su modelo del catálogo, tamaño, nombres de sus
   animaciones —`idle`, `walk`, `run`, `attack`, `hit`, `death`, `dance`—, cuándo empieza y llega su golpe, su voz); su
@@ -98,6 +100,9 @@ tabla de `README.md` dice qué hace cada archivo.
   RepArena) pidiendo velocidad a la física; su reloj de gestos va a su `pace`; sin contorno de tinta, `noInk` en su fila.
 - **Oleadas** (`src/combat/waves.ts`, de RepArena): `buildWave` da la cola de cada oleada con los nombres de RepArena
   (`impthrow`, `zombieboss`…); `xrFoe` dice cuál es aquí y si es jefe (`bossDef`). Los puntos y el combo, en `GAME`.
+- **Paneles informativos** (el marcador, `src/ui/board-draw.ts`; el aviso del centro, el breve, el del suelo, la carga, la
+  oleada y el logro, `src/ui/info-draw.ts`): lienzos como en RepArena (no UIKit: el texto se salía), que se repintan solo si
+  cambia lo que enseñan; cada texto, con `fitFont`.
 - **Avisos de la vista** (`ViewSystem`, `src/ui/view-panels.ts`; dónde, `src/ui/view.ts`, de RepArena): siguen la mirada
   sin ladearse nunca; tumbado, en el suelo bajo la cara; en partida, fijos; sin prueba de profundidad y apartándose de lo
   que viene. Lo que pide hacer algo ya va al aviso breve (`message(…, true)`, `HOOKS.say(…, true)`, `HOOKS.toast`); las

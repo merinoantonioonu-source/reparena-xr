@@ -247,7 +247,7 @@ No las cambies sin preguntarle.
   también (el fondo y los huecos entre teclas). Y tienen **imán** (opción B elegida): la iluminada sigue iluminada hasta que
   el dedo sale de ella más de 1 cm, la mano que se ve se acerca a ella y, al tocarla, se queda clavada donde tocó; decide la
   punta suavizada (la que se ve) y el barrido de lado se juzga por el movimiento de ~0,1 s, no por un fotograma.
-- **[PR 31: las teclas planas de RepArena enteras, con su caché (opción B del usuario; `src/ui/ra/btn.ts`)]** Las teclas son **planas** (opción B del usuario; `flatKeys`, `src/60_ui.js`): cada una, un solo panel con su cara de
+- **[PR 36: modelo A elegido por el usuario: sin relieve de ningún tipo —color liso, sin luz ni sombra ni borde de tinta, sin sombra en la bandeja— y la bandeja, de color liso sin trama; los textos y las teclas, dibujos guardados que no se repintan al pulsar]** **[PR 31: las teclas planas de RepArena enteras, con su caché (opción B del usuario; `src/ui/ra/btn.ts`)]** Las teclas son **planas** (opción B del usuario; `flatKeys`, `src/60_ui.js`): cada una, un solo panel con su cara de
   color, su borde y su texto, que flota un poco sobre la bandeja con su sombra. **No se hunden** (pedido del usuario: al
   pulsar, el menú se rehace y la tecla nueva salía sin hundir, con el dedo dentro): con el dedo delante se aclara, tocada
   brilla y, al pulsar, destella con un fogonazo de luz donde está el dedo; nada de eso repinta el panel (solo su color).

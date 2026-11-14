@@ -8,14 +8,14 @@
  *    teclas salen iguales; pintarlas y subirlas otra vez dejaba la imagen congelada en las gafas.
  *  - El deslizador de los números: su ranura, su relleno rosa y su bolita.
  */
-import { CanvasTexture, MeshBasicMaterial, SRGBColorSpace } from '@iwsdk/core';
+import { CanvasTexture, Mesh as MeshObj, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace } from '@iwsdk/core';
 import type { Mesh } from '@iwsdk/core';
 import type { FieldDef } from '../../core/schema.js';
 import { clampSetting } from '../../core/settings.js';
 import { settings } from '../../core/values.js';
 import { SND } from '../../audio/sound.js';
 import { clamp, FB, fitFont, mkCanvas, rr, TAU } from '../canvas-kit.js';
-import { comicOn, drawFoeCard, drawIcon, drawRank, hexDim, keyc, lazyPanel, makePanel, STY, type FoeCard, type LazyPanel, type RaPanel } from './kit.js';
+import { comicOn, drawFoeCard, drawIcon, drawRank, hexDim, keyc, lazyPanel, STY, type FoeCard, type LazyPanel, type RaPanel } from './kit.js';
 
 /** Lo que flota la tecla sobre la bandeja, en metros reales. */
 export const KEY_H = 0.012;
@@ -33,6 +33,8 @@ export interface BtnOpts {
   tint?: string;
   card?: FoeCard;
   paint?: (c: CanvasRenderingContext2D, W: number, H: number, tc: string) => void;
+  /** Con paint: lo que dibuja, en texto (si es igual, se reutiliza el dibujo guardado en vez de pintarlo otra vez). */
+  psig?: string;
   fill?: string;
   depthTest?: boolean;
 }
@@ -124,6 +126,33 @@ function ownMap(w: Btn): void {
   w.mesh.userData.ownTex = undefined;
   w.sig = '';
 }
+/** Un dibujo guardado cualquiera (un texto de la bandeja, la ranura del deslizador…): el de esa firma si ya se pintó; si
+ * no, se pinta una vez (paint, en un lienzo de W × H px). Cuenta como usado hasta que se suelta con `keyFree` (lo hace
+ * `disposeTree` al quitar el menú). Así, rehacer un menú igual no pinta ni sube nada. */
+export function cachedTex(sig: string, W: number, H: number, paint: (c: CanvasRenderingContext2D, W: number, H: number) => void): CanvasTexture {
+  let e = KEYTEX.get(sig);
+  if (!e) {
+    const c = mkCanvas(Math.max(2, Math.round(W)), Math.max(2, Math.round(H))), ctx = c.getContext('2d')!, tex = new CanvasTexture(c) as KeyTex['tex'];
+    tex.colorSpace = SRGBColorSpace;
+    tex.anisotropy = 8;
+    e = { c, ctx, tex, refs: 0, t: 0 };
+    tex._keyc = e;
+    paint(ctx, c.width, c.height);
+    KEYTEX.set(sig, e);
+    keycTrim();
+  }
+  e.refs++;
+  e.t = performance.now();
+  return e.tex;
+}
+/** Un plano con un dibujo guardado (sin contorno ni rayo propio). */
+export function cachedQuad(sig: string, w: number, h: number, pxPerM: number, paint: (c: CanvasRenderingContext2D, W: number, H: number) => void): Mesh {
+  const tex = cachedTex(sig + '|' + Math.round(w * pxPerM) + 'x' + Math.round(h * pxPerM), w * pxPerM, h * pxPerM, paint);
+  const m = new MeshObj(new PlaneGeometry(w, h), new MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.04, toneMapped: false, fog: false }));
+  m.userData.noInk = true;
+  m.raycast = () => {};
+  return m;
+}
 /** Suelta una textura guardada (al quitar el menú); devuelve si lo era. */
 export function keyFree(tex: unknown): boolean {
   const e = (tex as KeyTex['tex'] | null)?._keyc;
@@ -159,6 +188,7 @@ export class Btn implements Widget {
   tint?: string;
   card?: FoeCard;
   paint?: BtnOpts['paint'];
+  psig?: string;
   fill?: string;
   p: RaPanel;
   /** Su propio lienzo (solo se crea si se pinta en él: las planas llevan el dibujo guardado de otra igual). */
@@ -198,6 +228,7 @@ export class Btn implements Widget {
     this.tint = o.tint;
     this.card = o.card;
     this.paint = o.paint;
+    this.psig = o.psig;
     this.fill = o.fill;
     this.p = this.own = lazyPanel(w, h, Math.round(clamp(KEY_PXM * w, 256, 2048)), { depthTest: o.depthTest });
     this.mesh = this.p.mesh;
@@ -215,7 +246,7 @@ export class Btn implements Widget {
     return '#' + this.body().toString(16).padStart(6, '0');
   }
   sig2(): string {
-    return [this.label, this.style, this.p.W, this.p.H, this.font, this.accent, this.icon, this.badge, !!this.fill, comicOn(), this.hex()].join('|');
+    return [this.label, this.style, this.p.W, this.p.H, this.font, this.accent, this.icon, this.badge, !!this.fill, comicOn(), this.hex(), this.psig ?? ''].join('|');
   }
 
   setLabel(l: string, style?: string): void {
@@ -228,30 +259,21 @@ export class Btn implements Widget {
   }
 
   draw(): void {
-    if (this.flat === true && !this.paint && !this.card) {
+    if (this.flat === true && !this.card && (!this.paint || this.psig !== undefined)) {
       keyCached(this); // (ya pintada igual en otro menú: la misma textura)
       return;
     }
     const c = this.p.ctx, W = this.p.W, H = this.p.H;
     if (this.p === this.own) ownMap(this);
     if (this.flat) {
-      // tecla plana: su cara de color con el borde (en cómic, de tinta) y lo que va impreso encima
+      // tecla plana (modelo A del usuario): su cara de color liso, sin relieve (sin luz ni sombra ni borde de tinta), y lo que
+      // va impreso encima
       const tc = this.fill ? (this.style === 'selected' ? '#1a0716' : '#ffffff') : keyc(this.style)[1];
       c.clearRect(0, 0, W, H);
-      const ink = comicOn(), lw = Math.max(3, H * (ink ? 0.055 : 0.03)), r = Math.min(H * 0.26, 26);
-      rr(c, lw / 2 + 1, lw / 2 + 1, W - lw - 2, H - lw - 2, r);
+      const r = Math.min(H * 0.22, 22);
+      rr(c, 2, 2, W - 4, H - 4, r);
       c.fillStyle = this.hex();
       c.fill();
-      const g = c.createLinearGradient(0, 0, 0, H); // (un poco de luz arriba y de sombra abajo: se lee como tecla)
-      g.addColorStop(0, 'rgba(255,255,255,0.22)');
-      g.addColorStop(0.35, 'rgba(255,255,255,0)');
-      g.addColorStop(0.75, 'rgba(0,0,0,0)');
-      g.addColorStop(1, 'rgba(0,0,0,0.18)');
-      c.fillStyle = g;
-      c.fill();
-      c.lineWidth = lw;
-      c.strokeStyle = ink ? '#1b1222' : 'rgba(0,0,0,0.45)';
-      c.stroke();
       c.fillStyle = tc;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
@@ -273,19 +295,12 @@ export class Btn implements Widget {
       this.p.tex.needsUpdate = true;
       return;
     }
-    // la de relieve (el botón MENÚ de la muñeca)
+    // la del botón MENÚ de la muñeca (se repinta al tocarla; también lisa)
     const s = STY[this.style] || STY.normal;
     c.clearRect(0, 0, W, H);
     rr(c, 4, 4, W - 8, H - 8, Math.min(H * 0.28, 28));
     c.fillStyle = this.hover ? (this.down ? '#e0b44e' : '#ffd166') : s[0];
-    c.fill();
-    const g = c.createLinearGradient(0, 4, 0, H - 4), a = this.down ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.2)', b = this.down ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.34)';
-    g.addColorStop(0, a);
-    g.addColorStop(0.18, 'rgba(0,0,0,0)');
-    g.addColorStop(0.8, 'rgba(0,0,0,0)');
-    g.addColorStop(1, b);
-    c.fillStyle = g;
-    c.fill();
+    c.fill(); // (sin relieve: color liso, modelo A del usuario)
     const acc = this.accent && this.style === 'normal' && !this.hover;
     if ((s[2] || acc) && !this.hover) {
       c.lineWidth = Math.max(3, H * 0.04);
@@ -347,27 +362,16 @@ const SLIDER_TOP = 21.5;
 /** La bolita, tocada o con el rayo encima: amarilla, #ffd166 (el color del material multiplica su blanco #eeeaff, en lineal). */
 const KNOB_HOT = [1.17, 0.775, 0.133] as const;
 
-/** Un plano pintado una vez (la bolita o el relleno del deslizador), hijo de la ranura y sin rayo propio. */
-function sliderPart(w: number, h: number, pxW: number, paint: (c: CanvasRenderingContext2D, W: number, H: number) => void): Mesh {
-  const p = makePanel(w, h, pxW);
-  paint(p.ctx, p.W, p.H);
-  p.tex.needsUpdate = true;
-  p.mesh.renderOrder = SLIDER_TOP;
-  p.mesh.raycast = () => {}; // (el rayo y el dedo, a la ranura: es la que dice qué valor es)
-  return p.mesh;
-}
-
 /**
- * El deslizador de los números: la ranura (con sus marcas) se pinta una sola vez; el relleno rosa y la bolita son planos
- * aparte que se mueven. Al arrastrarlo, o al pasar el rayo por encima, no se repinta ni se sube nada a la tarjeta gráfica:
- * repintarlo en cada paso hacía que el menú desapareciera a trozos en las gafas y la imagen fuera a saltos
- * (src/style/tex-upload.ts). Se ve igual que en RepArena (la bolita, amarilla con el dedo o el rayo encima).
+ * El deslizador de los números: la ranura (con sus marcas) y la bolita son dibujos guardados (los mismos para todos los
+ * deslizadores de esa medida: rehacer el menú no pinta ni sube nada) y el relleno rosa es un plano de color liso; el relleno y
+ * la bolita se mueven. Al arrastrarlo, o al pasar el rayo por encima, no se repinta nada (repintarlo hacía que el menú
+ * desapareciera a trozos en las gafas: src/style/tex-upload.ts). La bolita, amarilla con el dedo o el rayo encima.
  */
 export class Slider implements Widget {
   readonly kind = 'slider' as const;
   value: number;
   readonly pad = 0.012;
-  p: RaPanel;
   mesh: Mesh;
   hover = false;
   rayHover = false;
@@ -387,32 +391,46 @@ export class Slider implements Widget {
     readonly onDrag: (v: number, done: boolean) => void,
   ) {
     this.value = Number(settings[f.key]);
-    this.p = makePanel(w, h, Math.round(clamp(4200 * w, 256, 2048)));
-    this.mesh = this.p.mesh;
+    // la ranura hundida y sus marcas: un dibujo guardado por medida
+    const W = Math.round(clamp(4200 * w, 256, 2048)), H = Math.round((W * h) / w), padPx = (this.pad / w) * W;
+    const tex = cachedTex(`slider|${W}x${H}`, W, H, (c) => {
+      const y = H / 2, x0 = padPx, x1 = W - padPx;
+      rr(c, x0 - H * 0.12, y - H * 0.12, x1 - x0 + H * 0.24, H * 0.24, H * 0.12);
+      c.fillStyle = '#120e26';
+      c.fill();
+      c.lineWidth = 3;
+      c.strokeStyle = '#30284f';
+      c.stroke();
+      c.fillStyle = 'rgba(238,234,255,0.35)';
+      for (let i = 0; i <= 10; i++) c.fillRect(x0 + ((x1 - x0) * i) / 10 - 1, y + H * 0.2, 2, H * 0.1);
+    });
+    this.mesh = new MeshObj(new PlaneGeometry(w, h), new MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.04, toneMapped: false, fog: false }));
+    this.mesh.userData.noInk = true;
     this.mesh.userData.widget = this;
-    this.drawTrack();
-    // el relleno: una píldora rosa de punta a punta, de la que se enseña lo que toca (su final queda bajo la bolita)
+    // el relleno: un plano rosa liso que crece desde la izquierda (su final queda bajo la bolita)
     const r = h * 0.12, x0 = -w / 2 + this.pad, x1 = w / 2 - this.pad;
     this.fx0 = x0 - r;
     this.fLen = x1 - x0 + r * 2;
-    this.fill = sliderPart(this.fLen, r * 2, 1024, (c, W, H) => {
-      rr(c, 0, 0, W, H, H / 2);
-      c.fillStyle = '#ff4fa3';
-      c.fill();
-    });
-    this.fill.geometry.translate(this.fLen / 2, 0, 0); // (crece desde su punta izquierda)
-    this.fill.position.set(this.fx0, 0, 0.0008);
+    const fm = new MeshObj(new PlaneGeometry(1, r * 2), new MeshBasicMaterial({ color: 0xff4fa3, toneMapped: false, fog: false }));
+    fm.geometry.translate(0.5, 0, 0);
+    fm.userData.own = 'all';
+    fm.userData.noInk = true;
+    fm.raycast = () => {};
+    fm.renderOrder = SLIDER_TOP;
+    fm.position.set(this.fx0, 0, 0.0008);
+    this.fill = fm;
     // la bolita (con su borde de tinta): el tamaño de la de RepArena, un 30 % del alto a cada lado
     const kd = h * 0.68;
-    this.knob = sliderPart(kd, kd, 128, (c, W) => {
+    this.knob = cachedQuad('slider-knob', kd, kd, 128 / kd, (c, KW) => {
       c.beginPath();
-      c.arc(W / 2, W / 2, W * (0.3 / 0.68), 0, TAU);
+      c.arc(KW / 2, KW / 2, KW * (0.3 / 0.68), 0, TAU);
       c.fillStyle = '#eeeaff';
       c.fill();
-      c.lineWidth = Math.max(2, W * 0.035);
+      c.lineWidth = Math.max(2, KW * 0.035);
       c.strokeStyle = '#1a0716';
       c.stroke();
     });
+    this.knob.renderOrder = SLIDER_TOP;
     this.knob.position.z = 0.0016;
     this.mesh.add(this.fill, this.knob);
     this.place();
@@ -420,29 +438,10 @@ export class Slider implements Widget {
   frac(): number {
     return (this.value - this.f.min!) / (this.f.max! - this.f.min!);
   }
-  /** La ranura hundida y sus marcas (una vez). */
-  private drawTrack(): void {
-    const c = this.p.ctx, W = this.p.W, H = this.p.H, pad = (this.pad / this.w) * W, y = H / 2, x0 = pad, x1 = W - pad;
-    c.clearRect(0, 0, W, H);
-    rr(c, x0 - H * 0.12, y - H * 0.12, x1 - x0 + H * 0.24, H * 0.24, H * 0.12);
-    c.fillStyle = '#120e26';
-    c.fill();
-    c.lineWidth = 3;
-    c.strokeStyle = '#30284f';
-    c.stroke(); // (ranura hundida)
-    c.fillStyle = 'rgba(238,234,255,0.35)';
-    for (let i = 0; i <= 10; i++) {
-      const tx = x0 + ((x1 - x0) * i) / 10;
-      c.fillRect(tx - 1, y + H * 0.2, 2, H * 0.1);
-    }
-    this.p.tex.needsUpdate = true;
-  }
   /** Coloca el relleno y la bolita en el valor (sin repintar). */
   private place(): void {
     const r = this.h * 0.12, x = -this.w / 2 + this.pad + (this.w - this.pad * 2) * clamp(this.frac(), 0, 1), len = Math.max(r * 2, x + r - this.fx0);
-    this.fill.scale.x = len / this.fLen;
-    const t = (this.fill.material as MeshBasicMaterial).map!;
-    t.repeat.x = len / this.fLen; // (se enseña la parte izquierda de la píldora, sin estirarla)
+    this.fill.scale.x = len;
     this.knob.position.x = x;
   }
   /** La bolita, amarilla con el dedo o el rayo encima (solo cambia su color). */

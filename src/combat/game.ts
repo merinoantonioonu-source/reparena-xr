@@ -27,7 +27,6 @@ import {
   SphereGeometry,
   AlwaysDepth,
   BackSide,
-  UIKitMLAsset,
   Vector3,
   VisibilityState,
 } from '@iwsdk/core';
@@ -35,7 +34,6 @@ import { EnemySystem, type FoeTarget } from './enemies.js';
 import { GateSystem } from './gates.js';
 import { ComicFx } from '../style/comic-fx.js';
 import { LockLines } from './lockline.js';
-import { applyFonts } from '../ui/fonts.js';
 import { boltColor, Effects, POW_COL } from './fx.js';
 import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
@@ -50,6 +48,9 @@ import { BoardRing } from '../ui/board-ring.js';
 import { PAUSE_INFO } from '../ui/ra/menu-system.js';
 import { bodyYaw } from '../ui/ra/menu-core.js';
 import { menuBusy } from '../ui/ra/poke.js';
+import { comicOn, makePanel, type RaPanel } from '../ui/ra/kit.js';
+import { drawCharge, drawTrophy, drawWarn, drawWave } from '../ui/info-draw.js';
+import { BOARD_PX, drawBoard, type BoardView } from '../ui/board-draw.js';
 import { diagEvent } from '../core/diag.js';
 import { floorOrigin, recenterPose } from './recenter.js';
 import { lyingEx, VIEW_FRAME } from '../ui/view-panels.js';
@@ -74,7 +75,7 @@ import { dv, onSettingsChange, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setS
 import { EX_NAMES, EX_SHORT, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
-import { GAME, HOOKS, VIEW, type CenterInfo } from '../core/state.js';
+import { GAME, HOOKS, LITE, VIEW, type CenterInfo } from '../core/state.js';
 import { hands, head, headFwd, SIDES, type Side } from '../input/hand-model.js';
 import { BODY, haptic } from '../input/hand-system.js';
 import { HTH, throwCharge, throwReset, throwStep, type Charge, type ThrowEnv } from '../input/throw.js';
@@ -129,7 +130,8 @@ const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
 export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) {
   private fx!: Effects;
   private enemies!: EnemySystem;
-  private board: UIKitMLAsset | null = null;
+  private boardP: RaPanel | null = null;
+  private boardSig = '';
   private texts = new Map<string, string>();
   private boardT = 0;
   private hurt!: Mesh;
@@ -148,19 +150,17 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private rampLvl = 0; // (oleadas superadas: la dificultad creciente de RepArena)
   private maxAlive = 5;
   // los avisos en el suelo: lo que se hace mal (4 s) y la carga ×2-×4 mientras se aguanta
-  private warn: UIKitMLAsset | null = null;
-  private warnEntity: Entity | undefined;
+  // (lienzos como en RepArena, src/ui/info-draw.ts: antes, paneles de UIKit, con el texto saliéndose)
+  private warnP!: RaPanel;
   private warnT = 0;
   private warnText = '';
-  private chargeP: UIKitMLAsset | null = null;
-  private chargeEntity: Entity | undefined;
+  private chargeP!: RaPanel;
   private chargeT = 0;
   private chargeS = 1;
   private floorE = new Euler(0, 0, 0, 'YXZ');
   private chargePow = 0; // nivel de la carga de la bola (0: ninguna)
   // el panel entre oleadas y el fundido leve detrás (una cortina oscura grande, por detrás del panel: la escena se ve)
-  private waveP: UIKitMLAsset | null = null;
-  private waveE: Entity | undefined;
+  private waveP!: RaPanel;
   private veil!: Mesh;
   private introT = -1;
   // el marcador (el rosco, un lienzo) y los trofeos dorados
@@ -171,8 +171,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private rampNote = '';
   private rampUp = false;
   private waveDone = 0;
-  private trophyP: UIKitMLAsset | null = null;
-  private trophyE: Entity | undefined;
+  private trophyP!: RaPanel;
   private trophies: { title: string; sub: string; color: string }[] = [];
   private trophyT = 0;
   private trophyCur = '';
@@ -259,7 +258,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.hurt.visible = false;
     this.world.createTransformEntity(this.hurt);
     // los paneles (los menús, en src/ui/ra/)
-    this.board = this.world.getSceneObject<UIKitMLAsset>('board-panel') ?? null;
+    // el marcador: un lienzo como en RepArena (src/ui/board-draw.ts), opaco y siempre visible; el de UIKit de la escena,
+    // escondido (sus textos se salían)
+    const bo = this.world.getSceneEntity('board-panel')?.object3D;
+    if (bo) bo.visible = false;
+    this.boardP = makePanel(0.64, 0.64 * 0.445, BOARD_PX);
+    (this.boardP.mesh.material as MeshBasicMaterial).transparent = false;
+    this.world.createTransformEntity(this.boardP.mesh);
     this.placeBoard(); // (también en el menú: el marcador, ya en su sitio)
     this.cleanupFuncs.push(onSettingsChange((k) => (k === 'board' || k === '*') && this.placeBoard()));
     // al salir de las gafas (con «Salir del juego» o con el botón de Meta), la ronda se acaba: se guarda lo hecho y vuelve el menú
@@ -281,13 +286,15 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         }
       }),
     );
-    this.warn = this.world.getSceneObject<UIKitMLAsset>('warn-panel') ?? null;
-    this.warnEntity = this.world.getSceneEntity('warn-panel');
-    this.chargeP = this.world.getSceneObject<UIKitMLAsset>('charge-panel') ?? null;
-    this.chargeEntity = this.world.getSceneEntity('charge-panel');
-    this.waveP = this.world.getSceneObject<UIKitMLAsset>('wave-panel') ?? null;
-    this.waveE = this.world.getSceneEntity('wave-panel');
-    if (this.waveE?.object3D) this.waveE.object3D.visible = false;
+    // los avisos en lienzos, como en RepArena (los paneles de UIKit de la escena se quedan escondidos)
+    for (const id of ['warn-panel', 'charge-panel', 'wave-panel', 'trophy-panel']) {
+      const o = this.world.getSceneEntity(id)?.object3D;
+      if (o) o.visible = false;
+    }
+    this.warnP = this.infoPanel(1.6, 0.42, 1024, 32);
+    this.chargeP = this.infoPanel(1.1, 0.3, 768, 33);
+    this.waveP = this.infoPanel(1.2, 0.5, 1024, 19);
+    this.trophyP = this.infoPanel(1.25, 0.42, 1024, 55, 1.5);
     this.veil = new Mesh(new PlaneGeometry(14, 9), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false }));
     this.veil.userData.noInk = true;
     // el negro del final (RepArena: OUT.veil y OUT.black). Mientras funde, un velo pegado a los ojos que tapa todo (sin prueba
@@ -308,10 +315,6 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.world.createTransformEntity(this.black);
     this.veil.visible = false;
     this.world.createTransformEntity(this.veil);
-    this.trophyP = this.world.getSceneObject<UIKitMLAsset>('trophy-panel') ?? null;
-    this.trophyE = this.world.getSceneEntity('trophy-panel');
-    if (this.trophyE?.object3D) this.trophyE.object3D.visible = false;
-    for (const p of [this.board, this.warn, this.chargeP, this.waveP, this.trophyP]) if (p) applyFonts(p);
     this.rw = new Rewards(this.world, {
       message: (t, s) => this.message(t, s),
       sparks: (p, n, c, sp) => this.fx.sparks.burst(p, n, c, sp ?? 2.4, 0.04),
@@ -323,7 +326,6 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       trophy: (t, s, c) => this.trophy(t, s, c),
     });
     this.enemies.slowOf = (t) => this.rw.slow(t);
-    for (const e of [this.warnEntity, this.chargeEntity]) if (e?.object3D) e.object3D.visible = false;
     GAME.maxLives = GAME.lives = nLives(); // (las de tu rango)
     HOOKS.playerHit = (str, silent) => this.onPlayerHit(str ?? 1, !!silent);
     HOOKS.arcRep = (perfect) => this.arcRep(perfect);
@@ -407,17 +409,18 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       foes.push({ kind: (ud.rt ?? ud.fly)?.kind ?? (ud.hatch ? 'h' + ud.hatch.beast : undefined), fly: !!ud.fly, hatch: !!ud.hatch, boss: !!(ud.rt?.def.boss || ud.fly?.flight.K.boss || ud.hatch?.foe.boss), state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
-    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeEntity?.object3D?.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, arcs: this.arcs()?.hud() ?? null, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, duel: VIEW.duel, center: VIEW.center?.kind ?? '', resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
+    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeP?.mesh.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, arcs: this.arcs()?.hud() ?? null, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, duel: VIEW.duel, center: VIEW.center?.kind ?? '', resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
 
-  private setText(panel: UIKitMLAsset | null, id: string, text: string): void {
-    if (!panel) return;
-    const key = id + '@' + panel.assetId;
-    if (this.texts.get(key) === text) return; // (solo si cambia: cada cambio rehace el texto)
-    this.texts.set(key, text);
-    panel.getElementById(id)?.setProperties({ text });
+  /** Un aviso en lienzo (w × h metros, px de ancho; ro, su orden de pintado; hd, más resolución), escondido hasta usarlo. */
+  private infoPanel(w: number, h: number, px: number, ro: number, hd = 1): RaPanel {
+    const p = makePanel(w, h, px, { depthTest: false, hd });
+    p.mesh.renderOrder = ro;
+    p.mesh.visible = false;
+    this.world.createTransformEntity(p.mesh);
+    return p;
   }
 
   // Lo que pasa ahora, en el hueco del marcador (RepArena: cheer; las celebraciones van solo al marcador)
@@ -441,19 +444,15 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private floorWarn(text: string, color = WARN_COL): void {
     if (this.warnLog[this.warnLog.length - 1] !== text) this.warnLog.push(text); // (los últimos, para la pausa)
     if (this.warnLog.length > 8) this.warnLog.shift();
-    const p = this.warn, o = this.warnEntity?.object3D;
-    if (!p || !o) return;
+    const p = this.warnP, o = p.mesh;
     if (text === this.warnText && this.warnT > 1) {
       this.warnT = WARN_SECS;
       return;
     }
     this.warnText = text;
     this.warnT = WARN_SECS;
-    // en una o dos líneas, lo más grande que quepa (Bungee: unos 0,64 de ancho por letra; caben 1,4 m)
-    const one = 140 / (0.64 * Math.max(1, text.length)), fs = one >= 9 ? Math.min(14, one) : Math.min(9, (2 * 126) / (0.64 * text.length));
-    this.setText(p, 'text', text);
-    p.getElementById('text')?.setProperties({ color, fontSize: fs });
-    p.getElementById('box')?.setProperties({ borderColor: color });
+    drawWarn(p.ctx, p.W, p.H, text, color); // (en una o dos líneas, lo más grande que quepa)
+    p.tex.needsUpdate = true;
     const d = clamp(head.p.y * 1.1, 0.5, 2.1);
     this.layFlat(o, d, 0.02, clamp(d * 0.85, 0.42, 1.7));
     o.visible = true;
@@ -462,13 +461,15 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // Aguantando abajo (o arriba en el curl) el disparo se carga: ×2, ×3, ×4. Agachado lo que ves es el suelo, así que la carga
   // se escribe ahí, más cerca que los avisos y latiendo con su color; a ×4 dice «¡ARRIBA!» (RepArena: chargeFloor)
   private chargeText = '';
+  private chargeCol = '';
   private chargeFloor(text: string, color: string): void {
-    const p = this.chargeP, o = this.chargeEntity?.object3D;
-    if (!p || !o) return;
+    const p = this.chargeP, o = p.mesh;
+    if (this.chargeText !== text || this.chargeCol !== color) {
+      drawCharge(p.ctx, p.W, p.H, text, color);
+      p.tex.needsUpdate = true;
+      this.chargeCol = color;
+    }
     this.chargeText = text;
-    this.setText(p, 'text', text);
-    p.getElementById('text')?.setProperties({ color, fontSize: text.length <= 9 ? 15 : 12 }); // (en una línea: «×4 · ¡ARRIBA!» es más largo)
-    p.getElementById('box')?.setProperties({ borderColor: color });
     const d = clamp(head.p.y * 0.75, 0.4, 1.4);
     this.chargeS = clamp(d * 0.8, 0.36, 1.1);
     this.layFlat(o, d, 0.03, this.chargeS);
@@ -486,7 +487,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   }
 
   private stepFloor(dt: number): void {
-    const playing = GAME.phase === 'playing', w = this.warnEntity?.object3D, c = this.chargeEntity?.object3D;
+    const playing = GAME.phase === 'playing', w = this.warnP.mesh, c = this.chargeP.mesh;
     if (w?.visible) {
       this.warnT -= dt;
       if (this.warnT <= 0 || !playing) {
@@ -505,37 +506,14 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     }
   }
 
-  // El marcador (diseño C de RepArena: drawBoard), cuatro veces por segundo y solo lo que cambia
+  // El marcador (diseño C de RepArena: drawBoard, src/ui/board-draw.ts), cuatro veces por segundo; el lienzo se pinta solo si
+  // cambia algo de lo que enseña
   private refreshBoard(): void {
-    const b = this.board;
-    if (!b) return;
+    const B = this.boardP;
+    if (!B) return;
     const N = nWaves(), playing = GAME.phase === 'playing', rush = this.rw?.rush;
-    const ink = '#eeeaff', teal = '#3cf0c6', gold = '#ffd166', dim = '#5a4d7a', minus = (t: string): string => t.replace(/−/g, '-'); // (la letra no tiene «−»)
-    // el relámpago: el borde de arriba es una mecha que se consume
-    this.boardSet(b, 'fuse-box', { display: rush?.on ? 'flex' : 'none' });
-    if (rush?.on) this.boardSet(b, 'fuse', { width: Math.max(0.5, (58 * rush.left) / RUSH_SECS).toFixed(1) });
-    // arriba: la oleada en puntos (con más de 10, el número), los puntos y las vidas
-    const wi = Math.max(0, GAME.wave - 1);
-    for (let i = 0; i < 10; i++) {
-      const on = playing && N > 0 && N <= 10 && i < N, done = i < wi || (i === wi && this.resting);
-      this.boardSet(b, 'w' + i, { display: on ? 'flex' : 'none', backgroundColor: done ? teal : i === wi && GAME.wave ? '#3a2d5c' : dim, borderColor: done || i === wi ? teal : dim });
-    }
-    this.boardSet(b, 'wtext', { display: playing && !(N > 0 && N <= 10) ? 'flex' : 'none' });
-    this.setText(b, 'wtext', playing ? (N ? `${Math.min(GAME.wave || 1, N)}/${N}` : `OLEADA ${GAME.wave || 1}`) : '');
-    this.setText(b, 'score', String(GAME.score));
-    this.boardSet(b, 'score', { color: rush?.on ? '#ffffff' : gold });
-    this.boardSet(b, 'x2', { display: rush?.on ? 'flex' : 'none' });
-    const L = GAME.maxLives;
-    for (let i = 0; i < 8; i++) this.boardSet(b, 'l' + i, { display: L > 0 && L <= 8 && i < L ? 'flex' : 'none', backgroundColor: i < GAME.lives ? '#ff4fa3' : '#3a2d5c' }); // (las que pierdes, huecas)
-    this.boardSet(b, 'ltext', { display: L === 0 || L > 8 ? 'flex' : 'none' });
-    this.setText(b, 'ltext', L === 0 ? 'SIN FIN' : `VIDAS ${GAME.lives}`);
-    // debajo: lo que llevas entrenando y, discreta, la hora
-    const t = playing ? this.clock - GAME.startTime : 0, d = new Date();
-    this.setText(b, 'train', `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`);
-    const hr = pulse().board();
-    this.setText(b, 'hr', hr ? String(hr.bpm) : '');
-    if (hr) this.boardSet(b, 'hr', { color: hr.col });
-    this.setText(b, 'clock', `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`);
+    const teal = '#3cf0c6', gold = '#ffd166', minus = (t: string): string => t.replace(/−/g, '-');
+    const t = playing ? this.clock - GAME.startTime : 0, d = new Date(), hr = pulse().board();
     // el rosco: fuera, la oleada (en el descanso, la cuenta atrás) con la muesca de tu récord; dentro, la racha
     let k = this.waveTarget ? Math.min(1, this.waveDone / this.waveTarget) : 0;
     if (this.resting && num('rest') > 0) k = Math.max(0, Math.min(1, 1 - this.restT / num('rest')));
@@ -546,7 +524,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       ahead = gh.beat || GAME.reps >= gh.g;
       if (kk > 0) notch = Math.min(0.995, kk);
     }
-    if (this.ring.draw({ k: playing ? k : 0, notch, ahead: ahead && k > 0, combo: GAME.combo, gold: !!rush?.on, big: String(GAME.reps) }, this.ringFont)) b.getElementById('ring')?.setProperties({ src: this.ring.tex });
+    const ringNew = this.ring.draw({ k: playing ? k : 0, notch, ahead: ahead && k > 0, combo: GAME.combo, gold: !!rush?.on, big: String(GAME.reps) }, this.ringFont);
     // a la derecha, un solo hueco para lo que pasa ahora (lo más importante)
     let msg = '', col = teal;
     const lines = ['', '', ''];
@@ -600,19 +578,39 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         lines[2] = IDLE[this.stCfg.ex] ?? '';
       }
     }
-    this.setText(b, 'msg', minus(msg));
-    this.boardSet(b, 'msg', { color: col, display: msg ? 'flex' : 'none', fontSize: msg.length > 16 ? 3.6 : 5.2 });
-    lines.forEach((l, i) => {
-      this.setText(b, 'r' + (i + 1), l);
-      this.boardSet(b, 'r' + (i + 1), { display: l ? 'flex' : 'none', color: i === 0 && this.rampUp && this.resting ? gold : ink });
-    });
-    // abajo a la derecha, tu rango
-    this.setText(b, 'rank', rankName().toUpperCase());
+    const v: BoardView = {
+      playing,
+      comic: comicOn(),
+      waves: N,
+      wave: GAME.wave,
+      resting: this.resting,
+      score: GAME.score,
+      rush: !!rush?.on,
+      rushLeft: rush?.on ? rush.left / RUSH_SECS : 0,
+      lives: GAME.maxLives,
+      livesLeft: GAME.lives,
+      train: `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`,
+      clock: `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`,
+      hr: hr ? { bpm: hr.bpm, col: hr.col } : null,
+      ring: this.ring.canvas,
+      msg: minus(msg),
+      msgCol: col,
+      lines: lines.map(minus),
+      line0Gold: this.rampUp && this.resting,
+      rank: rankName().toUpperCase(),
+      rankIdx: rankIdx(),
+    };
+    // (la mecha, a saltos de un 2 %: si no, se repintaría en cada vuelta)
+    const sig = JSON.stringify({ ...v, ring: null, rushLeft: Math.round(v.rushLeft * 50) });
+    if (sig === this.boardSig && !ringNew) return;
+    this.boardSig = sig;
+    drawBoard(B.ctx, B.W, B.H, v);
+    B.tex.needsUpdate = true;
   }
 
   // A un lado, por fuera de las compuertas (Entorno → «Marcador»: a la izquierda —de serie— o a la derecha)
   private placeBoard(): void {
-    const o = this.world.getSceneEntity('board-panel')?.object3D;
+    const o = this.boardP?.mesh;
     if (!o) return;
     const hs = this.world.getSystem(HatchSystem);
     if (hs?.on) {
@@ -640,21 +638,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     o.scale.setScalar(W / PW);
   }
 
-  private boardSet(p: UIKitMLAsset, id: string, props: Record<string, unknown>): void {
-    const k = id + '#' + p.assetId, v = JSON.stringify(props);
-    if (this.texts.get(k) === v) return;
-    this.texts.set(k, v);
-    p.getElementById(id)?.setProperties(props);
-  }
-
   // Los logros importantes, en grande y dorados (RepArena: trophy), uno tras otro: arriba, por encima de lo que llega
   trophy(title: string, sub = '', color = '#ffd166'): void {
     if (this.trophies.length < 6 && !this.trophies.some((o) => o.title === title) && this.trophyCur !== title) this.trophies.push({ title, sub, color });
   }
 
   private stepTrophy(dt: number): void {
-    const p = this.trophyP, o = this.trophyE?.object3D;
-    if (!p || !o) return;
+    const p = this.trophyP, o = p.mesh;
     if (this.trophyT <= 0) {
       const q = this.trophies.shift();
       if (!q) {
@@ -663,9 +653,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         return;
       }
       this.trophyCur = q.title;
-      p.getElementById('title')?.setProperties({ text: q.title, color: q.color });
-      p.getElementById('sub')?.setProperties({ text: q.sub, display: q.sub ? 'flex' : 'none' });
-      for (const s of ['s1', 's2', 'box']) p.getElementById(s)?.setProperties(s === 'box' ? { borderColor: q.color } : { backgroundColor: q.color });
+      drawTrophy(p.ctx, p.W, p.H, q.title, q.sub, q.color);
+      p.tex.needsUpdate = true;
       this.trophyT = TROPHY_SECS;
       // arriba (no tapa lo que llega), quieto y derecho como los demás avisos de la vista; tumbado, sobre el suelo bajo la cara
       VIEW_FRAME.hudLocal(this.tmpA.set(0, 0.42, -1.6), o.position, head, lyingEx());
@@ -833,15 +822,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // El panel entre oleadas (RepArena: waveIntro): la oleada que empieza, tus puntos y lo nuevo, grande delante de ti
   // (donde salen los avisos), con la escena algo oscurecida detrás; mientras se ve, no sale nadie
   private waveIntro(i: number, fresh: string[], rk: number): void {
-    const p = this.waveP, o = this.waveE?.object3D;
-    if (!p || !o) return;
+    const p = this.waveP, o = p.mesh;
     const N = nWaves(), last = N > 0 && i >= N - 1;
-    this.setText(p, 't1', last ? '¡ÚLTIMA OLEADA!' : N ? `OLEADA ${i + 1} DE ${N}` : `OLEADA ${i + 1}`);
-    this.setText(p, 't2', `${GAME.score} puntos`);
     const nw = fresh.map((k) => foeName(xrFoe(k).k)).join(', ');
     const t3 = nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
-    this.setText(p, 't3', t3);
-    p.getElementById('t3')?.setProperties({ color: nw ? '#ff8a3d' : '#3cf0c6', display: t3 ? 'flex' : 'none' });
+    drawWave(p.ctx, p.W, p.H, last ? '¡ÚLTIMA OLEADA!' : N ? `OLEADA ${i + 1} DE ${N}` : `OLEADA ${i + 1}`, `${GAME.score} puntos`, t3, nw ? '#ff8a3d' : '#3cf0c6');
+    p.tex.needsUpdate = true;
     // delante de ti y de cara, derecho (nunca se ladea con la cabeza); tumbado, en el suelo bajo la cara
     const V = VIEW_FRAME, ly = lyingEx();
     V.hudLocal(this.tmpA.set(0, 0.02, -1.6), o.position, head, ly);
@@ -852,8 +838,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   }
 
   private stepIntro(dt: number): void {
-    const o = this.waveE?.object3D;
-    if (this.introT < 0 || !o) return;
+    const o = this.waveP.mesh;
+    if (this.introT < 0) return;
     this.introT += dt;
     const t = this.introT, a = t < 0.35 ? (t / 0.35) * (t / 0.35) * (3 - 2 * (t / 0.35)) : Math.max(0, Math.min(1, (WAVE_INTRO - t) / 0.5));
     (this.veil.material as MeshBasicMaterial).opacity = 0.45 * a;
@@ -866,7 +852,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private hideIntro(): void {
     this.introT = -1;
     this.veil.visible = false;
-    if (this.waveE?.object3D) this.waveE.object3D.visible = false;
+    this.waveP.mesh.visible = false;
   }
 
   // Oleada superada: la dificultad creciente sube si ha sido con soltura; la última gana la ronda; si no, el descanso
@@ -1258,6 +1244,14 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.rw.onSpawn(this.enemies.spawn(k, x, z, hp, boss), boss);
   }
 
+  // con un menú abierto en las gafas (la pausa), los enemigos no se ven: la escena va más fluida (src/core/state.ts, LITE)
+  private liteOn = false;
+  private stepLite(): void {
+    if (LITE.on === this.liteOn) return;
+    this.liteOn = LITE.on;
+    for (const e of this.queries.foes.entities) if (e.object3D) e.object3D.visible = !LITE.on;
+  }
+
   // los que salen por su compuerta, cuando ya está abierta
   private stepPending(dt: number): void {
     for (const p of this.pending) {
@@ -1601,6 +1595,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
     const playing = GAME.phase === 'playing';
     this.stepWarm(dt, playing);
+    this.stepLite();
     this.centerStep(playing);
     this.stepCareer(dt);
     if (playing && !VIEW.duel) { // (mientras se ve la carátula del duelo, la ronda espera)
