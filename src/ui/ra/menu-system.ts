@@ -9,7 +9,7 @@
  */
 import { createSystem, Group, RayInteractable, Vector3, VisibilityState } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
-import { GAME, HOOKS } from '../../core/state.js';
+import { GAME, HOOKS, LITE } from '../../core/state.js';
 import { onSettingsChange } from '../../core/settings.js';
 import { hands, isFist, SIDES } from '../../input/hand-model.js';
 import { HOLD } from '../../input/hold.js';
@@ -278,6 +278,9 @@ export class RaMenuSystem extends createSystem({}, {}) {
     GAME.menu = k === 'lobby' ? 'lobby' : k === 'options' || k === 'screen' ? 'options' : k === 'pause' ? 'pause' : k === 'summary' ? 'summary' : 'none';
     // en plena partida no hay más menú que la pausa y las cartas
     if (GAME.phase === 'playing' && !GAME.paused && m && m.kind !== 'pause' && m.kind !== 'perks') hideMenu();
+    // con un menú abierto (y a la vista) en las gafas, la escena se aligera (sin el bosque ni los enemigos: src/core/state.ts)
+    const mm = UI.menu;
+    LITE.on = inXR && !!mm && !mm.closed && mm.group.visible && mm.kind !== 'perks' && (!mm.wrist || WM.on);
     this.applyHold(dt, inXR);
   }
 

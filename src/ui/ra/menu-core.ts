@@ -18,8 +18,8 @@ import { foeList } from '../../core/rules.js';
 import { SND } from '../../audio/sound.js';
 import { hands, head, type Side } from '../../input/hand-model.js';
 import { clamp, FB, FD, fitFont, mkCanvas, rr, TAU } from '../canvas-kit.js';
-import { BTN, Btn, flatKeys, KEY_H, keyFree, Slider, type BtnOpts, type Widget } from './btn.js';
-import { CARD_H, comicOn, freePanel, makePanel, type FoeCard, type RaPanel } from './kit.js';
+import { BTN, Btn, cachedQuad, flatKeys, KEY_H, keyFree, Slider, type BtnOpts, type Widget } from './btn.js';
+import { CARD_H, comicOn, freePanel, makePanel, plate, ring, type FoeCard, type RaPanel } from './kit.js';
 import { POKE, type PokeMenu } from './poke.js';
 
 // ---------------------------------------------------------------- las filas
@@ -101,6 +101,8 @@ const ROWH: Record<string, number> = { title: 0.075, text: 0.034, btns: 0.07, fi
 const TXT_FONT = '500 27px ' + FB, TXT_LH = 0.03;
 const CLOSE_W = 0.15, LEAD_W = 0.17;
 const HINT_Q = 0.032, HINT_T = 9, HINT_W = 0.46;
+/** Los textos de la bandeja: los píxeles por metro (los de antes: 1024 por los 90 cm) y la resolución de más (nítidos). */
+const TPX = 1024 / MW, THD = 1.75;
 
 /** Lo que el menú necesita de fuera (lo pone el sistema de los menús). */
 export const ENV = {
@@ -207,45 +209,19 @@ export function menuOccluder(panelMesh: Mesh, w: number, h: number, inset = 0.02
   panelMesh.parent!.add(o);
   return o;
 }
-// Los fondos de los menús (la bandeja, de unos 3,6 millones de píxeles en el principal, y la columna HOY) se guardan al quitar
-// el menú y se vuelven a pintar en el siguiente si mide lo mismo: al pulsar, el menú se rehace entero, y crear y tirar en cada
-// pulsación un lienzo así (y su textura en la tarjeta gráfica) congelaba la imagen en las gafas
-const POOL: RaPanel[] = [], POOL_MAX = 3;
-/** Un panel pintado para el fondo de un menú: uno guardado de la misma medida (limpio) o uno nuevo. */
-export function poolPanel(w: number, h: number, px: number, hd: number): RaPanel {
-  const i = POOL.findIndex((p) => p.w === w && p.h === h && p.c.width === Math.round(px * hd));
-  if (i >= 0) {
-    const p = POOL.splice(i, 1)[0], c = p.ctx as CanvasRenderingContext2D & { reset?: () => void };
-    if (typeof c.reset === 'function') {
-      c.reset(); // (como nuevo: sin escala, sombras ni estilos del menú anterior)
-      c.scale(hd, hd);
-    } else c.clearRect(0, 0, p.W, p.H);
-    const m = p.mesh;
-    m.position.set(0, 0, 0);
-    m.rotation.set(0, 0, 0);
-    m.scale.set(1, 1, 1);
-    m.renderOrder = 0;
-    m.visible = true;
-    return p;
-  }
-  const p = makePanel(w, h, px, { hd });
-  p.mesh.userData.pool = p;
-  return p;
-}
-/** Libera lo que se hizo para un menú (los paneles pintados; las teclas guardadas se sueltan, no se tiran; los fondos se
- * guardan para el siguiente). */
+/** Libera lo que se hizo para un menú (los paneles pintados y las formas; los dibujos guardados se sueltan, no se tiran). */
 export function disposeTree(o: Object3D): void {
   o.traverse((n) => {
     const m = n as Mesh;
     if (n.userData.own === 'geo') m.geometry.dispose();
     const mat = m.material as MeshBasicMaterial | undefined;
-    if (!mat?.map) return;
-    const pp = n.userData.pool as RaPanel | undefined;
-    if (pp) {
-      POOL.push(pp);
-      if (POOL.length > POOL_MAX) freePanel(POOL.shift()!);
+    if (n.userData.own === 'all') {
+      // (lo de color liso de la bandeja: su forma y su material, de este menú)
+      m.geometry.dispose();
+      mat?.dispose();
       return;
     }
+    if (!mat?.map) return;
     if (keyFree(mat.map)) {
       mat.dispose();
       (n.userData.ownTex as { dispose(): void } | undefined)?.dispose();
@@ -368,99 +344,92 @@ function openMenuNow(rows: Row[], opts: MenuOpts, kind: string): Menu {
   const group = new Group();
   group.rotation.order = 'YXZ';
   group.name = 'Menú';
-  const bg = poolPanel(MW, H, 1024, 1.75);
-  bg.mesh.renderOrder = RO.menu;
-  group.add(bg.mesh);
-  menuOccluder(bg.mesh, MW, H); // (lienzo de 1792 px: letras nítidas; detrás, la pantalla que ahorra pintar el paisaje)
-  const c = bg.ctx, sc = bg.W / MW;
-  // la bandeja de las teclas
-  if (comicOn()) {
-    // en cómic: violeta con una trama de puntos, borde de tinta y un filo del color de la sección
-    rr(c, 4, 4, bg.W - 8, bg.H - 8, 34);
-    c.fillStyle = '#3a2d5c';
-    c.fill();
-    c.save();
-    c.clip();
-    c.fillStyle = 'rgba(255,255,255,0.07)';
-    for (let y = 8, r = 0; y < bg.H; y += 14, r++)
-      for (let x = (r % 2) * 7 + 8; x < bg.W; x += 14) {
-        c.beginPath();
-        c.arc(x, y, 2.6, 0, TAU);
-        c.fill();
-      }
-    c.restore();
-    c.lineWidth = 12;
-    c.strokeStyle = '#140c1a';
-    c.stroke();
-    rr(c, 14, 14, bg.W - 28, bg.H - 28, 26);
-    c.lineWidth = 4;
-    c.strokeStyle = opts.border || opts.accent || '#ff4fa3';
-    c.stroke();
-  } else {
-    rr(c, 4, 4, bg.W - 8, bg.H - 8, 34);
-    const gr = c.createLinearGradient(0, 0, 0, bg.H);
-    gr.addColorStop(0, '#262a34');
-    gr.addColorStop(1, '#1a1d25');
-    c.fillStyle = gr;
-    c.fill();
-    c.lineWidth = 5;
-    c.strokeStyle = opts.border || opts.accent || '#ff4fa3';
-    c.stroke();
-  }
+  // la bandeja (modelo A del usuario): de color liso, sin trama ni relieve, con un filo del color de la sección. Hecha con
+  // formas, sin lienzo, y sus textos son dibujos guardados (`tq`): rehacer el menú al pulsar no pinta ni sube nada nuevo a la
+  // tarjeta gráfica (antes, unos 4 millones de píxeles en cada pulsación: la imagen se congelaba en las gafas)
+  const edge = opts.border || opts.accent || '#ff4fa3', bgM = plate(MW, H, 0.03, edge);
+  bgM.renderOrder = RO.menu;
+  const inner = plate(MW - 0.008, H - 0.008, 0.026, comicOn() ? '#3a2d5c' : '#22262f');
+  inner.position.z = 0.0004;
+  inner.renderOrder = RO.menu;
+  inner.raycast = () => {};
+  group.add(bgM, inner);
+  menuOccluder(bgM, MW, H); // (detrás, la pantalla que ahorra pintar el paisaje)
+  const sc = TPX;
+  // un texto de la bandeja: un dibujo guardado (sig: todo lo que cambia cómo se ve) en (x, y), de w × h metros
+  const tq = (sig: string, x: number, y: number, w: number, h: number, paint: (c: CanvasRenderingContext2D, W: number, H: number) => void): Mesh => {
+    const q = cachedQuad('mt|' + sig, w, h, TPX * THD, (c, W, Hh) => {
+      c.scale(THD, THD);
+      paint(c, W / THD, Hh / THD);
+    });
+    q.position.set(x, y, 0.0015);
+    q.renderOrder = RO.menu + 0.5;
+    group.add(q);
+    return q;
+  };
   const widgets: Widget[] = [], fieldRows: FieldRow[] = [];
   let y = H / 2 - PAD;
   const X0 = -MW / 2 + PAD, CW = MW - PAD * 2;
-  // cada botón es una tecla plana con una sombra suave en la bandeja (la luz viene de arriba a la izquierda)
+  // cada botón es una tecla plana, sin sombra (modelo A del usuario: sin relieve)
   const addW = <T extends Widget>(w: T, cx: number, cy: number): T => {
     w.mesh.position.set(cx, cy, 0.003);
     w.baseZ = 0.003;
     w.mesh.renderOrder = RO.widget;
     group.add(w.mesh);
     widgets.push(w);
-    const px = (cx - w.w / 2 + MW / 2) * sc, py = (H / 2 - cy - w.h / 2) * sc;
-    c.save();
-    c.shadowColor = 'rgba(0,0,0,0.75)';
-    c.shadowBlur = 16;
-    c.shadowOffsetX = 6;
-    c.shadowOffsetY = 9;
-    rr(c, px + 2, py + 2, w.w * sc - 4, w.h * sc - 4, Math.min(w.h * sc * 0.32, 30));
-    c.fillStyle = '#1d2029';
-    c.fill();
-    c.restore();
     return w;
   };
   const label = (text: string, cy: number, color = '#eeeaff', off = 0, x0 = X0, lw = LABW): void => {
-    c.fillStyle = color;
-    c.textAlign = 'left';
-    c.textBaseline = 'middle';
-    fitFont(c, text, (lw - 0.01 - off) * sc, 34, '500 %px ' + FB);
-    c.fillText(text, (x0 + off - -MW / 2) * sc, (H / 2 - cy) * sc);
+    const w = lw - off, lh = 0.05;
+    tq(`l|${text}|${color}|${w.toFixed(4)}`, x0 + off + w / 2, cy, w, lh, (c, W, Hh) => {
+      c.fillStyle = color;
+      c.textAlign = 'left';
+      c.textBaseline = 'middle';
+      fitFont(c, text, W - 0.01 * sc, 34, '500 %px ' + FB);
+      c.fillText(text, 0, Hh / 2);
+    });
   };
   const layRow = (r: Row, h: number, cy: number, i: number, X0: number, CW: number, LW: number, tint?: string): void => {
     if (r.t === 'title') {
       const side = Math.max(closable && !i ? CLOSE_W : 0, r.lead ? LEAD_W : 0); // (el botón de la izquierda y el de cerrar, a los lados)
-      c.fillStyle = r.color || opts.accent || '#ffd166';
-      c.textAlign = 'center';
-      c.textBaseline = 'middle';
-      fitFont(c, r.text, (CW - 0.02 - side * 2) * sc, 60, '%px ' + FD);
-      c.fillText(r.text, (X0 + CW / 2 + MW / 2) * sc, (H / 2 - cy) * sc + 4);
+      const tc = r.color || opts.accent || '#ffd166', tw = CW - side * 2;
+      if (r.text && !r.big)
+        tq(`t|${r.text}|${tc}|${tw.toFixed(4)}|${h.toFixed(4)}`, X0 + CW / 2, cy, tw, h, (c, W, Hh) => {
+          c.fillStyle = tc;
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          fitFont(c, r.text, W - 0.02 * sc, 60, '%px ' + FD);
+          c.fillText(r.text, W / 2, Hh / 2 + 4);
+        });
       if (r.big) addW(new Btn(r.big.label, CW - 2 * (CLOSE_W + GAP), h, r.big.onPress, { style: 'primary', font: 0.5 }), X0 + CW / 2, cy); // (en vez del título, EMPEZAR)
       if (r.lead) addW(new Btn(r.lead.label, LEAD_W, Math.min(h, 0.056), r.lead.onPress, { style: r.lead.style || 'primary', font: 0.42 }), X0 + LEAD_W / 2, cy);
       if (closable && !i) addW(new Btn('✕ Cerrar', CLOSE_W, Math.min(h, 0.052), menuClose, { style: 'ghost', font: 0.42 }), X0 + CW - CLOSE_W / 2, cy);
     } else if (r.t === 'text') {
-      c.fillStyle = r.color || '#d8d3f5';
-      c.textAlign = 'center';
-      c.textBaseline = 'middle';
-      const L = lines[i];
-      if (L && L.length > 1) {
-        c.font = TXT_FONT;
-        L.forEach((l, k) => c.fillText(l, (X0 + CW / 2 + MW / 2) * sc, (H / 2 - cy + (k - (L.length - 1) / 2) * TXT_LH) * sc));
-      } else {
-        fitFont(c, r.text, (CW - 0.02) * sc, 30, '500 %px ' + FB);
-        c.fillText(r.text, (X0 + CW / 2 + MW / 2) * sc, (H / 2 - cy) * sc);
-      }
+      const tc = r.color || '#d8d3f5', L = i >= 0 ? lines[i] : null;
+      tq(`x|${r.text}|${tc}|${CW.toFixed(4)}|${h.toFixed(4)}`, X0 + CW / 2, cy, CW, h, (c, W, Hh) => {
+        c.fillStyle = tc;
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        if (L && L.length > 1) {
+          c.font = TXT_FONT;
+          L.forEach((l, k) => c.fillText(l, W / 2, Hh / 2 + (k - (L.length - 1) / 2) * TXT_LH * sc));
+        } else {
+          fitFont(c, r.text, W - 0.02 * sc, 30, '500 %px ' + FB);
+          c.fillText(r.text, W / 2, Hh / 2);
+        }
+      });
     } else if (r.t === 'canvas') {
-      r.draw(c, (X0 + MW / 2) * sc, (H / 2 - cy - h / 2) * sc, CW * sc, h * sc); // dibujo libre (el resumen de la ronda…)
+      // dibujo libre (el resumen de la ronda…): guardado si dice qué dibuja (text); si no, en su propio lienzo
+      if (r.text !== undefined) tq(`c|${r.text}|${CW.toFixed(4)}|${h.toFixed(4)}`, X0 + CW / 2, cy, CW, h, (c, W, Hh) => r.draw(c, 0, 0, W, Hh));
+      else {
+        const cp = makePanel(CW, h, Math.round(CW * sc), { hd: THD });
+        r.draw(cp.ctx, 0, 0, cp.W, cp.H);
+        cp.tex.needsUpdate = true;
+        cp.mesh.position.set(X0 + CW / 2, cy, 0.0015);
+        cp.mesh.renderOrder = RO.menu + 0.5;
+        cp.mesh.raycast = () => {};
+        group.add(cp.mesh);
+      }
       r.mount?.(group, X0, cy, CW, h);
     } else if (r.t === 'btns' || r.t === 'tabs') {
       const n = r.items.length, tot = r.items.reduce((a, it) => a + (it.flex || 1), 0), avail = CW - GAP * (n - 1);
@@ -470,13 +439,16 @@ function openMenuNow(rows: Row[], opts: MenuOpts, kind: string): Menu {
         if (it.sep) {
           // un separador (raya vertical), sin tecla
           if (!it.blank) {
-            c.fillStyle = 'rgba(255,255,255,0.25)';
-            c.fillRect((x + w / 2 + MW / 2) * sc - 2, (H / 2 - cy - h * 0.4) * sc, 4, h * 0.8 * sc);
+            const sp = plate(0.0035, h * 0.8, 0, '#ffffff', 0.25);
+            sp.position.set(x + w / 2, cy, 0.0015);
+            sp.renderOrder = RO.menu + 0.5;
+            sp.raycast = () => {};
+            group.add(sp);
           }
           x += w + GAP;
           return;
         }
-        addW(new Btn(it.label ?? '', w, it.h || h, it.onPress ?? (() => {}), { style: st, font: it.font || (r.t === 'tabs' ? 0.4 : undefined), accent: it.accent || (tint && st === 'normal' && !it.icon && it.badge === undefined ? tint : undefined), icon: it.icon, badge: it.badge, tint: it.tint || tint, paint: it.paint, fill: it.fill }), x + w / 2, cy);
+        addW(new Btn(it.label ?? '', w, it.h || h, it.onPress ?? (() => {}), { style: st, font: it.font || (r.t === 'tabs' ? 0.4 : undefined), accent: it.accent || (tint && st === 'normal' && !it.icon && it.badge === undefined ? tint : undefined), icon: it.icon, badge: it.badge, tint: it.tint || tint, paint: it.paint, psig: it.psig, fill: it.fill }), x + w / 2, cy);
         x += w + GAP;
       });
     } else if (r.t === 'cards') {
@@ -605,20 +577,24 @@ function openMenuNow(rows: Row[], opts: MenuOpts, kind: string): Menu {
       const n = r.cols.length, avail = CW - GAP * 2 * (n - 1), fr = r.fr || r.cols.map(() => 1 / n);
       let x0 = X0;
       r.cols.forEach((col, k) => {
-        const cw = avail * fr[k], px = (x0 + MW / 2) * sc, top = (H / 2 - (cy + h / 2)) * sc, cc = r.colors?.[k];
-        rr(c, px, top, cw * sc, h * sc, 22);
-        c.fillStyle = 'rgba(255,255,255,0.035)';
-        c.fill();
-        c.lineWidth = cc ? 4 : 2;
-        c.strokeStyle = cc || 'rgba(255,255,255,0.08)';
-        c.stroke();
+        const cw = avail * fr[k], cc = r.colors?.[k], bx = x0 + cw / 2;
+        // su caja: un velo claro y un borde de su color, de formas lisas
+        const box = plate(cw, h, 0.019, '#ffffff', 0.035), fr2 = ring(cw, h, 0.019, cc ? 0.0035 : 0.0018, cc || '#ffffff', cc ? 1 : 0.08);
+        box.position.set(bx, cy, 0.0008);
+        fr2.position.set(bx, cy, 0.001);
+        box.renderOrder = fr2.renderOrder = RO.menu + 0.2;
+        box.raycast = () => {};
+        group.add(box, fr2);
         let yy = cy + h / 2 - COLP;
         if (r.titles?.[k]) {
-          c.fillStyle = cc || '#a49fc8';
-          c.textAlign = 'left';
-          c.textBaseline = 'middle';
-          c.font = '600 24px ' + FB;
-          c.fillText(r.titles[k].toUpperCase(), px + 0.014 * sc, (H / 2 - (yy - COLT / 2)) * sc);
+          const tt = r.titles[k].toUpperCase(), tc = cc || '#a49fc8', tw = cw - 0.028;
+          tq(`b|${tt}|${tc}|${tw.toFixed(4)}`, x0 + 0.014 + tw / 2, yy - COLT / 2, tw, COLT, (c, W, Hh) => {
+            c.fillStyle = tc;
+            c.textAlign = 'left';
+            c.textBaseline = 'middle';
+            c.font = '600 24px ' + FB;
+            c.fillText(tt, 0, Hh / 2);
+          });
           yy -= COLT;
         }
         col.forEach((sr) => {
@@ -631,7 +607,6 @@ function openMenuNow(rows: Row[], opts: MenuOpts, kind: string): Menu {
     } else layRow(r, h, cy, i, X0, CW, LABW);
     y -= h + GAP;
   });
-  bg.tex.needsUpdate = true;
   const wrist = wristMenuOn(), k = menuK(), ksc = wrist ? wristScale() : ENV.inXR() ? k : 1;
   BTN.later = false;
   flatKeys(widgets.filter((w): w is Btn => w.kind === 'btn'), KEY_H / ksc);

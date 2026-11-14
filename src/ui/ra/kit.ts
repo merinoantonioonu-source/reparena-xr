@@ -3,7 +3,7 @@
  * drawMedal, drawFoeCard), portadas tal cual: los menús son los de RepArena enteros (opción B del usuario, PR 31). Todo se
  * pinta en lienzos (con las letras de public/fonts) y se ve como planos con su textura.
  */
-import { CanvasTexture, Mesh, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace } from '@iwsdk/core';
+import { CanvasTexture, Mesh, MeshBasicMaterial, Path, PlaneGeometry, Shape, ShapeGeometry, SRGBColorSpace } from '@iwsdk/core';
 import { FOE_PIC } from '../../core/catalog.js';
 import { settings } from '../../core/values.js';
 import { clamp, FB, fitFont, mkCanvas, TAU } from '../canvas-kit.js';
@@ -77,6 +77,44 @@ export function lazyPanel(w: number, h: number, px = 1024, opts: { depthTest?: b
     W,
     H,
   };
+}
+
+// ---------------------------------------------------------------- formas de color liso (sin lienzo)
+
+/** Un rectángulo de esquinas redondeadas (w × h metros, centrado; r, el radio). */
+function rrPath<T extends Path>(p: T, w: number, h: number, r: number): T {
+  const x = -w / 2, y = -h / 2;
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  p.moveTo(x + r, y);
+  p.lineTo(x + w - r, y);
+  if (r) p.absarc(x + w - r, y + r, r, -Math.PI / 2, 0, false);
+  p.lineTo(x + w, y + h - r);
+  if (r) p.absarc(x + w - r, y + h - r, r, 0, Math.PI / 2, false);
+  p.lineTo(x + r, y + h);
+  if (r) p.absarc(x + r, y + h - r, r, Math.PI / 2, Math.PI, false);
+  p.lineTo(x, y + r);
+  if (r) p.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5, false);
+  return p;
+}
+const formMat = (color: string, opacity: number): MeshBasicMaterial =>
+  new MeshBasicMaterial({ color, transparent: opacity < 1, opacity, depthWrite: opacity >= 1, toneMapped: false, fog: false });
+/** Una placa de color liso con las esquinas redondeadas (la bandeja de los menús, sus cajas): sin lienzo ni textura, así que
+ * rehacer el menú no pinta ni sube nada a la tarjeta gráfica (modelo A del usuario: sin relieve). Se libera con el menú. */
+export function plate(w: number, h: number, r: number, color: string, opacity = 1): Mesh {
+  const m = new Mesh(new ShapeGeometry(rrPath(new Shape(), w, h, r), 6), formMat(color, opacity));
+  m.userData.own = 'all';
+  m.userData.noInk = true;
+  return m;
+}
+/** El borde de una placa (t, su grosor en metros). */
+export function ring(w: number, h: number, r: number, t: number, color: string, opacity = 1): Mesh {
+  const sh = rrPath(new Shape(), w, h, r);
+  sh.holes.push(rrPath(new Path(), w - t * 2, h - t * 2, Math.max(0, r - t)));
+  const m = new Mesh(new ShapeGeometry(sh, 6), formMat(color, opacity));
+  m.userData.own = 'all';
+  m.userData.noInk = true;
+  m.raycast = () => {};
+  return m;
 }
 
 /** Libera un panel (su lienzo, su material y su plano). */

@@ -299,6 +299,10 @@ export class Scenery {
       sc.fog.density = this.savedFog.density;
     }
   }
+  /** Con un menú abierto en las gafas: sin árboles, rocas ni plantas (el suelo y el cielo se quedan). */
+  lite(on: boolean): void {
+    if (this.plants.visible === on) this.plants.visible = !on;
+  }
   get visible(): boolean {
     return this.root.visible;
   }

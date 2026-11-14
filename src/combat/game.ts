@@ -74,7 +74,7 @@ import { dv, onSettingsChange, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setS
 import { EX_NAMES, EX_SHORT, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
-import { GAME, HOOKS, VIEW, type CenterInfo } from '../core/state.js';
+import { GAME, HOOKS, LITE, VIEW, type CenterInfo } from '../core/state.js';
 import { hands, head, headFwd, SIDES, type Side } from '../input/hand-model.js';
 import { BODY, haptic } from '../input/hand-system.js';
 import { HTH, throwCharge, throwReset, throwStep, type Charge, type ThrowEnv } from '../input/throw.js';
@@ -1258,6 +1258,14 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.rw.onSpawn(this.enemies.spawn(k, x, z, hp, boss), boss);
   }
 
+  // con un menú abierto en las gafas (la pausa), los enemigos no se ven: la escena va más fluida (src/core/state.ts, LITE)
+  private liteOn = false;
+  private stepLite(): void {
+    if (LITE.on === this.liteOn) return;
+    this.liteOn = LITE.on;
+    for (const e of this.queries.foes.entities) if (e.object3D) e.object3D.visible = !LITE.on;
+  }
+
   // los que salen por su compuerta, cuando ya está abierta
   private stepPending(dt: number): void {
     for (const p of this.pending) {
@@ -1601,6 +1609,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
     const playing = GAME.phase === 'playing';
     this.stepWarm(dt, playing);
+    this.stepLite();
     this.centerStep(playing);
     this.stepCareer(dt);
     if (playing && !VIEW.duel) { // (mientras se ve la carátula del duelo, la ronda espera)

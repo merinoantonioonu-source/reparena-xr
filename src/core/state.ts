@@ -66,6 +66,10 @@ export const VIEW = {
 };
 
 /** Avisos entre sistemas (los pone el sistema del juego al arrancar). */
+/** Con un menú abierto en las gafas, la escena se aligera (idea 4 elegida por el usuario): sin los árboles, rocas y plantas del
+ * entorno ni los enemigos, para que el menú vaya fluido al mover la cabeza. Lo pone `RaMenuSystem`. */
+export const LITE = { on: false };
+
 export const HOOKS = {
   /** Un enemigo te ha dado (str: las vidas que quita, su fuerza). */
   playerHit: (_str?: number, _silent?: boolean): void => {},

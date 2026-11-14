@@ -14,7 +14,7 @@ import { foeList, isCombat } from '../../core/rules.js';
 import { devFoe } from '../../combat/foes.js';
 import { DEV, devTap } from '../../core/dev.js';
 import { CAMP_N, CAMP_REG, campId, LOOKS, MIS, PROG_COL, SHIELD_COL, SHIELD_MAX, CHEST_XP, MIS_XP, type LookKey } from '../../core/career.js';
-import { career, history, setLook } from '../../combat/career-hub.js';
+import { career, history, progressNow, setLook } from '../../combat/career-hub.js';
 import type { Summary } from '../../core/run.js';
 import { PLAY_MODES, playable, playableEx } from '../../core/playable.js';
 import { settingsGroups, groupName, summaryText } from '../fields.js';
@@ -26,8 +26,9 @@ import { FB, fitFont, rr } from '../canvas-kit.js';
 import { drawCampMap, drawGoal, drawHoy, drawMissions, drawStreakTile, drawWeek, drawXP } from './career-draw.js';
 import { drawSummary, SUM_CHIP, SUM_H } from './summary-draw.js';
 import { drawRank, MC, makePanel, type FoeCard } from './kit.js';
-import { GAP, hideMenu, menuOccluder, MW, openMenu, poolPanel, RO, UI, type Menu, type Row, type RowItem } from './menu-core.js';
+import { GAP, hideMenu, menuOccluder, MW, openMenu, RO, UI, type Menu, type Row, type RowItem } from './menu-core.js';
 import { CARD_H } from './kit.js';
+import { cachedQuad } from './btn.js';
 
 /** Lo que estos menús necesitan del juego (lo pone el sistema de los menús). */
 export const MENU_ENV = {
@@ -148,23 +149,37 @@ function lobbyDiffRows(again: () => void): Row[] {
 
 // Las metas de hoy, bajo EMPEZAR: tres teclas con sus metas y una con la racha (al tocarlas, Progreso → Misiones)
 function goalTiles(): RowItem[] {
-  const M = career().misToday(), go = (): void => progressOpen('mis');
+  const M = career().misToday(), go = (): void => progressOpen('mis'), k = careerSig();
+  // (psig: lo que dibujan; si no ha cambiado, el dibujo guardado: rehacer el menú no las vuelve a pintar ni a subir)
   return [
-    ...M.list.map((m) => ({ label: `${m.done ? 'Cumplida: ' : 'Meta: '}${MIS[m.t].txt(m)}`, flex: 1.15, onPress: go, paint: (c: CanvasRenderingContext2D, W: number, H: number, tc: string) => drawGoal(c, m, H * 0.14, H * 0.1, W - H * 0.28, H * 0.8, tc) })),
-    { label: 'Racha', onPress: go, paint: (c: CanvasRenderingContext2D, W: number, H: number, tc: string) => drawStreakTile(c, W, H, tc) },
+    ...M.list.map((m) => ({ label: `${m.done ? 'Cumplida: ' : 'Meta: '}${MIS[m.t].txt(m)}`, flex: 1.15, onPress: go, psig: 'meta|' + JSON.stringify(m), paint: (c: CanvasRenderingContext2D, W: number, H: number, tc: string) => drawGoal(c, m, H * 0.14, H * 0.1, W - H * 0.28, H * 0.8, tc) })),
+    { label: 'Racha', onPress: go, psig: 'racha|' + k, paint: (c: CanvasRenderingContext2D, W: number, H: number, tc: string) => drawStreakTile(c, W, H, tc) },
   ];
+}
+/** Lo que enseñan la columna HOY y la racha (si no cambia, sus dibujos guardados valen). */
+function careerSig(): string {
+  const K = career();
+  let raw = '';
+  try {
+    raw = localStorage.getItem('reparena3-career') ?? '';
+  } catch {
+    /* sin almacenamiento */
+  }
+  return JSON.stringify([K.misToday(), progressNow(), K.lvlOf(), new Date().toDateString()]) + raw;
 }
 
 // La columna «HOY», a la izquierda del menú principal (se va con él)
 const HOY_W = 0.36, HOY_H = 0.52;
 function goalSide(m: Menu): void {
-  const p = poolPanel(HOY_W, HOY_H, 512, 1.5); // (la del menú anterior, repintada)
-  drawHoy(p.ctx, p.W, p.H, false);
-  p.tex.needsUpdate = true;
-  p.mesh.position.set(-MW / 2 - 0.03 - HOY_W / 2, m.H / 2 - HOY_H / 2, 0);
-  p.mesh.renderOrder = RO.menu;
-  (m.group as Group).add(p.mesh);
-  menuOccluder(p.mesh, HOY_W, HOY_H);
+  // (un dibujo guardado: si no ha cambiado nada, rehacer el menú no la vuelve a pintar ni a subir)
+  const q = cachedQuad('hoy|' + careerSig(), HOY_W, HOY_H, (512 * 1.5) / HOY_W, (c, W, H) => {
+    c.scale(1.5, 1.5);
+    drawHoy(c, W / 1.5, H / 1.5, false);
+  });
+  q.position.set(-MW / 2 - 0.03 - HOY_W / 2, m.H / 2 - HOY_H / 2, 0);
+  q.renderOrder = RO.menu;
+  (m.group as Group).add(q);
+  menuOccluder(q, HOY_W, HOY_H);
 }
 
 /** El menú principal, simple (lo demás, en Opciones): EMPEZAR grande, las metas de hoy, el modo, el ejercicio, la dificultad
