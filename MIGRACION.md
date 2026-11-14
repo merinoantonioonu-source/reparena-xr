@@ -155,7 +155,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 32 · Cuatro arreglos vistos en las gafas** (el menú de música ya no se rehace cada 5 s y los menús suben sus texturas antes de pintarse; los mandos de Spotify, otra vez en el menú principal; en los ejercicios de suelo el mundo se orienta hacia tu cuerpo al calibrar; en la plancha con un brazo, el rayo sale de la mano levantada) — #39
 - [x] **PR 33 · El menú ya no desaparece a trozos al mover un deslizador** (los dibujos que cambian se suben antes de pintar cada fotograma; el deslizador ya no se repinta al arrastrarlo ni con el rayo encima; el diagnóstico apunta lo que se sube) — #40
 - [x] **PR 34 · Sin congelarse al pulsar el menú ni fuera del juego, y salir acaba la ronda** (las teclas ya no crean un lienzo cada una; el fondo del menú se reutiliza; con la página a la vista el juego descansa y no suena; al salir de las gafas la ronda se acaba y se guarda; con el menú de Meta, se pausa) — #41
-- [ ] **PR 35 · Compuertas, contornos, Spotify y la paralela** (las compuertas esperan a que salga el que tienen dentro; el diablillo y el lanzador, sin contorno; Play pone tus canciones elegidas, no lo que sonaba en otro aparato; la paralela única se coloca a lo largo de tus manos)
+- [x] **PR 35 · Compuertas, contornos, Spotify y la paralela** (las compuertas esperan a que salga el que tienen dentro; el diablillo y el lanzador, sin contorno; Play pone tus canciones elegidas, no lo que sonaba en otro aparato; la paralela única se coloca a lo largo de tus manos) — #42
+- [ ] **PR 36 · Menú plano y paneles como en RepArena** (menú modelo A sin relieve; rehacerlo al pulsar no pinta ni sube nada; con un menú abierto, sin bosque ni enemigos; los siete paneles informativos, en lienzos como en RepArena, con su letra y sin que el texto se salga)
 
 ## Los PR
 
@@ -398,6 +399,18 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- PR 36 → los siguientes: **el menú no pinta nada al rehacerse** (ideas 1 y 2 del usuario). La bandeja es de formas de color
+  liso (`plate`, `ring`, `kit.ts`; se liberan con el menú: `userData.own = 'all'`) y cada texto suyo es un dibujo guardado por
+  su firma (`cachedQuad`/`cachedTex`, `btn.ts`; `tq` en `openMenuNow`): un menú igual reutiliza los mismos dibujos y no sube
+  nada a la tarjeta gráfica. Lo nuevo de la bandeja, igual (nada de pintar en un lienzo del menú). Una tecla con dibujo propio
+  (`paint`) que diga qué dibuja con `psig` también se guarda (las metas de hoy); la columna HOY, por la firma de tu carrera.
+  Teclas sin relieve (modelo A). **Escena ligera** (idea 4): con un menú abierto en las gafas, `LITE.on` (`src/core/state.ts`)
+  esconde los árboles, rocas y plantas (`Scenery.lite`) y los enemigos. **Paneles informativos**: el marcador
+  (`src/ui/board-draw.ts`), el aviso del centro, el breve, el del suelo, la carga, la oleada y el logro (`src/ui/info-draw.ts`)
+  son lienzos como en RepArena, del mismo tamaño que los de UIKit (que siguen en la escena, escondidos: se pueden quitar de
+  `public/scenes` y de `src/assets.ts`); cada texto se encoge hasta caber (`tests/unit/info-draw.test.ts`). Se repintan solo
+  si cambia lo que enseñan (el marcador, como mucho cuatro veces por segundo).
 
 - PR 35 → los siguientes: **compuertas**: `GateSystem` no cierra una compuerta con un enemigo vivo en su túnel (`occupied`; como
   mucho 10 s más). **Sin contorno**: un enemigo con `noInk` en su fila de `FOE_DEF` (el diablillo y el lanzador). **Spotify**:
@@ -645,6 +658,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos conocidos
 
+- PR 36: **sin confirmar en las gafas**. Rehacer el menú principal ya no crea ningún dibujo (medido en el ordenador: 0
+  lienzos y 0 píxeles por pulsación; antes, 65 y 11 millones). El marcador se repinta (y se sube) una vez por segundo por el
+  reloj; si en las gafas se nota, se puede pintar el reloj aparte. Los paneles de UIKit de la escena siguen cargándose
+  (escondidos).
 - PR 34: **sin confirmar en las gafas**. Al pulsar una tecla del menú principal, el menú se rehace entero (RepArena hace
   igual): ahora sin crear 65 lienzos (11 millones de píxeles) cada vez y repintando el fondo en el mismo lienzo; aún se
   repinta y se sube el fondo (unos 4 millones de píxeles) y las teclas que se pintan solas (las metas de hoy, los

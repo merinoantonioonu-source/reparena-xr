@@ -165,6 +165,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/style/comic.ts`, `src/style/comic-system.ts` | El estilo Cómic: el sombreado, los colores y los contornos de tinta, y el sistema que lo aplica a todo |
 | `src/core/hitch.ts`, `src/ui/perf-system.ts` | El registro de tirones (de RepArena) y el medidor de fotogramas: qué congela la imagen y cuántos fotogramas se pierden |
 | `src/style/warm.ts` | Precompilar los sombreadores: en el menú, de uno en uno; lo que falte, al empezar la ronda con la carátula ya en negro (que nada nuevo dé un tirón en plena partida ni al pulsar EMPEZAR) |
+| `src/ui/info-draw.ts`, `src/ui/board-draw.ts` | Los paneles informativos pintados como en RepArena: el aviso breve, el del centro, el del suelo, la carga, la oleada, el logro y el marcador (antes, paneles de UIKit con el texto saliéndose) |
 | `src/style/tex-upload.ts` | Los dibujos que cambian (lienzos e imágenes) se suben a la tarjeta gráfica al empezar cada fotograma, no con la imagen de las gafas abierta (el menú perdía trozos al mover un deslizador) |
 | `src/style/comic-fx.ts` | Los efectos de cómic: líneas de impacto y estrella al derribar |
 | `src/scene-assets/gate.scene-asset.ts` | La compuerta (hecha en código) |

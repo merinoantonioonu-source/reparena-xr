@@ -12,7 +12,7 @@
  */
 import { MW, UI } from './ra/menu-core.js';
 import { HITCH } from '../core/hitch.js';
-import { createSystem, BackSide, Entity, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, UIKitMLAsset, Vector3, VisibilityState } from '@iwsdk/core';
+import { createSystem, BackSide, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, Vector3, VisibilityState } from '@iwsdk/core';
 import { GAME, HOOKS, VIEW, type CenterInfo } from '../core/state.js';
 import { num, on, settings } from '../core/values.js';
 import { hands, head } from '../input/hand-model.js';
@@ -24,7 +24,8 @@ import { devFoe } from '../combat/foes.js';
 import { foeTierOf } from '../combat/waves.js';
 import { HIST_KEY } from '../core/run.js';
 import { SND } from '../audio/sound.js';
-import { applyFonts } from './fonts.js';
+import { makePanel, type RaPanel } from './ra/kit.js';
+import { drawCenter, drawToast } from './info-draw.js';
 import { clamp, loadCanvasFonts, mkCanvas, smooth } from './canvas-kit.js';
 import { makeCanvasPanel, type CanvasPanel } from './canvas-panel.js';
 import { hudSlot, hudSpot, lazyAt, lazyClear, mkLazy, ViewFrame, type Threat } from './view.js';
@@ -42,15 +43,15 @@ export const VIEW_FRAME = new ViewFrame();
 export const lyingEx = (): boolean => isFloor() || isSupine() || settings.exercise === 'row';
 
 export class ViewSystem extends createSystem({}) {
-  private center: UIKitMLAsset | null = null;
-  private centerE: Entity | undefined;
-  private toast: UIKitMLAsset | null = null;
-  private toastE: Entity | undefined;
+  // el del centro y el breve: lienzos como en RepArena (src/ui/info-draw.ts; antes, paneles de UIKit con el texto saliéndose)
+  private center!: RaPanel;
+  private toast!: RaPanel;
   private readonly C = hudSpot([[0, -0.08], [0, 0.42], [0, -0.5]], -1.1, 0.5 * CENTER_SC, 0.2 * CENTER_SC);
   private readonly T = hudSpot([[0, -0.4], [0, 0.4], [-0.5, -0.24], [0.5, -0.24]], -1.2, 0.62, 0.1);
   private readonly lzC = mkLazy();
   private readonly lzT = mkLazy();
   private toastT = 0;
+  private toastKey: [string, string] = ['', ''];
   private centerKey = '';
   private readonly texts = new Map<string, string>();
   private readonly threats: Threat[] = [];
@@ -76,17 +77,19 @@ export class ViewSystem extends createSystem({}) {
   private keyHit = false;
 
   init(): void {
-    this.center = this.world.getSceneObject<UIKitMLAsset>('center-panel') ?? null;
-    this.centerE = this.world.getSceneEntity('center-panel');
-    this.toast = this.world.getSceneObject<UIKitMLAsset>('toast-panel') ?? null;
-    this.toastE = this.world.getSceneEntity('toast-panel');
-    // encima de todo, como en RepArena (sin prueba de profundidad): tumbado, el aviso queda en el suelo bajo tu cara y se ve
-    for (const p of [this.center, this.toast]) {
-      if (!p) continue;
-      applyFonts(p);
-      p.getElementById('box')?.setProperties({ depthTest: false, renderOrder: 50 });
+    // (los paneles de UIKit de la escena se quedan escondidos)
+    for (const id of ['center-panel', 'toast-panel']) {
+      const o = this.world.getSceneEntity(id)?.object3D;
+      if (o) o.visible = false;
     }
-    for (const e of [this.centerE, this.toastE]) if (e?.object3D) e.object3D.visible = false;
+    // encima de todo, como en RepArena (sin prueba de profundidad): tumbado, el aviso queda en el suelo bajo tu cara y se ve
+    this.center = makePanel(0.5 * CENTER_SC, 0.2 * CENTER_SC, 1024, { depthTest: false });
+    this.toast = makePanel(0.62, 0.1, 1024, { depthTest: false });
+    for (const p of [this.center, this.toast]) {
+      p.mesh.renderOrder = 50;
+      p.mesh.visible = false;
+      this.world.createTransformEntity(p.mesh);
+    }
     void loadCanvasFonts().then(() => {
       this.art.key = ''; // (la ilustración, otra vez con las letras buenas)
       this.demoDrawT = 0;
@@ -153,43 +156,22 @@ export class ViewSystem extends createSystem({}) {
 
   // ---------------------------------------------------------------- el del centro
 
-  private set(p: UIKitMLAsset, id: string, props: Record<string, unknown>): void {
-    const k = id + '@' + p.assetId, s = JSON.stringify(props);
-    if (this.texts.get(k) === s) return; // (solo si cambia: cada cambio rehace el elemento)
-    this.texts.set(k, s);
-    p.getElementById(id)?.setProperties(props);
-  }
-
   private fillCenter(c: CenterInfo): void {
     const p = this.center;
-    if (!p) return;
-    const calib = c.kind === 'calib';
-    this.set(p, 'calib', { display: calib ? 'flex' : 'none' });
-    this.set(p, 'ready', { display: calib ? 'none' : 'flex' });
-    if (!calib) {
-      this.set(p, 'bigTitle', { text: c.title });
-      this.set(p, 'bigCount', { text: c.count });
-      return;
-    }
-    this.set(p, 'title', { text: c.title });
-    this.set(p, 'note', { text: c.note?.[0] ?? '', color: c.note?.[1] ?? '#3cf0c6', display: c.note ? 'flex' : 'none' });
-    this.set(p, 'l1', { text: c.lines[0] ?? '', display: c.lines[0] ? 'flex' : 'none' });
-    this.set(p, 'l2', { text: c.lines[1] ?? '', display: c.lines[1] ? 'flex' : 'none' });
-    this.set(p, 'st', { text: c.status?.[0] ?? '', color: c.status?.[1] ?? '#ff8a3d', display: c.status ? 'flex' : 'none' });
-    this.set(p, 'count', { text: c.count, display: c.count ? 'flex' : 'none' });
-    this.set(p, 'fill', { width: Math.max(2.2, 66 * clamp(c.bar, 0, 1)) });
+    drawCenter(p.ctx, p.W, p.H, c);
+    p.tex.needsUpdate = true;
   }
 
   private stepCenter(dt: number, lying: boolean, n: number): void {
-    const o = this.centerE?.object3D, c = VIEW.center;
-    if (!o) return;
+    const o = this.center.mesh, c = VIEW.center;
     if (!c || VIEW.duel || GAME.paused) {
       // (en la pausa, escondido: se pintaba encima del menú; RepArena: openPause)
       o.visible = false;
       this.lzC.init = false;
       return;
     }
-    const key = `${c.kind}|${c.title}|${c.lines.join('/')}|${c.note?.join()}|${c.status?.join()}|${c.count}|${c.bar.toFixed(2)}`;
+    // (solo si cambia lo que se ve; la barra, a saltos de un 5 %: repintarlo en cada fotograma pesaba)
+    const key = `${c.kind}|${c.title}|${c.lines.join('/')}|${c.note?.join()}|${c.status?.join()}|${c.count}|${Math.round(c.bar * 20)}`;
     if (key !== this.centerKey) {
       this.centerKey = key;
       this.fillCenter(c);
@@ -201,23 +183,25 @@ export class ViewSystem extends createSystem({}) {
     o.quaternion.copy(L.q);
     // si tapa algo que viene, se aparta y, mientras, se aclara
     const vis = this.C.fade * lazyClear(L, o, 0.75, 0.3, head.p, this.threats, n, dt);
-    if (this.center) this.set(this.center, 'box', { opacity: Math.round(vis * 10) / 10 });
+    (o.material as MeshBasicMaterial).opacity = vis;
     o.visible = true;
   }
 
   // ---------------------------------------------------------------- el breve
 
   private showToast(text: string, color: string, secs: number): void {
-    const p = this.toast, o = this.toastE?.object3D;
-    if (!p || !o) return;
-    this.set(p, 'text', { text, color });
+    const p = this.toast, o = p.mesh;
+    if (text !== this.toastKey[0] || color !== this.toastKey[1]) {
+      drawToast(p.ctx, p.W, p.H, text, color);
+      p.tex.needsUpdate = true;
+      this.toastKey = [text, color];
+    }
     this.toastT = secs;
     o.visible = true;
   }
 
   private stepToast(dt: number, lying: boolean, n: number): void {
-    const o = this.toastE?.object3D;
-    if (!o) return;
+    const o = this.toast.mesh;
     if (this.toastT <= 0 || GAME.phase !== 'playing' || VIEW.duel || GAME.paused) {
       o.visible = false;
       this.lzT.init = false;
@@ -227,7 +211,7 @@ export class ViewSystem extends createSystem({}) {
     this.toastT -= dt;
     const L = lazyAt(VIEW_FRAME, this.lzT, hudSlot(VIEW_FRAME, this.T, this.T.slots, head, lying, this.threats, n, dt, this.at), VIEW_FRAME.hudQ(head, lying), head, dt);
     const vis = Math.min(1, this.toastT * 3) * this.T.fade * lazyClear(L, o, 0.62, 0.1, head.p, this.threats, n, dt);
-    if (this.toast) this.set(this.toast, 'box', { opacity: Math.round(vis * 10) / 10 });
+    (o.material as MeshBasicMaterial).opacity = vis;
     o.position.copy(L.at);
     o.quaternion.copy(L.q);
     o.visible = this.toastT > 0;
@@ -244,7 +228,7 @@ export class ViewSystem extends createSystem({}) {
     const show = on('demo') && !VIEW.duel;
     // en la espera (calibrar, prepararte): a la derecha del panel del centro, a su altura y girado como él; sin él, delante
     const wait = show && GAME.phase === 'playing' && !!VIEW.center && GAME.menu === 'none';
-    const m = this.demo.mesh, co = this.centerE?.object3D;
+    const m = this.demo.mesh, co = this.center.mesh;
     if (wait) {
       let q: Quaternion, tgt: Vector3;
       if (co?.visible) {
