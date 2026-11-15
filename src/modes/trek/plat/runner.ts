@@ -277,6 +277,10 @@ export class Runner {
       tk.dist = d0;
       tk.v = this.hop.v1;
       tk.push = push0;
+    } else if (st === 'play' && this.airT >= 0) {
+      // en el aire (el tronco, el supersalto o saltar porque sí), la inercia: no frenas
+      tk.v = Math.max(tk.v, v0);
+      tk.push = push0;
     } else if (st === 'play' && this.moves.plank) {
       // echado (el túnel): la inercia, sin gastarse; cerca y dentro de un túnel, como poco CRAWL_V (pasas por debajo)
       tk.v = Math.max(v0, this.crawlNear() ? CRAWL_V : 0);

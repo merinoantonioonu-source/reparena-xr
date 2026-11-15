@@ -14,7 +14,7 @@ import type { FogExp2, Object3D } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { diagEvent } from '../../core/diag.js';
 import { dv, store, waveReps, nWaves, rankIdx } from '../../core/settings.js';
-import { GAME, HOOKS, LITE } from '../../core/state.js';
+import { GAME, HOOKS, LITE, VIEW } from '../../core/state.js';
 import { num, settings } from '../../core/values.js';
 import { haptic } from '../../input/hand-system.js';
 import { head } from '../../input/hand-model.js';
@@ -23,7 +23,7 @@ import { warmKeep } from '../../style/warm.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
 import { DOCK_LEN, GROUND_Y, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { Runner, tramoLen } from './plat/runner.js';
-import { PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
+import { FRUIT_U, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
@@ -224,6 +224,8 @@ export class TrekSystem extends createSystem({}) {
     if (!this.ready) this.ready = this.build();
     if (GAME.paused) return;
     if (GAME.phase === 'playing') this.runner.step(dt);
+    // echado (en plancha, bajo un túnel): los avisos, en el suelo bajo la cara (de pie, delante, no se leerían)
+    VIEW.prone = GAME.phase === 'playing' && this.runner.moves.plank;
     this.applyEvents();
     this.stepAnims(dt);
     this.draw();
@@ -244,6 +246,7 @@ export class TrekSystem extends createSystem({}) {
   }
   private deactivate(): void {
     this.active = false;
+    VIEW.prone = false;
     this.root.visible = false;
     this.clear();
     for (const o of this.hidden) o.visible = true;
@@ -327,6 +330,11 @@ export class TrekSystem extends createSystem({}) {
       case 'go':
       case 'pass':
         this.diag(e.t, e.p);
+        if (e.p.k === 'fruit') {
+          // la fruta cogida: chispas de su color y se encoge (se la come)
+          this.gone.set(e.p.id, { t: 0, dir: 0 });
+          HOOKS.sparks(this.world3({ s: e.p.at, u: e.p.side * FRUIT_U, y: this.calibRef }, this.at), e.p.special ? 30 : 14, e.p.special ? 0xc8ff3a : 0xffd166);
+        }
         break;
       case 'hit':
         this.diag('hit', e.p);
@@ -411,7 +419,9 @@ export class TrekSystem extends createSystem({}) {
       const L = this.looks.get(p.id);
       if (!L) continue;
       const kn = this.knock.get(p.id), gn = this.gone.get(p.id), off = kn ? kn.dir * 0.9 * kn.t : 0, k = gn ? Math.max(0.01, 1 - gn.t) : 1;
-      for (const u of L) this.put(u, p.at + u.ds, off, k, kn ? kn.t : 0, p);
+      // (las frutas giran y flotan, cada una a su compás)
+      const spin = p.k === 'fruit' ? this.clock * 1.8 + p.id : 0, bob = p.k === 'fruit' ? 0.04 * Math.sin(this.clock * 2.6 + p.id) : 0;
+      for (const u of L) this.put(u, p.at + u.ds, off, k, kn ? kn.t : 0, p, spin, bob);
     }
     for (const b of this.batches.values())
       for (const im of b.ims) {
@@ -425,14 +435,14 @@ export class TrekSystem extends createSystem({}) {
   }
 
   /** Una instancia: el modelo `u` en (s, u.u + du) del sendero, a su escala por `k`; `roll`, lo que vuelca (el barril). */
-  private put(u: Put, s: number, du: number, k: number, roll = 0, p?: Piece): void {
+  private put(u: Put, s: number, du: number, k: number, roll = 0, p?: Piece, spin = 0, bob = 0): void {
     const b = this.batches.get(`${u.kit}:${u.n}`);
     if (!b || b.n >= b.cap) return;
     // (el giro propio del modelo, en el orden de pieces.ts, y encima el del sendero en ese punto)
     const ry = this.runner.tk.bend(s, u.u + du, this.bp);
-    this.e.set(u.rx, u.ry, u.rz + roll * (p && p.side ? -p.side : 1) * 1.4);
+    this.e.set(u.rx, u.ry + spin, u.rz + roll * (p && p.side ? -p.side : 1) * 1.4);
     this.q.setFromEuler(this.e).premultiply(this.qy.setFromAxisAngle(this.up, ry));
-    this.m4.compose(this.v.set(this.bp.x, u.y, this.bp.z), this.q, this.sc.set(u.sx * k, u.sy * k, u.sz * k));
+    this.m4.compose(this.v.set(this.bp.x, u.y + bob, this.bp.z), this.q, this.sc.set(u.sx * k, u.sy * k, u.sz * k));
     for (const im of b.ims) im.setMatrixAt(b.n, this.m4);
     b.n++;
   }

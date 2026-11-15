@@ -40,7 +40,7 @@ const DUEL_DUR = 7;
 /** El marco de los avisos de la vista (lo usan también el marcador, los logros y el panel entre oleadas). */
 export const VIEW_FRAME = new ViewFrame();
 /** Tumbado (los de suelo, sentado y boca arriba): los avisos, en el suelo bajo la cara o en el techo. */
-export const lyingEx = (): boolean => isFloor() || isSupine() || settings.exercise === 'row';
+export const lyingEx = (): boolean => isFloor() || isSupine() || settings.exercise === 'row' || VIEW.prone;
 
 export class ViewSystem extends createSystem({}) {
   // el del centro y el breve: lienzos como en RepArena (src/ui/info-draw.ts; antes, paneles de UIKit con el texto saliéndose)
@@ -130,7 +130,7 @@ export class ViewSystem extends createSystem({}) {
 
   update(dt: number): void {
     const lying = lyingEx(), V = VIEW_FRAME;
-    V.step(head, lying, GAME.phase === 'playing' && VIEW.center?.kind !== 'calib' && !VIEW.duel);
+    V.step(head, lying, GAME.phase === 'playing' && VIEW.center?.kind !== 'calib' && !VIEW.duel && !VIEW.prone);
     const n = this.collectThreats();
     this.stepDuel(dt);
     this.stepCenter(dt, lying, n);
