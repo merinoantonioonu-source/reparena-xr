@@ -208,7 +208,7 @@ export function demoTips(ex: string, mode: string, o: DemoOpts): { perfect: stri
   else if (mode === 'arcs') extra = 'Extra: 10 seguidos sin fallo, fiebre (puntos ×2).';
   else if (mode === 'bars') extra = ex === 'hang' ? 'Extra: aguanta para cerrar el remolino.' : 'Extra: revienta pompas para más puntos.';
   else if (mode === 'touch') extra = 'Extra: vuelve a la postura entre toque y toque.';
-  else if (mode === 'trek') extra = 'Extra: más rápida y más honda, más deprisa; esquiva y salta los retos.';
+  else if (mode === 'trek') extra = 'Extra: más rápida y más honda, más deprisa; en el túnel, flexiones; en el muro, burpee.';
   return { perfect, extra };
 }
 
@@ -221,7 +221,7 @@ export function demoInfo(ex: string, mode: string, o: DemoOpts): { D: DemoDef; f
   if (mode === 'arcs') what = 'Agáchate a tiempo para que el arco pase por encima de la cabeza.';
   else if (mode === 'bars') what = ex === 'hang' ? '' : 'Cada subida revienta con la cabeza la pompa que espera arriba.';
   else if (mode === 'touch') what = 'Mete la cabeza por el hueco del aro cuando llegue.';
-  else if (mode === 'trek') what = 'Cada repetición te empuja por el sendero; si paras, te paras.';
+  else if (mode === 'trek') what = 'Cada repetición te empuja por el sendero; salta, agáchate y esquiva sin parar.';
   else {
     const foe = foesKind === 'flyers' ? 'al volador' : foesKind === 'spider' ? 'a la araña' : foesKind === 'mix' ? 'al enemigo' : D.tiny ? 'a la araña' : 'al robot';
     what = o.sword ? `Con la espada, corta ${foe} con un tajo amplio al subir.` : o.pistol ? `Cada repetición carga la pistola: dispara ${foe} con el gatillo.` : `Cada repetición lanza un rayo ${foe} más cercano.`;

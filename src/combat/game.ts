@@ -571,7 +571,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         const h = this.trek()?.hud();
         if (h) {
           lines[0] = `${Math.floor(h.dist)} m · ${h.kmh.toFixed(1).replace('.', ',')} km/h${h.turbo ? ' · TURBO' : ''}`;
-          lines[1] = h.stop === 'chest' ? `Tramo ${h.tramo + 1}: ¡cofre!` : `Tramo ${h.tramo + 1}: faltan ${Math.ceil(h.left)} m`;
+          lines[1] = h.stop === 'chest' ? `Tramo ${h.tramo + 1}: ¡cofre!` : h.task ? h.task : `Tramo ${h.tramo + 1}: faltan ${Math.ceil(h.left)} m`;
           const g = this.rw.ghostText();
           if (g) lines[2] = minus(g[0]);
           if (!msg && h.turbo) { msg = '¡TURBO! ×2'; col = '#c8ff3a'; }
@@ -1617,12 +1617,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       // en el ordenador: flecha abajo (o S) para agacharse (al subir, el rayo sale solo) y Enter para empezar
       const kb = this.input.keyboard;
       const down = kb.getKeyPressed('ArrowDown') || kb.getKeyPressed('KeyS');
-      // en la Travesía, además: Espacio salta, C se agacha (bajo la viga) y A/D dan un paso a un lado
-      const trek = settings.mode === 'trek', duck = trek && kb.getKeyPressed('KeyC');
+      // en la Travesía, además: Espacio salta, C se agacha (bajo la viga), A/D dan un paso a un lado y P (mantenida) te echa
+      // al suelo en plancha (con P, la flecha abajo es una flexión)
+      const trek = settings.mode === 'trek', duck = trek && kb.getKeyPressed('KeyC'), plank = trek && kb.getKeyPressed('KeyP');
       if (trek && kb.getKeyDown('Space') && this.desktopHop <= 0) this.desktopHop = 0.45;
       this.desktopHop = Math.max(0, this.desktopHop - dt);
       const hop = this.desktopHop > 0 ? 0.16 * Math.sin((Math.PI * (0.45 - this.desktopHop)) / 0.45) : 0;
-      this.desktopDrop += ((down ? 0.4 : duck ? 0.36 : 0) - this.desktopDrop) * Math.min(1, dt * 6);
+      this.desktopDrop += ((plank ? (down ? 1.28 : 1.1) : down ? 0.4 : duck ? 0.36 : 0) - this.desktopDrop) * Math.min(1, dt * 6);
       this.world.camera.position.y = 1.6 - this.desktopDrop + hop;
       const lat = trek ? (kb.getKeyPressed('KeyD') ? 0.4 : 0) - (kb.getKeyPressed('KeyA') ? 0.4 : 0) : 0;
       this.desktopSide += (lat - this.desktopSide) * Math.min(1, dt * 8);

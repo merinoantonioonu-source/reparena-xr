@@ -21,7 +21,7 @@ import { head } from '../../input/hand-model.js';
 import { groundTexture, kitParts, type Part } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
-import { DOCK_LEN, GROUND_Y, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
+import { DOCK_LEN, GROUND_Y, decoPuts, floorPuts, piecePuts, roofLift, type Kit, type Put } from './plat/pieces.js';
 import { Runner, tramoLen } from './plat/runner.js';
 import { PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
@@ -67,6 +67,8 @@ export class TrekSystem extends createSystem({}) {
   /** El paisaje de cada trozo de 24 m que está a la vista, y lo que pide cada pieza (por su id). */
   private readonly deco = new Map<number, Put[]>();
   private readonly looks = new Map<number, Put[]>();
+  /** Lo que ha subido ya el techo de cada túnel (m: va hacia `roofLift` suave, no de golpe en cada flexión). */
+  private readonly roof = new Map<number, number>();
   private readonly knock = new Map<number, Anim>();
   private readonly gone = new Map<number, Anim>();
   /** Lo que se esconde de la arena mientras dura la Travesía (compuertas, suelo, valle y nubes) y la niebla de antes. */
@@ -181,15 +183,15 @@ export class TrekSystem extends createSystem({}) {
   }
 
   /** Lo que se enseña en el marcador. */
-  hud(): { dist: number; kmh: number; turbo: boolean; left: number; stop: string; tramo: number } {
+  hud(): { dist: number; kmh: number; turbo: boolean; left: number; stop: string; tramo: number; task: string } {
     const R = this.runner, i = Math.max(0, GAME.wave - 1);
-    return { dist: R.dist, kmh: R.v * 3.6, turbo: R.tk.turbo, left: R.toChest(i), stop: R.stop?.k ?? '', tramo: i };
+    return { dist: R.dist, kmh: R.v * 3.6, turbo: R.tk.turbo, left: R.toChest(i), stop: R.stop?.k ?? '', tramo: i, task: R.task() };
   }
 
   /** Para la partida simulada: lo esencial en datos simples. */
   snapshot(): Record<string, unknown> {
     const R = this.runner, nx = R.live.find((p) => !p.judged);
-    return { next: nx ? { k: nx.k, rel: +(nx.at - R.dist).toFixed(2), side: nx.side } : null, dist: +R.dist.toFixed(2), v: +R.v.toFixed(2), turbo: R.tk.turbo, stop: R.stop?.k ?? '', hop: !!R.hop, chest: R.chest?.tramo ?? -1, passed: R.passed, hits: R.hits, live: R.live.map((p) => p.k), ends: R.ends.map((e) => Math.round(e)) };
+    return { next: nx ? { k: nx.k, rel: +(nx.at - R.dist).toFixed(2), side: nx.side } : null, dist: +R.dist.toFixed(2), v: +R.v.toFixed(2), turbo: R.tk.turbo, stop: R.stop?.k ?? '', task: R.task(), done: R.floor?.p.done ?? 0, lev: +R.lev.toFixed(2), hop: !!R.hop, chest: R.chest?.tramo ?? -1, passed: R.passed, hits: R.hits, live: R.live.map((p) => p.k), ends: R.ends.map((e) => Math.round(e)) };
   }
 
   /** Al acabar: los metros. */
@@ -319,6 +321,7 @@ export class TrekSystem extends createSystem({}) {
         break;
       case 'hide':
         this.looks.delete(e.p.id);
+        this.roof.delete(e.p.id);
         this.knock.delete(e.p.id);
         this.gone.delete(e.p.id);
         break;
@@ -365,6 +368,11 @@ export class TrekSystem extends createSystem({}) {
 
   private stepAnims(dt: number): void {
     for (const a of this.knock.values()) a.t = Math.min(1, a.t + dt / 0.45);
+    for (const p of this.runner.live)
+      if (p.k === 'crawl') {
+        const y = this.roof.get(p.id) ?? 0;
+        this.roof.set(p.id, y + (roofLift(p, this.calibRef) - y) * Math.min(1, dt * 5));
+      }
     for (const [id, a] of this.gone) {
       a.t += dt / 0.6;
       if (a.t >= 1) {
@@ -431,7 +439,8 @@ export class TrekSystem extends createSystem({}) {
     const ry = this.runner.tk.bend(s, u.u + du, this.bp);
     this.e.set(u.rx, u.ry, u.rz + roll * (p && p.side ? -p.side : 1) * 1.4);
     this.q.setFromEuler(this.e).premultiply(this.qy.setFromAxisAngle(this.up, ry));
-    this.m4.compose(this.v.set(this.bp.x, u.y, this.bp.z), this.q, this.sc.set(u.sx * k, u.sy * k, u.sz * k));
+    const y = u.lift && p ? u.y + (this.roof.get(p.id) ?? 0) : u.y; // (el techo del túnel, con las flexiones)
+    this.m4.compose(this.v.set(this.bp.x, y, this.bp.z), this.q, this.sc.set(u.sx * k, u.sy * k, u.sz * k));
     for (const im of b.ims) im.setMatrixAt(b.n, this.m4);
     b.n++;
   }
