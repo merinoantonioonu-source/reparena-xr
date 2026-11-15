@@ -258,9 +258,6 @@ try {
     rx.setSetting('repsWave', 1); // (el tramo mide entonces lo mínimo: 40 m)
     rx.setSetting('repsInc', 0);
     rx.setSetting('rest', 3);
-    // (el salto se nota si la cabeza sube deprisa y pasa de la altura pedida enseguida; a esas pocas imágenes por segundo el
-    // primer fotograma del salto sube solo 5 cm: con los 6 de serie, el salto no se vería a menudo)
-    rx.setSetting('arcJumpH', 3);
     rx.HOOKS.startRound();
   });
   const tv = await until('Travesía: empieza el tramo 1, con piezas a la vista', (s) => s.mode === 'trek' && s.phase === 'playing' && s.wave >= 1 && !s.between && !!s.trek?.next, 90);

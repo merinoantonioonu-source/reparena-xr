@@ -11,6 +11,16 @@ const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 429
 const env = (seed: number, vmax: number, len: number): CourseEnv => ({ vmax, len, rnd: rng(seed) });
 
 describe('el recorrido de la Travesía de plataformas', () => {
+  it('el primer tramo, aun con lo más corto (40 m), trae siempre el tronco, la viga y el hueco', () => {
+    const r = rng(777);
+    for (let n = 0; n < 2000; n++) {
+      const vmax = 1.2 + 3.6 * r();
+      const c = buildCourse(env(n + 7, vmax, 40), 0, 0, 500 * r(), 0);
+      expect(courseRules(c.pieces, vmax)).toEqual([]);
+      for (const k of courseKinds(0)) expect(c.pieces.some((p) => p.k === k), `#${n} vmax ${vmax.toFixed(2)}: falta ${k}`).toBe(true);
+    }
+  });
+
   it('5.000 recorridos al azar cumplen todas las reglas', () => {
     const r = rng(12345);
     const between = (a: number, b: number): number => a + (b - a) * r();

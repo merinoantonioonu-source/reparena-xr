@@ -37,7 +37,8 @@ export function minGap(prev: Piece, next: Piece, vmax: number): number {
 /**
  * Un tramo: desde `start` (donde estás al empezarlo, o el cofre del anterior), la carrera (`RUN_UP`), las piezas de
  * `courseKinds(tramo)` al azar (con `env.rnd`) hasta casi `start + env.len`, y el cofre en `start + env.len`. Los `id`
- * empiezan en `id0` y van seguidos. Cada clase del tramo sale al menos una vez si cabe.
+ * empiezan en `id0` y van seguidos. Cada clase del tramo sale al menos una vez (las primeras, más juntas: caben todas en
+ * el tramo más corto, de 40 m).
  *
  * Lo que mide cada pieza (sube con el tramo y el rango, nunca a mitad de tramo):
  * - gap: largo de 0,8 m (tramo 0, rango 0) a 1,6 m como mucho;
@@ -60,6 +61,8 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
   }
   const pieces: Piece[] = [];
   for (;;) {
+    // (las de la cola, las que aún no han salido en el tramo, van más juntas: así caben todas aunque el tramo sea corto)
+    const intro = queue.length > 0;
     const k = queue.pop() ?? kinds[Math.floor(env.rnd() * kinds.length)]!;
     const prev = pieces[pieces.length - 1];
     const id = id0 + pieces.length;
@@ -79,7 +82,7 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     }
     if (prev) {
       // Sitio de más al azar, algo menos en los tramos altos: más piezas, más apretado (nunca bajo el mínimo).
-      const extra = rand(4, 10) - Math.min(2, 0.4 * tramo);
+      const extra = intro ? rand(0.5, 2) : rand(4, 10) - Math.min(2, 0.4 * tramo);
       p.at = prev.at + prev.len + minGap(prev, p, env.vmax) + extra;
     } else {
       p.at = start + RUN_UP + rand(0, 4);
