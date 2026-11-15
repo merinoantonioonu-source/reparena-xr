@@ -571,7 +571,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         const h = this.trek()?.hud();
         if (h) {
           lines[0] = `${Math.floor(h.dist)} m · ${h.kmh.toFixed(1).replace('.', ',')} km/h${h.turbo ? ' · TURBO' : ''}`;
-          lines[1] = h.stop === 'chest' ? `Tramo ${h.tramo + 1}: ¡cofre!` : h.task ? h.task : `Tramo ${h.tramo + 1}: faltan ${Math.ceil(h.left)} m`;
+          lines[1] = h.stop === 'chest' ? `Tramo ${h.tramo + 1}: ¡cofre!` : `Tramo ${h.tramo + 1}: faltan ${Math.ceil(h.left)} m`;
+          // la energía de las frutas (llena: supervelocidad)
+          lines[2] = h.superT > 0 ? `¡SUPERVELOCIDAD! ${Math.ceil(h.superT)} s` : `Energía ${Math.round(h.energy * 100)} %`;
           const g = this.rw.ghostText();
           if (g) lines[2] = minus(g[0]);
           if (!msg && h.turbo) { msg = '¡TURBO! ×2'; col = '#c8ff3a'; }

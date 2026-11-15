@@ -35,18 +35,11 @@ export interface Put {
   sx: number;
   sy: number;
   sz: number;
-  /** El techo del túnel: sube con las flexiones hechas (`roofLift`, lo suma el sistema que pinta). */
-  lift?: boolean;
 }
 
 /** A qué altura sobre las tablas está el techo del túnel al llegar (m: hay que pasar en plancha). */
 export const CRAWL_ROOF = 0.75;
 
-/** Lo que ha subido el techo del túnel (m): con cada flexión, un poco; con todas, por encima de la cabeza de pie. */
-export function roofLift(p: Piece, ref: number): number {
-  if (p.k !== 'crawl' || p.n <= 0) return 0;
-  return Math.min(1, p.done / p.n) * Math.max(0, ref + HEAD_TOP + 0.25 - CRAWL_ROOF);
-}
 
 /** El suelo del paisaje, bajo la pasarela (m). */
 export const GROUND_Y = -1.2;
@@ -88,7 +81,6 @@ function dockPut(a: number, b: number, top: number, sy: number, lift = false): P
   // (el −z del modelo es «delante»: el centro de sus tablas está en −zc a lo largo)
   const zc = (DK.z0 + DK.z1) / 2;
   const q = put('island', 'Dock', (a + b) / 2 + zc * sz, -((DK.x0 + DK.x1) / 2) * sx, top - DK.top * sy, { sx, sy, sz });
-  if (lift) q.lift = true;
   return q;
 }
 
@@ -218,8 +210,7 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
     }
     case 'crawl': {
       if (p.len <= 0) break;
-      // el techo (tablas del muelle) con su cara de abajo en CRAWL_ROOF: todo él sube con las flexiones (`lift`); y a cada
-      // lado, fuera de la pasarela, postes que llegan del suelo del paisaje hasta pasar el techo con todas las flexiones hechas
+      // (provisional: el túnel de roca llega con el PR B2) el techo, con su cara de abajo en CRAWL_ROOF, y postes a los lados
       const sy = 0.5;
       dockRun(0, p.len, CRAWL_ROOF + (DK.top - DK.under) * sy, sy, true, out);
       const tip = ref + HEAD_TOP + 0.25 + 0.3, th = 0.8, m = Math.max(1, Math.round(p.len / DOCK_LEN)), e = Math.min(0.2, p.len / 2);

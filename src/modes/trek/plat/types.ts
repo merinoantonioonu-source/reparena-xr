@@ -16,10 +16,11 @@ export type PieceKind =
   | 'low' // viga baja: agacharse (fluido)
   | 'side' // obstáculo a un lado: paso lateral (fluido)
   | 'log' // tronco para saltar en marcha (fluido)
-  | 'step' // plataforma más alta: se sube de un salto en marcha y se baja sola al acabar (fluido; PR B)
+  | 'step' // plataforma alta: se sube con un supersalto en marcha (sentadilla honda y salto) y se baja sola (fluido)
   | 'drop' // bajada (sin usar de momento: la plataforma ya baja sola al acabar)
-  | 'crawl' // túnel bajo: al suelo en plancha y n flexiones; cada una sube el techo (paso; PR B)
-  | 'burpee' // muro bajo: al suelo, arriba y salto por encima (paso; PR B)
+  | 'crawl' // túnel cubierto: se pasa en plancha, con la inercia (fluido)
+  | 'burpee' // (sin usar: el burpee es un túnel y, BURPEE_GAP_S después, una plataforma con `burpee`)
+  | 'fruit' // fruta flotando a la altura de la cabeza, a un lado: se coge apartando la cabeza (fluido; da energía)
   | 'foe' // enemigo que pisar saltando (fluido; PR D)
   | 'gems' // hilera de gemas que alcanzar con la mano (fluido; PR D)
   | 'chest'; // fin del tramo (paso)
@@ -27,14 +28,18 @@ export type PieceKind =
 /** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
  * si fallas, chocas o tropiezas (frenas y pierdes la racha, sin perder vidas, y sigues). El hueco también: si no saltas a
  * tiempo, tropiezas al cruzarlo (nunca se cae). */
-export const FLUID: readonly PieceKind[] = ['gap', 'step', 'low', 'side', 'log', 'foe', 'gems'];
-/** Los pasos: el mundo se para a `STOP_AT` y el movimiento pedido es el que te lleva al otro lado (el cofre, al acabar el
- * tramo; los de suelo del PR B, por seguridad: no se baja al suelo con el mundo en marcha). */
-export const HALT: readonly PieceKind[] = ['crawl', 'burpee', 'chest'];
+export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems'];
+/** Los pasos: el mundo frena suave y te para a `STOP_AT` (solo el cofre, al acabar el tramo). */
+export const HALT: readonly PieceKind[] = ['chest'];
 /** Los que se cruzan saltando (entre dos seguidos, al menos `JUMP_GAP_S` a velocidad máxima). */
-export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'burpee'];
-/** Los de suelo (tras ellos, `FLOOR_UP_S` para levantarse antes de otra cosa). */
-export const FLOORS: readonly PieceKind[] = ['crawl', 'burpee'];
+export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe'];
+/** Los de suelo (tras ellos, `FLOOR_UP_S` para levantarse antes de otra cosa; salvo la plataforma de un burpee, que llega
+ * `BURPEE_GAP_S` después del túnel). */
+export const FLOORS: readonly PieceKind[] = ['crawl'];
+/** El burpee: tras el túnel, su plataforma (la de `burpee`), a lo que se recorre en estos s a velocidad máxima. */
+export const BURPEE_GAP_S = 2;
+/** La fruta: a qué distancia del centro flota (m, a su lado) y la ventana en la que se coge al pasar (m). */
+export const FRUIT_U = 0.35, FRUIT_WIN = 0.45;
 
 /** Dónde te paras ante un paso (m antes de su borde cercano) y dónde aterrizas como poco tras el hueco (m pasado su borde
  * lejano). */
@@ -68,10 +73,11 @@ export interface Piece {
   /** Lo que mide a lo largo del sendero (m): el hueco, lo de arriba de la plataforma, el túnel, el grosor del muro; 0 en
    * las finas (viga, tronco). */
   len: number;
-  /** El obstáculo a un lado: a qué lado está (−1 izquierda, 1 derecha; hay que apartarse al otro). 0 en los demás. */
+  /** El obstáculo a un lado: a qué lado está (−1 izquierda, 1 derecha; hay que apartarse al otro). La fruta: a qué lado
+   * flota (hay que llevar la cabeza a ese lado). 0 en los demás. */
   side: -1 | 0 | 1;
-  /** Viga baja: cuánto hay que bajar la coronilla bajo tu altura de pie (m). Plataforma: lo que sube el suelo (m). Muro:
-   * su altura (m). 0 en los demás. */
+  /** Viga baja: cuánto hay que bajar la coronilla bajo tu altura de pie (m). Plataforma: lo que sube el suelo (m). 0 en
+   * los demás. */
   h: number;
   /** Túnel: las flexiones que pide. Gemas: cuántas. 0 en los demás. */
   n: number;
@@ -89,15 +95,17 @@ export interface Piece {
   /** Tronco: lo más alto que subió la cabeza (sobre tu altura de pie) mientras pasaba, y si fue un salto de verdad. */
   maxUp: number;
   fast: boolean;
-  /** Obstáculo a un lado: si la cabeza estuvo en su lado mientras pasaba. */
+  /** Obstáculo a un lado: si la cabeza estuvo en su lado mientras pasaba. Túnel: si la cabeza tocó el techo. */
   bad: boolean;
-  /** Túnel: las flexiones hechas (el techo sube con ellas). */
-  done: number;
+  /** Fruta: la especial (llena la energía de golpe). */
+  special: boolean;
+  /** Plataforma: la de un burpee (llega tras un túnel y se sube con un salto normal, sin sentadilla honda). */
+  burpee: boolean;
 }
 
 /** Una pieza nueva, con su estado a cero. */
 export function piece(id: number, k: PieceKind, at: number, tramo: number, o: Partial<Pick<Piece, 'len' | 'side' | 'h' | 'n'>> = {}): Piece {
-  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, done: 0 };
+  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false };
 }
 
 /** Lo que `buildCourse` necesita para hacer un tramo. */
