@@ -12,6 +12,7 @@ import { ArcsSystem } from './modes/arcs/arcs-system.js';
 import { EnvSystem } from './env/env-system.js';
 import { BarsSystem } from './modes/bars/bars-system.js';
 import { TouchSystem } from './modes/touch/touch-system.js';
+import { TrekSystem } from './modes/trek/trek-system.js';
 import { GameSystem } from './combat/game.js';
 import { GateSystem } from './combat/gates.js';
 import { HandSystem } from './input/hand-system.js';
@@ -47,6 +48,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(ArcsSystem, { priority: 5 });
   world.registerSystem(TouchSystem, { priority: 5 });
   world.registerSystem(BarsSystem, { priority: 5 });
+  world.registerSystem(TrekSystem, { priority: 5 });
   world.registerSystem(EnvSystem, { priority: 7 });
   world.registerSystem(GameSystem, { priority: 6 });
   world.registerSystem(RaMenuSystem, { priority: 6 }); // (los menús de RepArena: opción B del usuario, PR 31)

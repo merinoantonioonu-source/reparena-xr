@@ -57,6 +57,13 @@ tabla de `README.md` dice qué hace cada archivo.
   `J.sq`, `tipS`); una mano calculada al perderla (`h.est`) no se pinta ni pulsa; `h.back`, el fotograma en que reaparece. La vibración, con `haptic(lado, fuerza, ms)`. Los mandos que se ven son los de IWSDK; las manos desnudas, los guantes de
   RepArena (`GloveSystem`) o la mano de IWSDK opaca (`SkinHand`), según «Manos que se ven»; la que agarra el mando, la de IWSDK
   opaca. La mano que se ve se apoya en los paneles (`HOLD`, `src/ui/ra/poke.ts`): lo que pinte manos nuevas, que lo sume.
+- **Travesía de plataformas** (`src/modes/trek/plat/`, plan en `docs/PLAN-TRAVESIA-PLATAFORMAS.md`): el recorrido viene hacia
+  ti a fuerza de repeticiones (el impulso es el `Trek` de `path.ts`, sin tocarlo: lo comparan `tests/compare/trek-*`). La
+  lógica pura decide (`Runner`, `buildCourse`, `BodyMoves`) y devuelve sucesos (`PlatEv`) que `TrekSystem` aplica en orden;
+  cada pieza es un `Piece` y lo que se ve de ella sale de `pieces.ts` (modelos de los kits ya cargados: `kitParts`). Fluidas
+  (se pasan sin parar; fallar frena y rompe la racha, sin vidas) y pasos (el mundo se para a 1 m y el movimiento pedido te
+  lleva al otro lado; nunca se cae). Las reglas de separación (`minGap`) las comprueba `plat-course.test.ts`; los guiones
+  de cabeza, `plat-runner.test.ts` con `plat-sim.ts`. Todo con instancias y sin crear objetos en cada fotograma.
 - **Datos**: RepArena guarda todo en el navegador con claves `reparena3-*`, y las dos versiones comparten esos datos (se
   publican en el mismo sitio): usa las mismas claves con el mismo formato; lo nuevo, con `reparenaxr-*` (un ajuste que solo tiene RepArena XR lleva `xr: true` en
   el esquema y se guarda en `reparenaxr-settings`).

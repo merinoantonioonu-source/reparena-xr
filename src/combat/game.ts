@@ -69,6 +69,8 @@ import { EnvSystem } from '../env/env-system.js';
 import { BEAT } from '../core/beat-hub.js';
 import { exSongsStart, pulse, spotify } from '../services/hub.js';
 import { TouchSystem } from '../modes/touch/touch-system.js';
+import { TrekSystem } from '../modes/trek/trek-system.js';
+import { TREK_BIOMES } from '../modes/trek/path.js';
 import { curEx } from '../ui/fields.js';
 import { PLAY_MODES, playableEx } from '../core/playable.js';
 import { dv, onSettingsChange, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, waveReps } from '../core/settings.js';
@@ -218,6 +220,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private msgT = 0;
   private clock = 0;
   private desktopDrop = 0;
+  // (en el ordenador, la Travesía: el salto con Espacio y el paso a un lado con A/D)
+  private desktopHop = 0;
+  private desktopSide = 0;
   // temporales (sin crear objetos en cada fotograma)
   private tmpA = new Vector3();
   private projs: Proj[] = Array.from({ length: 12 }, mkProj);
@@ -361,6 +366,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         this.arcs()?.clear();
         this.touch()?.clear();
         this.bars()?.clear();
+        this.trek()?.clear();
         spotify().roundEnd();
       }
       HOOKS.showMenu('');
@@ -409,7 +415,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       foes.push({ kind: (ud.rt ?? ud.fly)?.kind ?? (ud.hatch ? 'h' + ud.hatch.beast : undefined), fly: !!ud.fly, hatch: !!ud.hatch, boss: !!(ud.rt?.def.boss || ud.fly?.flight.K.boss || ud.hatch?.foe.boss), state: e.getValue(Foe, 'state'), hp: e.getValue(Foe, 'hp'), x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2), z: +o.position.z.toFixed(2) });
     }
     const hc = (s: Side): number => HTH[s].c?.pow ?? 0;
-    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeP?.mesh.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, arcs: this.arcs()?.hud() ?? null, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, duel: VIEW.duel, center: VIEW.center?.kind ?? '', resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
+    return { life: this.enemies.life.count, menu: GAME.menu, ex: settings.exercise, mode: settings.mode, warn: this.warnT > 0 ? this.warnText : '', chargeFloor: this.chargeP?.mesh.visible ? this.chargeText : '', phase: GAME.phase, wave: GAME.wave, between: GAME.between, score: GAME.score, arcs: this.arcs()?.hud() ?? null, trek: settings.mode === 'trek' ? this.trek()?.snapshot() ?? null : null, combo: GAME.combo, queue: this.queue.length, intro: this.introT >= 0, duel: VIEW.duel, center: VIEW.center?.kind ?? '', resting: this.resting, cards: this.rw?.cardsShown ?? false, perks: this.rw ? [...this.rw.perks.has] : [], rush: this.rw?.rush.on ?? false, lives: GAME.lives, reps: GAME.reps, perfect: GAME.perfect, kills: GAME.kills, charge: this.chargePow, hand: [hc('left'), hc('right')], ballOn: GAME.ballOn, sound: soundState(), steam: this.gates?.steam() ?? null, head: [+GAME.head.x.toFixed(2), +GAME.head.y.toFixed(2), +GAME.head.z.toFixed(2)], foes };
   }
 
   // ---------------------------------------------------------------- paneles
@@ -559,6 +565,16 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
           lines[1] = h.ghost == null ? '' : `Tu mejor: ${h.ghost >= 0 ? '+' : '-'}${Math.abs(Math.round(h.ghost))}`;
           lines[2] = h.fever ? '¡FIEBRE!' : h.got ? `Orbes: ${h.got}` : '';
           if (!msg && h.fever) { msg = '¡FIEBRE! ×2'; col = '#ff4a5a'; }
+        }
+      } else if (settings.mode === 'trek') {
+        // Travesía: metros y velocidad (y el turbo) y lo que falta hasta el cofre del tramo
+        const h = this.trek()?.hud();
+        if (h) {
+          lines[0] = `${Math.floor(h.dist)} m · ${h.kmh.toFixed(1).replace('.', ',')} km/h${h.turbo ? ' · TURBO' : ''}`;
+          lines[1] = h.stop === 'chest' ? `Tramo ${h.tramo + 1}: ¡cofre!` : `Tramo ${h.tramo + 1}: faltan ${Math.ceil(h.left)} m`;
+          const g = this.rw.ghostText();
+          if (g) lines[2] = minus(g[0]);
+          if (!msg && h.turbo) { msg = '¡TURBO! ×2'; col = '#c8ff3a'; }
         }
       } else if (settings.mode === 'bars') {
         // Barras: lo que queda por reventar o los segundos colgado
@@ -737,6 +753,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (settings.mode === 'arcs') this.arcs()?.begin(); else this.arcs()?.clear();
     if (settings.mode === 'touch') this.touch()?.begin(); else this.touch()?.clear();
     if (settings.mode === 'bars') this.bars()?.begin(); else this.bars()?.clear();
+    if (settings.mode === 'trek') this.trek()?.begin(); else this.trek()?.clear();
     this.roundId++;
     this.dayRefresh();
     this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla; al calibrar, la de tu postura)
@@ -792,12 +809,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const tiny = isTiny(), ground = tiny ? hatchFoes(groundList()) : gateFoes(groundList()), fly = flyFoes(flyList());
     const env: WaveEnv = { reps: waveReps(i), twoShots: twoShots(), foes: foes() as WaveEnv['foes'], ground, fly: flyList().includes('dragon') ? [...fly, 'dragon'] : fly, waves: nWaves(), rank: rankIdx(), ladder: on('foeLadder'), tiny, hp: (k) => devFoe(k).hp, tier: (k) => foeTierOf((key) => devFoe(key).tier, k) };
     const arcsMode = settings.mode === 'arcs';
-    const touchMode = settings.mode === 'touch', barsMode = settings.mode === 'bars';
-    const w = arcsMode || touchMode || barsMode ? { list: [], fresh: [] as string[] } : buildWave(i, env, this.seen);
+    const touchMode = settings.mode === 'touch', barsMode = settings.mode === 'bars', trekMode = settings.mode === 'trek';
+    const w = arcsMode || touchMode || barsMode || trekMode ? { list: [], fresh: [] as string[] } : buildWave(i, env, this.seen);
     this.queue = w.list;
     this.waveTarget = env.reps;
     if (arcsMode) this.arcs()?.startWave(env.reps); // (en Arcos, la oleada son los obstáculos que van saliendo)
     if (barsMode) this.bars()?.startWave(i); // (en Barras, las pompas o los segundos colgado)
+    if (trekMode) this.trek()?.startWave(i); // (en la Travesía, el tramo del recorrido hasta su cofre)
     if (touchMode) this.touch()?.startWave(i, i > 0 ? WAVE_INTRO : 0); // (en Toques, los objetivos que van llegando)
     const rk = rampK(num('ramp'), this.rampLvl, RAMP_CAP);
     this.gap = spawnGap(this.queue, REP_TIME[settings.exercise] ?? 2.4, env.foes === 'flyers', env.twoShots, num('spawnGap'), rk);
@@ -814,7 +832,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.spawnT += WAVE_INTRO; // (llegan cuando se va el panel)
     }
     if (this.failBest > 0 && i + 1 === this.failBest + 1) this.trophy('¡RÉCORD AL FALLO!', `Oleada ${i + 1}: nunca habías llegado tan lejos`);
-    const W1 = `OLEADA ${i + 1}`;
+    const W1 = settings.mode === 'trek' ? `TRAMO ${i + 1}` : `OLEADA ${i + 1}`;
     this.message(rk ? `${W1} · +${Math.round(rk * 100)} % DIFICULTAD` : W1, 1.6);
     SND.horn();
   }
@@ -826,7 +844,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const N = nWaves(), last = N > 0 && i >= N - 1;
     const nw = fresh.map((k) => foeName(xrFoe(k).k)).join(', ');
     const t3 = nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
-    drawWave(p.ctx, p.W, p.H, last ? '¡ÚLTIMA OLEADA!' : N ? `OLEADA ${i + 1} DE ${N}` : `OLEADA ${i + 1}`, `${GAME.score} puntos`, t3, nw ? '#ff8a3d' : '#3cf0c6');
+    const trek = settings.mode === 'trek', W = trek ? 'TRAMO' : 'OLEADA', place = trek ? ` · ${TREK_BIOMES[i % TREK_BIOMES.length].name}` : '';
+    drawWave(p.ctx, p.W, p.H, (last ? `¡ÚLTIMO ${trek ? 'TRAMO' : 'OLEADA'}!`.replace('ÚLTIMO OLEADA', 'ÚLTIMA OLEADA') : N ? `${W} ${i + 1} DE ${N}` : `${W} ${i + 1}`) + place, `${GAME.score} puntos`, t3, nw ? '#ff8a3d' : '#3cf0c6');
     p.tex.needsUpdate = true;
     // delante de ti y de cara, derecho (nunca se ladea con la cabeza); tumbado, en el suelo bajo la cara
     const V = VIEW_FRAME, ly = lyingEx();
@@ -872,7 +891,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.resting = true;
     this.rw.waveCleared();
     SND.victory();
-    this.message(r.note ? `¡Oleada superada! ${r.note}` : '¡Oleada superada!', 2.5, '#3cf0c6', true);
+    const done = settings.mode === 'trek' ? '¡Tramo superado!' : '¡Oleada superada!';
+    this.message(r.note ? `${done} ${r.note}` : done, 2.5, '#3cf0c6', true);
     if (this.restT <= 0 && !this.rw.waits()) this.endRest();
   }
 
@@ -934,7 +954,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.placeBoard();
       this.restT = 3;
       SND.charge();
-      this.message(nWaves() ? `PREPÁRATE · ${nWaves()} OLEADAS` : 'PREPÁRATE · AL FALLO', 3);
+      this.trek()?.calibrated(y);
+      this.message(nWaves() ? `PREPÁRATE · ${nWaves()} ${settings.mode === 'trek' ? 'TRAMOS' : 'OLEADAS'}` : 'PREPÁRATE · AL FALLO', 3);
       return;
     }
     this.fl.reset(y, { left: hands.left.ok ? hands.left.wrist.y : null, right: hands.right.ok ? hands.right.wrist.y : null });
@@ -1008,6 +1029,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.arcs()?.clear();
     this.touch()?.clear();
     this.bars()?.clear();
+    this.trek()?.clear();
     const sum = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist, { arcs: AX && { medal: AX.medal, farther: AX.farther, orbs: AX.orbs }, streakUp: P.streak > P0.streak && P.streak > 1 ? { n: P.streak, best: P.best } : null, notes: gain?.notes ?? null });
     if (CAMP.run) {
       // en la campaña: el nivel con sus estrellas (y la medalla que dicen), y los botones de seguir
@@ -1129,7 +1151,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   // los metros recorridos (Arcos; con la Travesía, también ella)
   private distNow(): number {
-    return settings.mode === 'arcs' ? Math.floor(this.arcs()?.arx.dist ?? 0) : 0;
+    return settings.mode === 'arcs' ? Math.floor(this.arcs()?.arx.dist ?? 0) : settings.mode === 'trek' ? Math.floor(this.trek()?.runner.dist ?? 0) : 0;
   }
 
   bars(): BarsSystem | undefined {
@@ -1138,6 +1160,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   touch(): TouchSystem | undefined {
     return this.world.getSystem(TouchSystem);
+  }
+
+  trek(): TrekSystem | undefined {
+    return this.world.getSystem(TrekSystem);
   }
 
   arcs(): ArcsSystem | undefined {
@@ -1280,7 +1306,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         hs?.inchVisual(W.phase, W.g, W.flash, t);
       }
     } else this.st.update(t, dt, this.stIn, this.stCfg, ev);
+    const trek = settings.mode === 'trek'; // (en la Travesía no hay bola ni disparo: cada repetición empuja)
     for (const e of ev) {
+      if (trek && (e.type === 'charge' || e.type === 'power')) continue;
       if (e.type === 'charge') this.onCharge();
       else if (e.type === 'power') this.onPower(e.level, e.deep);
       else if (e.type === 'rep') {
@@ -1369,6 +1397,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // Al subir, la repetición: la bola estalla y de ella salen los rayos; lanzando con las manos, la carga pasa a ellas
   // (como en RepArena: onRep)
   private onRep(perfect: boolean, fast: boolean, powIn: number, side: Side | null = null): void {
+    if (settings.mode === 'trek') {
+      this.trekRep(perfect);
+      return;
+    }
     GAME.reps++;
     this.waveDone++;
     this.repScore(perfect);
@@ -1396,6 +1428,16 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       if (mode === 'hands') this.fireOrb(origin, dmg, perfect, pow); // (en el ordenador, sin manos: al más cercano)
       else this.fireBolt(origin, headFwd(this.tmpC), head.p, dmg, perfect, gazeLock() as FoeTarget | null, pow); // con la mirada
     }
+  }
+
+  // Travesía: la repetición empuja por el sendero (sin disparo). Las hechas parado ante un paso cuentan como ejercicio, pero
+  // no para el tramo ni dan puntos (lo que toca allí es el otro movimiento). Los avisos y el sonido los pone la Travesía.
+  private trekRep(perfect: boolean): void {
+    GAME.reps++;
+    if (perfect) GAME.perfect++;
+    if (!this.trek()?.rep(perfect)) return;
+    this.waveDone++;
+    this.repScore(perfect);
   }
 
   // de dónde sale el rayo si no se ve la bola: delante del pecho
@@ -1575,8 +1617,16 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       // en el ordenador: flecha abajo (o S) para agacharse (al subir, el rayo sale solo) y Enter para empezar
       const kb = this.input.keyboard;
       const down = kb.getKeyPressed('ArrowDown') || kb.getKeyPressed('KeyS');
-      this.desktopDrop += ((down ? 0.4 : 0) - this.desktopDrop) * Math.min(1, dt * 6);
-      this.world.camera.position.y = 1.6 - this.desktopDrop;
+      // en la Travesía, además: Espacio salta, C se agacha (bajo la viga) y A/D dan un paso a un lado
+      const trek = settings.mode === 'trek', duck = trek && kb.getKeyPressed('KeyC');
+      if (trek && kb.getKeyDown('Space') && this.desktopHop <= 0) this.desktopHop = 0.45;
+      this.desktopHop = Math.max(0, this.desktopHop - dt);
+      const hop = this.desktopHop > 0 ? 0.16 * Math.sin((Math.PI * (0.45 - this.desktopHop)) / 0.45) : 0;
+      this.desktopDrop += ((down ? 0.4 : duck ? 0.36 : 0) - this.desktopDrop) * Math.min(1, dt * 6);
+      this.world.camera.position.y = 1.6 - this.desktopDrop + hop;
+      const lat = trek ? (kb.getKeyPressed('KeyD') ? 0.4 : 0) - (kb.getKeyPressed('KeyA') ? 0.4 : 0) : 0;
+      this.desktopSide += (lat - this.desktopSide) * Math.min(1, dt * 8);
+      this.world.camera.position.x = this.desktopSide;
       if (kb.getKeyDown('Enter') && GAME.phase !== 'playing') {
         unlockAudio();
         this.startRound();
@@ -1621,6 +1671,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         if (this.restT <= 0 && !(this.resting && this.rw.waits())) this.endRest();
       } else if (!GAME.between && settings.mode === 'arcs') {
         if (!this.arcs()?.waveLeft()) this.waveCleared(); // (Arcos: sin nada por salir ni por pasar)
+      } else if (!GAME.between && settings.mode === 'trek') {
+        if (!this.trek()?.waveLeft(GAME.wave - 1)) this.waveCleared(); // (Travesía: al llegar al cofre del tramo)
       } else if (!GAME.between && settings.mode === 'touch') {
         if (!this.touch()?.waveLeft()) this.waveCleared(); // (Toques: sin nada por llegar ni por tocar)
       } else if (!GAME.between && settings.mode === 'bars') {

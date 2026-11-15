@@ -269,15 +269,16 @@ export class Runner {
 
   /** El juicio de una fluida; `z`, lo que le falta para llegar a tu cabeza (m). */
   private judge(p: Piece, z: number): void {
-    const M = this.moves, C = this.cfg, step = this.tk.v * (1 / 72) + 0.02;
+    const M = this.moves, C = this.cfg;
+    if (!p.warned && z < (p.k === 'side' ? SIDE_WARN_AT : WARN_AT)) {
+      p.warned = true;
+      this.ask(p, true);
+    }
     if (p.k === 'side') {
-      const far = SIDE_WARN_AT;
-      if (z < far && z > far - step - 0.1 && p.ok === null) this.ask(p, true);
       if (Math.abs(z) < SIDE_WIN && !M.clear(p.side as -1 | 1, C)) p.bad = true;
       if (z < -SIDE_WIN) this.result(p, !p.bad);
       return;
     }
-    if (z < WARN_AT && z > WARN_AT - step - 0.1 && p.ok === null) this.ask(p, true);
     if (p.k === 'log') {
       if (Math.abs(z) < LOG_WIN) {
         p.maxUp = Math.max(p.maxUp, M.up);
@@ -304,7 +305,9 @@ export class Runner {
     }
     this.hits++;
     const tk = this.tk;
-    tk.v = p.k === 'low' ? 0 : tk.v * 0.2;
+    // (la viga te para del todo, también el empuje de la última repetición; el tronco y el barril, casi)
+    if (p.k === 'low') tk.v = tk.push = tk.want = 0;
+    else tk.v *= 0.2;
     this.ev.push({ t: 'hit', p });
     this.ev.push({ t: 'combo0' });
     tk.turboSet(false);

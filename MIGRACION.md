@@ -137,7 +137,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 16 · Toques** — #26
 - [x] **PR 17a · Barras: el modo (aparatos que se recuerdan, dominadas, remo, colgado y objetivos)** — #27
 - [x] **PR 17b · Barras: el bosque nocturno, el remolino y los tentáculos** — #27
-- [ ] **PR 18 · Travesía** (aplazado por el usuario: se hará más adelante; su lógica pura ya está portada y comparada en `src/modes/trek/`)
+- [ ] **PR 18 · Travesía** → sustituida por la **Travesía de plataformas** (plan del usuario: `docs/PLAN-TRAVESIA-PLATAFORMAS.md`, PR A a E; la clásica sigue en `clasica.html`)
+  - [ ] **PR A · Armazón jugable** (sentadillas, viga, tronco, barril a un lado y el hueco; el cofre al final de cada tramo)
 - [ ] **PR 19 · Sesiones** (aplazado por el usuario: se hará más adelante)
 - [x] **PR 20 · Entornos** — #28
 - [ ] **PR 21 · Realidad mixta** (aplazado por el usuario: se hará más adelante; nada de lo demás depende de ella. Se empezó con lo de serie de IWSDK: entrar con `launchXR` en modo `immersive-ar` con detección de planos y mallas, anclas y profundidad, `DepthSensingSystem` y `DepthOccludable` en compuertas, cajas, rocas (ya quitadas, PR 28) y enemigos, y `GAME.mr`/`arenaDepth` —6 m en realidad mixta—; el plan de la habitación de RepArena, `src/37_room.js`, se porta a lógica pura con su comparación)
@@ -400,6 +401,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- Travesía de plataformas, PR A → los siguientes (B a E del plan): **la Travesía es la de plataformas** (modo `trek`, con
+  sentadilla). `TrekSystem` (`src/modes/trek/trek-system.ts`) la engancha como Arcos (`begin`, `startWave`, `waveLeft`,
+  `rep`, `hud`, `end`, `clear`, `calibrated`); en `game.ts`, la repetición de la Travesía no dispara (`trekRep`: empuja si no
+  estás parado ante un paso; las de una parada no cuentan para el tramo) y no hay bola (sin `charge` ni `power`). Cada tramo
+  acaba en su cofre (`Runner.atChest`); el siguiente se monta al empezar el anterior para verlo llegar de lejos. Mientras
+  dura, `TrekSystem` esconde la arena (compuertas, suelo, valle y nubes) y pone la niebla del bosque; el fondo realista lo
+  pide al entorno (`TrekSystem.pano`). Una pieza nueva: su clase en `PieceKind` (types.ts), cuándo entra en `courseKinds`,
+  su separación en `minGap`, su juicio en `Runner` y su aspecto en `piecePuts`. En el ordenador: flecha abajo, sentadilla;
+  Espacio, salto; C, agacharse; A/D, paso a un lado. `__rx.snapshot().trek` da la marcha y la pieza siguiente.
 
 - PR 37 → los siguientes: **las imágenes por segundo de las gafas** se piden con `applyRate` (`menu-system.ts`, RepArena:
   `xrRate`) al entrar y al cambiar «Fotogramas por segundo en las gafas» (`xrHz`, 72 de serie). Sin él, las Quest iban a 90

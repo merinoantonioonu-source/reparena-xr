@@ -71,6 +71,8 @@ export interface Piece {
   /* ---- su estado (lo lleva el Runner; empieza en false/0) ---- */
   /** Ya salió a la vista (suceso 'show'). */
   shown: boolean;
+  /** Ya se avisó de ella (lo que pide, a unos metros). */
+  warned: boolean;
   /** Ya se juzgó (pasada, chocada o cruzada). */
   judged: boolean;
   /** Cómo acabó: superada (true), chocada o rodeada (false) o aún por ver (null). */
@@ -84,7 +86,7 @@ export interface Piece {
 
 /** Una pieza nueva, con su estado a cero. */
 export function piece(id: number, k: PieceKind, at: number, tramo: number, o: Partial<Pick<Piece, 'len' | 'side' | 'h' | 'n'>> = {}): Piece {
-  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false };
+  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false };
 }
 
 /** Lo que `buildCourse` necesita para hacer un tramo. */
