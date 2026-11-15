@@ -13,6 +13,8 @@
  *   postes en el lado izquierdo que llegan a y = −2,00 (y a 1,01: sobresalen de las tablas). La caja entera, con los
  *   postes y las cuerdas, es mayor que las tablas, así que todo se mide por las TABLAS, no por la caja.
  * - `Dock_Pole`: x −0,20…0,16; y −2,00…1,01; z −0,20…0,18.
+ * - `Barrel`: x −0,357…0,357; y 0,0013…0,661; z −0,357…0,357 (un cilindro de 0,714 m de diámetro).
+ * - `Chest_Closed`: x −0,697…0,697; y −0,021…0,861; z −0,444…0,444 (una caja de 1,39 × 0,88 × 0,89 m).
  */
 import { trekRng, TREK_CH } from '../path.js';
 import { HEAD_TOP } from '../env.js';
@@ -50,7 +52,10 @@ export function roofLift(p: Piece, ref: number): number {
 export const GROUND_Y = -1.2;
 
 /** Las tablas del `Dock` (a escala 1): su ancho, su largo, dónde acaba la cara de arriba y hasta dónde bajan los postes. */
-const DK = { x0: -0.98448, x1: 1.0, z0: -1.02643, z1: 1.05486, top: 0.488067, bottom: -1.999561 } as const;
+const DK = { x0: -0.98448, x1: 1.0, z0: -1.02643, z1: 1.05486, top: 0.488067, bottom: -1.999561, under: 0.138521 } as const;
+/** `Barrel` y `Chest_Closed` (a escala 1): lo que miden y dónde tienen la base. */
+const BR = { r: 0.357345, y0: 0.00127464, y1: 0.661185 } as const;
+const CH = { x1: 0.697393, y0: -0.0205194, y1: 0.860731, z1: 0.443711 } as const;
 /** `Dock_Pole` (a escala 1). */
 const PL = { x0: -0.201654, x1: 0.164895, y0: -1.999561, y1: 1.013127, z0: -0.200475, z1: 0.175503 } as const;
 const PL_LEN = PL.y1 - PL.y0;
@@ -76,12 +81,26 @@ function put(kit: Kit, n: string, ds: number, u: number, y: number, o: Partial<P
 
 /* ------------------------------------------------------------------ el suelo */
 
-/** Un tramo de muelle que cubre las tablas de `a` a `b` (a lo largo): estirado o encogido para que encaje justo. */
-function dockAt(a: number, b: number, out: Put[]): void {
-  const sz = (b - a) / DOCK_LEN, sx = DOCK_W / (DK.x1 - DK.x0), sy = -GROUND_Y / (DK.top - DK.bottom);
-  // (el −z del modelo es «delante»: el centro de sus tablas está en −zc a lo largo; la cara de arriba, en y = 0)
+/** Un tramo de muelle que cubre las tablas de `a` a `b` (a lo largo), con su cara de arriba en `top` y escalado a lo alto
+ * por `sy` (las tablas y los postes, a la vez). Estirado o encogido a lo largo para que encaje justo. */
+function dockPut(a: number, b: number, top: number, sy: number, lift = false): Put {
+  const sz = (b - a) / DOCK_LEN, sx = DOCK_W / (DK.x1 - DK.x0);
+  // (el −z del modelo es «delante»: el centro de sus tablas está en −zc a lo largo)
   const zc = (DK.z0 + DK.z1) / 2;
-  out.push(put('island', 'Dock', (a + b) / 2 + zc * sz, -((DK.x0 + DK.x1) / 2) * sx, -DK.top * sy, { sx, sy, sz }));
+  const q = put('island', 'Dock', (a + b) / 2 + zc * sz, -((DK.x0 + DK.x1) / 2) * sx, top - DK.top * sy, { sx, sy, sz });
+  if (lift) q.lift = true;
+  return q;
+}
+
+/** Un tramo de muelle del suelo: de `a` a `b`, con la cara de arriba en y = 0 y los postes hasta `GROUND_Y`. */
+function dockAt(a: number, b: number, out: Put[]): void {
+  out.push(dockPut(a, b, 0, -GROUND_Y / (DK.top - DK.bottom)));
+}
+
+/** Tablas de `a` a `b` sin huecos (tramos casi de `DOCK_LEN`, ni estirados ni encogidos de más). */
+function dockRun(a: number, b: number, top: number, sy: number, lift: boolean, out: Put[]): void {
+  const m = Math.max(1, Math.round((b - a) / DOCK_LEN)), w = (b - a) / m;
+  for (let i = 0; i < m; i++) out.push(dockPut(a + i * w, a + (i + 1) * w, top, sy, lift));
 }
 
 /**
@@ -131,6 +150,18 @@ function layPole(ds: number, u: number, bottom: number, len: number, th: number)
   return put('island', 'Dock_Pole', ds, u + ((PL.y0 + PL.y1) / 2) * sy, bottom - PL.x0 * th, { rz: Math.PI / 2, sx: th, sy, sz: th });
 }
 
+/** Un barril de pie con su base en `y0`, de `h` de alto y `d` de diámetro por `l` a lo largo; centrado en (`ds`, `u`). */
+function barrelAt(ds: number, u: number, y0: number, h: number, d: number, l: number): Put {
+  const sy = h / (BR.y1 - BR.y0);
+  return put('island', 'Barrel', ds, u, y0 - BR.y0 * sy, { sx: d / (2 * BR.r), sy, sz: l / (2 * BR.r) });
+}
+
+/** Una caja (`Chest_Closed`) con su base en `y0`, de `h` de alto, `w` de ancho y `l` a lo largo; centrada en (`ds`, `u`). */
+function chestAt(ds: number, u: number, y0: number, h: number, w: number, l: number): Put {
+  const sy = h / (CH.y1 - CH.y0);
+  return put('island', 'Chest_Closed', ds, u, y0 - CH.y0 * sy, { sx: w / (2 * CH.x1), sy, sz: l / (2 * CH.z1) });
+}
+
 /** Lo que se ve de cada pieza (sin el suelo), relativo a `p.at` (ds 0 = su borde cercano). `ref`: la altura de los ojos de pie. */
 export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
   switch (p.k) {
@@ -169,8 +200,41 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       // de cara al jugador (que viene de ds negativos): el frente del cofre mira a +z del modelo, hacia atrás: ry = 0
       out.push(put('island', 'Chest_Closed', 0.6, 0, 0.0205194 * 0.9, { sx: 0.9, sy: 0.9, sz: 0.9 }));
       break;
+    case 'step': {
+      if (p.h <= 0 || p.len <= 0) break;
+      // las tablas del muelle, con su cara de arriba en y = h, de at a at + len; su grosor y sus postes (que llegan al suelo
+      // del paisaje, si no se pasan de gruesos) escalados a lo alto, sin comerse más del 40 % de la altura
+      const sy = Math.min(0.7, Math.max(0.45, (p.h - GROUND_Y) / (DK.top - DK.bottom)), (0.4 * p.h) / (DK.top - DK.under));
+      dockRun(0, p.len, p.h, sy, false, out);
+      // debajo, barriles de pie de lado a lado (dos por fila, en filas de ~0,95 m: se ven por los lados y por delante) hasta
+      // las tablas; si hace falta más altura, apilados. Con poca altura, el barril se hunde un poco en el suelo (y se tapa)
+      const hs = p.h - (DK.top - DK.under) * sy, n = Math.max(1, Math.round(hs / 0.8)), lh = hs / n;
+      const rows = Math.max(1, Math.round(p.len / 0.95)), rl = p.len / rows, d = DOCK_W / 2 + 0.02;
+      for (let k = 0; k < n; k++) {
+        const top = (k + 1) * lh + (k === n - 1 ? 0.02 : 0), bh = n === 1 ? Math.min(Math.max(hs, 0.5), hs + 0.15) : lh;
+        for (let i = 0; i < rows; i++) for (const u of [-DOCK_W / 4, DOCK_W / 4]) out.push(barrelAt((i + 0.5) * rl, u, top - bh, bh, d, rl));
+      }
+      break;
+    }
+    case 'crawl': {
+      if (p.len <= 0) break;
+      // el techo (tablas del muelle) con su cara de abajo en CRAWL_ROOF: todo él sube con las flexiones (`lift`); y a cada
+      // lado, fuera de la pasarela, postes que llegan del suelo del paisaje hasta pasar el techo con todas las flexiones hechas
+      const sy = 0.5;
+      dockRun(0, p.len, CRAWL_ROOF + (DK.top - DK.under) * sy, sy, true, out);
+      const tip = ref + HEAD_TOP + 0.25 + 0.3, th = 0.8, m = Math.max(1, Math.round(p.len / DOCK_LEN)), e = Math.min(0.2, p.len / 2);
+      for (let i = 0; i <= m; i++) for (const u of [-DOCK_W / 2 - 0.25, DOCK_W / 2 + 0.25]) out.push(standPole(e + (i / m) * (p.len - 2 * e), u, GROUND_Y, tip - GROUND_Y, th));
+      break;
+    }
+    case 'burpee': {
+      if (p.h <= 0 || p.len <= 0) break;
+      // el muro: cajas (cofres cerrados) de borde a borde, dos por fila, en filas de ~0,9 m de grueso y apiladas hasta h: macizo
+      const n = Math.max(1, Math.ceil(p.h / 0.9)), lh = p.h / n, rows = Math.max(1, Math.round(p.len / 0.9)), rl = p.len / rows;
+      for (let k = 0; k < n; k++) for (let i = 0; i < rows; i++) for (const u of [-DOCK_W / 4, DOCK_W / 4]) out.push(chestAt((i + 0.5) * rl, u, k * lh, lh, DOCK_W / 2, rl));
+      break;
+    }
     default:
-      break; // floor, step, drop, crawl, burpee, foe y gems: llegan en otros PR
+      break; // floor, drop, foe y gems: llegan en otros PR
   }
   return out;
 }

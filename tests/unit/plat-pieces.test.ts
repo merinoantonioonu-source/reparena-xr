@@ -7,7 +7,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { HEAD_TOP } from '../../src/modes/trek/env.js';
 import { TREK_CH } from '../../src/modes/trek/path.js';
-import { DOCK_LEN, DOCK_W, GROUND_Y, KIT_MODELS, decoPuts, floorPuts, piecePuts, type Kit, type Put } from '../../src/modes/trek/plat/pieces.js';
+import { CRAWL_ROOF, DOCK_LEN, DOCK_W, GROUND_Y, KIT_MODELS, decoPuts, floorPuts, piecePuts, roofLift, type Kit, type Put } from '../../src/modes/trek/plat/pieces.js';
 import { piece, type PieceKind } from '../../src/modes/trek/plat/types.js';
 
 interface Gltf {
@@ -87,17 +87,17 @@ const placedDeck = (p: Put): [number, number] => {
 };
 
 /** Las tablas del `Dock` (a escala 1), leídas de los vértices: sin los postes del lado, que sobresalen de la caja. */
-let deckMemo: { x0: number; x1: number; z0: number; z1: number; top: number } | null = null;
+let deckMemo: { x0: number; x1: number; z0: number; z1: number; top: number; bot: number } | null = null;
 function deck() {
   if (deckMemo) return deckMemo;
   const g = gltf('island'), b = raw('island'), bin = 20 + b.readUInt32LE(12) + 8;
   const node = g.nodes[g.nodes[top('island').get('Dock')!].children![0]];
   const a = g.accessors[g.meshes[node.mesh!].primitives[0].attributes.POSITION], off = bin + (g.bufferViews[a.bufferView].byteOffset ?? 0) + (a.byteOffset ?? 0);
-  const d = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity, top: -Infinity };
+  const d = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity, top: -Infinity, bot: Infinity };
   for (let i = 0; i < a.count; i++) {
     const x = b.readFloatLE(off + i * 12), y = b.readFloatLE(off + i * 12 + 4), z = b.readFloatLE(off + i * 12 + 8);
     if (x < -0.99 || y < 0.1 || y > 0.55) continue; // (solo las tablas y sus travesaños: sin los postes del lado)
-    d.x0 = Math.min(d.x0, x), d.x1 = Math.max(d.x1, x), d.z0 = Math.min(d.z0, z), d.z1 = Math.max(d.z1, z), d.top = Math.max(d.top, y);
+    d.x0 = Math.min(d.x0, x), d.x1 = Math.max(d.x1, x), d.z0 = Math.min(d.z0, z), d.z1 = Math.max(d.z1, z), d.top = Math.max(d.top, y), d.bot = Math.min(d.bot, y);
   }
   return (deckMemo = d);
 }
@@ -153,7 +153,7 @@ describe('lo que sale', () => {
     expect(out.length).toBeGreaterThan(n + 1);
   });
   it('las clases que aún no tienen modelo no ponen nada', () => {
-    for (const k of ['floor', 'step', 'drop', 'crawl', 'burpee', 'foe', 'gems'] as PieceKind[]) expect(piecePuts(mk(k, 0, { len: 3 }), REF, []), k).toEqual([]);
+    for (const k of ['floor', 'drop', 'foe', 'gems'] as PieceKind[]) expect(piecePuts(mk(k, 0, { len: 3 }), REF, []), k).toEqual([]);
   });
 });
 
@@ -292,6 +292,156 @@ describe('las piezas', () => {
     expect(l[0].u).toBe(0);
     expect(l[0].ry % (2 * Math.PI)).toBeCloseTo(0, 9); // (su frente mira a +z, hacia el jugador)
     expect(placed(l[0]).min[1]).toBeCloseTo(0, 6);
+  });
+});
+
+/** Las tablas del `Dock` colocadas (sin barriles ni postes): [de, a] a lo largo. */
+const spans = (l: Put[]): Array<[number, number]> => decks(l);
+/** ¿Los intervalos, ordenados, se tocan sin huecos de `a` a `b`? */
+function tile(iv: Array<[number, number]>, a: number, b: number): boolean {
+  const l = [...iv].sort((x, y) => x[0] - y[0]);
+  let at = a;
+  for (const [x, y] of l) {
+    if (x > at + 1e-6) return false;
+    at = Math.max(at, y);
+  }
+  return at >= b - 1e-6;
+}
+
+describe('la plataforma (step)', () => {
+  const CASES: Array<[number, number, number]> = [[0.2, 1], [0.35, 3], [0.5, 4.2], [0.9, 2.5], [1.4, 3]].map(([h, len]) => [h, len, 0] as [number, number, number]);
+  it('las tablas tienen la cara de arriba exactamente a h (con las medidas reales del modelo), de at a at + len, sin huecos y de borde a borde', () => {
+    for (const [h, len] of CASES) {
+      const l = piecePuts(mk('step', 50, { h, len }), REF, []), docks = l.filter((p) => p.n === 'Dock');
+      expect(docks.length, `${h}/${len}`).toBeGreaterThan(0);
+      for (const p of docks) {
+        expect(p.y + deck().top * p.sy, 'cara de arriba').toBeCloseTo(h, 6);
+        expect(p.sx * (deck().x1 - deck().x0)).toBeCloseTo(DOCK_W, 3);
+        expect(p.u).toBeCloseTo(0, 1);
+        expect(p.lift).toBeUndefined();
+        expect(p.sz).toBeGreaterThan(0.45);
+        expect(p.sz).toBeLessThan(1.6);
+      }
+      const d = spans(l);
+      expect(d[0][0], 'empieza en at').toBeCloseTo(0, 6);
+      expect(d[d.length - 1][1], 'acaba en at + len').toBeCloseTo(len, 6);
+      expect(tile(d, 0, len)).toBe(true);
+      for (let i = 1; i < d.length; i++) expect(d[i][0]).toBeGreaterThan(d[i - 1][1] - 1e-6);
+      // las tablas no pasan de h (lo que sobresale son los postes del lado): ningún modelo de abajo sube más que su cara
+      for (const p of l.filter((q) => q.n === 'Barrel')) expect(placed(p).max[1], 'barril').toBeLessThanOrEqual(h - (deck().top - deck().bot) * docks[0].sy + 0.0201);
+    }
+  });
+  it('debajo hay barriles de pie que llenan de lado a lado y de at a at + len (se ven por los lados y por delante), sin salir de la plataforma', () => {
+    for (const [h, len] of CASES) {
+      const bs = piecePuts(mk('step', 0, { h, len }), REF, []).filter((p) => p.n === 'Barrel');
+      expect(bs.length, `${h}/${len}`).toBeGreaterThanOrEqual(2);
+      expect(bs.length).toBeLessThanOrEqual(24);
+      const boxes = bs.map(placed);
+      for (const side of [-1, 1]) {
+        const col = boxes.filter((b) => (b.min[0] + b.max[0]) / 2 * side > 0).map((b) => [b.min[2], b.max[2]] as [number, number]);
+        expect(tile(col, 0, len), `a lo largo, lado ${side}`).toBe(true);
+        expect(Math.max(...col.map((c) => c[1]))).toBeLessThan(len + 1e-6); // (ni un barril por delante o por detrás)
+        expect(Math.min(...col.map((c) => c[0]))).toBeGreaterThan(-1e-6);
+      }
+      expect(tile(boxes.map((b) => [b.min[0], b.max[0]] as [number, number]), -DOCK_W / 2, DOCK_W / 2), 'a lo ancho').toBe(true);
+      for (const b of boxes) {
+        expect(b.min[1], 'no se hunde más de 0,16 bajo las tablas del suelo').toBeGreaterThan(-0.16);
+        expect(Math.abs(b.min[0])).toBeLessThan(DOCK_W / 2 + 0.05);
+        expect(Math.abs(b.max[0])).toBeLessThan(DOCK_W / 2 + 0.05);
+      }
+      // y lo que se ve desde fuera (por encima de las tablas del suelo) llega hasta las tablas de la plataforma
+      expect(Math.max(...boxes.map((b) => b.max[1]))).toBeGreaterThan(h * 0.5);
+    }
+  });
+});
+
+describe('el túnel (crawl)', () => {
+  const full = (len: number, n: number) => ({ ...mk('crawl', 30, { len, n }), done: n });
+  it('todo el techo lleva lift, con su cara de abajo en CRAWL_ROOF, cubre de lado a lado y de at a at + len sin huecos', () => {
+    for (const len of [1.5, 3, 4.1, 6]) {
+      const l = piecePuts(mk('crawl', 30, { len, n: 3 }), REF, []), roof = l.filter((p) => p.n === 'Dock');
+      expect(roof.length, `${len}`).toBeGreaterThan(0);
+      for (const p of roof) {
+        expect(p.lift, 'lift').toBe(true);
+        expect(p.y + deck().bot * p.sy, 'cara de abajo').toBeCloseTo(CRAWL_ROOF, 6);
+        expect(p.sx * (deck().x1 - deck().x0)).toBeCloseTo(DOCK_W, 3);
+        expect(p.u).toBeCloseTo(0, 1);
+      }
+      const d = spans(l);
+      expect(d[0][0]).toBeCloseTo(0, 6);
+      expect(d[d.length - 1][1]).toBeCloseTo(len, 6);
+      expect(tile(d, 0, len)).toBe(true);
+      // y solo el techo sube: los postes no llevan lift
+      for (const p of l.filter((q) => q.n !== 'Dock')) expect(p.lift, p.n).toBeUndefined();
+    }
+  });
+  it('los postes quedan a los dos lados, fuera de la pasarela, del suelo hasta pasar el techo subido del todo', () => {
+    for (const ref of [1.4, 1.6, 1.85]) for (const len of [1.5, 3, 6]) {
+      const n = 3, p = full(len, n), l = piecePuts(p, ref, []), poles = l.filter((q) => q.n === 'Dock_Pole');
+      expect(poles.length).toBeGreaterThanOrEqual(4);
+      expect(poles.filter((q) => q.u < 0).length).toBe(poles.filter((q) => q.u > 0).length);
+      const roofTop = CRAWL_ROOF + roofLift(p, ref); // (la cara de abajo del techo con todas las flexiones hechas)
+      expect(roofTop).toBeGreaterThan(ref + HEAD_TOP); // (por encima de la cabeza de pie)
+      for (const q of poles) {
+        const b = placed(q);
+        expect(Math.min(Math.abs(b.min[0]), Math.abs(b.max[0])), 'fuera de la pasarela').toBeGreaterThan(DOCK_W / 2);
+        expect(b.min[0] * b.max[0]).toBeGreaterThan(0); // (de un solo lado)
+        expect(b.min[1]).toBeCloseTo(GROUND_Y, 5);
+        expect(b.max[1], 'el techo subido sigue apoyado').toBeGreaterThan(roofTop + 0.2);
+        expect(b.max[2]).toBeLessThanOrEqual(len + 1e-6);
+        expect(b.min[2]).toBeGreaterThanOrEqual(-1e-6);
+        expect(q.lift).toBeUndefined();
+      }
+    }
+  });
+  it('roofLift: sube con las flexiones hechas y, con todas, deja el techo por encima de la cabeza', () => {
+    const p = mk('crawl', 0, { len: 3, n: 4 });
+    expect(roofLift(p, REF)).toBe(0);
+    p.done = 2;
+    const mid = roofLift(p, REF);
+    p.done = 4;
+    expect(roofLift(p, REF)).toBeGreaterThan(mid);
+    expect(CRAWL_ROOF + roofLift(p, REF)).toBeCloseTo(REF + HEAD_TOP + 0.25, 6);
+  });
+});
+
+describe('el muro (burpee)', () => {
+  it('llega exactamente a h, de borde a borde de la pasarela y de at a at + len, macizo (sin huecos por los que ver)', () => {
+    for (const [h, len] of [[0.3, 0.6], [0.5, 0.9], [0.7, 1.4], [1.0, 0.5], [1.9, 2.2]]) {
+      const l = piecePuts(mk('burpee', 40, { h, len }), REF, []);
+      expect(l.length, `${h}/${len}`).toBeGreaterThanOrEqual(2);
+      const boxes = l.map(placed);
+      expect(Math.max(...boxes.map((b) => b.max[1])), 'altura').toBeCloseTo(h, 6);
+      expect(Math.min(...boxes.map((b) => b.min[1]))).toBeCloseTo(0, 6);
+      expect(tile(boxes.map((b) => [b.min[0], b.max[0]] as [number, number]), -DOCK_W / 2, DOCK_W / 2), 'de borde a borde').toBe(true);
+      expect(Math.min(...boxes.map((b) => b.min[0]))).toBeCloseTo(-DOCK_W / 2, 6);
+      expect(Math.max(...boxes.map((b) => b.max[0]))).toBeCloseTo(DOCK_W / 2, 6);
+      expect(Math.min(...boxes.map((b) => b.min[2]))).toBeCloseTo(0, 6);
+      expect(Math.max(...boxes.map((b) => b.max[2]))).toBeCloseTo(len, 6);
+      // sin huecos: cada columna de la cuadrícula (a lo largo × a lo ancho) la cubre alguna caja, de la base a la altura h
+      for (let s = 0.01; s < len; s += len / 7) for (let u = -DOCK_W / 2 + 0.01; u < DOCK_W / 2; u += DOCK_W / 9) for (let y = 0.01; y < h; y += h / 6) {
+        const hit = boxes.some((b) => s >= b.min[2] - 1e-6 && s <= b.max[2] + 1e-6 && u >= b.min[0] - 1e-6 && u <= b.max[0] + 1e-6 && y >= b.min[1] - 1e-6 && y <= b.max[1] + 1e-6);
+        expect(hit, `hueco en s=${s.toFixed(2)} u=${u.toFixed(2)} y=${y.toFixed(2)}`).toBe(true);
+      }
+      for (const p of l) expect(p.lift).toBeUndefined();
+    }
+  });
+});
+
+describe('los modelos de las piezas nuevas', () => {
+  it('step, crawl y burpee solo usan modelos de KIT_MODELS, y esos existen en su .glb', () => {
+    const used = new Set<string>();
+    for (const k of ['step', 'crawl', 'burpee'] as PieceKind[])
+      for (const p of piecePuts(mk(k, 0, { len: 3, h: 0.5, n: 3 }), REF, [])) {
+        expect(KIT_MODELS[p.kit], `${k}: ${p.n}`).toContain(p.n);
+        expect(top(p.kit).has(p.n), `${k}: ${p.n} en el .glb`).toBe(true);
+        used.add(`${p.kit}:${p.n}`);
+      }
+    for (const m of ['island:Dock', 'island:Dock_Pole', 'island:Barrel', 'island:Chest_Closed']) expect(used.has(m), m).toBe(true);
+  });
+  it('pocas piezas por pieza de recorrido (el sistema pinta con instancias)', () => {
+    for (const k of ['step', 'crawl', 'burpee'] as PieceKind[]) for (const len of [1, 3, 6]) for (const h of [0.3, 0.6, 1.2])
+      expect(piecePuts(mk(k, 0, { len, h, n: 3 }), REF, []).length, `${k} ${len}/${h}`).toBeLessThanOrEqual(40);
   });
 });
 
