@@ -386,7 +386,8 @@ try {
           await page.waitForTimeout(150);
         }
       };
-      if (v < 0.35 && rel > 0.2) {
+      if (v < 0.35) {
+        // (sin impulso, también si ya lo tienes encima: otra sentadilla y el salto, o te quedarías quieto sobre él)
         if (rel > 8.2) await rep(false, 1.32);
         else {
           await rep(false, 1.2);
