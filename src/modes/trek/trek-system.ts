@@ -73,7 +73,9 @@ export class TrekSystem extends createSystem({}) {
   private savedFog: { color: number; density: number } | null = null;
   private readonly m4 = new Matrix4();
   private readonly q = new Quaternion();
-  private readonly e = new Euler(0, 0, 0, 'YXZ');
+  private readonly e = new Euler(0, 0, 0, 'XYZ');
+  private readonly qy = new Quaternion();
+  private readonly up = new Vector3(0, 1, 0);
   private readonly v = new Vector3();
   private readonly sc = new Vector3();
   private readonly at = new Vector3();
@@ -412,9 +414,10 @@ export class TrekSystem extends createSystem({}) {
   private put(u: Put, s: number, du: number, k: number, roll = 0, p?: Piece): void {
     const b = this.batches.get(`${u.kit}:${u.n}`);
     if (!b || b.n >= b.cap) return;
+    // (el giro propio del modelo, en el orden de pieces.ts, y encima el del sendero en ese punto)
     const ry = this.runner.tk.bend(s, u.u + du, this.bp);
-    this.e.set(u.rx, ry + u.ry, u.rz + roll * (p && p.side ? -p.side : 1) * 1.4);
-    this.q.setFromEuler(this.e);
+    this.e.set(u.rx, u.ry, u.rz + roll * (p && p.side ? -p.side : 1) * 1.4);
+    this.q.setFromEuler(this.e).premultiply(this.qy.setFromAxisAngle(this.up, ry));
     this.m4.compose(this.v.set(this.bp.x, u.y, this.bp.z), this.q, this.sc.set(u.sx * k, u.sy * k, u.sz * k));
     for (const im of b.ims) im.setMatrixAt(b.n, this.m4);
     b.n++;
