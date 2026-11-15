@@ -156,7 +156,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 33 · El menú ya no desaparece a trozos al mover un deslizador** (los dibujos que cambian se suben antes de pintar cada fotograma; el deslizador ya no se repinta al arrastrarlo ni con el rayo encima; el diagnóstico apunta lo que se sube) — #40
 - [x] **PR 34 · Sin congelarse al pulsar el menú ni fuera del juego, y salir acaba la ronda** (las teclas ya no crean un lienzo cada una; el fondo del menú se reutiliza; con la página a la vista el juego descansa y no suena; al salir de las gafas la ronda se acaba y se guarda; con el menú de Meta, se pausa) — #41
 - [x] **PR 35 · Compuertas, contornos, Spotify y la paralela** (las compuertas esperan a que salga el que tienen dentro; el diablillo y el lanzador, sin contorno; Play pone tus canciones elegidas, no lo que sonaba en otro aparato; la paralela única se coloca a lo largo de tus manos) — #42
-- [ ] **PR 36 · Menú plano y paneles como en RepArena** (menú modelo A sin relieve; rehacerlo al pulsar no pinta ni sube nada; con un menú abierto, sin bosque ni enemigos; los siete paneles informativos, en lienzos como en RepArena, con su letra y sin que el texto se salga)
+- [x] **PR 36 · Menú plano y paneles como en RepArena** (menú modelo A sin relieve; rehacerlo al pulsar no pinta ni sube nada; con un menú abierto, sin bosque ni enemigos; los siete paneles informativos, en lienzos como en RepArena, con su letra y sin que el texto se salga) — #43
+- [ ] **PR 37 · Las gafas a 72 imágenes por segundo y el menú del todo plano** (se aplica «Fotogramas por segundo en las gafas», que se había quedado sin portar: iban a 90 y el juego no llegaba; las teclas, a 2 mm de la bandeja)
 
 ## Los PR
 
@@ -399,6 +400,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- PR 37 → los siguientes: **las imágenes por segundo de las gafas** se piden con `applyRate` (`menu-system.ts`, RepArena:
+  `xrRate`) al entrar y al cambiar «Fotogramas por segundo en las gafas» (`xrHz`, 72 de serie). Sin él, las Quest iban a 90
+  (11 ms por imagen) y el juego tardaba 16-20 ms sin tocar nada: al mover la cabeza, todo iba a saltos. Si a 72 (14 ms) aún
+  no llega, lo siguiente es la nitidez (de serie, «Alta ×1,4»: el doble de píxeles que ×1) o una foveación que suba sola
+  cuando se pierden imágenes (RepArena: `QUAL`). Las teclas, a 2 mm de la bandeja (`KEY_H`).
 
 - PR 36 → los siguientes: **el menú no pinta nada al rehacerse** (ideas 1 y 2 del usuario). La bandeja es de formas de color
   liso (`plate`, `ring`, `kit.ts`; se liberan con el menú: `userData.own = 'all'`) y cada texto suyo es un dibujo guardado por

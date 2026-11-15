@@ -11,6 +11,7 @@ import { createSystem, Group, RayInteractable, Vector3, VisibilityState } from '
 import type { Object3D } from '@iwsdk/core';
 import { GAME, HOOKS, LITE } from '../../core/state.js';
 import { onSettingsChange } from '../../core/settings.js';
+import { settings } from '../../core/values.js';
 import { hands, isFist, SIDES } from '../../input/hand-model.js';
 import { HOLD } from '../../input/hold.js';
 import { SND, unlockAudio } from '../../audio/sound.js';
@@ -130,7 +131,12 @@ export class RaMenuSystem extends createSystem({}, {}) {
     HOOKS.perksOpen = (cards, pick) => this.open(() => perkMenu(cards, pick));
     HOOKS.perksClose = () => perkClose();
     // un ajuste cambiado desde fuera (la página, la sincronización): los valores del menú, al día
-    this.cleanupFuncs.push(onSettingsChange(() => refreshFields()));
+    this.cleanupFuncs.push(
+      onSettingsChange((k) => {
+        refreshFields();
+        if (k === 'xrHz' || k === '*') this.applyRate();
+      }),
+    );
     this.cleanupFuncs.push(
       this.world.visibilityState.subscribe(() => {
         // al entrar o salir de las gafas, el menú se rehace en su sitio nuevo
@@ -138,6 +144,7 @@ export class RaMenuSystem extends createSystem({}, {}) {
         UI.lastAnchor = null;
         this.rebuild();
         this.applyQuality();
+        this.applyRate();
       }),
     );
     this.open(() => lobbyMenu());
@@ -167,6 +174,18 @@ export class RaMenuSystem extends createSystem({}, {}) {
     this.applyQuality();
   }
   // la nitidez: se pide al entrar en las gafas (dentro, cambiarla pide salir y volver a entrar)
+  // Las imágenes por segundo de las gafas: las de «Fotogramas por segundo en las gafas» (72 de serie: «la imagen va siempre
+  // fluida»), o la más parecida que admitan (RepArena: xrRate). Se había quedado sin portar y las gafas iban a 90: el juego no
+  // llegaba a pintar cada imagen a tiempo (el diagnóstico daba 16-20 ms por imagen sin tocar nada, y a 90 hay 11) y, al mover
+  // la cabeza, el menú y todo lo demás iban a saltos
+  private applyRate(): void {
+    const s = this.world.renderer.xr.getSession() as (XRSession & { supportedFrameRates?: Float32Array; updateTargetFrameRate?: (r: number) => Promise<void> }) | null;
+    if (!s?.updateTargetFrameRate || !s.supportedFrameRates?.length) return;
+    const want = Number(settings.xrHz) || 72, rates = [...s.supportedFrameRates];
+    const r = rates.includes(want) ? want : rates.reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a), rates[0]);
+    s.updateTargetFrameRate(r).catch(() => {});
+  }
+
   private applyQuality(): void {
     const q = QUALITY[this.quality], xr = this.world.renderer.xr;
     if (!xr.isPresenting) xr.setFramebufferScaleFactor(q.scale);
