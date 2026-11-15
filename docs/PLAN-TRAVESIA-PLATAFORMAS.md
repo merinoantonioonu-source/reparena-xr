@@ -32,6 +32,13 @@ niveles ni aspecto de ningún juego existente. Los modelos son los de los packs 
 
 ## 2. Decisiones de diseño (recomendadas; el usuario confirma las del apartado 9 antes de empezar)
 
+> **Cambiado por el usuario tras probar el PR A en las gafas:** el avance **nunca se para ante un obstáculo** (la idea es
+> entrenar los reflejos): el hueco se salta en marcha, al llegar a su borde, y si no saltas a tiempo tropiezas al cruzarlo
+> (frenas a la mitad y pierdes la racha; nunca se cae). Chocar frena a la mitad, sin pararte. Cada salto se nota: el mundo
+> baja y sube bajo los pies unos 45 cm. En el aire llevas tu inercia (al aterrizar, la misma velocidad). Y va un 35 % más
+> deprisa que la Travesía clásica, acelerando antes. Lo único que para el mundo: el cofre al final del tramo y, por
+> seguridad, los pasos de suelo del PR B (no se baja al suelo con el mundo en marcha).
+
 1. **Dos clases de obstáculo.**
    - *Fluidos* (viga baja, obstáculo lateral, tronco pequeño): se pasan sin parar. Si fallas, chocas: frenas y pierdes la
      racha, sin perder vidas (regla ya fijada para troncos y ramas de la Travesía).

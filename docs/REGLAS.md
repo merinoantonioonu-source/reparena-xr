@@ -55,6 +55,11 @@ No las cambies sin preguntarle.
   gafas no llegan y va a saltos. Lo nuevo se prueba y se mira en Cómic; Realista queda como opción.
 
 **Travesía** (`src/75_trek.js`)
+- **Travesía de plataformas** (RepArena XR, `src/modes/trek/plat/`; fijado por el usuario al probar el PR A): el avance
+  **nunca se para ante un obstáculo** (se entrenan los reflejos): el hueco se salta en marcha al llegar a su borde y, si no,
+  se tropieza al cruzarlo; chocar o tropezar frena a la mitad y rompe la racha, y sigues. **Cada salto se nota**: el mundo
+  baja y sube bajo los pies (unos 45 cm), y en el aire llevas tu inercia (al aterrizar, la velocidad que traías). Va **más
+  deprisa** que la clásica (un 35 % más con la misma «Velocidad de avance») y acelera antes.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.

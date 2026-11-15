@@ -405,7 +405,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - Travesía de plataformas, PR A → los siguientes (B a E del plan): **la Travesía es la de plataformas** (modo `trek`, con
   sentadilla). `TrekSystem` (`src/modes/trek/trek-system.ts`) la engancha como Arcos (`begin`, `startWave`, `waveLeft`,
   `rep`, `hud`, `end`, `clear`, `calibrated`); en `game.ts`, la repetición de la Travesía no dispara (`trekRep`: empuja si no
-  estás parado ante un paso; las de una parada no cuentan para el tramo) y no hay bola (sin `charge` ni `power`). Cada tramo
+  estás parado ante un paso ni en el aire; las de una parada no cuentan para el tramo). **Tras probarlo en las gafas, el
+  usuario pidió**: más velocidad (`PLAT_SPEED`, `PLAT_ACCEL`), que el avance nunca se pare ante un obstáculo (el hueco, en
+  marcha; fallar frena a la mitad, `HIT_KEEP`), que cada salto se note (`JUMP_LIFT`) y la inercia en el aire (ver
+  docs/REGLAS.md › Travesía de plataformas) y no hay bola (sin `charge` ni `power`). Cada tramo
   acaba en su cofre (`Runner.atChest`); el siguiente se monta al empezar el anterior para verlo llegar de lejos. Mientras
   dura, `TrekSystem` esconde la arena (compuertas, suelo, valle y nubes) y pone la niebla del bosque; el fondo realista lo
   pide al entorno (`TrekSystem.pano`). Una pieza nueva: su clase en `PieceKind` (types.ts), cuándo entra en `courseKinds`,
