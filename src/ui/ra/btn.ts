@@ -17,8 +17,9 @@ import { SND } from '../../audio/sound.js';
 import { clamp, FB, fitFont, mkCanvas, rr, TAU } from '../canvas-kit.js';
 import { comicOn, drawFoeCard, drawIcon, drawRank, hexDim, keyc, lazyPanel, STY, type FoeCard, type LazyPanel, type RaPanel } from './kit.js';
 
-/** Lo que flota la tecla sobre la bandeja, en metros reales. */
-export const KEY_H = 0.012;
+/** Lo que se separa la tecla de la bandeja, en metros reales: 2 mm, lo justo para que no parpadeen al coincidir (el menú, del
+ * todo plano: modelo A del usuario; antes flotaba 12 mm, con relieve). */
+export const KEY_H = 0.002;
 /** Unos 3 píxeles por milímetro: lo que las gafas distinguen a la distancia del menú. */
 const KEY_PXM = 3000;
 /** En reposo, algo más oscura: con el dedo delante, a pleno color (sin repintar el panel). */
