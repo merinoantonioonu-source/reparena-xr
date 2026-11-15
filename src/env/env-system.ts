@@ -11,6 +11,7 @@ import { GateSystem } from '../combat/gates.js';
 import { BarsSystem } from '../modes/bars/bars-system.js';
 import { num, str, on } from '../core/values.js';
 import { Scenery } from './scenery.js';
+import { TrekSystem } from '../modes/trek/trek-system.js';
 import { BEAT, MOTES } from '../core/beat-hub.js';
 import { moteBpm } from '../core/beat.js';
 import { bpm as bpmSvc, spotify } from '../services/hub.js';
@@ -111,6 +112,7 @@ export class EnvSystem extends createSystem({}) {
 
   /** El entorno que toca: el elegido o, con «Alternar», uno distinto en cada partida; con fondo realista, el bosque (con la foto detrás). */
   private sceneryWanted(): 'arena' | 'nature' | 'island' {
+    if (settings.mode === 'trek') return 'arena'; // (la Travesía pinta su propio bosque, que corre con el mundo)
     if (this.panoWanted()) return 'nature';
     const k = str('scenery');
     return k === 'mix' ? this.pick : k === 'nature' || k === 'island' ? k : 'arena';
@@ -136,13 +138,14 @@ export class EnvSystem extends createSystem({}) {
     else if (!this.scenery.show(want, num('depth') > 0 ? num('depth') : 11, !!this.panoWanted(), this.gateList())) this.scenery.hide();
     if (!this.floor.length) this.floor = ['arena-floor', 'comic-valley', 'comic-clouds'].map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is Object3D => !!o);
     const on = this.scenery.visible;
-    if (!night) for (const o of this.floor) o.visible = !on && !(this.panoWanted() && o !== this.floor[0]);
+    if (!night && settings.mode !== 'trek') for (const o of this.floor) o.visible = !on && !(this.panoWanted() && o !== this.floor[0]); // (la Travesía los esconde ella)
     this.scenery.lite(LITE.on); // (con un menú abierto en las gafas, sin el bosque: va más fluido)
     this.scenery.update(dt, time, head.p, (at, isl) => (isl ? SND.gull(this.tmp.copy(at)) : SND.bird(this.tmp.copy(at))));
   }
 
   /** El fondo elegido (que exista), o '' si es el cielo dibujado. */
   private panoWanted(): string {
+    if (settings.mode === 'trek') return this.world.getSystem(TrekSystem)?.pano ?? 'bosque'; // (la Travesía, el de su tramo)
     const k = str('pano');
     return FONDOS.includes(k) ? k : '';
   }
