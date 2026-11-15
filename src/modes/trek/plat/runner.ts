@@ -4,11 +4,15 @@
  * hondo que bajas; sin repeticiones, frenas; seis seguidas a buen ritmo, el turbo), sin sus retos: los de aquí son las
  * piezas del recorrido (course.ts), juzgadas con lo que hace el cuerpo (moves.ts).
  *
- * - **Fluidas** (viga baja, obstáculo a un lado, tronco): se pasan sin parar; si fallas, chocas: frenas y se rompe la
- *   racha, sin perder vidas.
- * - **Pasos** (el hueco; el cofre al final del tramo): el mundo se para a `STOP_AT` (1 m) y el movimiento pedido es el que
- *   te lleva al otro lado; no hay que acertar el instante. En el hueco, un salto: el mundo te lleva al otro lado, bajando
- *   y subiendo suave bajo los pies (`dip`), sin caídas. Nunca se cae.
+ * - **Fluidas** (hueco, viga baja, obstáculo a un lado, tronco): se pasan sin parar, porque el avance siempre sigue (se
+ *   entrenan los reflejos: pedido del usuario tras probar el PR A); si fallas, chocas: frenas a la mitad y se rompe la
+ *   racha, sin perder vidas, y sigues. El hueco se salta en marcha, al llegar a su borde: el mundo te lleva al otro lado
+ *   con la velocidad que traías; si no saltas a tiempo, tropiezas al cruzarlo (nunca se cae).
+ * - **Cada salto se nota**: el mundo baja y sube bajo los pies (`dip`, hasta `JUMP_LIFT`), como si el salto te elevara
+ *   mucho más que lo que sube tu cabeza. En el aire llevas tu inercia: la velocidad no cae y, al aterrizar, sigues igual.
+ * - **Pasos** (el cofre al final del tramo; los de suelo del PR B): el mundo se para a `STOP_AT` (1 m).
+ * - **Más deprisa que la Travesía clásica** (`PLAT_SPEED`, pedido del usuario): la misma «Velocidad de avance», un 35 % más,
+ *   y acelera antes.
  *
  * Lógica pura, sin IWSDK: lo que pide del juego, en `PlatEnv`; lo que se ve y se oye, en los sucesos de `ev`, que la
  * partida aplica en orden y vacía.
@@ -19,30 +23,44 @@ import { buildCourse } from './course.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
 import { COL_ASK, COL_OK, COL_WARN, FLUID, HALT, LAND_PAST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './types.js';
 
-/** El salto del hueco: a qué velocidad te lleva el mundo (m/s), cuánto dura como poco y como mucho (s) y cuánto baja el
- * mundo en medio (m: como si el salto te elevara). */
-export const HOP_V = 3.2, HOP_MIN = 0.5, HOP_MAX = 1.0, HOP_DIP = 0.15;
-/** Parado ante un paso sin hacer nada: cada cuánto se repite lo que hay que hacer (s) y cuándo lo rodeas (s, sin puntos). */
-export const NAG_T = 6, GIVE_UP_T = 40;
-/** Dónde se avisa de lo que viene (m antes de la cabeza): las fluidas, a 4 m; el obstáculo a un lado, antes (para dar el
- * paso con calma). */
-export const WARN_AT = 4, SIDE_WARN_AT = 6;
-/** Mientras pasa bajo ti: la ventana del tronco (m) y la del obstáculo a un lado (m). */
-export const LOG_WIN = 0.45, SIDE_WIN = 0.35;
+/** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
+ * más mientras empuja una repetición). */
+export const PLAT_SPEED = 1.35, PLAT_ACCEL = 0.6;
+/** Cada salto: cuánto baja el mundo en lo más alto (m: como si te elevara) y lo que dura en el aire si no hay hueco (s). */
+export const JUMP_LIFT = 0.45, AIR_T = 0.55;
+/** El salto del hueco: lo que dura como poco y como mucho (s; si tu velocidad no te lleva al otro lado en HOP_MAX, el
+ * mundo te lleva algo más deprisa) y desde dónde vale despegar (m antes del borde: lo que recorres en GAP_EARLY_S, como
+ * poco GAP_EARLY_MIN). */
+export const HOP_MIN = 0.45, HOP_MAX = 0.9, GAP_EARLY_S = 0.6, GAP_EARLY_MIN = 1.5;
+/** El tropiezo (el hueco sin saltar): a qué velocidad cruzas como poco (m/s) y lo que dura como poco (s). */
+export const TRIP_V = 1.2, TRIP_MIN = 0.6;
+/** Chocar o tropezar: la velocidad que te queda (la mitad: frenas, pero sigues). */
+export const HIT_KEEP = 0.5;
+/** Parado ante un paso sin hacer nada: cada cuánto se repite lo que hay que hacer (s). */
+export const NAG_T = 6;
+/** Dónde se avisa de lo que viene (m antes de la cabeza, o lo que recorres en tantos s si es más): las fluidas, a 4 m o
+ * 1,4 s; el obstáculo a un lado y el hueco, antes (para prepararse). */
+export const WARN_AT = 4, WARN_S = 1.4, SIDE_WARN_AT = 6, SIDE_WARN_S = 1.8;
+/** Mientras pasa bajo ti: la ventana del tronco (m, o lo que recorres en LOG_WIN_S si es más) y la del obstáculo a un lado
+ * (m). */
+export const LOG_WIN = 0.45, LOG_WIN_S = 0.3, SIDE_WIN = 0.35;
 /** Lo que queda atrás de una pieza antes de quitarla (m). */
 export const BEHIND = 8;
 /** Cuántos segundos antes de un obstáculo a un lado el centro deja de seguir a la cabeza. */
 export const SIDE_HOLD_S = 3;
 
-/** Lo que mide el tramo hasta el cofre (m) con las repeticiones de su oleada: unos 3,5 m por repetición, entre 40 y 300. */
-export const tramoLen = (reps: number): number => Math.max(40, Math.min(300, Math.round(reps * 3.5)));
+/** Lo que mide el tramo hasta el cofre (m) con las repeticiones de su oleada: unos 3,5 m por repetición (por PLAT_SPEED),
+ * entre 40 y 400. */
+export const tramoLen = (reps: number): number => Math.max(40, Math.min(400, Math.round(reps * 3.5 * PLAT_SPEED)));
 
 /** La velocidad más alta con los ajustes (m/s): «Velocidad de avance» y el turbo. */
-export const platVmax = (env: PlatEnv): number => TREK_VMAX * ((env.s('trekSpeed') || 100) / 100) * TREK_TURBO_V;
+export const platVmax = (env: PlatEnv): number => TREK_VMAX * ((env.s('trekSpeed') || 100) / 100) * PLAT_SPEED * TREK_TURBO_V;
 
-const smooth = (k: number): number => k * k * (3 - 2 * k);
+/** Lo alto del salto a la fracción k de su tiempo (de 0 a 1 y vuelta: la parábola de un salto de verdad). */
+const arc = (k: number): number => 4 * k * (1 - k);
 
-/** El salto de ahora: de dónde a dónde te lleva el mundo, lo que lleva y lo que dura. */
+/** El cruce del hueco de ahora: de dónde a dónde te lleva el mundo (a velocidad fija), lo que lleva y lo que dura, si es
+ * un salto (`won`) o un tropiezo, y la velocidad con que sigues al acabar. */
 interface Hop {
   p: Piece;
   s0: number;
@@ -50,6 +68,7 @@ interface Hop {
   t: number;
   dur: number;
   won: boolean;
+  v1: number;
 }
 
 export class Runner {
@@ -64,12 +83,14 @@ export class Runner {
   private nextShow = 0;
   /** Los que están a la vista (salieron y aún no han quedado atrás). */
   live: Piece[] = [];
-  /** El paso ante el que estás parado (y cuánto llevas), el salto de ahora y el cofre al que has llegado. */
+  /** El paso ante el que estás parado (y cuánto llevas), el cruce del hueco de ahora y el cofre al que has llegado. */
   stop: Piece | null = null;
   stopT = 0;
   private nagT = 0;
   hop: Hop | null = null;
   chest: Piece | null = null;
+  /** Un salto sin hueco (el tronco, o saltar porque sí): lo que lleva en el aire (s; −1, en el suelo). */
+  airT = -1;
   /** Lo que baja el mundo ahora (m, negativo: el salto te eleva). */
   dip = 0;
   /** Los tramos montados: dónde acaba cada uno (su cofre). */
@@ -82,7 +103,8 @@ export class Runner {
   constructor(public env: PlatEnv) {
     const E = env;
     const tenv: TrekEnv = {
-      s: (k) => E.s(k),
+      // (más deprisa que la Travesía clásica: la misma «Velocidad de avance», por PLAT_SPEED)
+      s: (k) => (k === 'trekSpeed' ? (E.s(k) || 100) * PLAT_SPEED : E.s(k)),
       dv: (k) => E.dv(k),
       get ex() {
         return E.ex;
@@ -132,6 +154,7 @@ export class Runner {
     this.nextShow = 0;
     this.stop = this.hop = this.chest = null;
     this.stopT = this.nagT = this.dip = 0;
+    this.airT = -1;
     this.ends = [];
     this.passed = this.hits = 0;
     this.id = 1;
@@ -183,8 +206,8 @@ export class Runner {
 
   /* ---------- cada repetición ---------- */
 
-  /** Una repetición del ejercicio. Empuja si vas en marcha; parado ante un paso, recuerda lo que toca (y no empuja).
-   * Devuelve si ha empujado (las de una parada no cuentan para el tramo). */
+  /** Una repetición del ejercicio. Empuja si vas en marcha; parado ante un paso, recuerda lo que toca (y no empuja); en
+   * el aire, no empuja. Devuelve si ha empujado (las de una parada no cuentan para el tramo). */
   rep(perfect: boolean): boolean {
     if (this.env.state !== 'play') return false;
     if (this.stop || this.hop) {
@@ -203,15 +226,21 @@ export class Runner {
     moveCfg((k) => env.s(k), this.cfg);
     this.moves.hold = this.sideAhead();
     this.moves.update(dt, H, this.cfg);
-    const d0 = tk.dist;
-    if (this.stop || this.hop) tk.idle = 0; // (el turbo espera en las paradas)
+    const d0 = tk.dist, push0 = tk.push;
+    if (this.stop || this.hop) tk.idle = 0; // (el turbo espera en las paradas y en el aire)
     tk.step(dt, env.now);
-    if (this.stop || this.hop) {
+    if (this.stop) {
       tk.dist = d0;
       tk.v = 0;
       tk.push = 0;
-    }
+    } else if (this.hop) {
+      // en el aire, la inercia: lo que avanzas lo pone el salto; la velocidad y el empuje que traías no se gastan
+      tk.dist = d0;
+      tk.v = this.hop.v1;
+      tk.push = push0;
+    } else if (st === 'play' && tk.push > 0 && tk.v < tk.want) tk.v = Math.min(tk.want, tk.v + dt * PLAT_ACCEL); // (acelera antes)
     this.stepHop(dt);
+    this.stepAir(dt);
     // nunca pasas el sitio de parada de un paso que aún no has cruzado
     const h = this.nextHalt();
     if (h && !this.hop && tk.dist > h.at - STOP_AT) {
@@ -222,9 +251,10 @@ export class Runner {
     tk.frame();
     this.reveal();
     if (st === 'play') {
-      for (const p of this.live) if (!p.judged && FLUID.includes(p.k)) this.judge(p, p.at - tk.dist + H.z);
+      if (this.moves.takeoff && !this.hop) this.takeoff(H.z);
+      for (const p of this.live) if (!p.judged && FLUID.includes(p.k) && p !== this.hop?.p) this.judge(p, p.at - tk.dist + H.z);
       this.stepStop(dt);
-    }
+    } else this.airT = -1;
     this.drop();
     this.pull();
   }
@@ -269,10 +299,15 @@ export class Runner {
 
   /** El juicio de una fluida; `z`, lo que le falta para llegar a tu cabeza (m). */
   private judge(p: Piece, z: number): void {
-    const M = this.moves, C = this.cfg;
-    if (!p.warned && z < (p.k === 'side' ? SIDE_WARN_AT : WARN_AT)) {
+    const M = this.moves, C = this.cfg, v = this.tk.v;
+    const far = p.k === 'side' || p.k === 'gap';
+    if (!p.warned && z < Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S))) {
       p.warned = true;
       this.ask(p, true);
+    }
+    if (p.k === 'gap') {
+      if (z <= 0 && !this.hop) this.go(p, false); // (llegas al borde sin haber saltado: tropiezas al cruzarlo)
+      return;
     }
     if (p.k === 'side') {
       if (Math.abs(z) < SIDE_WIN && !M.clear(p.side as -1 | 1, C)) p.bad = true;
@@ -280,17 +315,18 @@ export class Runner {
       return;
     }
     if (p.k === 'log') {
-      if (Math.abs(z) < LOG_WIN) {
+      const win = Math.max(LOG_WIN, LOG_WIN_S * v);
+      if (Math.abs(z) < win) {
         p.maxUp = Math.max(p.maxUp, M.up);
         if (M.air) p.fast = true;
       }
-      if (z < -LOG_WIN) this.result(p, p.maxUp >= C.jumpH && p.fast);
+      if (z < -win) this.result(p, p.maxUp >= C.jumpH && p.fast);
       return;
     }
     if (p.k === 'low' && z < 0.1) this.result(p, M.under(p.h));
   }
 
-  /** Superada o chocada. Chocar frena (la viga te para del todo; el tronco y el barril, casi) y rompe la racha. */
+  /** Superada o chocada. Chocar frena (te queda la mitad de la velocidad: sigues) y rompe la racha. */
   private result(p: Piece, ok: boolean): void {
     p.judged = true;
     p.ok = ok;
@@ -303,19 +339,22 @@ export class Runner {
       this.cheer(p.k === 'log' ? '¡Saltado!' : p.k === 'low' ? '¡Esquivada!' : '¡Esquivado!', COL_OK, 0.9);
       return;
     }
+    this.tk.v *= HIT_KEEP;
+    this.hit(p, at);
+    const away = p.side < 0 ? 'derecha' : 'izquierda';
+    this.say(p.k === 'log' ? '¡Salta el tronco!' : p.k === 'low' ? '¡Agáchate bajo la viga!' : `¡Apártate a la ${away}!`, COL_WARN, 1.6, true);
+  }
+
+  /** Lo de chocar o tropezar: se rompe la racha, se apaga el turbo, golpe, polvo y vibración. */
+  private hit(p: Piece, at: PlatPos): void {
     this.hits++;
     const tk = this.tk;
-    // (la viga te para del todo, también el empuje de la última repetición; el tronco y el barril, casi)
-    if (p.k === 'low') tk.v = tk.push = tk.want = 0;
-    else tk.v *= 0.2;
     this.ev.push({ t: 'hit', p });
     this.ev.push({ t: 'combo0' });
     tk.turboSet(false);
     this.snd('metalHit', at, false);
     this.ev.push({ t: 'fx', name: 'dust', at, n: 10, col: 0xd8c8a8 });
     this.ev.push({ t: 'haptic', k: 0.8, ms: 120 });
-    const away = p.side < 0 ? 'derecha' : 'izquierda';
-    this.say(p.k === 'log' ? '¡Salta el tronco!' : p.k === 'low' ? '¡Agáchate bajo la viga!' : `¡Apártate a la ${away}!`, COL_WARN, 1.6, true);
   }
 
   /* ---------- los pasos ---------- */
@@ -340,66 +379,104 @@ export class Runner {
     this.ask(p, true);
   }
 
-  /** Parado ante un paso: el movimiento que lo cruza (en el hueco, el salto). */
+  /** Parado ante un paso: lo que toca se repite si tardas (el cofre, no: ahí se acaba el tramo). */
   private stepStop(dt: number): void {
     const p = this.stop;
-    if (!p || p.k === 'chest' || this.hop) return;
+    if (!p || p.k === 'chest') return;
     this.stopT += dt;
-    if (p.k === 'gap' && this.moves.takeoff) {
-      this.go(p, true);
-      return;
-    }
-    if (this.stopT > GIVE_UP_T) {
-      this.say('Rodeas el hueco por el borde', '#a49fc8', 1.6, false);
-      this.go(p, false);
-      return;
-    }
     if ((this.nagT += dt) > NAG_T) {
       this.nagT = 0;
       this.ask(p, false);
     }
   }
 
-  /** Empieza el movimiento que te lleva al otro lado (`won`: con el salto; si no, rodeándolo, sin puntos). */
+  /** Has despegado (en marcha): si llegas al borde de un hueco, lo saltas; si no, un salto sin más (el tronco se juzga solo,
+   * con lo que sube la cabeza). Los dos se notan: el mundo baja y sube bajo los pies. `hz`, la cabeza hacia ti (m). */
+  private takeoff(hz: number): void {
+    const v = this.tk.v, win = Math.max(GAP_EARLY_MIN, GAP_EARLY_S * v);
+    for (const p of this.live) {
+      if (p.k !== 'gap' || p.judged) continue;
+      const z = p.at - this.tk.dist + hz;
+      if (z > win) break; // (el primero que queda por delante, y aún lejos: es pronto)
+      if (z > -0.2) {
+        this.go(p, true);
+        return;
+      }
+    }
+    this.airT = 0;
+  }
+
+  /** Empieza el cruce del hueco: con el salto (`won`), a tu velocidad (o algo más, si no llegas al otro lado en HOP_MAX) y
+   * hasta pasado su borde lejano; sin salto, un tropiezo: más despacio, frenas y se rompe la racha (nunca se cae). */
   private go(p: Piece, won: boolean): void {
-    const s0 = this.tk.dist, s1 = p.at + p.len + LAND_PAST, dur = Math.max(HOP_MIN, Math.min(HOP_MAX, (s1 - s0) / HOP_V));
-    this.hop = { p, s0, s1, t: 0, dur, won };
+    const tk = this.tk, v0 = tk.v, s0 = tk.dist;
+    const land = p.at + p.len + LAND_PAST, need = Math.max(0, land - s0);
+    let dur: number, s1: number, v1: number;
+    if (won) {
+      dur = Math.max(HOP_MIN, Math.min(HOP_MAX, need / Math.max(v0, 1e-3)));
+      s1 = Math.max(land, s0 + v0 * dur); // (con tu velocidad: si vas deprisa, aterrizas más lejos)
+      v1 = v0;
+    } else {
+      v1 = v0 * HIT_KEEP;
+      dur = Math.max(TRIP_MIN, need / Math.max(TRIP_V, v1));
+      s1 = land;
+    }
+    this.hop = { p, s0, s1, t: 0, dur, won, v1 };
+    this.airT = -1;
     this.stop = null;
     this.ev.push({ t: 'go', p, dur });
     if (won) {
       this.snd('whoosh', this.pos(p, 0, 0.3), 'arc');
       this.ev.push({ t: 'haptic', k: 0.5, ms: 60 });
+      return;
     }
+    p.judged = true;
+    p.ok = false;
+    this.hit(p, this.pos(p, 0, 0));
+    this.say('¡Salta el hueco!', COL_WARN, 1.6, true);
   }
 
-  /** El salto: el mundo te lleva al otro lado (suave al empezar y al acabar) y baja y sube en medio, como si te elevara. */
+  /** El cruce: el mundo te lleva al otro lado a velocidad fija (tu inercia) y, si saltaste, baja y sube como si te elevara. */
   private stepHop(dt: number): void {
     const H = this.hop;
     this.dip = 0;
     if (!H) return;
     H.t += dt;
     const k = Math.min(1, H.t / H.dur);
-    this.tk.dist = H.s0 + (H.s1 - H.s0) * smooth(k);
-    this.dip = -HOP_DIP * Math.sin(Math.PI * k);
+    this.tk.dist = H.s0 + (H.s1 - H.s0) * k;
+    if (H.won) this.dip = -JUMP_LIFT * arc(k);
     if (k < 1) return;
     this.hop = null;
     this.dip = 0;
-    const p = H.p;
-    p.judged = true;
-    p.ok = H.won;
+    this.tk.v = H.v1; // (sigues con la velocidad que traías; tras un tropiezo, con la mitad)
     this.tk.idle = 0;
+    const p = H.p;
     if (!H.won) return;
+    p.judged = true;
+    p.ok = true;
     this.passed++;
     this.ev.push({ t: 'pass', p });
     this.score(200);
-    this.ev.push({ t: 'fx', name: 'dust', at: this.pos(p, p.len + LAND_PAST, 0), n: 8, col: 0xd8c8a8 });
+    this.ev.push({ t: 'fx', name: 'dust', at: this.pos(p, H.s1 - p.at, 0), n: 8, col: 0xd8c8a8 });
     this.snd('step', null, true);
     this.cheer('¡Hueco saltado!', COL_OK, 1.2);
   }
 
+  /** Un salto sin hueco: el mundo baja y sube bajo los pies (AIR_T s), sin cambiar lo que avanzas. */
+  private stepAir(dt: number): void {
+    if (this.airT < 0 || this.hop) return;
+    this.airT += dt;
+    const k = this.airT / AIR_T;
+    if (k >= 1) {
+      this.airT = -1;
+      return;
+    }
+    this.dip = -JUMP_LIFT * arc(k);
+  }
+
   /** Lo que pide cada pieza (al avisar de ella, al pararte o si tardas). */
   private ask(p: Piece, first: boolean): void {
-    if (p.k === 'gap') this.say(first ? '¡Un hueco! Salta para cruzarlo' : '¡Salta para cruzar el hueco!', COL_ASK, first ? 2.4 : 1.4, false);
+    if (p.k === 'gap') this.say('¡Un hueco! Salta al llegar al borde', COL_ASK, 1.6, false);
     else if (p.k === 'log') this.say('¡Salta!', COL_ASK, 1.2, false);
     else if (p.k === 'low') this.say('¡Agáchate!', COL_ASK, 1.2, false);
     else if (p.k === 'side') this.say(`¡Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}!`, COL_ASK, 1.4, false);

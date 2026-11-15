@@ -246,8 +246,9 @@ try {
   await page.evaluate(() => window.__rx.game.endRound(false, true));
   await until('Barras: el resumen', (s) => s.menu === 'summary' && s.phase === 'over', 20);
   // La Travesía de plataformas: un tramo corto (40 m, el mínimo) jugado como en el ordenador: la sentadilla (flecha abajo)
-  // empuja, el hueco para y se cruza con Espacio, las fluidas se pasan con Espacio (tronco), C (viga baja) y A/D (obstáculo a
-  // un lado), y el tramo acaba en el cofre. Sin tarjeta gráfica el juego va a unas 5 imágenes por segundo: las teclas se
+  // empuja, el avance nunca se para ante un obstáculo (el hueco se salta en marcha con Espacio al llegar a su borde; si no,
+  // se tropieza y se sigue), las demás se pasan con Espacio (tronco), C (viga baja) y A/D (obstáculo a un lado), y el tramo
+  // acaba en el cofre. Sin tarjeta gráfica el juego va a unas 5 imágenes por segundo: las teclas se
   // mantienen hasta que se nota (una pulsación corta puede no verse) y una sentadilla entera tarda unos 5 s.
   const t2 = Date.now();
   await page.evaluate(() => {
@@ -301,8 +302,8 @@ try {
   console.log(`  ✓ Travesía: las sentadillas te hacen avanzar (${adv.dist} m, ${adv.v} m/s)`);
   // el tramo entero, pieza a pieza (con un tiempo límite). La marcha sigue por inercia unos metros tras cada sentadilla: se
   // hace una cuando hay sitio de sobra, y la tecla de cada fluida se mantiene cuando ya está cerca
-  const seen = { gap: false, gapStill: false, gapCross: false };
-  let gaps = 0, tramo1 = null;
+  // el hueco: cuántos se han cruzado y cuántos saltando; si alguna vez el mundo se paró ante uno (no debe)
+  let gapAt = null, gapsDone = 0, gaps = 0, gapStop = false, tramo1 = null;
   const tried = new Set();
   let fin = null;
   const tEnd = Date.now() + 170000;
@@ -315,7 +316,16 @@ try {
       tramo1 = s;
       console.log(`  ✓ Travesía: llegas al cofre del tramo 1 (cofre ${s.trek.chest}) y el tramo se supera (${s.between ? 'descanso' : 'oleada ' + s.wave}, ${s.trek.dist} m)`);
     }
-    if (tramo1 && seen.gapCross && s.trek.passed - gaps >= 1 && !s.between) {
+    if (s.trek.stop === 'gap') gapStop = true;
+    if (gapAt && !s.trek.hop && s.trek.next?.k !== 'gap') {
+      // el hueco ya ha quedado atrás: ¿saltado o tropezado? Sin pararse, en los dos casos
+      const won = s.trek.passed > gapAt.passed;
+      gapsDone++;
+      if (won) gaps++;
+      console.log(`  ✓ Travesía: el hueco, sin pararte: ${won ? 'saltado' : 'tropiezas y sigues'} (de ${gapAt.dist} m a ${s.trek.dist} m, a ${s.trek.v} m/s)`);
+      gapAt = null;
+    }
+    if (tramo1 && gapsDone >= 1 && s.trek.passed - gaps >= 1 && !s.between) {
       fin = s;
       break;
     }
@@ -330,29 +340,17 @@ try {
       await page.waitForTimeout(200);
       continue;
     }
-    if (t.stop === 'gap') {
-      // parado ante el hueco, y quieto; un salto te lleva al otro lado
+    if (nx && nx.k === 'gap') {
+      // el hueco: Espacio al llegar a su borde (vale desde 1,5 m antes); lejos, sentadillas; en marcha, la inercia
       await hold('');
-      seen.gap = true;
-      await page.waitForTimeout(500);
-      const s2 = await snap();
-      if (s2.trek.stop === 'gap' && s2.trek.dist === t.dist) seen.gapStill = true;
-      const p0 = s2.trek.passed;
-      // (a esas pocas imágenes por segundo un salto puede no verse: se repite hasta que te lleva)
-      let s3 = null;
-      for (let a = 0; a < 4 && !s3; a++) {
-        await press('Space', 1500);
-        const tj = Date.now();
-        while (Date.now() - tj < 6000 && !s3) {
-          const x = await snap();
-          if (x.trek.passed > p0 && x.trek.stop === '' && !x.trek.hop) s3 = x;
-          else await page.waitForTimeout(150);
-        }
-      }
-      if (!s3) throw new Error('Travesía: el salto no te lleva al otro lado del hueco\ncuerpo: ' + JSON.stringify(await page.evaluate(() => { const m = window.__rx.game.trek().runner.moves; return { up: m.up, air: m.air, vy: m.vy, fastT: m.fastT, ref: m.ref }; })) + '\núltimo estado: ' + JSON.stringify(await snap()));
-      seen.gapCross = true;
-      gaps++;
-      console.log(`  ✓ Travesía: parado ante el hueco (quieto en ${t.dist} m), el salto lo cruza (${s3.trek.dist} m)`);
+      if (!gapAt) gapAt = { passed: t.passed, dist: t.dist };
+      if (nx.rel <= 1.3 && nx.rel > -0.2) {
+        tried.add('gap');
+        await press('Space', 250);
+        await page.waitForTimeout(300);
+      } else if (nx.rel > 10) await rep();
+      else if (t.v < 0.5) await rep();
+      else await page.waitForTimeout(80);
       continue;
     }
     if (t.stop === 'chest') {
@@ -361,8 +359,8 @@ try {
       continue;
     }
     const rel = nx ? nx.rel : 99, v = t.v;
-    if (!nx || nx.k === 'chest' || nx.k === 'gap') {
-      // sin fluida a la vista: a empujar (el hueco y el cofre paran solos)
+    if (!nx || nx.k === 'chest') {
+      // sin nada a la vista: a empujar (el cofre para solo)
       await hold('');
       if (v < 0.5 || rel > 10) await rep();
       else await page.waitForTimeout(150);
@@ -414,11 +412,12 @@ try {
     }
   }
   await hold('');
-  if (!fin) throw new Error(`Travesía: no se ha completado a tiempo (tramo 1 superado: ${!!tramo1}, hueco cruzado: ${JSON.stringify(seen)}, intentadas: ${[...tried].join(', ') || 'ninguna'})\núltimo estado: ` + JSON.stringify(await snap()));
+  if (gapStop) throw new Error('Travesía: el mundo se ha parado ante un hueco (el avance tiene que seguir)');
+  if (!fin) throw new Error(`Travesía: no se ha completado a tiempo (tramo 1 superado: ${!!tramo1}, huecos cruzados: ${gapsDone}, intentadas: ${[...tried].join(', ') || 'ninguna'})\núltimo estado: ` + JSON.stringify(await snap()));
   const tr = fin.trek, fluid = tr.passed - gaps;
   if (!(tramo1.trek.chest === 0 || tramo1.wave >= 2)) throw new Error('Travesía: el tramo 1 ha acabado sin llegar al cofre\núltimo estado: ' + JSON.stringify(tramo1));
-  // las fluidas: cuántas se han pasado y cuántas han chocado (el hueco, aparte)
-  console.log(`  ✓ Travesía: ${fluid} pieza(s) fluida(s) superada(s) y ${tr.hits} chocada(s) (intentadas: ${[...tried].join(', ') || 'ninguna'}; ${gaps} hueco(s) cruzado(s))`);
+  // las demás: cuántas se han pasado y cuántas han chocado (los huecos, aparte)
+  console.log(`  ✓ Travesía: ${fluid} pieza(s) superada(s) además de los huecos y ${tr.hits} choque(s) o tropiezo(s) (intentadas: ${[...tried].join(', ') || 'ninguna'}; ${gaps} de ${gapsDone} hueco(s) saltado(s))`);
   await page.evaluate(() => window.__rx.game.endRound(false, true));
   await until('Travesía: el resumen', (s) => s.menu === 'summary' && s.phase === 'over', 20);
   const hT = await page.evaluate(() => JSON.parse(localStorage.getItem('reparena3-history') || '[]'));

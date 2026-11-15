@@ -12,7 +12,7 @@
 /** Lo que hay en el recorrido. */
 export type PieceKind =
   | 'floor' // suelo corrido (no es un reto: la pasarela de tablas)
-  | 'gap' // hueco en el suelo: salto (paso)
+  | 'gap' // hueco en el suelo: salto en marcha (fluido)
   | 'low' // viga baja: agacharse (fluido)
   | 'side' // obstáculo a un lado: paso lateral (fluido)
   | 'log' // tronco para saltar en marcha (fluido)
@@ -24,16 +24,20 @@ export type PieceKind =
   | 'gems' // hilera de gemas que alcanzar con la mano (fluido; PR D)
   | 'chest'; // fin del tramo (paso)
 
-/** Los que se pasan sin parar: si fallas, chocas (frenas y pierdes la racha, sin perder vidas). */
-export const FLUID: readonly PieceKind[] = ['low', 'side', 'log', 'foe', 'gems'];
-/** Los pasos: el mundo se para a `STOP_AT` y el movimiento pedido es el que te lleva al otro lado. */
-export const HALT: readonly PieceKind[] = ['gap', 'step', 'drop', 'crawl', 'burpee', 'chest'];
+/** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
+ * si fallas, chocas o tropiezas (frenas y pierdes la racha, sin perder vidas, y sigues). El hueco también: si no saltas a
+ * tiempo, tropiezas al cruzarlo (nunca se cae). */
+export const FLUID: readonly PieceKind[] = ['gap', 'low', 'side', 'log', 'foe', 'gems'];
+/** Los pasos: el mundo se para a `STOP_AT` y el movimiento pedido es el que te lleva al otro lado (el cofre, al acabar el
+ * tramo; los de suelo del PR B, por seguridad: no se baja al suelo con el mundo en marcha). */
+export const HALT: readonly PieceKind[] = ['step', 'drop', 'crawl', 'burpee', 'chest'];
 /** Los que se cruzan saltando (entre dos seguidos, al menos `JUMP_GAP_S` a velocidad máxima). */
 export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'burpee'];
 /** Los de suelo (tras ellos, `FLOOR_UP_S` para levantarse antes de otra cosa). */
 export const FLOORS: readonly PieceKind[] = ['crawl', 'burpee'];
 
-/** Dónde te paras ante un paso (m antes de su borde cercano) y dónde aterrizas tras el hueco (m pasado su borde lejano). */
+/** Dónde te paras ante un paso (m antes de su borde cercano) y dónde aterrizas como poco tras el hueco (m pasado su borde
+ * lejano). */
 export const STOP_AT = 1;
 export const LAND_PAST = 0.6;
 /** Hasta dónde se ve: las piezas salen allí, entre la niebla, no de golpe cerca (regla de la Travesía). */
@@ -148,8 +152,9 @@ export type PlatSnd = 'whoosh' | 'metalHit' | 'perfect' | 'combo' | 'step' | 'vi
  * - snd, fx, haptic: sonido, chispas o polvo y vibración (en `at`, o junto a ti si es nulo).
  * - score: puntos. combo0: se rompe la racha. turbo: el turbo se enciende o se apaga.
  * - show / hide: la pieza entra en la vista (a lo lejos) o queda atrás (fuera).
- * - pass / hit: superada o chocada (la que chocas sale despedida a un lado, nunca se atraviesa si es sólida).
- * - halt: te paras ante un paso. go: empieza el movimiento que te lleva al otro lado (`dur` s).
+ * - pass / hit: superada o chocada (la que chocas sale despedida a un lado, nunca se atraviesa si es sólida; el hueco no
+ *   saltado, tropiezo).
+ * - halt: te paras ante un paso. go: empieza el salto (o el tropiezo) que te lleva al otro lado del hueco (`dur` s).
  * - lift: el suelo sube o baja `dy` m en `dur` s (las plataformas, PR B).
  * - chest: has llegado al cofre (se acaba el tramo). vanish: el cofre abierto se esfuma (al empezar el siguiente).
  */

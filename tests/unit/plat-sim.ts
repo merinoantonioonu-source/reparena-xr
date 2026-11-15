@@ -195,14 +195,15 @@ export class Sim {
 
   /**
    * Avanza a sentadillas hasta que `room()` baje de `stopAt` (o te pares ante un paso). Si falta poco para otra sentadilla
-   * entera (lo que se recorre en una, a toda velocidad, son ~5 m), deja que la inercia lleve; si se acaba, otra sentadilla.
+   * entera (lo que se recorre en una, 1,5 s), deja que la inercia lleve; si se acaba, otra sentadilla.
    * Devuelve si llegó (antes de `max` fotogramas).
    */
   walk(room: () => number, stopAt: number, max = LIMIT): boolean {
     const end = this.frames + max;
     while (this.frames < end) {
       if (room() <= stopAt || this.r.stop) return true;
-      if (room() > stopAt + 5 || this.r.v < 0.3) this.squat();
+      // (una sentadilla dura 1,5 s: solo si hasta la pieza hay más de lo que se recorre en ella)
+      if (room() > stopAt + 2 + 1.6 * Math.max(this.r.v, 2.5) || this.r.v < 0.3) this.squat();
       else this.frame();
     }
     return room() <= stopAt || !!this.r.stop;
@@ -229,7 +230,7 @@ export class Sim {
         this.side(-p.side * 0.4, () => p.judged);
         return p.judged;
       case 'gap':
-        if (!this.squatsTo(p, 1.2) || !this.until(() => this.r.stop === p, 72 * 20)) return false;
+        if (!this.squatsTo(p, 1.0)) return false;
         this.jump();
         return this.until(() => p.judged, 72 * 5);
       case 'chest':
