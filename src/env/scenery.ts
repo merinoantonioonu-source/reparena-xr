@@ -20,7 +20,7 @@ const NAT_TEX: Record<string, [string, boolean?, boolean?]> = {
   Leaves: ['leaves', true], Flowers: ['flowers', true], Grass: ['grass', false, true], Mushrooms: ['mushrooms'], Rocks: ['rocks'],
 };
 
-interface Part {
+export interface Part {
   geo: BufferGeometry;
   mat: Material;
 }
@@ -81,7 +81,7 @@ void main(){
 }
 
 /** El suelo: manchas de colores que se mezclan, con su grano (hierba o arena), en una textura que se repite. */
-function groundTexture(kind: 'nature' | 'island'): CanvasTexture {
+export function groundTexture(kind: 'nature' | 'island'): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
   const x = c.getContext('2d') as CanvasRenderingContext2D, R = rng(kind === 'nature' ? 11 : 17);
@@ -107,6 +107,49 @@ function groundTexture(kind: 'nature' | 'island'): CanvasTexture {
   return t;
 }
 
+/** Las piezas de un kit (el bosque o la isla), cargadas una vez y compartidas: cada modelo (nodo de primer nivel), en metros
+ * y con +Y hacia arriba, con su material mate (lo usan el entorno y la Travesía). Nulo mientras carga. */
+const KIT_PARTS: Record<'nature' | 'island', Record<string, Part[]> | null> = { nature: null, island: null };
+export function kitParts(kind: 'nature' | 'island'): Record<string, Part[]> | null {
+  if (KIT_PARTS[kind]) return KIT_PARTS[kind];
+  const gltf = AssetManager.getGLTF(kind === 'nature' ? 'nature-kit' : 'island-kit');
+  if (!gltf) return null;
+  const mats: Record<string, Material> = {};
+  if (kind === 'nature') {
+    for (const [n, [f, alpha, both]] of Object.entries(NAT_TEX)) {
+      const t = AssetManager.getTexture(`nature-${f}`) as Texture | undefined;
+      if (!t) return null; // (aún cargando las texturas)
+      t.flipY = false;
+      t.colorSpace = SRGBColorSpace;
+      const m = new MeshStandardMaterial({ map: t, roughness: 1, metalness: 0, alphaTest: alpha ? 0.5 : 0, side: alpha || both ? DoubleSide : 0 });
+      m.name = n;
+      mats[n] = m;
+    }
+  }
+  gltf.scene.updateMatrixWorld(true);
+  const out: Record<string, Part[]> = {};
+  for (const node of gltf.scene.children) {
+    const parts: Part[] = [];
+    node.traverse((o: Object3D) => {
+      const m = o as Mesh;
+      if (!m.isMesh) return;
+      const geo = new BufferGeometry();
+      for (const a of ['position', 'normal', 'uv', 'color'] as const) if (m.geometry.attributes[a]) geo.setAttribute(a, natFloat(m.geometry.attributes[a] as BufferAttribute));
+      if (m.geometry.index) geo.setIndex(m.geometry.index);
+      geo.applyMatrix4(m.matrixWorld); // en metros y con +Y hacia arriba
+      const src = m.material as MeshStandardMaterial, key = src.name || src.uuid;
+      if (!mats[key]) {
+        // mate, como pintado (sin brillos de metal)
+        mats[key] = kind === 'island' ? new MeshStandardMaterial({ map: src.map || null, color: src.color, roughness: 0.95, metalness: 0, vertexColors: !!m.geometry.attributes.color }) : src;
+      }
+      parts.push({ geo, mat: mats[key] });
+    });
+    out[node.name] = parts;
+  }
+  KIT_PARTS[kind] = out;
+  return out;
+}
+
 /** Un entorno de día: se carga la primera vez que hace falta y se pone y se quita sin rehacerlo (salvo si cambia la distancia de las compuertas). */
 export class Scenery {
   readonly root = new Group();
@@ -119,7 +162,6 @@ export class Scenery {
   private seaMesh: Mesh | null = null;
   private plants = new Group();
   private builtKey = '';
-  private readonly parts: Record<'nature' | 'island', Record<string, Part[]> | null> = { nature: null, island: null };
   private readonly foot = new Map<string, number>();
   private savedFog: { color: Color; density: number } | null = null;
   private birdT = 3;
@@ -136,43 +178,7 @@ export class Scenery {
 
   // ---------------------------------------------------------------- cargar los modelos
   private load(kind: 'nature' | 'island'): Record<string, Part[]> | null {
-    if (this.parts[kind]) return this.parts[kind];
-    const gltf = AssetManager.getGLTF(kind === 'nature' ? 'nature-kit' : 'island-kit');
-    if (!gltf) return null;
-    const mats: Record<string, Material> = {};
-    if (kind === 'nature') {
-      for (const [n, [f, alpha, both]] of Object.entries(NAT_TEX)) {
-        const t = AssetManager.getTexture(`nature-${f}`) as Texture | undefined;
-        if (!t) return null; // (aún cargando las texturas)
-        t.flipY = false;
-        t.colorSpace = SRGBColorSpace;
-        const m = new MeshStandardMaterial({ map: t, roughness: 1, metalness: 0, alphaTest: alpha ? 0.5 : 0, side: alpha || both ? DoubleSide : 0 });
-        m.name = n;
-        mats[n] = m;
-      }
-    }
-    gltf.scene.updateMatrixWorld(true);
-    const out: Record<string, Part[]> = {};
-    for (const node of gltf.scene.children) {
-      const parts: Part[] = [];
-      node.traverse((o: Object3D) => {
-        const m = o as Mesh;
-        if (!m.isMesh) return;
-        const geo = new BufferGeometry();
-        for (const a of ['position', 'normal', 'uv', 'color'] as const) if (m.geometry.attributes[a]) geo.setAttribute(a, natFloat(m.geometry.attributes[a] as BufferAttribute));
-        if (m.geometry.index) geo.setIndex(m.geometry.index);
-        geo.applyMatrix4(m.matrixWorld); // en metros y con +Y hacia arriba
-        const src = m.material as MeshStandardMaterial, key = src.name || src.uuid;
-        if (!mats[key]) {
-          // mate, como pintado (sin brillos de metal)
-          mats[key] = kind === 'island' ? new MeshStandardMaterial({ map: src.map || null, color: src.color, roughness: 0.95, metalness: 0, vertexColors: !!m.geometry.attributes.color }) : src;
-        }
-        parts.push({ geo, mat: mats[key] });
-      });
-      out[node.name] = parts;
-    }
-    this.parts[kind] = out;
-    return out;
+    return kitParts(kind);
   }
   private models(kind: 'nature' | 'island', P: Record<string, Part[]>): Models {
     const foot = (n: string): number => {
