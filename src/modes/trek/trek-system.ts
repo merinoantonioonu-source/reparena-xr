@@ -28,7 +28,8 @@ import { PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from '.
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
 /** Cuántas instancias caben de cada modelo: el muelle (unos 45 a la vista), las piezas y el paisaje. */
-const CAP_DOCK = 80, CAP_PIECE = 40, CAP_DECO = 96;
+// (las plataformas llevan unos 20 barriles cada una y sus tablas: con varias a la vista, hace falta sitio)
+const CAP_DOCK = 120, CAP_PIECE = 160, CAP_DECO = 96;
 /** El césped de debajo: lo que mide y cada cuánto se repite su dibujo (m). */
 const GROUND_SIZE = 260, GROUND_CELL = 4;
 
