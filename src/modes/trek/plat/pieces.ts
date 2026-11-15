@@ -33,6 +33,17 @@ export interface Put {
   sx: number;
   sy: number;
   sz: number;
+  /** El techo del túnel: sube con las flexiones hechas (`roofLift`, lo suma el sistema que pinta). */
+  lift?: boolean;
+}
+
+/** A qué altura sobre las tablas está el techo del túnel al llegar (m: hay que pasar en plancha). */
+export const CRAWL_ROOF = 0.75;
+
+/** Lo que ha subido el techo del túnel (m): con cada flexión, un poco; con todas, por encima de la cabeza de pie. */
+export function roofLift(p: Piece, ref: number): number {
+  if (p.k !== 'crawl' || p.n <= 0) return 0;
+  return Math.min(1, p.done / p.n) * Math.max(0, ref + HEAD_TOP + 0.25 - CRAWL_ROOF);
 }
 
 /** El suelo del paisaje, bajo la pasarela (m). */
