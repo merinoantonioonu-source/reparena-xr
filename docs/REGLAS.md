@@ -60,6 +60,16 @@ No las cambies sin preguntarle.
   se tropieza al cruzarlo; chocar o tropezar frena a la mitad y rompe la racha, y sigues. **Cada salto se nota**: el mundo
   baja y sube bajo los pies (unos 45 cm), y en el aire llevas tu inercia (al aterrizar, la velocidad que traías). Va **más
   deprisa** que la clásica (un 35 % más con la misma «Velocidad de avance») y acelera antes.
+- Travesía de plataformas, tras probar el PR B (fijado por el usuario):
+  - **El túnel** se pasa en marcha, en plancha, sin flexiones: echado, la velocidad que traías se mantiene (inercia) y pasas
+    por debajo sin sentadillas; luego, de pie. Es un túnel cubierto de verdad, de roca por dentro.
+  - **El burpee** son dos obstáculos: un túnel (plancha) y, unos 2 s después, una plataforma que hay que saltar.
+  - En plancha, **los avisos salen delante, en el suelo de la pasarela** (arriba no se leen).
+  - **Plataformas altas**: se suben con un supersalto (sentadilla honda y salto); en el mundo, un salto enorme.
+  - **Nada de muros de cofres**: lo que sea pared, de roca.
+  - **Frutas en vez de obstáculos a un lado** (los obstáculos laterales volverán con los enemigos): flotan a la altura de
+    la cabeza, a un lado; se cogen llevando la cabeza hacia ellas. Llenan una **barra de energía**; llena, supervelocidad.
+    De vez en cuando, una especial que la llena de golpe. Modelos: el «Food Kit» de Kenney (CC0).
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.
