@@ -10,6 +10,10 @@
  * - **Agacharse**: lo que baja la coronilla bajo tu altura de pie (`down`).
  * - **A un lado**: lo que se aparta la cabeza del centro (`dx`, + a la derecha). El centro sigue despacio a la cabeza (si te
  *   vas moviendo por la habitación), salvo mientras se acerca un obstáculo a un lado (`hold`): ahí se queda quieto.
+ * - **En el suelo** (`plank`): la cabeza, por debajo de la altura del arco de plancha de Arcos (más 10 cm). Las flexiones
+ *   (`pushups`, cuenta que solo sube) se cuentan en plancha por la cabeza: baja «Bajada en la flexión» (un 80 %) y vuelve a
+ *   subir; al echarte al suelo, medio segundo para asentarte antes de contar.
+ * - **De pie** (`standing`): la cabeza, a menos de 12 cm de tu altura de pie.
  *
  * Lógica pura, sin IWSDK (se prueba con trazas de cabeza en tests/unit/plat-runner.test.ts).
  */
@@ -20,15 +24,24 @@ export interface MoveCfg {
   jumpH: number;
   /** Lo que hay que apartar la cabeza del centro para librar un obstáculo a un lado (m). */
   sideNeed: number;
+  /** Por debajo de esta altura de la cabeza (m sobre el suelo de la habitación), estás en el suelo (en plancha). */
+  plankY: number;
+  /** Lo que baja y sube la cabeza en una flexión (m). */
+  pushNeed: number;
 }
 
 /** Los umbrales con los ajustes: el salto, el de las vallas (6 cm de serie); el lado, tres cuartos del «Desplazamiento
  * lateral» de los inclinados (40 cm de serie: 30 cm de cabeza, un paso corto de verdad), entre 15 y 40 cm. */
-export function moveCfg(s: (key: string) => number, out: MoveCfg = { jumpH: 0.06, sideNeed: 0.3 }): MoveCfg {
+export function moveCfg(s: (key: string) => number, out: MoveCfg = { jumpH: 0.06, sideNeed: 0.3, plankY: 0.7, pushNeed: 0.1 }): MoveCfg {
   out.jumpH = Math.max(0.02, (s('arcJumpH') || 6) / 100);
   out.sideNeed = Math.min(0.4, Math.max(0.15, ((s('arcShift') || 40) / 100) * 0.75));
+  out.plankY = Math.min(0.9, Math.max(0.4, (s('arcPlankH') || 60) / 100)) + 0.1;
+  out.pushNeed = Math.max(0.06, ((s('pushDepth') || 13) / 100) * 0.8);
   return out;
 }
+
+/** De pie: la cabeza, a menos de esto bajo tu altura de pie (m). En plancha, lo que se tarda en asentarse (s). */
+export const STAND_TOL = 0.12, PLANK_SETTLE = 0.5;
 
 /** La velocidad hacia arriba que hace un salto (m/s) y cuánto vale después (s). (Arcos: jumpTrack y `jumpFastT < 0.6`.) */
 export const JUMP_VY = 0.6;
@@ -54,6 +67,15 @@ export class BodyMoves {
   /** En el aire (tras un salto) y el fotograma del despegue. */
   air = false;
   takeoff = false;
+  /** En el suelo (en plancha) y cuánto llevas; las flexiones hechas (solo sube: quien la usa guarda la de partida). */
+  plank = false;
+  plankT = 0;
+  pushups = 0;
+  /** De pie. */
+  standing = true;
+  private pTop = 0;
+  private pBot = 0;
+  private pDown = false;
   private lastY = NaN;
 
   /** Al calibrar o empezar la ronda: tu altura de pie y el centro. */
@@ -64,6 +86,9 @@ export class BodyMoves {
     this.up = this.down = this.dx = this.vy = 0;
     this.fastT = 9;
     this.air = this.takeoff = false;
+    this.plank = this.pDown = false;
+    this.plankT = 0;
+    this.standing = true;
     this.lastY = NaN;
   }
 
@@ -92,6 +117,32 @@ export class BodyMoves {
     if (!this.air) {
       if (this.up > cfg.jumpH && fresh) this.air = this.takeoff = true;
     } else if (this.up < 0.04) this.air = false;
+    this.standing = this.up > -STAND_TOL;
+    // en el suelo: las flexiones, por lo que baja y sube la cabeza (tras asentarte)
+    this.plank = y < cfg.plankY;
+    if (!this.plank) {
+      this.plankT = 0;
+      this.pDown = false;
+      return;
+    }
+    this.plankT += Math.max(0, dt);
+    if (this.plankT < PLANK_SETTLE) {
+      this.pTop = y;
+      this.pDown = false;
+    } else if (!this.pDown) {
+      this.pTop = Math.max(this.pTop, y);
+      if (y < this.pTop - cfg.pushNeed) {
+        this.pDown = true;
+        this.pBot = y;
+      }
+    } else {
+      this.pBot = Math.min(this.pBot, y);
+      if (y > this.pBot + cfg.pushNeed * 0.8) {
+        this.pDown = false;
+        this.pushups++;
+        this.pTop = y;
+      }
+    }
   }
 
   /** ¿La coronilla pasa bajo una viga que obliga a bajarla `need` m? (Con 2 cm de margen, como los arcos.) */
