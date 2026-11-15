@@ -845,7 +845,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const nw = fresh.map((k) => foeName(xrFoe(k).k)).join(', ');
     const t3 = nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
     const trek = settings.mode === 'trek', W = trek ? 'TRAMO' : 'OLEADA', place = trek ? ` · ${TREK_BIOMES[i % TREK_BIOMES.length].name}` : '';
-    drawWave(p.ctx, p.W, p.H, (last ? `¡ÚLTIMO ${trek ? 'TRAMO' : 'OLEADA'}!`.replace('ÚLTIMO OLEADA', 'ÚLTIMA OLEADA') : N ? `${W} ${i + 1} DE ${N}` : `${W} ${i + 1}`) + place, `${GAME.score} puntos`, t3, nw ? '#ff8a3d' : '#3cf0c6');
+    drawWave(p.ctx, p.W, p.H, (last ? (trek ? '¡ÚLTIMO TRAMO!' : '¡ÚLTIMA OLEADA!') : N ? `${W} ${i + 1} DE ${N}` : `${W} ${i + 1}`) + place, `${GAME.score} puntos`, t3, nw ? '#ff8a3d' : '#3cf0c6');
     p.tex.needsUpdate = true;
     // delante de ti y de cara, derecho (nunca se ladea con la cabeza); tumbado, en el suelo bajo la cara
     const V = VIEW_FRAME, ly = lyingEx();
