@@ -12,6 +12,7 @@
 import { CanvasTexture, createSystem, Euler, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, PlaneGeometry, Quaternion, Vector3 } from '@iwsdk/core';
 import type { FogExp2, Object3D } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
+import { diagEvent } from '../../core/diag.js';
 import { dv, store, waveReps, nWaves, rankIdx } from '../../core/settings.js';
 import { GAME, HOOKS, LITE } from '../../core/state.js';
 import { num, settings } from '../../core/values.js';
@@ -321,7 +322,13 @@ export class TrekSystem extends createSystem({}) {
         this.knock.delete(e.p.id);
         this.gone.delete(e.p.id);
         break;
+      case 'halt':
+      case 'go':
+      case 'pass':
+        this.diag(e.t, e.p);
+        break;
       case 'hit':
+        this.diag('hit', e.p);
         if (e.p.k === 'side') this.knock.set(e.p.id, { t: 0, dir: e.p.side || 1 }); // (el barril sale despedido hacia fuera)
         break;
       case 'vanish':
@@ -331,6 +338,12 @@ export class TrekSystem extends createSystem({}) {
       default:
         break;
     }
+  }
+
+  // para arreglar con datos de las gafas: lo que pasa con cada pieza y cómo estaba la cabeza (lo subido, bajado y apartado)
+  private diag(what: string, p: Piece): void {
+    const M = this.runner.moves, w = { halt: 'parado ante', go: 'cruza', pass: 'supera', hit: 'choca con' }[what] ?? what;
+    diagEvent(`Travesía: ${w} ${p.k} (${Math.round(p.at)} m) · cabeza +${M.up.toFixed(2)} −${M.down.toFixed(2)} lado ${M.dx.toFixed(2)}${p.k === 'log' ? ` · subió ${p.maxUp.toFixed(2)}${p.fast ? ' deprisa' : ''}` : ''}`);
   }
 
   private sound(name: string, at: PlatPos | null, arg?: string | boolean): void {
