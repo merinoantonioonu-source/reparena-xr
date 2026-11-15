@@ -3,7 +3,10 @@
  * `buildCourse` encadena las piezas de un tramo, de su principio al cofre, cumpliendo las reglas de separación
  * (`minGap`), que comprueba `courseRules` (y una prueba con miles de recorridos al azar, tests/unit/plat-course.test.ts):
  *
- * - tras un túnel o un muro (`FLOORS`), lo que se recorre en `FLOOR_UP_S` s a velocidad máxima antes de otra cosa;
+ * - tras un túnel o un muro (`FLOORS`), lo que se recorre en `FLOOR_UP_S` s a velocidad máxima antes de otra cosa, y
+ *   `LAND_PAST` más (el mundo te deja pasado su final);
+ * - tras una plataforma, `DROP_ROOM` más (se baja de ella al acabarla); nada se pone encima de una plataforma;
+ * - antes de un paso (`HALT`: túnel, muro, cofre), el sitio para frenar suave (`HALT_BRAKE`) hasta quedarte a `STOP_AT`;
  * - entre dos saltos seguidos (`JUMPS`), al menos `JUMP_GAP_S` s a velocidad máxima;
  * - tras un obstáculo a un lado, `SIDE_BACK_S` s para volver al centro, y nunca dos obstáculos a un lado seguidos del
  *   mismo lado;
@@ -13,24 +16,33 @@
  *
  * Lógica pura, sin IWSDK.
  */
-import { FLOOR_UP_S, FLOORS, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
+import { DROP_ROOM, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
 
 /** Las clases de pieza de cada tramo: la primera, lo básico (el tronco, la viga y el hueco); desde el segundo, también el
- * obstáculo a un lado. (Las plataformas, el túnel y el muro llegan con el PR B; los enemigos y las gemas, con el D.) */
+ * obstáculo a un lado y la plataforma; desde el tercero, el túnel de flexiones y el muro de burpee. (Los enemigos y las
+ * gemas llegan con el PR D.) */
 export function courseKinds(tramo: number): PieceKind[] {
   const k: PieceKind[] = ['log', 'low', 'gap'];
-  if (tramo >= 1) k.push('side');
+  if (tramo >= 1) k.push('side', 'step');
+  if (tramo >= 2) k.push('crawl', 'burpee');
   return k;
 }
+
+/** Lo que miden el túnel y el muro a lo largo del sendero (m). */
+const CRAWL_LEN = 2;
+const BURPEE_LEN = 0.5;
 
 /** Lo mínimo (m) entre el final de `prev` (su `at + len`) y el principio de `next` (su `at`), con velocidad máxima `vmax`. */
 export function minGap(prev: Piece, next: Piece, vmax: number): number {
   let g = MIN_GAP;
   if (prev.k === 'gap') g += LAND_PAST; // (aterrizas pasado el borde lejano)
   if (HALT.includes(next.k)) g += STOP_AT; // (te paras antes de su borde: ese sitio, libre)
-  if (FLOORS.includes(prev.k)) g = Math.max(g, FLOOR_UP_S * vmax);
+  // (para frenar suave a HALT_BRAKE hasta quedarte a STOP_AT de su borde, y un metro de colchón)
+  if (HALT.includes(next.k)) g = Math.max(g, STOP_AT + (vmax * vmax) / (2 * HALT_BRAKE) + 1);
+  if (FLOORS.includes(prev.k)) g = Math.max(g, FLOOR_UP_S * vmax + LAND_PAST); // (levantarte, y el mundo te deja pasado su final)
   if (JUMPS.includes(prev.k) && JUMPS.includes(next.k)) g = Math.max(g, JUMP_GAP_S * vmax);
   if (prev.k === 'side') g = Math.max(g, SIDE_BACK_S * vmax);
+  if (prev.k === 'step') g += DROP_ROOM; // (lo último, encima de todo lo demás: se baja de la plataforma al acabarla)
   return g;
 }
 
@@ -44,6 +56,9 @@ export function minGap(prev: Piece, next: Piece, vmax: number): number {
  * - gap: largo de 0,8 m (tramo 0, rango 0) a 1,6 m como mucho;
  * - low: `h` (lo que hay que bajar la coronilla) de 0,22 a 0,34 m;
  * - side: a un lado al azar (nunca dos seguidos del mismo lado);
+ * - step (plataforma): `h` (lo que sube el suelo) de 0,25 m (tramo 1, rango 0) a 0,5 m, y `len` (lo de arriba) de 4 a 9 m;
+ * - crawl (túnel de flexiones): `n` flexiones de 2 (tramo 2, rango 0) a 5, y `len` 2 m;
+ * - burpee (muro): `len` 0,5 m y `h` (su altura) de 0,6 a 0,8 m;
  * - log y low: `len` 0.
  */
 export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: number, id0: number): Course {
@@ -77,6 +92,16 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
       // Dos seguidos, a lados opuestos: así no se puede quedar uno a cada lado esperando lo mismo.
       const side: -1 | 1 = prev?.k === 'side' ? (prev.side === 1 ? -1 : 1) : env.rnd() < 0.5 ? -1 : 1;
       p = piece(id, k, 0, tramo, { side });
+    } else if (k === 'step') {
+      const h = clamp(0.25 + 0.02 * Math.max(0, tramo - 1) + 0.01 * rank + rand(0, 0.04), 0.25, 0.5);
+      const len = clamp(4 + 0.4 * Math.max(0, tramo - 1) + 0.25 * rank + rand(0, 1.5), 4, 9);
+      p = piece(id, k, 0, tramo, { h, len });
+    } else if (k === 'crawl') {
+      const n = clamp(Math.floor(2 + 0.4 * Math.max(0, tramo - 2) + 0.2 * rank + rand(0, 1)), 2, 5);
+      p = piece(id, k, 0, tramo, { n, len: CRAWL_LEN });
+    } else if (k === 'burpee') {
+      const h = clamp(0.6 + 0.01 * tramo + 0.01 * rank + rand(0, 0.04), 0.6, 0.8);
+      p = piece(id, k, 0, tramo, { h, len: BURPEE_LEN });
     } else {
       p = piece(id, k, 0, tramo);
     }
@@ -85,7 +110,8 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
       const extra = intro ? rand(0.5, 2) : rand(4, 10) - Math.min(2, 0.4 * tramo);
       p.at = prev.at + prev.len + minGap(prev, p, env.vmax) + extra;
     } else {
-      p.at = start + RUN_UP + rand(0, 4);
+      // (hasta 3 m de más, no 4: con el sitio de frenada ante el cofre, el peor azar del tramo de 40 m a vmax 4,8 ya no cabía)
+      p.at = start + RUN_UP + rand(0, 3);
     }
     // Si tras ella no cabe el sitio que pide el cofre, el tramo ya está lleno.
     if (p.at + p.len + minGap(p, probe, env.vmax) > end) break;
@@ -105,6 +131,19 @@ export function courseRules(pieces: Piece[], vmax: number): string[] {
     if (p.k === 'side' && p.side === 0) out.push(`La pieza ${p.id} (side) no tiene lado (side 0): debería ser −1 o 1`);
     if (p.k === 'gap' && (p.len < 0.8 - eps || p.len > 1.6 + eps)) out.push(`El hueco ${p.id} mide ${p.len.toFixed(3)} m: debe medir entre 0,8 y 1,6 m`);
     if (p.k === 'low' && (p.h < 0.22 - eps || p.h > 0.34 + eps)) out.push(`La viga ${p.id} pide bajar ${p.h.toFixed(3)} m: debe pedir entre 0,22 y 0,34 m`);
+    if (p.k === 'step') {
+      if (p.len <= 0) out.push(`La plataforma ${p.id} no tiene largo (len ${p.len.toFixed(3)}): debe medir más de 0 m`);
+      if (p.len < 4 - eps || p.len > 9 + eps) out.push(`La plataforma ${p.id} mide ${p.len.toFixed(3)} m de largo: debe medir entre 4 y 9 m`);
+      if (p.h < 0.25 - eps || p.h > 0.5 + eps) out.push(`La plataforma ${p.id} sube ${p.h.toFixed(3)} m: debe subir entre 0,25 y 0,5 m`);
+    }
+    if (p.k === 'crawl') {
+      if (!Number.isInteger(p.n) || p.n < 2 || p.n > 5) out.push(`El túnel ${p.id} pide ${p.n} flexiones: deben ser entre 2 y 5`);
+      if (Math.abs(p.len - CRAWL_LEN) > eps) out.push(`El túnel ${p.id} mide ${p.len.toFixed(3)} m: debe medir ${CRAWL_LEN} m`);
+    }
+    if (p.k === 'burpee') {
+      if (Math.abs(p.len - BURPEE_LEN) > eps) out.push(`El muro ${p.id} mide ${p.len.toFixed(3)} m de grosor: debe medir ${BURPEE_LEN} m`);
+      if (p.h < 0.6 - eps || p.h > 0.8 + eps) out.push(`El muro ${p.id} mide ${p.h.toFixed(3)} m de alto: debe medir entre 0,6 y 0,8 m`);
+    }
     const prev = pieces[i - 1];
     if (!prev) continue;
     if (p.at <= prev.at) {
