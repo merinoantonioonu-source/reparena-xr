@@ -402,6 +402,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- Travesía de plataformas, PR B → los siguientes: **plataforma** (`step`: se sube de un salto en marcha al llegar a su
+  borde; sin salto, a trompicones; al acabarla se baja sola; `Runner.lev` y `onStep`), **túnel de flexiones** (`crawl`) y
+  **muro de burpee** (`burpee`): los pasos de suelo frenan suave (`HALT_BRAKE`) hasta 1 m, con aviso grande; el túnel pide
+  plancha y `n` flexiones (`BodyMoves.plank`, `pushups`: cada una sube el techo, `roofLift`, que pinta `TrekSystem` en las
+  piezas con `lift`), luego de pie; el muro, al suelo, de pie y un salto que te lleva por encima. Al salir, sigues con la
+  velocidad que traías al empezar a frenar; a los 60 s se rodea sin puntos. Lo que toca, en el marcador (`Runner.task`).
+  Clases por tramo (`courseKinds`): 0, tronco, viga y hueco; 1, más barril y plataforma; 2, más túnel y muro. En el
+  ordenador, `P` mantenida = plancha (con `P`, la flecha abajo es una flexión). El muro está hecho con cofres (el Pirate Kit
+  no trae cajas): pendiente de que el usuario elija otro aspecto.
+
 - Travesía de plataformas, PR A → los siguientes (B a E del plan): **la Travesía es la de plataformas** (modo `trek`, con
   sentadilla). `TrekSystem` (`src/modes/trek/trek-system.ts`) la engancha como Arcos (`begin`, `startWave`, `waveLeft`,
   `rep`, `hud`, `end`, `clear`, `calibrated`); en `game.ts`, la repetición de la Travesía no dispara (`trekRep`: empuja si no

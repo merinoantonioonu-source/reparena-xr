@@ -186,6 +186,26 @@ export class Sim {
     this.head.x = x0;
   }
 
+  /** Echarse al suelo en plancha: la cabeza baja a `y` m (en `ease` s) y se queda ahí. */
+  plank(y = 0.5, ease = 0.8): void {
+    const y0 = this.head.y;
+    this.play(ease, (k) => (this.head.y = y0 + (y - y0) * smooth(k)));
+  }
+
+  /** Una flexión en plancha: la cabeza baja `d` m y vuelve, en `dur` s. */
+  pushup(d = 0.15, dur = 1.0): void {
+    const y0 = this.head.y;
+    this.play(dur, (k) => (this.head.y = y0 - d * Math.sin(Math.PI * k)));
+    this.head.y = y0;
+  }
+
+  /** Levantarse del suelo hasta la altura de pie (en `ease` s). */
+  getUp(ease = 1.0): void {
+    const y0 = this.head.y;
+    this.play(ease, (k) => (this.head.y = y0 + (this.ref - y0) * smooth(k)));
+    this.head.y = this.ref;
+  }
+
   /* ---------- avanzar hasta algo ---------- */
 
   /** Cuánto falta para que la pieza llegue a la cabeza (m). */

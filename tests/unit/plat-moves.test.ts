@@ -42,3 +42,47 @@ describe('la Travesía de plataformas: el salto', () => {
     expect(run(f)).toBe(false);
   });
 });
+
+describe('la Travesía de plataformas: en el suelo', () => {
+  const m = new BodyMoves();
+  const go = (frames: [number, number][]): void => {
+    for (const [dt, y] of frames) m.update(dt, at(y), cfg);
+  };
+  const ramp = (a: number, b: number, sec: number): [number, number][] => {
+    const n = Math.round(sec * 72), out: [number, number][] = [];
+    for (let i = 1; i <= n; i++) out.push([1 / 72, a + (b - a) * (i / n)]);
+    return out;
+  };
+
+  it('en plancha (cabeza por debajo de 70 cm) cuenta las flexiones; al echarte al suelo, no', () => {
+    m.reset(1.6, 0);
+    go(ramp(1.6, 0.5, 0.8)); // (al suelo)
+    expect(m.plank).toBe(true);
+    expect(m.standing).toBe(false);
+    go(ramp(0.5, 0.5, 0.6)); // (asentarse)
+    expect(m.pushups).toBe(0);
+    for (let i = 1; i <= 3; i++) {
+      go(ramp(0.5, 0.35, 0.5));
+      go(ramp(0.35, 0.5, 0.5));
+      expect(m.pushups).toBe(i);
+    }
+    // bajar poco (5 cm) no es una flexión
+    go(ramp(0.5, 0.45, 0.5));
+    go(ramp(0.45, 0.5, 0.5));
+    expect(m.pushups).toBe(3);
+    go(ramp(0.5, 1.6, 1));
+    expect(m.plank).toBe(false);
+    expect(m.standing).toBe(true);
+  });
+
+  it('agacharse hondo de pie (sentadilla a 1,1 m) no es estar en el suelo ni cuenta flexiones', () => {
+    m.reset(1.6, 0);
+    const p0 = m.pushups; // (la cuenta solo sube: se mira lo que cambia)
+    for (let k = 0; k < 4; k++) {
+      go(ramp(1.6, 1.1, 0.6));
+      expect(m.plank).toBe(false);
+      go(ramp(1.1, 1.6, 0.6));
+    }
+    expect(m.pushups).toBe(p0);
+  });
+});

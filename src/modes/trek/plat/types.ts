@@ -16,10 +16,10 @@ export type PieceKind =
   | 'low' // viga baja: agacharse (fluido)
   | 'side' // obstáculo a un lado: paso lateral (fluido)
   | 'log' // tronco para saltar en marcha (fluido)
-  | 'step' // plataforma más alta: sentadilla con salto (paso; PR B)
-  | 'drop' // bajada (paso; PR B)
-  | 'crawl' // túnel bajo: postura de flexión y n flexiones (paso; PR B)
-  | 'burpee' // muro bajo: al suelo, arriba y salto (paso; PR B)
+  | 'step' // plataforma más alta: se sube de un salto en marcha y se baja sola al acabar (fluido; PR B)
+  | 'drop' // bajada (sin usar de momento: la plataforma ya baja sola al acabar)
+  | 'crawl' // túnel bajo: al suelo en plancha y n flexiones; cada una sube el techo (paso; PR B)
+  | 'burpee' // muro bajo: al suelo, arriba y salto por encima (paso; PR B)
   | 'foe' // enemigo que pisar saltando (fluido; PR D)
   | 'gems' // hilera de gemas que alcanzar con la mano (fluido; PR D)
   | 'chest'; // fin del tramo (paso)
@@ -27,10 +27,10 @@ export type PieceKind =
 /** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
  * si fallas, chocas o tropiezas (frenas y pierdes la racha, sin perder vidas, y sigues). El hueco también: si no saltas a
  * tiempo, tropiezas al cruzarlo (nunca se cae). */
-export const FLUID: readonly PieceKind[] = ['gap', 'low', 'side', 'log', 'foe', 'gems'];
+export const FLUID: readonly PieceKind[] = ['gap', 'step', 'low', 'side', 'log', 'foe', 'gems'];
 /** Los pasos: el mundo se para a `STOP_AT` y el movimiento pedido es el que te lleva al otro lado (el cofre, al acabar el
  * tramo; los de suelo del PR B, por seguridad: no se baja al suelo con el mundo en marcha). */
-export const HALT: readonly PieceKind[] = ['step', 'drop', 'crawl', 'burpee', 'chest'];
+export const HALT: readonly PieceKind[] = ['crawl', 'burpee', 'chest'];
 /** Los que se cruzan saltando (entre dos seguidos, al menos `JUMP_GAP_S` a velocidad máxima). */
 export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'burpee'];
 /** Los de suelo (tras ellos, `FLOOR_UP_S` para levantarse antes de otra cosa). */
@@ -40,6 +40,10 @@ export const FLOORS: readonly PieceKind[] = ['crawl', 'burpee'];
  * lejano). */
 export const STOP_AT = 1;
 export const LAND_PAST = 0.6;
+/** Ante un paso, el mundo no te para de golpe: frenas con esta deceleración (m/s²) hasta quedarte a `STOP_AT`. */
+export const HALT_BRAKE = 2.5;
+/** Lo que se recorre bajando de una plataforma, al acabar (m): libre antes de la pieza siguiente. */
+export const DROP_ROOM = 2;
 /** Hasta dónde se ve: las piezas salen allí, entre la niebla, no de golpe cerca (regla de la Travesía). */
 export const PLAT_SEE = 88;
 /** La carrera antes de la primera pieza de cada tramo (m). */
@@ -61,12 +65,13 @@ export interface Piece {
   k: PieceKind;
   /** Su borde cercano, a lo largo del sendero (m). */
   at: number;
-  /** Lo que mide a lo largo del sendero (m): el hueco, la plataforma, el túnel; 0 en las finas (viga, tronco). */
+  /** Lo que mide a lo largo del sendero (m): el hueco, lo de arriba de la plataforma, el túnel, el grosor del muro; 0 en
+   * las finas (viga, tronco). */
   len: number;
   /** El obstáculo a un lado: a qué lado está (−1 izquierda, 1 derecha; hay que apartarse al otro). 0 en los demás. */
   side: -1 | 0 | 1;
-  /** Viga baja: cuánto hay que bajar la coronilla bajo tu altura de pie (m). Plataforma y bajada: lo que sube o baja el
-   * suelo (m). 0 en los demás. */
+  /** Viga baja: cuánto hay que bajar la coronilla bajo tu altura de pie (m). Plataforma: lo que sube el suelo (m). Muro:
+   * su altura (m). 0 en los demás. */
   h: number;
   /** Túnel: las flexiones que pide. Gemas: cuántas. 0 en los demás. */
   n: number;
@@ -86,11 +91,13 @@ export interface Piece {
   fast: boolean;
   /** Obstáculo a un lado: si la cabeza estuvo en su lado mientras pasaba. */
   bad: boolean;
+  /** Túnel: las flexiones hechas (el techo sube con ellas). */
+  done: number;
 }
 
 /** Una pieza nueva, con su estado a cero. */
 export function piece(id: number, k: PieceKind, at: number, tramo: number, o: Partial<Pick<Piece, 'len' | 'side' | 'h' | 'n'>> = {}): Piece {
-  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false };
+  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, done: 0 };
 }
 
 /** Lo que `buildCourse` necesita para hacer un tramo. */
