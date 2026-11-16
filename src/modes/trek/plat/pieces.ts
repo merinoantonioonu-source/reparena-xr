@@ -1,7 +1,7 @@
 /**
  * La Travesía de plataformas: qué modelo va dónde. Lógica pura (sin IWSDK ni three): cada función devuelve una lista de
- * `Put` (un modelo del Pirate Kit o del bosque con su sitio, giro y escala) y el sistema que pinta (trek-system.ts) los
- * pone con instancias. Nada se crea de cero: todo sale de `island.glb` y `nature.glb`.
+ * `Put` (un modelo del Pirate Kit, del bosque o de las frutas con su sitio, giro y escala) y el sistema que pinta
+ * (trek-system.ts) los pone con instancias. Nada se crea de cero: todo sale de `island.glb`, `nature.glb` y `frutas.glb`.
  *
  * Las coordenadas son las del sendero: `ds` a lo largo (hacia delante), `u` a la derecha, `y` arriba sobre las tablas
  * (la pasarela está en y = 0; el suelo del paisaje, en `GROUND_Y`). Con `ry = 0` el modelo está tal cual: su +x a la
@@ -15,12 +15,16 @@
  * - `Dock_Pole`: x −0,20…0,16; y −2,00…1,01; z −0,20…0,18.
  * - `Barrel`: x −0,357…0,357; y 0,0013…0,661; z −0,357…0,357 (un cilindro de 0,714 m de diámetro).
  * - `Chest_Closed`: x −0,697…0,697; y −0,021…0,861; z −0,444…0,444 (una caja de 1,39 × 0,88 × 0,89 m).
+ * - Rocas (cajas en la tabla `BOX`, de los vértices: son montículos cerrados, con su cara de abajo): `Cliff1` 5,6 × 3,0 × 5,4
+ *   (el más llano: una meseta redonda a ~2,2 de 2,5 de alto), `Cliff3` 6,9 × 6,2 × 5,9 y `Cliff4` 7,4 × 5,5 × 7,1 (con pico),
+ *   `Rock_1`…`Rock_5` de 0,6–0,8 m y, del bosque, `Rock_Medium_1`…`3` de 3,0–3,4 m.
+ * - Frutas (tabla `FRUITS`): de 0,13 (el ancho de la fresa) a 0,63 m (el largo del plátano), con la base en y = 0.
  */
 import { trekRng, TREK_CH } from '../path.js';
 import { HEAD_TOP } from '../env.js';
-import type { Piece } from './types.js';
+import { FRUIT_U, type Piece } from './types.js';
 
-export type Kit = 'island' | 'nature';
+export type Kit = 'island' | 'nature' | 'food';
 
 /** Un modelo colocado. ds: a lo largo del sendero (en piecePuts, desde piece.at; en floorPuts y decoPuts, absoluto). */
 export interface Put {
@@ -37,6 +41,9 @@ export interface Put {
   sz: number;
 }
 
+/** Cuánto sobresale la repisa de roca por delante de `at` y por detrás de `at + len` (m): los montículos bajan en los extremos. */
+const STEP_FRONT = 0.5, STEP_BACK = 0.3;
+
 /** A qué altura sobre las tablas está el techo del túnel al llegar (m: hay que pasar en plancha). */
 export const CRAWL_ROOF = 0.75;
 
@@ -46,9 +53,6 @@ export const GROUND_Y = -1.2;
 
 /** Las tablas del `Dock` (a escala 1): su ancho, su largo, dónde acaba la cara de arriba y hasta dónde bajan los postes. */
 const DK = { x0: -0.98448, x1: 1.0, z0: -1.02643, z1: 1.05486, top: 0.488067, bottom: -1.999561, under: 0.138521 } as const;
-/** `Barrel` y `Chest_Closed` (a escala 1): lo que miden y dónde tienen la base. */
-const BR = { r: 0.357345, y0: 0.00127464, y1: 0.661185 } as const;
-const CH = { x1: 0.697393, y0: -0.0205194, y1: 0.860731, z1: 0.443711 } as const;
 /** `Dock_Pole` (a escala 1). */
 const PL = { x0: -0.201654, x1: 0.164895, y0: -1.999561, y1: 1.013127, z0: -0.200475, z1: 0.175503 } as const;
 const PL_LEN = PL.y1 - PL.y0;
@@ -60,12 +64,13 @@ export const DOCK_LEN = DK.z1 - DK.z0;
 
 /** Todos los nombres de modelo que usa este archivo, por kit (el sistema que pinta los carga de aquí). */
 export const KIT_MODELS: Record<Kit, string[]> = {
-  island: ['Dock', 'Dock_Broken', 'Dock_Pole', 'Barrel', 'Chest_Closed'],
+  island: ['Dock', 'Dock_Broken', 'Dock_Pole', 'Barrel', 'Chest_Closed', 'Cliff1', 'Cliff3', 'Cliff4', 'Rock_2', 'Rock_3', 'Rock_4', 'Rock_5'],
   nature: [
     'CommonTree_3', 'CommonTree_4', 'CommonTree_5', 'Pine_2', 'Pine_4', 'Pine_5', 'DeadTree_1', 'DeadTree_2',
     'Bush_Common', 'Bush_Common_Flowers', 'Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3',
     'Grass_Common_Short', 'Grass_Common_Tall', 'Grass_Wispy_Short', 'Grass_Wispy_Tall', 'Flower_3_Group', 'Fern_1', 'Plant_1_Big', 'Plant_7_Big', 'Clover_1',
   ],
+  food: ['Apple', 'Banana', 'Cherries', 'Orange', 'Pear', 'Strawberry', 'Pineapple', 'Watermelon', 'Lemon', 'Grapes'],
 };
 
 function put(kit: Kit, n: string, ds: number, u: number, y: number, o: Partial<Put> = {}): Put {
@@ -76,12 +81,11 @@ function put(kit: Kit, n: string, ds: number, u: number, y: number, o: Partial<P
 
 /** Un tramo de muelle que cubre las tablas de `a` a `b` (a lo largo), con su cara de arriba en `top` y escalado a lo alto
  * por `sy` (las tablas y los postes, a la vez). Estirado o encogido a lo largo para que encaje justo. */
-function dockPut(a: number, b: number, top: number, sy: number, lift = false): Put {
+function dockPut(a: number, b: number, top: number, sy: number): Put {
   const sz = (b - a) / DOCK_LEN, sx = DOCK_W / (DK.x1 - DK.x0);
   // (el −z del modelo es «delante»: el centro de sus tablas está en −zc a lo largo)
   const zc = (DK.z0 + DK.z1) / 2;
-  const q = put('island', 'Dock', (a + b) / 2 + zc * sz, -((DK.x0 + DK.x1) / 2) * sx, top - DK.top * sy, { sx, sy, sz });
-  return q;
+  return put('island', 'Dock', (a + b) / 2 + zc * sz, -((DK.x0 + DK.x1) / 2) * sx, top - DK.top * sy, { sx, sy, sz });
 }
 
 /** Un tramo de muelle del suelo: de `a` a `b`, con la cara de arriba en y = 0 y los postes hasta `GROUND_Y`. */
@@ -90,9 +94,9 @@ function dockAt(a: number, b: number, out: Put[]): void {
 }
 
 /** Tablas de `a` a `b` sin huecos (tramos casi de `DOCK_LEN`, ni estirados ni encogidos de más). */
-function dockRun(a: number, b: number, top: number, sy: number, lift: boolean, out: Put[]): void {
+function dockRun(a: number, b: number, top: number, sy: number, out: Put[]): void {
   const m = Math.max(1, Math.round((b - a) / DOCK_LEN)), w = (b - a) / m;
-  for (let i = 0; i < m; i++) out.push(dockPut(a + i * w, a + (i + 1) * w, top, sy, lift));
+  for (let i = 0; i < m; i++) out.push(dockPut(a + i * w, a + (i + 1) * w, top, sy));
 }
 
 /**
@@ -142,16 +146,49 @@ function layPole(ds: number, u: number, bottom: number, len: number, th: number)
   return put('island', 'Dock_Pole', ds, u + ((PL.y0 + PL.y1) / 2) * sy, bottom - PL.x0 * th, { rz: Math.PI / 2, sx: th, sy, sz: th });
 }
 
-/** Un barril de pie con su base en `y0`, de `h` de alto y `d` de diámetro por `l` a lo largo; centrado en (`ds`, `u`). */
-function barrelAt(ds: number, u: number, y0: number, h: number, d: number, l: number): Put {
-  const sy = h / (BR.y1 - BR.y0);
-  return put('island', 'Barrel', ds, u, y0 - BR.y0 * sy, { sx: d / (2 * BR.r), sy, sz: l / (2 * BR.r) });
+/** Cajas de los modelos (a escala 1; vértices del .glb, con la escala y el giro de su nodo): [x0, y0, z0, x1, y1, z1]. */
+const BOX: Record<string, readonly [number, number, number, number, number, number]> = {
+  Cliff1: [-2.5561, -0.482, -2.4228, 3.0647, 2.482, 2.9854],
+  Cliff3: [-3.403, -0.4568, -3.4319, 3.4452, 5.712, 2.5046],
+  Cliff4: [-3.3744, -0.2529, -3.6979, 3.9956, 5.2705, 3.4144],
+  Rock_2: [-0.3826, -0.0334, -0.3671, 0.4006, 1.0161, 0.3914],
+  Rock_3: [-0.4733, -0.0024, -0.2934, 0.2967, 0.6094, 0.2905],
+  Rock_4: [-0.4166, -0.0045, -0.3984, 0.3462, 0.7069, 0.3476],
+  Rock_5: [-0.3087, -0.2956, -0.2937, 0.2967, 0.309, 0.292],
+  Rock_Medium_1: [-1.7273, -0.2711, -1.1499, 1.4979, 1.9887, 1.8393],
+  Rock_Medium_3: [-1.8243, -0.3156, -0.8905, 1.5958, 2.0006, 2.5856],
+};
+
+/** Una roca estirada para que su caja llene justo [u0, u1] a lo ancho, [y0, y1] a lo alto y [s0, s1] a lo largo (el sendero,
+ * hacia delante). `flip`: de espaldas (ry = π), para que dos seguidas no sean iguales. */
+function rockFit(kit: Kit, n: string, u0: number, u1: number, y0: number, y1: number, s0: number, s1: number, flip = false): Put {
+  const [x0, by0, z0, x1, by1, z1] = BOX[n], sx = (u1 - u0) / (x1 - x0), sy = (y1 - y0) / (by1 - by0), sz = (s1 - s0) / (z1 - z0), f = flip ? -1 : 1;
+  // (con ry = π, x y z cambian de signo; el sendero va en −z: s = ds − z)
+  return put(kit, n, (s0 + s1) / 2 + f * ((z0 + z1) / 2) * sz, (u0 + u1) / 2 - f * ((x0 + x1) / 2) * sx, y0 - by0 * sy, { ry: flip ? Math.PI : 0, sx, sy, sz });
 }
 
-/** Una caja (`Chest_Closed`) con su base en `y0`, de `h` de alto, `w` de ancho y `l` a lo largo; centrada en (`ds`, `u`). */
-function chestAt(ds: number, u: number, y0: number, h: number, w: number, l: number): Put {
-  const sy = h / (CH.y1 - CH.y0);
-  return put('island', 'Chest_Closed', ds, u, y0 - CH.y0 * sy, { sx: w / (2 * CH.x1), sy, sz: l / (2 * CH.z1) });
+/** Las frutas: su caja (a escala 1, con la base en y = 0), de los vértices de `frutas.glb`. */
+const FRUITS: Record<string, readonly [number, number, number, number, number, number]> = {
+  Apple: [-0.0981, 0, -0.0981, 0.0981, 0.1908, 0.0981],
+  Banana: [-0.0688, 0, -0.3149, 0.0688, 0.1958, 0.3149],
+  Cherries: [-0.044, 0, -0.081, 0.044, 0.1707, 0.081],
+  Orange: [-0.0848, 0, -0.0848, 0.0848, 0.1622, 0.0848],
+  Pear: [-0.0981, 0, -0.0981, 0.0981, 0.2708, 0.0981],
+  Strawberry: [-0.0598, 0, -0.0598, 0.0598, 0.177, 0.0598],
+  Pineapple: [-0.1206, 0, -0.1224, 0.1206, 0.4716, 0.1224],
+  Watermelon: [-0.2277, 0, -0.2277, 0.2277, 0.4761, 0.2277],
+  Lemon: [-0.0866, 0, -0.1, 0.0866, 0.224, 0.1],
+  Grapes: [-0.1395, 0, -0.1193, 0.1395, 0.4226, 0.1193],
+};
+/** Las que salen como fruta normal (la piña es la especial). */
+const FRUIT_NORMAL = ['Apple', 'Banana', 'Cherries', 'Orange', 'Pear', 'Strawberry', 'Lemon', 'Grapes', 'Watermelon'] as const;
+/** Lo que mide de grande (su lado mayor, m) una fruta normal y la especial (la piña). */
+export const FRUIT_SIZE = 0.28, FRUIT_SIZE_SPECIAL = 0.4;
+
+/** La fruta de una pieza (la misma para el mismo `id`), con su centro en (`s`, `u`, `y`) y su lado mayor de `size`. */
+function fruitPut(name: string, size: number, u: number, y: number): Put {
+  const [x0, y0, z0, x1, y1, z1] = FRUITS[name], k = size / Math.max(x1 - x0, y1 - y0, z1 - z0);
+  return put('food', name, ((z0 + z1) / 2) * k, u - ((x0 + x1) / 2) * k, y - ((y0 + y1) / 2) * k, { sx: k, sy: k, sz: k });
 }
 
 /** Lo que se ve de cada pieza (sin el suelo), relativo a `p.at` (ds 0 = su borde cercano). `ref`: la altura de los ojos de pie. */
@@ -194,34 +231,47 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       break;
     case 'step': {
       if (p.h <= 0 || p.len <= 0) break;
-      // las tablas del muelle, con su cara de arriba en y = h, de at a at + len; su grosor y sus postes (que llegan al suelo
-      // del paisaje, si no se pasan de gruesos) escalados a lo alto, sin comerse más del 40 % de la altura
-      const sy = Math.min(0.7, Math.max(0.45, (p.h - GROUND_Y) / (DK.top - DK.bottom)), (0.4 * p.h) / (DK.top - DK.under));
-      dockRun(0, p.len, p.h, sy, false, out);
-      // debajo, barriles de pie de lado a lado (dos por fila, en filas de ~0,95 m: se ven por los lados y por delante) hasta
-      // las tablas; si hace falta más altura, apilados. Con poca altura, el barril se hunde un poco en el suelo (y se tapa)
-      const hs = p.h - (DK.top - DK.under) * sy, n = Math.max(1, Math.round(hs / 0.8)), lh = hs / n;
-      const rows = Math.max(1, Math.round(p.len / 0.95)), rl = p.len / rows, d = DOCK_W / 2 + 0.02;
-      for (let k = 0; k < n; k++) {
-        const top = (k + 1) * lh + (k === n - 1 ? 0.02 : 0), bh = n === 1 ? Math.min(Math.max(hs, 0.5), hs + 0.15) : lh;
-        for (let i = 0; i < rows; i++) for (const u of [-DOCK_W / 4, DOCK_W / 4]) out.push(barrelAt((i + 0.5) * rl, u, top - bh, bh, d, rl));
-      }
+      // una repisa de roca: un bloque (Cliff1: el más llano, pero es un montículo: baja en los extremos) del suelo del paisaje
+      // hasta justo bajo las tablas, más ancho que la pasarela, en trozos de ~4,5 m que se solapan; por delante sobresale
+      // medio metro, para que la pared (el flanco del montículo) llegue a la altura de las tablas en at y se vea que hay que saltarla...
+      const n = Math.max(1, Math.ceil(p.len / 4.5)), w = p.len / n, W = DOCK_W / 2 + 1;
+      for (let i = 0; i < n; i++) out.push(rockFit('island', 'Cliff1', -W, W, GROUND_Y - 0.1, p.h - 0.04, i ? i * w - 0.6 : -STEP_FRONT, i < n - 1 ? (i + 1) * w + 0.6 : p.len + STEP_BACK, (p.id + i) % 2 === 1));
+      // ...y encima, las tablas del muelle con su cara de arriba en y = h (el suelo por el que se sigue), de borde a borde
+      dockRun(0, p.len, p.h, 0.7, out);
       break;
     }
     case 'crawl': {
       if (p.len <= 0) break;
-      // (provisional: el túnel de roca llega con el PR B2) el techo, con su cara de abajo en CRAWL_ROOF, y postes a los lados
-      const sy = 0.5;
-      dockRun(0, p.len, CRAWL_ROOF + (DK.top - DK.under) * sy, sy, true, out);
-      const tip = ref + HEAD_TOP + 0.25 + 0.3, th = 0.8, m = Math.max(1, Math.round(p.len / DOCK_LEN)), e = Math.min(0.2, p.len / 2);
-      for (let i = 0; i <= m; i++) for (const u of [-DOCK_W / 2 - 0.25, DOCK_W / 2 + 0.25]) out.push(standPole(e + (i / m) * (p.len - 2 * e), u, GROUND_Y, tip - GROUND_Y, th));
+      const L = p.len, W = DOCK_W / 2, f = p.id % 2 === 1;
+      // el techo: losas de roca (Cliff1 aplastado, un montículo que baja en los extremos: se alargan más allá de las bocas y se
+      // solapan) con su cara de abajo en CRAWL_ROOF, que cubren de lado a lado (y un metro de más por cada lado, sobre las
+      // paredes) y de at a at + len sin huecos
+      const nr = Math.max(1, Math.ceil((L + 2) / 3.5)), rw = (L + 2) / nr;
+      for (let i = 0; i < nr; i++) out.push(rockFit('island', 'Cliff1', -W - 1, W + 1, CRAWL_ROOF, CRAWL_ROOF + 0.9, -1 + i * rw - (i ? 0.6 : 0), -1 + (i + 1) * rw + (i < nr - 1 ? 0.6 : 0), f !== (i % 2 === 1)));
+      // las paredes: a cada lado, fuera de la pasarela, del suelo del paisaje hasta pasar el techo (se solapan con él)
+      const nw = Math.max(1, Math.ceil((L + 2.8) / 3)), ww = (L + 2.8) / nw;
+      for (const side of [-1, 1]) for (let i = 0; i < nw; i++) {
+        const [a, b] = side > 0 ? [W, W + 1.6] : [-W - 1.6, -W];
+        out.push(rockFit('island', 'Cliff1', a, b, GROUND_Y - 0.1, CRAWL_ROOF + 0.75, -1.4 + i * ww - (i ? 0.8 : 0), -1.4 + (i + 1) * ww + (i < nw - 1 ? 0.8 : 0), f !== (side > 0) !== (i % 2 === 1)));
+      }
+      // el interior pedregoso: piedras en el pie de las paredes, medio hundidas en ellas (fuera de la pasarela)
+      const st = ['Rock_2', 'Rock_3', 'Rock_4', 'Rock_5'];
+      for (let i = 0; i < 4; i++) {
+        const side = i % 2 ? 1 : -1, s = L * (0.2 + 0.6 * ((i * 0.37 + 0.13) % 1));
+        out.push(rockFit('island', st[(p.id + i) % 4], side > 0 ? W + 0.02 : -W - 0.55, side > 0 ? W + 0.55 : -W - 0.02, -0.12, 0.38, s - 0.3, s + 0.3, (p.id + i) % 3 === 1));
+      }
+      // la boca: dos peñascos altos a los lados, una peña encima y unos cantos a los pies, para verla de lejos
+      const e = Math.min(L + 0.6, 3.4);
+      out.push(rockFit('island', 'Cliff4', -4.4, -W - 0.5, GROUND_Y - 0.2, 3.4, -0.5, e, f), rockFit('island', 'Cliff3', W + 0.5, 4.4, GROUND_Y - 0.2, 3.6, -0.5, e, !f));
+      out.push(rockFit('island', 'Cliff3', -W - 1.7, W + 1.7, CRAWL_ROOF + 0.4, 4.3, -0.4, e - 0.2, f));
+      out.push(rockFit('nature', 'Rock_Medium_1', -5.2, -3.9, GROUND_Y - 0.15, GROUND_Y + 1.1, -0.6, 0.7), rockFit('nature', 'Rock_Medium_3', 3.9, 5.3, GROUND_Y - 0.15, GROUND_Y + 1.2, -0.5, 0.9, true));
       break;
     }
-    case 'burpee': {
-      if (p.h <= 0 || p.len <= 0) break;
-      // el muro: cajas (cofres cerrados) de borde a borde, dos por fila, en filas de ~0,9 m de grueso y apiladas hasta h: macizo
-      const n = Math.max(1, Math.ceil(p.h / 0.9)), lh = p.h / n, rows = Math.max(1, Math.round(p.len / 0.9)), rl = p.len / rows;
-      for (let k = 0; k < n; k++) for (let i = 0; i < rows; i++) for (const u of [-DOCK_W / 4, DOCK_W / 4]) out.push(chestAt((i + 0.5) * rl, u, k * lh, lh, DOCK_W / 2, rl));
+    case 'fruit': {
+      if (p.side === 0) break;
+      // flotando a la altura de la cabeza, al lado (el sistema la hace girar y flotar); la misma para el mismo id; la especial, la piña, más grande
+      const name = p.special ? 'Pineapple' : FRUIT_NORMAL[Math.abs(p.id) % FRUIT_NORMAL.length];
+      out.push(fruitPut(name, p.special ? FRUIT_SIZE_SPECIAL : FRUIT_SIZE, p.side * FRUIT_U, ref));
       break;
     }
     default:

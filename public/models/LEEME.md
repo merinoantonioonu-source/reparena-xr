@@ -25,3 +25,5 @@ gratuitos como CC0 (dominio público). El Dinosaur Animated Pack, CC0.
 
 Los retratos de cada enemigo para sus fichas del menú (`../retratos/*.png`, 128 px) salen de la hoja de RepArena
 (`models/retratos.png`, hecha con estos modelos por su `tests/retratos.js`), cortada una vez.
+
+| `frutas.glb` | Las **frutas** de la Travesía (Food Kit, de [Kenney](https://kenney.nl), **CC0** 1.0, dominio público): manzana, plátano, cerezas, naranja, pera, fresa, piña, sandía, limón y uvas, cada una bajo un nodo de primer nivel con su nombre en inglés (`Apple`, `Banana`, `Cherries`, `Orange`, `Pear`, `Strawberry`, `Pineapple`, `Watermelon`, `Lemon`, `Grapes`), de colores lisos y sin texturas (unos 3.000 triángulos en total). Copiados de [m4gr3d/Godot-Android-Samples](https://github.com/m4gr3d/Godot-Android-Samples) (`apps/gltf_viewer/godot/gltfs/food_kit`) y unidos en un solo archivo con `tests/frutas-glb.mjs` (junta sus mallas y colores sin tocarlos; solo quita las extensiones VRM y «sin luz» y los UV, que sin texturas no hacen falta). |

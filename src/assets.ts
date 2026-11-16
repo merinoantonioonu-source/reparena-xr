@@ -85,6 +85,8 @@ export default defineAssets({
   'island-kit': foe('island.glb', 'Isla pirata (Pirate Kit)'),
   // el claro del bosque de día (Stylized Nature MegaKit, de Quaternius, CC0) y sus texturas
   'nature-kit': foe('nature.glb', 'Bosque de día (Stylized Nature MegaKit)'),
+  // las frutas de la Travesía (Food Kit de Kenney, CC0): una por nodo de primer nivel, de colores lisos
+  'food-kit': foe('frutas.glb', 'Frutas (Food Kit de Kenney)'),
   ...Object.fromEntries(['bark_tree.jpg', 'bark_dead.jpg', 'leaves_tree.png', 'leaves_pine.png', 'leaves_bush.png', 'leaves.png', 'flowers.png', 'grass.png', 'mushrooms.jpg', 'rocks.jpg'].map((f) => [`nature-${f.replace(/\.\w+$/u, '')}`, { url: publicAssetUrl(`models/tex/nature/${f}`), type: AssetType.Texture, name: `Bosque: ${f}`, priority: 'background' as const }])),
   ...sounds,
 });
