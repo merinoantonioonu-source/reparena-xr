@@ -36,7 +36,7 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, platTune, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, platTune, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -77,6 +77,15 @@ export const SIDE_HOLD_S = 3;
 export const BOUNCE_LIFT = 0.55, STOMP_PTS = 200, CRAB_PTS = 150;
 /** El cofre: sus puntos, los del tesoro (con tres llaves) y las llaves que pide (los de la Travesía clásica). */
 export const CHEST_PTS = 400, TREASURE_PTS = 1500, TREASURE_KEYS = 3;
+
+/** Un escupitajo en el aire: de qué cangrejo, cuánto lleva, cuándo llega (s) y dónde estaba tu cabeza al lanzarlo. */
+interface Spit {
+  p: Piece;
+  t: number;
+  end: number;
+  x: number;
+  y: number;
+}
 
 /** Tu mejor Travesía de plataformas (el fantasma): hasta dónde llegaste, tus puntos y dónde ibas cada GHOST_DT s. */
 export interface PlatGhost {
@@ -174,6 +183,8 @@ export class Runner {
   best: PlatGhost | null = null;
   tl: number[] = [];
   private tlT = 0;
+  /** Los escupitajos en el aire. */
+  spits: Spit[] = [];
   /** El paso de la seta y el cangrejo (m/s: «Paso de los enemigos», de la tabla de dificultad; se lee en cada fotograma). */
   foeV = FOE_V;
   /** Los ajustes, hecha una vez (sin crear una función en cada fotograma). */
@@ -241,6 +252,7 @@ export class Runner {
     this.onStep = null;
     this.ends = [];
     this.passed = this.hits = this.fruits = this.keys = 0;
+    this.spits.length = 0;
     this.id = 1;
     const B = this.env.store(PLAT_GHOST) as PlatGhost | null;
     this.best = B && Array.isArray(B.tl) ? B : null;
@@ -368,6 +380,7 @@ export class Runner {
     this.reveal();
     if (st === 'play') {
       this.walk(dt);
+      this.spit(dt);
       if (this.moves.takeoff && !this.hop && !this.stop) this.takeoff(H.z);
       for (const p of this.live) if (!p.judged && FLUID.includes(p.k) && p !== this.hop?.p) this.judge(p, p.at + p.walk - tk.dist + H.z);
       // el fantasma: dónde vas, cada GHOST_DT s
@@ -398,6 +411,57 @@ export class Runner {
       }
       if (p.woke && p.walk > 0) p.walk = Math.max(0, p.walk - this.foeV * dt);
     }
+  }
+
+  /** El cangrejo escupe, una vez y solo desde lejos (entre SPIT_NEAR y SPIT_FAR m de tu cabeza) si no hay otro reto cerca de
+   * ti; el escupitajo vuela hacia donde estaba tu cabeza y, al llegar, si la has apartado SPIT_R m, lo esquivas. */
+  private spit(dt: number): void {
+    const d = this.tk.dist, H = this.env.head, v = Math.max(0, this.tk.v);
+    for (const p of this.live) {
+      if (p.k !== 'side' || p.judged || p.spat || !p.woke) continue;
+      const z = p.at + p.walk - d + H.z;
+      if (z < SPIT_NEAR) p.spat = true; // (ya cerca: nunca)
+      if (z > SPIT_FAR || p.spat || !this.spitFree(p, SPIT_FREE + v * 1.3)) continue;
+      p.spat = true;
+      const dur = z / (SPIT_V + v);
+      this.spits.push({ p, t: 0, end: SPIT_WIND + dur, x: H.x, y: H.y });
+      this.ev.push({ t: 'spit', p, wind: SPIT_WIND, dur, aim: { x: H.x, y: H.y, z: H.z } });
+      this.say('¡El cangrejo escupe! Aparta la cabeza', COL_ASK, 1.2, false);
+    }
+    for (let i = this.spits.length - 1; i >= 0; i--) {
+      const S = this.spits[i];
+      S.t += dt;
+      if (S.t < S.end) continue;
+      this.spits.splice(i, 1);
+      const ok = Math.hypot(H.x - S.x, H.y - S.y) >= SPIT_R;
+      this.ev.push({ t: 'spat', p: S.p, ok });
+      if (ok) {
+        this.passed++;
+        this.score(120);
+        this.snd('whoosh', null, 'arc');
+        this.cheer('¡Escupitajo esquivado!', COL_OK, 0.9);
+        continue;
+      }
+      // te da: frenas a la mitad y se rompe la racha (sin vidas)
+      this.hits++;
+      this.tk.v *= HIT_KEEP;
+      this.ev.push({ t: 'combo0' });
+      this.tk.turboSet(false);
+      this.snd('squish', null);
+      this.ev.push({ t: 'haptic', k: 0.7, ms: 140 });
+      this.say('¡Te ha escupido! Aparta la cabeza', COL_WARN, 1.6, true);
+    }
+  }
+
+  /** ¿No hay otro reto (que pida un movimiento) a menos de `room` m por delante de tu cabeza, ni pasando ahora? */
+  private spitFree(crab: Piece, room: number): boolean {
+    const d = this.tk.dist, hz = this.env.head.z;
+    for (const q of this.live) {
+      if (q === crab || q.judged || q.k === 'fruit' || q.k === 'chest' || q.k === 'floor') continue;
+      const z = q.at + q.walk - d + hz;
+      if (z > -0.6 - q.len && z < room) return false;
+    }
+    return !this.hop && !this.stop;
   }
 
   /** ¿Se acerca un obstáculo a un lado (o está pasando)? Entonces el centro no sigue a la cabeza. */

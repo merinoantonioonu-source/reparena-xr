@@ -12,7 +12,7 @@
  * vista (de 20 m detrás a 88 m delante), sin crear objetos. La partida (GameSystem) lo engancha como Arcos: `begin`,
  * `startWave`, `waveLeft`, `rep`, `hud`, `end` y `clear`.
  */
-import { AdditiveBlending, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DomeTexture, Euler, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DataTexture, DomeTexture, Euler, Group, InstancedMesh, LinearFilter, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, RGBAFormat, SphereGeometry, Sprite, SpriteMaterial, UnsignedByteType, Vector3 } from '@iwsdk/core';
 import type { AnimationAction, DirectionalLight, FogExp2, HemisphereLight, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { diagEvent } from '../../core/diag.js';
@@ -57,7 +57,7 @@ interface FoeRig {
   cur: string;
   p: Piece | null;
   /** Lo que hace: andar o esperar (según la pieza), morder (te ha mordido o, el cangrejo esquivado, al aire) o chafarse. */
-  act: 'live' | 'bite' | 'miss' | 'die';
+  act: 'live' | 'bite' | 'miss' | 'die' | 'spit';
   t: number;
   /** Apartado a un lado tras morder (m) y hacia dónde. */
   off: number;
@@ -68,6 +68,19 @@ interface FoeRig {
  * de cartón): esta parte de lo que gira el mundo, en el mismo sentido (1 sería pegado al paisaje). Y lo que tiene que
  * cambiar para pedírselo a IWSDK (rad). */
 const PANO_FOLLOW = 0.25, PANO_STEP = 0.002;
+
+/** Los escupitajos del cangrejo: cuántos puede haber a la vez y su color (un verde de baba que brilla). */
+const SPIT_POOL = 3, SPIT_COL = 0x9dff3a;
+/** Un escupitajo que se ve: su cangrejo, desde dónde y hacia dónde vuela (en la arena), lo que lleva y lo que dura. */
+interface SpitFx {
+  g: Group;
+  p: Piece | null;
+  from: Vector3;
+  to: Vector3;
+  t: number;
+  wind: number;
+  dur: number;
+}
 
 /** Las estelas del turbo (RepArena: TREK_WIND): cuántas y dónde va cada una (a un lado, alto, a lo largo, largo y su paso). */
 const WIND_N = 44;
@@ -129,6 +142,8 @@ export class TrekSystem extends createSystem({}) {
   /** Las estelas del turbo. */
   private wind!: InstancedMesh;
   private readonly winds: Wind[] = [];
+  /** Los escupitajos (hechos al empezar y reutilizados). */
+  private readonly spits: SpitFx[] = [];
   /** El giro del fondo realista que se pidió a IWSDK por última vez (rad). */
   private panoYaw = 0;
   /** Lo que se guardó al acabar la última ronda (la medalla y el fantasma). */
@@ -196,6 +211,24 @@ export class TrekSystem extends createSystem({}) {
     for (let i = 0; i < WIND_N; i++) this.winds.push({ x: (Math.random() < 0.5 ? 1 : -1) * (0.7 + 2.5 * Math.random()), y: 0.15 + 2.45 * Math.random(), z: -14 + 18 * Math.random(), l: 0.8 + 1.4 * Math.random(), k: 0.7 + 0.6 * Math.random() });
     this.world.createTransformEntity(this.wind);
     warmKeep(new InstancedMesh(this.wind.geometry, this.wind.material, 1)); // (instanciada como la de verdad: el mismo sombreador)
+    // los escupitajos: una bolita de baba verde con su brillo redondo (fuera del mundo que baja y sube: vuelan en la arena)
+    const n = 32, d = new Uint8Array(n * n * 4);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) d.set([255, 255, 255, Math.round(255 * Math.pow(Math.max(0, 1 - Math.hypot((x + 0.5) / n - 0.5, (y + 0.5) / n - 0.5) * 2), 2))], (y * n + x) * 4);
+    const gt = new DataTexture(d, n, n, RGBAFormat, UnsignedByteType);
+    gt.magFilter = gt.minFilter = LinearFilter;
+    gt.needsUpdate = true;
+    const blobMat = new MeshBasicMaterial({ color: SPIT_COL, toneMapped: false }), glowMat = new SpriteMaterial({ map: gt, color: SPIT_COL, transparent: true, opacity: 0.85, depthWrite: false, blending: AdditiveBlending, toneMapped: false }), blobGeo = new SphereGeometry(0.05, 12, 8);
+    for (let i = 0; i < SPIT_POOL; i++) {
+      const g = new Group(), blob = new Mesh(blobGeo, blobMat), glow = new Sprite(glowMat);
+      blob.userData.noInk = glow.userData.noInk = true;
+      glow.scale.setScalar(0.32);
+      g.add(blob, glow);
+      g.visible = false;
+      this.world.createTransformEntity(g);
+      this.spits.push({ g, p: null, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
+    }
+    warmKeep(new Mesh(blobGeo, blobMat));
+    warmKeep(new Sprite(glowMat));
   }
 
   private get on(): boolean {
@@ -342,6 +375,7 @@ export class TrekSystem extends createSystem({}) {
     this.stepAnims(dt);
     this.draw();
     this.drawFoes(dt);
+    this.stepSpits(dt);
     this.stepWind(dt);
   }
 
@@ -468,6 +502,36 @@ export class TrekSystem extends createSystem({}) {
         // la seta o el cangrejo echan a andar hacia ti: su voz
         const L = FOE_LOOK[e.p.k === 'side' ? 'side' : 'foe'];
         SND.hiss(this.world3({ s: e.p.at + e.p.walk, u: e.p.k === 'side' ? e.p.side * CRAB_U : 0, y: 0.3 }, this.at), 1, L.voice);
+        break;
+      }
+      case 'spit': {
+        // el cangrejo se encabrita (el aviso) y escupe hacia donde estaba tu cabeza
+        const S = this.spits.find((x) => !x.p);
+        if (S) {
+          S.p = e.p;
+          S.t = 0;
+          S.wind = e.wind;
+          S.dur = e.dur;
+          S.to.set(e.aim.x, e.aim.y, e.aim.z);
+          this.spitFrom(e.p, S.from);
+          S.g.position.copy(S.from);
+          S.g.scale.setScalar(0.01);
+          S.g.visible = true;
+        }
+        this.rigAct(e.p, 'spit');
+        SND.hiss(this.world3({ s: e.p.at + e.p.walk, u: e.p.side * CRAB_U, y: 0.3 }, this.at), 1.2, FOE_LOOK.side.voice);
+        break;
+      }
+      case 'spat': {
+        const S = this.spits.find((x) => x.p === e.p);
+        if (S) {
+          // te da: salpica de baba delante de la cara (a medio metro: las chispas no se pintan pegadas a los ojos); esquivado,
+          // se deshace a tu lado
+          const at = e.ok ? S.g.position : this.v.copy(S.from).sub(S.to).setLength(0.55).add(S.to);
+          HOOKS.sparks(at, e.ok ? 6 : 18, SPIT_COL);
+          S.p = null;
+          S.g.visible = false;
+        }
         break;
       }
       case 'chest':
@@ -691,7 +755,7 @@ export class TrekSystem extends createSystem({}) {
     if (!r) return;
     r.act = act;
     r.t = 0;
-    this.clip(r, act === 'die' ? 'Death' : 'Bite_Front', true);
+    this.clip(r, act === 'die' ? 'Death' : act === 'spit' ? 'Jump' : 'Bite_Front', true);
   }
 
   /** Su animación (con un fundido corto); `once`, sin repetir y quieta al acabar. */
@@ -717,7 +781,7 @@ export class TrekSystem extends createSystem({}) {
       r.t += dt;
       // (andan solo en pleno tramo: entre tramos, el recorrido está quieto y ellos también)
       if (r.act === 'live') this.clip(r, p.woke && p.walk > 0 && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 'Walk' : 'Idle');
-      else if ((r.act === 'bite' || r.act === 'miss') && r.t > BITE_T) {
+      else if ((r.act === 'bite' || r.act === 'miss' || r.act === 'spit') && r.t > BITE_T) {
         r.act = 'live';
         this.clip(r, 'Idle');
       }
@@ -741,6 +805,38 @@ export class TrekSystem extends createSystem({}) {
       r.root.position.set(this.bp.x, 0, this.bp.z);
       r.root.quaternion.setFromAxisAngle(this.up, ry);
       if (!lite) r.mixer.update(dt);
+    }
+  }
+
+  // ---------------------------------------------------------------- los escupitajos
+
+  /** De dónde sale el escupitajo: la boca del cangrejo (en la arena). */
+  private spitFrom(p: Piece, out: Vector3): Vector3 {
+    return this.world3({ s: p.at + p.walk - 0.15, u: p.side * CRAB_U, y: 0.3 }, out);
+  }
+
+  /** El escupitajo: mientras el cangrejo se encabrita, crece en su boca (y va con él); luego vuela recto, un poco en arco,
+   * hasta donde estaba tu cabeza. Si la ronda se para (descanso, pausa), se quita. */
+  private stepSpits(dt: number): void {
+    for (const S of this.spits) {
+      if (!S.p) continue;
+      if (GAME.phase !== 'playing' || GAME.between) {
+        S.p = null;
+        S.g.visible = false;
+        continue;
+      }
+      if (GAME.paused) continue;
+      S.t += dt;
+      if (S.t < S.wind) {
+        this.spitFrom(S.p, S.from);
+        S.g.position.copy(S.from);
+        S.g.scale.setScalar(Math.max(0.01, S.t / S.wind));
+        continue;
+      }
+      const k = Math.min(1.15, (S.t - S.wind) / Math.max(0.05, S.dur));
+      S.g.position.lerpVectors(S.from, S.to, k);
+      S.g.position.y += 0.25 * Math.sin(Math.PI * Math.min(1, k)); // (un poco en arco)
+      S.g.scale.setScalar(1);
     }
   }
 

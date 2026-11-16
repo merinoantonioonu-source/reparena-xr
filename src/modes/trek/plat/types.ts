@@ -46,6 +46,11 @@ export const FRUIT_U = 0.35, FRUIT_WIN = 0.45;
 export const FOE_WALK = 4, FOE_WAKE = 24, FOE_V = 0.9;
 /** El cangrejo corretea a esta distancia del centro (m, a su lado): hay que apartarse al otro. */
 export const CRAB_U = 0.5;
+/** El escupitajo del cangrejo (pedido del usuario): lo lanza una vez, solo desde lejos (cuando te queda entre `SPIT_NEAR` y
+ * `SPIT_FAR` m) y si no hay otro reto cerca de ti (`SPIT_FREE` m: nada pide dos movimientos a la vez); se encabrita
+ * `SPIT_WIND` s (el aviso) y vuela deprisa, a `SPIT_V` m/s (más lo que avanzas), hacia donde estaba tu cabeza. Se esquiva
+ * apartando la cabeza de ahí, a un lado o agachándote, al menos `SPIT_R` m (elegido por el usuario). */
+export const SPIT_FAR = 15, SPIT_NEAR = 10, SPIT_FREE = 4, SPIT_WIND = 0.45, SPIT_V = 12, SPIT_R = 0.22;
 /** Lo que hay que dejar tras el cofre (para el fantasma: la marca de dónde ibas en tu mejor ronda, cada `GHOST_DT` s). */
 export const GHOST_DT = 2;
 /** Dónde se guardan tu mejor Travesía de plataformas (el fantasma: lo de RepArena XR, aparte de la clásica) y las gemas
@@ -115,11 +120,13 @@ export interface Piece {
   /** La seta y el cangrejo: lo que les queda por andar hacia ti hasta su sitio (m; están en `at + walk`) y si ya andan. */
   walk: number;
   woke: boolean;
+  /** El cangrejo: ya escupió (lo hace una vez, desde lejos). */
+  spat: boolean;
 }
 
 /** Una pieza nueva, con su estado a cero. */
 export function piece(id: number, k: PieceKind, at: number, tramo: number, o: Partial<Pick<Piece, 'len' | 'side' | 'h' | 'n'>> = {}): Piece {
-  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: k === 'foe' || k === 'side' ? FOE_WALK : 0, woke: false };
+  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: k === 'foe' || k === 'side' ? FOE_WALK : 0, woke: false, spat: false };
 }
 
 /** Lo que manda la tabla de dificultad (por rango, PR E; los ajustes `plat*`): el sitio de más entre retos (×, 1 = el de
@@ -211,6 +218,9 @@ export type PlatSnd = 'whoosh' | 'metalHit' | 'perfect' | 'combo' | 'step' | 'vi
  * - lift: el suelo sube o baja `dy` m en `dur` s (las plataformas, PR B).
  * - chest: has llegado al cofre (se acaba el tramo; se abre). vanish: el cofre abierto se esfuma (al empezar el siguiente).
  * - wake: la seta o el cangrejo empiezan a andar hacia ti (su voz).
+ * - spit: el cangrejo escupe (se encabrita `wind` s y el escupitajo vuela `dur` s hacia `aim`, donde estaba tu cabeza, en la
+ *   arena); spat: llega (ok: lo esquivaste).
+
  * - trophy: un logro grande y dorado (lo que da el cofre). store: guardar en el almacén del navegador (las gemas).
  */
 export type PlatEv =
@@ -232,6 +242,8 @@ export type PlatEv =
   | { t: 'chest'; p: Piece }
   | { t: 'vanish'; p: Piece }
   | { t: 'wake'; p: Piece }
+  | { t: 'spit'; p: Piece; wind: number; dur: number; aim: { x: number; y: number; z: number } }
+  | { t: 'spat'; p: Piece; ok: boolean }
   | { t: 'trophy'; title: string; sub: string }
   | { t: 'store'; key: string; val: unknown };
 
