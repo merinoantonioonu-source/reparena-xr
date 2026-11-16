@@ -188,7 +188,7 @@ export class TrekSystem extends createSystem({}) {
     this.wind.userData.noInk = true;
     for (let i = 0; i < WIND_N; i++) this.winds.push({ x: (Math.random() < 0.5 ? 1 : -1) * (0.7 + 2.5 * Math.random()), y: 0.15 + 2.45 * Math.random(), z: -14 + 18 * Math.random(), l: 0.8 + 1.4 * Math.random(), k: 0.7 + 0.6 * Math.random() });
     this.world.createTransformEntity(this.wind);
-    warmKeep(new Mesh(this.wind.geometry, this.wind.material));
+    warmKeep(new InstancedMesh(this.wind.geometry, this.wind.material, 1)); // (instanciada como la de verdad: el mismo sombreador)
   }
 
   private get on(): boolean {
@@ -380,6 +380,7 @@ export class TrekSystem extends createSystem({}) {
     this.biome = 0;
     this.pano = TREK_BIOMES[0].pano;
     this.wind.visible = false;
+    (this.wind.material as MeshBasicMaterial).opacity = 0; // (al volver, sin estelas que se apagan)
   }
 
   /** Las instancias de cada modelo, en cuanto los kits estén cargados (y su sombreador, precompilado antes de la ronda). */
@@ -607,10 +608,12 @@ export class TrekSystem extends createSystem({}) {
   /** Los enemigos, en cuanto sus modelos estén cargados: FOE_POOL de cada uno, escondidos hasta que salga su pieza (y
    * precompilados en el menú: sin tirón al salir el primero). */
   private buildFoes(): boolean {
-    for (const kind of ['foe', 'side'] as const) if (!AssetManager.getGLTF(FOE_LOOK[kind].asset)) return false;
+    // (¿ya están? sin copiarlos: getGLTF copia el modelo entero si no se le pide el compartido)
+    for (const kind of ['foe', 'side'] as const) if (!AssetManager.getGLTF(FOE_LOOK[kind].asset, { shared: true })) return false;
     for (const kind of ['foe', 'side'] as const) {
       const L = FOE_LOOK[kind];
-      for (let i = 0; i < FOE_POOL; i++) {
+      // FOE_POOL para el juego y uno más, escondido, para precompilarlo igual que ellos (con su sombra) en el menú
+      for (let i = 0; i <= FOE_POOL; i++) {
         const gltf = AssetManager.getGLTF(L.asset)!, model = gltf.scene, root = new Group();
         root.name = `travesia-${kind === 'foe' ? 'seta' : 'cangrejo'}-${i}`;
         model.scale.setScalar(L.h / L.nat);
@@ -620,13 +623,16 @@ export class TrekSystem extends createSystem({}) {
           m.castShadow = true;
           if ((o as SkinnedMesh).isSkinnedMesh) m.frustumCulled = false; // (animado, se sale de su caja de reposo)
         });
+        if (i === FOE_POOL) {
+          warmKeep(model);
+          break;
+        }
         root.add(model);
         root.visible = false;
         this.root.add(root);
         const mixer = new AnimationMixer(model), acts = new Map<string, AnimationAction>();
         for (const c of gltf.animations) acts.set(c.name, mixer.clipAction(c));
         this.rigs.push({ kind, root, model, mixer, acts, cur: '', p: null, act: 'live', t: 0, off: 0, dir: 1 });
-        if (i === 0) warmKeep(AssetManager.getGLTF(L.asset)!.scene);
       }
     }
     // (las piezas que salieron antes de tener los modelos)
@@ -688,7 +694,8 @@ export class TrekSystem extends createSystem({}) {
       const p = r.p;
       if (!p) continue;
       r.t += dt;
-      if (r.act === 'live') this.clip(r, p.woke && p.walk > 0 ? 'Walk' : 'Idle');
+      // (andan solo en pleno tramo: entre tramos, el recorrido está quieto y ellos también)
+      if (r.act === 'live') this.clip(r, p.woke && p.walk > 0 && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 'Walk' : 'Idle');
       else if ((r.act === 'bite' || r.act === 'miss') && r.t > BITE_T) {
         r.act = 'live';
         this.clip(r, 'Idle');

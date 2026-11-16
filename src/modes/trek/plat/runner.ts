@@ -170,6 +170,8 @@ export class Runner {
   private tlT = 0;
   /** El paso de la seta y el cangrejo (m/s: «Paso de los enemigos», de la tabla de dificultad; se lee en cada fotograma). */
   foeV = FOE_V;
+  /** Los ajustes, hecha una vez (sin crear una función en cada fotograma). */
+  private readonly sFn = (k: string): number => this.env.s(k);
   /** Lo que baja el mundo en lo más alto del salto sin hueco de ahora (m: el rebote de la seta, más). */
   private airLift = JUMP_LIFT;
   private id = 1;
@@ -303,7 +305,7 @@ export class Runner {
 
   step(dt: number): void {
     const env = this.env, tk = this.tk, st = env.state, H = env.head;
-    moveCfg((k) => env.s(k), this.cfg);
+    moveCfg(this.sFn, this.cfg);
     const fv = env.s('platFoeV');
     this.foeV = fv > 0 ? fv : FOE_V;
     this.cfg.deepNeed = Math.max(0.12, (0.8 * (env.dv('squatDepth') || 26)) / 100);

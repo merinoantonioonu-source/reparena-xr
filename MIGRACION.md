@@ -406,6 +406,23 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- Travesía de plataformas, PR E → los siguientes: **la dificultad de la Travesía va por rango** en la tabla del
+  desarrollador: seis ajustes solo de RepArena XR (`xr: true`, grupo `travesia`, pestaña «Modo Travesía»): `platSpace`
+  (separación entre retos, %), `platGap` (el hueco más corto, cm), `platDuck` (lo que hay que agacharse bajo la viga más
+  alta, cm), `platHigh` (la plataforma más baja, cm), `platTunnel` (el túnel más corto, m) y `platFoeV` (el paso de la seta y
+  el cangrejo, m/s). Sus valores por rango, en `RANK_VALS_XR` (`src/core/catalog.ts`; el cabo, el de serie, da lo mismo que
+  antes de la tabla); `devBase`, `rankVals` y `devRowOn` los leen como los de `RANK_VALS`, pero no van en lo guardado de cada
+  ejercicio (`comboKeys` deja fuera los `xr`: es de RepArena) y se guardan en `reparenaxr-settings`. El jugador no los ve
+  salvo que el desarrollador les marque el ojo. `buildCourse` los recibe en `CourseEnv.tune` (`platTune`, types.ts) y
+  `courseRules(…, tune)` comprueba cada medida entre la de la tabla y ella más `TUNE_UP` (lo que crece tramo a tramo); el
+  rango ya no entra a mano en esas medidas (sí en el largo de las plataformas y en el burpee). En `dev.compare` se dejan
+  fuera las filas `xr` (RepArena no las conoce). **Repaso del código** (una revisión aparte): las estelas del turbo y los
+  enemigos se precompilan como se pintan (instanciadas; con sombra), `getGLTF(…, { shared: true })` para ver si ya hay
+  modelo sin copiarlo, sin funciones nuevas en cada fotograma en `Runner.step`, y los enemigos no andan entre tramos.
+  **Falta el repaso con el diagnóstico de las gafas**: pídeselo al usuario (Travesía jugada en las gafas: «Guardar
+  diagnóstico» en la pausa) antes de tocar umbrales o tiempos. Lo que queda del plan: el PR C (correr con los brazos),
+  aplazado por el usuario.
+
 - Travesía de plataformas, PR D → el E (tabla del desarrollador y repaso): **enemigos** (elegido por el usuario: la seta se
   pisa; el cangrejo se esquiva a un lado; a un lado, solo enemigos). Son piezas como las demás: `foe` (la seta, por el
   centro, en `JUMPS`: se pisa estando en el aire cuando llega a tus pies, `Runner.stomp`, con rebote `BOUNCE_LIFT`) y `side`
