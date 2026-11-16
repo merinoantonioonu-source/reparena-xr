@@ -27,6 +27,9 @@ export interface CareerEnv {
   kg(): number;
   /** ¿Se puede jugar este modo / este ejercicio en esta versión? (para las misiones de variedad) */
   playMode(m: string): boolean;
+  /** Los modos de RepArena XR que piden también las misiones de variedad («Juega una ronda en…»), además de los de RepArena
+   * (la Travesía de plataformas). Sin él, como en RepArena. */
+  moreModes?(): string[];
   playEx(x: string): boolean;
   trophy(title: string, sub?: string, color?: string): void;
   cheer(text: string, color: string, secs: number): void;
@@ -284,7 +287,7 @@ export class Career {
     // variedad: el modo que menos has jugado esta semana (de los que se pueden jugar aquí), o un ejercicio que ya conoces y
     // llevas días sin hacer
     const week = h.filter((r) => r.date > now - 7 * DAY_MS);
-    let modes = ['combat', 'arcs', 'touch', ...(h.some((r) => r.mode === 'bars') ? ['bars'] : [])].filter((m) => env.playMode(m)).sort((a, b) => week.filter((r) => r.mode === a).length - week.filter((r) => r.mode === b).length);
+    let modes = ['combat', 'arcs', 'touch', ...(h.some((r) => r.mode === 'bars') ? ['bars'] : []), ...(env.moreModes?.() ?? [])].filter((m) => env.playMode(m)).sort((a, b) => week.filter((r) => r.mode === a).length - week.filter((r) => r.mode === b).length);
     if (!modes.length) modes = ['combat'];
     const recent = new Set(h.filter((r) => r.date > now - 3 * DAY_MS).map((r) => r.ex));
     const exs = [...new Set(h.map((r) => r.ex))].filter((x) => EX_NAMES[x] && !recent.has(x) && env.playEx(x) && Object.keys(MODE_NAMES).some((m) => env.playMode(m) && exOk(m, x)));

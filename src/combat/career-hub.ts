@@ -25,6 +25,7 @@ export function career(): Career {
       kg: () => num('weight') || 70,
       playMode: (m) => PLAY_MODES.includes(m), // (los demás modos llegan con sus PR: 16 a 18)
       playEx: (x) => playableAnywhere(x),
+      moreModes: () => ['trek'], // (la Travesía de plataformas: RepArena no la pedía en las misiones)
       trophy: (t, s, c) => HOOKS.trophy(t, s, c),
       cheer: (t, c, s) => HOOKS.say(t, c, s, false),
     });

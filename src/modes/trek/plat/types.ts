@@ -14,14 +14,14 @@ export type PieceKind =
   | 'floor' // suelo corrido (no es un reto: la pasarela de tablas)
   | 'gap' // hueco en el suelo: salto en marcha (fluido)
   | 'low' // viga baja: agacharse (fluido)
-  | 'side' // obstáculo a un lado: paso lateral (fluido)
+  | 'side' // el cangrejo, que llega correteando pegado a un lado: paso lateral al otro (fluido; PR D)
   | 'log' // tronco para saltar en marcha (fluido)
   | 'step' // plataforma alta: se sube con un supersalto en marcha (sentadilla honda y salto) y se baja sola (fluido)
   | 'drop' // bajada (sin usar de momento: la plataforma ya baja sola al acabar)
   | 'crawl' // túnel cubierto: se pasa en plancha, con la inercia (fluido)
   | 'burpee' // (sin usar: el burpee es un túnel y, BURPEE_GAP_S después, una plataforma con `burpee`)
   | 'fruit' // fruta flotando a la altura de la cabeza, a un lado: se coge apartando la cabeza (fluido; da energía)
-  | 'foe' // enemigo que pisar saltando (fluido; PR D)
+  | 'foe' // la seta, que llega andando por el centro: se pisa saltando encima (fluido; PR D)
   | 'gems' // hilera de gemas que alcanzar con la mano (fluido; PR D)
   | 'chest'; // fin del tramo (paso)
 
@@ -40,6 +40,17 @@ export const FLOORS: readonly PieceKind[] = ['crawl'];
 export const BURPEE_GAP_S = 2;
 /** La fruta: a qué distancia del centro flota (m, a su lado) y la ventana en la que se coge al pasar (m). */
 export const FRUIT_U = 0.35, FRUIT_WIN = 0.45;
+/** Los enemigos (la seta y el cangrejo, PR D) llegan andando hacia ti: salen `FOE_WALK` m más allá de su sitio (`at`) y,
+ * cuando te quedan a menos de `FOE_WAKE` m, andan hacia ti a `FOE_V` m/s hasta su sitio, y allí te esperan. Así nunca
+ * quedan más cerca de la pieza de antes que su sitio (las separaciones de course.ts siguen valiendo). */
+export const FOE_WALK = 4, FOE_WAKE = 24, FOE_V = 0.9;
+/** El cangrejo corretea a esta distancia del centro (m, a su lado): hay que apartarse al otro. */
+export const CRAB_U = 0.5;
+/** Lo que hay que dejar tras el cofre (para el fantasma: la marca de dónde ibas en tu mejor ronda, cada `GHOST_DT` s). */
+export const GHOST_DT = 2;
+/** Dónde se guardan tu mejor Travesía de plataformas (el fantasma: lo de RepArena XR, aparte de la clásica) y las gemas
+ * de los cofres (la colección de siempre, la misma que en RepArena). */
+export const PLAT_GHOST = 'reparenaxr-trekghost', PLAT_GEMS = 'reparena3-gems';
 
 /** Dónde te paras ante un paso (m antes de su borde cercano) y dónde aterrizas como poco tras el hueco (m pasado su borde
  * lejano). */
@@ -101,11 +112,14 @@ export interface Piece {
   special: boolean;
   /** Plataforma: la de un burpee (llega tras un túnel y se sube con un salto normal, sin sentadilla honda). */
   burpee: boolean;
+  /** La seta y el cangrejo: lo que les queda por andar hacia ti hasta su sitio (m; están en `at + walk`) y si ya andan. */
+  walk: number;
+  woke: boolean;
 }
 
 /** Una pieza nueva, con su estado a cero. */
 export function piece(id: number, k: PieceKind, at: number, tramo: number, o: Partial<Pick<Piece, 'len' | 'side' | 'h' | 'n'>> = {}): Piece {
-  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false };
+  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: k === 'foe' || k === 'side' ? FOE_WALK : 0, woke: false };
 }
 
 /** Lo que `buildCourse` necesita para hacer un tramo. */
@@ -158,7 +172,7 @@ export interface PlatPos {
 }
 
 /** Los sonidos que piden los sucesos (los del catálogo de `SND`). */
-export type PlatSnd = 'whoosh' | 'metalHit' | 'perfect' | 'combo' | 'step' | 'victory' | 'tick';
+export type PlatSnd = 'whoosh' | 'metalHit' | 'perfect' | 'combo' | 'step' | 'victory' | 'tick' | 'squish' | 'voice';
 
 /**
  * Lo que pasa (la partida lo aplica en este orden y vacía `Runner.ev`):
@@ -171,7 +185,9 @@ export type PlatSnd = 'whoosh' | 'metalHit' | 'perfect' | 'combo' | 'step' | 'vi
  *   saltado, tropiezo).
  * - halt: te paras ante un paso. go: empieza el salto (o el tropiezo) que te lleva al otro lado del hueco (`dur` s).
  * - lift: el suelo sube o baja `dy` m en `dur` s (las plataformas, PR B).
- * - chest: has llegado al cofre (se acaba el tramo). vanish: el cofre abierto se esfuma (al empezar el siguiente).
+ * - chest: has llegado al cofre (se acaba el tramo; se abre). vanish: el cofre abierto se esfuma (al empezar el siguiente).
+ * - wake: la seta o el cangrejo empiezan a andar hacia ti (su voz).
+ * - trophy: un logro grande y dorado (lo que da el cofre). store: guardar en el almacén del navegador (las gemas).
  */
 export type PlatEv =
   | { t: 'say'; text: string; col: string; dur: number; warn: boolean }
@@ -190,7 +206,10 @@ export type PlatEv =
   | { t: 'go'; p: Piece; dur: number }
   | { t: 'lift'; dy: number; dur: number }
   | { t: 'chest'; p: Piece }
-  | { t: 'vanish'; p: Piece };
+  | { t: 'vanish'; p: Piece }
+  | { t: 'wake'; p: Piece }
+  | { t: 'trophy'; title: string; sub: string }
+  | { t: 'store'; key: string; val: unknown };
 
 /** Los colores de los avisos (los de la Travesía): pedir algo, lo que se ha hecho mal y lo conseguido. */
 export const COL_ASK = '#ffd166';

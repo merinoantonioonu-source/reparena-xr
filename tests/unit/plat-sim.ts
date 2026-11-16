@@ -95,7 +95,7 @@ export class Sim {
     return this.log.slice(from).filter((e): e is Of<T> => e.t === t);
   }
   /** Los de una clase que son de la pieza `p`. */
-  ofPiece<T extends 'show' | 'hide' | 'pass' | 'hit' | 'halt' | 'go' | 'chest' | 'vanish'>(t: T, p: Piece): Of<T>[] {
+  ofPiece<T extends 'show' | 'hide' | 'pass' | 'hit' | 'halt' | 'go' | 'chest' | 'vanish' | 'wake'>(t: T, p: Piece): Of<T>[] {
     return this.of(t).filter((e) => (e as { p: Piece }).p === p);
   }
   /** Dónde y cuándo pasó un suceso. */
@@ -208,9 +208,9 @@ export class Sim {
 
   /* ---------- avanzar hasta algo ---------- */
 
-  /** Cuánto falta para que la pieza llegue a la cabeza (m). */
+  /** Cuánto falta para que la pieza llegue a la cabeza (m; la seta y el cangrejo, donde están ahora: andan hacia ti). */
   room(p: Piece): number {
-    return p.at - this.r.dist;
+    return p.at + p.walk - this.r.dist;
   }
 
   /**
@@ -249,6 +249,11 @@ export class Sim {
         if (!this.squatsTo(p, 2.5)) return false;
         this.side(-p.side * 0.4, () => p.judged);
         return p.judged;
+      case 'foe':
+        // la seta: saltar cuando llega a tus pies
+        if (!this.squatsTo(p, 0.5)) return false;
+        this.jump();
+        return this.until(() => p.judged, 72 * 5);
       case 'gap':
         if (!this.squatsTo(p, 1.0)) return false;
         this.jump();

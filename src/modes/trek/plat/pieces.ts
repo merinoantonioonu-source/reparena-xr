@@ -14,7 +14,8 @@
  *   postes y las cuerdas, es mayor que las tablas, así que todo se mide por las TABLAS, no por la caja.
  * - `Dock_Pole`: x −0,20…0,16; y −2,00…1,01; z −0,20…0,18.
  * - `Barrel`: x −0,357…0,357; y 0,0013…0,661; z −0,357…0,357 (un cilindro de 0,714 m de diámetro).
- * - `Chest_Closed`: x −0,697…0,697; y −0,021…0,861; z −0,444…0,444 (una caja de 1,39 × 0,88 × 0,89 m).
+ * - `Chest_Closed`: x −0,697…0,697; y −0,021…0,861; z −0,444…0,444 (una caja de 1,39 × 0,88 × 0,89 m). `Chest_Gold`, el
+ *   mismo abierto y lleno de oro (la tapa, levantada hacia atrás): x −0,885…0,924; y −0,021…1,264; z −0,931…0,657.
  * - Rocas (cajas en la tabla `BOX`, de los vértices: son montículos cerrados, con su cara de abajo): `Cliff1` 5,6 × 3,0 × 5,4
  *   (el más llano: una meseta redonda a ~2,2 de 2,5 de alto), `Cliff3` 6,9 × 6,2 × 5,9 y `Cliff4` 7,4 × 5,5 × 7,1 (con pico),
  *   `Rock_1`…`Rock_5` de 0,6–0,8 m y, del bosque, `Rock_Medium_1`…`3` de 3,0–3,4 m.
@@ -64,7 +65,7 @@ export const DOCK_LEN = DK.z1 - DK.z0;
 
 /** Todos los nombres de modelo que usa este archivo, por kit (el sistema que pinta los carga de aquí). */
 export const KIT_MODELS: Record<Kit, string[]> = {
-  island: ['Dock', 'Dock_Broken', 'Dock_Pole', 'Barrel', 'Chest_Closed', 'Cliff1', 'Cliff3', 'Cliff4', 'Rock_2', 'Rock_3', 'Rock_4', 'Rock_5'],
+  island: ['Dock', 'Dock_Broken', 'Dock_Pole', 'Barrel', 'Chest_Closed', 'Chest_Gold', 'Cliff1', 'Cliff3', 'Cliff4', 'Rock_2', 'Rock_3', 'Rock_4', 'Rock_5'],
   nature: [
     'CommonTree_3', 'CommonTree_4', 'CommonTree_5', 'Pine_2', 'Pine_4', 'Pine_5', 'DeadTree_1', 'DeadTree_2',
     'Bush_Common', 'Bush_Common_Flowers', 'Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3',
@@ -205,14 +206,7 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       // un tronco (poste tumbado) de ~0,23 m de grueso, apoyado en las tablas
       out.push(layPole(0, 0, 0, 2.2, 0.62));
       break;
-    case 'side': {
-      if (p.side === 0) break;
-      // el barril (a 1,1: radio 0,39) con su borde interior a ~0,1 m del centro; el otro lado queda libre. Unos, uno; otros, dos
-      const s = 1.1, y = -0.00127464 * s;
-      if (p.id % 2) out.push(put('island', 'Barrel', 0, p.side * 0.5, y, { sx: s, sy: s, sz: s }));
-      else out.push(put('island', 'Barrel', -0.45, p.side * 0.5, y, { sx: s, sy: s, sz: s }), put('island', 'Barrel', 0.45, p.side * 0.5, y, { sx: s, sy: s, sz: s }));
-      break;
-    }
+    // (la seta y el cangrejo no son instancias: son modelos animados que pinta el sistema, trek-system.ts)
     case 'gap': {
       // dos postes cortos en cada borde (uno a cada lado, sobre las tablas) marcan el hueco
       for (const ds of [-0.2, p.len + 0.2]) for (const u of [-DOCK_W / 2, DOCK_W / 2]) out.push(standPole(ds, u, -0.1, 0.9, 0.7));
@@ -226,8 +220,7 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       break;
     }
     case 'chest':
-      // de cara al jugador (que viene de ds negativos): el frente del cofre mira a +z del modelo, hacia atrás: ry = 0
-      out.push(put('island', 'Chest_Closed', 0.6, 0, 0.0205194 * 0.9, { sx: 0.9, sy: 0.9, sz: 0.9 }));
+      chestPuts(false, out);
       break;
     case 'step': {
       if (p.h <= 0 || p.len <= 0) break;
@@ -275,14 +268,34 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       break;
     }
     default:
-      break; // floor, drop, foe y gems: llegan en otros PR
+      break; // floor, drop y gems: no se usan (las gemas del plan son las frutas)
   }
+  return out;
+}
+
+/** El cofre del final del tramo, cerrado o (al llegar) abierto y lleno de oro: de cara al jugador (que viene de ds
+ * negativos: el frente del cofre mira a +z del modelo, hacia atrás: ry = 0), en u = 0 y ds = 0,6, apoyado en las tablas. */
+export function chestPuts(open: boolean, out: Put[]): Put[] {
+  out.push(put('island', open ? 'Chest_Gold' : 'Chest_Closed', 0.6, 0, 0.0205194 * 0.9, { sx: 0.9, sy: 0.9, sz: 0.9 }));
   return out;
 }
 
 /* ------------------------------------------------------------------ el paisaje */
 
 const TREES = ['CommonTree_3', 'CommonTree_4', 'CommonTree_5', 'Pine_2', 'Pine_4', 'Pine_5'];
+
+/** El paisaje de cada tramo (los biomas de la Travesía, `TREK_BIOMES`, por orden: bosque, aldea, pradera del lago y pinar al
+ * atardecer): sus árboles y cuánto lleva de cada cosa respecto al bosque (árboles, arbustos, rocas y hierbas y flores), con
+ * las proporciones de RepArena (nTree, bush, rock, flower). La aldea, abierta y florida (sin casas: no hay pack de aldea);
+ * el lago, pradera con matas y piedras; el atardecer, pinar cerrado con árboles secos. */
+const DECO_BIOMES: ReadonlyArray<{ trees: readonly string[]; kT: number; kB: number; kR: number; kP: number }> = [
+  { trees: TREES, kT: 1, kB: 1, kR: 1, kP: 1 },
+  { trees: ['CommonTree_4', 'CommonTree_3', 'CommonTree_5'], kT: 0.2, kB: 0.8, kR: 0.35, kP: 1.8 },
+  { trees: ['CommonTree_4', 'CommonTree_3', 'Pine_2'], kT: 0.45, kB: 1.2, kR: 1.35, kP: 2 },
+  { trees: ['Pine_2', 'Pine_4', 'Pine_5', 'Pine_4', 'DeadTree_1'], kT: 1.1, kB: 0.6, kR: 1.65, kP: 0.5 },
+];
+/** Cuántos paisajes hay (uno por tramo, y vuelta a empezar). */
+export const DECO_N = DECO_BIOMES.length;
 const DEAD = ['DeadTree_1', 'DeadTree_2'];
 const BUSHES = ['Bush_Common', 'Bush_Common', 'Bush_Common_Flowers'];
 const ROCKS = ['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'];
@@ -293,8 +306,10 @@ const PLANTS: ReadonlyArray<readonly [string, number, number, number]> = [
   ['Flower_3_Group', 0.22, 0.12, 2.5], ['Fern_1', 0.3, 0.2, 4.2], ['Plant_1_Big', 0.3, 0.2, 3], ['Plant_7_Big', 0.3, 0.2, 2.5], ['Clover_1', 0.3, 0.2, 2.5],
 ];
 
-/** El paisaje a los lados de la pasarela en el trozo `chunk` (ds de chunk·24 a (chunk+1)·24): siempre el mismo para el mismo trozo. */
-export function decoPuts(chunk: number, out: Put[]): Put[] {
+/** El paisaje a los lados de la pasarela en el trozo `chunk` (ds de chunk·24 a (chunk+1)·24), con el bioma `biome` (de
+ * `DECO_BIOMES`; 0, el bosque): siempre el mismo para el mismo trozo y bioma. */
+export function decoPuts(chunk: number, out: Put[], biome = 0): Put[] {
+  const B = DECO_BIOMES[((biome % DECO_N) + DECO_N) % DECO_N], cnt = (base: number, k: number): number => Math.max(k < 1 ? 1 : 0, Math.round(base * k));
   const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ 0x5bd1e995) >>> 0), s0 = chunk * TREK_CH;
   const between = (a: number, b: number): number => a + R() * (b - a);
   const pick = <T>(l: readonly T[]): T => l[Math.min(l.length - 1, Math.floor(R() * l.length))];
@@ -303,19 +318,19 @@ export function decoPuts(chunk: number, out: Put[]): Put[] {
     for (let i = 0; i < n; i++) add(s0 + ((i + R()) / n) * TREK_CH, (R() < 0.5 ? -1 : 1) * between(umin, umax));
   };
   // árboles: más lejos (el follaje de un árbol ancho no entra en la pasarela)
-  scatter(5 + Math.floor(R() * 3), 5, 14, (ds, u) => {
+  scatter(cnt(5, B.kT) + Math.floor(R() * 3), 5, 14, (ds, u) => {
     const s = between(0.7, 1.1);
-    out.push(put('nature', pick(R() < 0.1 ? DEAD : TREES), ds, u, GROUND_Y, { ry: R() * Math.PI * 2, sx: s, sy: s * between(0.95, 1.05), sz: s }));
+    out.push(put('nature', pick(R() < 0.1 ? DEAD : B.trees), ds, u, GROUND_Y, { ry: R() * Math.PI * 2, sx: s, sy: s * between(0.95, 1.05), sz: s }));
   });
-  scatter(3 + Math.floor(R() * 2), 2.5, 10, (ds, u) => {
+  scatter(cnt(3, B.kB) + Math.floor(R() * 2), 2.5, 10, (ds, u) => {
     const s = between(0.45, 0.75);
     out.push(put('nature', pick(BUSHES), ds, u, GROUND_Y, { ry: R() * Math.PI * 2, sx: s, sy: s, sz: s }));
   });
-  scatter(2 + Math.floor(R() * 2), 3, 12, (ds, u) => {
+  scatter(cnt(2, B.kR) + Math.floor(R() * 2), 3, 12, (ds, u) => {
     const s = between(0.3, 0.75);
     out.push(put('nature', pick(ROCKS), ds, u, GROUND_Y, { ry: R() * Math.PI * 2, sx: s, sy: s * between(0.8, 1), sz: s }));
   });
-  const n = 6 + Math.floor(R() * 5);
+  const n = cnt(6, B.kP) + Math.floor(R() * 5);
   for (let i = 0; i < n; i++) {
     const [name, base, spread, umin] = pick(PLANTS), s = base + R() * spread;
     out.push(put('nature', name, s0 + ((i + R()) / n) * TREK_CH, (R() < 0.5 ? -1 : 1) * between(umin, 10), GROUND_Y, { ry: R() * Math.PI * 2, sx: s, sy: s, sz: s }));

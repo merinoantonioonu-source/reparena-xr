@@ -32,6 +32,11 @@ niveles ni aspecto de ningún juego existente. Los modelos son los de los packs 
 
 ## 2. Decisiones de diseño (recomendadas; el usuario confirma las del apartado 9 antes de empezar)
 
+> **Elegido por el usuario antes del PR D:** los enemigos llegan andando por la pasarela: la seta, por el centro, se pisa
+> saltando cuando llega a tus pies; el cangrejo, pegado a un lado, se esquiva con un paso al otro (así vuelven los
+> obstáculos a un lado: solo enemigos, nada quieto). Si fallas, te muerden: frenas a la mitad y se rompe la racha. Las gemas
+> del plan son las frutas.
+>
 > **Cambiado por el usuario tras probar el PR B:** el túnel se pasa en marcha, en plancha y con la inercia, sin flexiones;
 > el burpee es un túnel y, unos 2 s después, una plataforma que saltar (sin muro); las plataformas altas piden supersalto;
 > en plancha, los avisos van al suelo; los obstáculos a un lado se cambian por frutas que llenan una barra de energía

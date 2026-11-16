@@ -303,7 +303,7 @@ try {
   // el tramo entero, pieza a pieza (con un tiempo límite). La marcha sigue por inercia unos metros tras cada sentadilla: se
   // hace una cuando hay sitio de sobra, y la tecla de cada fluida se mantiene cuando ya está cerca
   // el hueco: cuántos se han cruzado y cuántos saltando; si alguna vez el mundo se paró ante uno (no debe)
-  let gapAt = null, gapsDone = 0, gaps = 0, gapStop = false, tramo1 = null;
+  let gapAt = null, gapsDone = 0, gaps = 0, gapStop = false, tramo1 = null, tramo2 = null, foeSeen = null, foeShot = false;
   const tried = new Set();
   let fin = null;
   const tEnd = Date.now() + 170000;
@@ -317,6 +317,16 @@ try {
       console.log(`  ✓ Travesía: llegas al cofre del tramo 1 (cofre ${s.trek.chest}) y el tramo se supera (${s.between ? 'descanso' : 'oleada ' + s.wave}, ${s.trek.dist} m)`);
     }
     if (s.trek.stop === 'gap') gapStop = true;
+    // el tramo 2, con su paisaje (la aldea: otro fondo) y la seta, que llega andando y se ve animada
+    if (s.wave >= 2 && !s.between && !tramo2) {
+      tramo2 = s;
+      console.log(`  ✓ Travesía: el tramo 2, con su paisaje (${s.trek.biome}: fondo «${s.trek.pano}»)`);
+    }
+    if (!foeSeen && s.trek.foes.some((f) => f.startsWith('foe:'))) foeSeen = s.trek.foes;
+    if (!foeShot && s.trek.next?.k === 'foe' && s.trek.next.rel < 9) {
+      foeShot = true;
+      await shot('11b-travesia-seta');
+    }
     if (gapAt && !s.trek.hop && s.trek.next?.k !== 'gap') {
       // el hueco ya ha quedado atrás: ¿saltado o tropezado? Sin pararse, en los dos casos
       const won = s.trek.passed > gapAt.passed;
@@ -371,14 +381,14 @@ try {
       await page.waitForTimeout(150);
       continue;
     }
-    if (nx.k === 'log') {
+    if (nx.k === 'log' || nx.k === 'foe') {
       // el salto tarda ~1 s en despegar y dura unos 2,5 s en el aire, mientras el tronco pasa bajo ti. Parado: lejos, una
       // sentadilla corta lo acerca; a unos 4-8 m, una honda lo pasa y el salto se pide al contar (sin esperar)
       await hold('');
       const jump = async () => {
         const j0 = t.passed + t.hits;
         await press('Space', 1500);
-        tried.add('log');
+        tried.add(nx.k);
         const tj = Date.now();
         while (Date.now() - tj < 6000) {
           const x = await snap();
@@ -420,8 +430,18 @@ try {
   if (!(tramo1.trek.chest === 0 || tramo1.wave >= 2)) throw new Error('Travesía: el tramo 1 ha acabado sin llegar al cofre\núltimo estado: ' + JSON.stringify(tramo1));
   // las demás: cuántas se han pasado y cuántas han chocado (los huecos, aparte)
   console.log(`  ✓ Travesía: ${fluid} pieza(s) superada(s) además de los huecos y ${tr.hits} choque(s) o tropiezo(s) (intentadas: ${[...tried].join(', ') || 'ninguna'}; ${gaps} de ${gapsDone} hueco(s) saltado(s))`);
+  // el cofre se abrió (una llave y una gema) y, en el tramo 2, otro paisaje y la seta animada
+  if (!(tramo1.trek.keys >= 1)) throw new Error('Travesía: el cofre del tramo 1 no ha dado su llave\núltimo estado: ' + JSON.stringify(tramo1));
+  const gemsT = await page.evaluate(() => JSON.parse(localStorage.getItem('reparena3-gems') || '0'));
+  if (!(gemsT >= 1)) throw new Error('Travesía: el cofre no ha guardado su gema: ' + gemsT);
+  console.log(`  ✓ Travesía: el cofre del tramo 1 da su llave (${tramo1.trek.keys} de 3) y su gema (llevas ${gemsT})`);
+  if (tramo2 && (tramo2.trek.biome !== 1 || tramo2.trek.pano !== 'aldea')) throw new Error('Travesía: el tramo 2 no trae su paisaje: ' + JSON.stringify(tramo2.trek));
+  if (foeSeen) console.log(`  ✓ Travesía: la seta se ve, animada (${foeSeen.join(', ')})`);
   await page.evaluate(() => window.__rx.game.endRound(false, true));
   await until('Travesía: el resumen', (s) => s.menu === 'summary' && s.phase === 'over', 20);
+  const ghostT = await page.evaluate(() => JSON.parse(localStorage.getItem('reparenaxr-trekghost') || 'null'));
+  if (!ghostT || !(ghostT.dist > 0) || !Array.isArray(ghostT.tl)) throw new Error('Travesía: no se ha guardado el fantasma: ' + JSON.stringify(ghostT));
+  console.log(`  ✓ Travesía: tu mejor Travesía, guardada para el fantasma (${ghostT.dist} m)`);
   const hT = await page.evaluate(() => JSON.parse(localStorage.getItem('reparena3-history') || '[]'));
   const runT = hT[hT.length - 1];
   if (!runT || runT.mode !== 'trek' || !(runT.dist > 0)) throw new Error('la ronda de la Travesía no está en el historial: ' + JSON.stringify(runT));

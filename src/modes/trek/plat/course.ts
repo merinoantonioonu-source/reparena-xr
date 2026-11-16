@@ -9,23 +9,26 @@
  * - antes del cofre (`HALT`), el sitio para frenar suave (`HALT_BRAKE`) hasta quedarte a `STOP_AT`;
  * - antes de un túnel, lo que se recorre en 3,5 s a velocidad máxima (hay que echarse al suelo con tiempo);
  * - entre dos saltos seguidos (`JUMPS`), al menos `JUMP_GAP_S` s a velocidad máxima;
- * - tras una fruta, `SIDE_BACK_S` s para volver al centro (dos frutas seguidas pueden ir al mismo lado o al otro);
+ * - tras una fruta o un cangrejo, `SIDE_BACK_S` s para volver al centro (dos seguidos pueden ir al mismo lado o al otro);
+ * - tras la seta o el cangrejo, `FOE_WALK` m más (salen más allá de su sitio y andan hacia ti hasta él: los encuentras entre
+ *   `at` y `at + FOE_WALK`);
  * - nada pide dos movimientos a la vez (las piezas no se solapan) y un tramo siempre se puede acabar (acaba en su cofre);
  * - la dificultad sube de un tramo a otro, no dentro de él: cada clase de pieza nueva entra al empezar un tramo
  *   (`courseKinds`), y lo que mide cada pieza depende del tramo y del rango, no de por dónde vas.
  *
  * Lógica pura, sin IWSDK.
  */
-import { BURPEE_GAP_S, DROP_ROOM, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
+import { BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
 
 /** Las clases de la lista de cada tramo: la primera, lo básico (el tronco, la viga y el hueco); desde el segundo, también
- * la fruta y la plataforma alta; desde el tercero, el túnel y el burpee. Ojo: `burpee` no es una pieza, es un segmento de
- * dos (un túnel y, `BURPEE_GAP_S` después, una plataforma con `burpee`): en el recorrido no hay piezas de esa clase. (Los
- * enemigos y las gemas llegan con el PR D; los obstáculos a un lado, de momento, se quitan.) */
+ * la fruta, la plataforma alta y la seta (que se pisa); desde el tercero, el túnel, el burpee y el cangrejo (que se esquiva
+ * a un lado: los obstáculos a un lado son siempre enemigos, elegido por el usuario). Ojo: `burpee` no es una pieza, es un
+ * segmento de dos (un túnel y, `BURPEE_GAP_S` después, una plataforma con `burpee`): en el recorrido no hay piezas de esa
+ * clase. (Las gemas del plan son las frutas.) */
 export function courseKinds(tramo: number): PieceKind[] {
   const k: PieceKind[] = ['log', 'low', 'gap'];
-  if (tramo >= 1) k.push('fruit', 'step');
-  if (tramo >= 2) k.push('crawl', 'burpee');
+  if (tramo >= 1) k.push('fruit', 'step', 'foe');
+  if (tramo >= 2) k.push('crawl', 'burpee', 'side');
   return k;
 }
 
@@ -45,7 +48,8 @@ export function minGap(prev: Piece, next: Piece, vmax: number): number {
   if (HALT.includes(next.k)) g = Math.max(g, STOP_AT + (vmax * vmax) / (2 * HALT_BRAKE) + 1);
   if (FLOORS.includes(prev.k)) g = Math.max(g, FLOOR_UP_S * vmax + LAND_PAST); // (levantarte, y el mundo te deja pasado su final)
   if (JUMPS.includes(prev.k) && JUMPS.includes(next.k)) g = Math.max(g, JUMP_GAP_S * vmax);
-  if (prev.k === 'fruit') g = Math.max(g, SIDE_BACK_S * vmax); // (volver al centro)
+  if (prev.k === 'fruit' || prev.k === 'side') g = Math.max(g, SIDE_BACK_S * vmax); // (volver al centro)
+  if (prev.k === 'foe' || prev.k === 'side') g += FOE_WALK; // (lo encuentras hasta FOE_WALK m más allá de su sitio)
   if (next.k === 'crawl') g = Math.max(g, CRAWL_WARN_S * vmax); // (echarse al suelo con tiempo)
   if (prev.k === 'step') g += DROP_ROOM; // (lo último, encima de todo lo demás: se baja de la plataforma al acabarla)
   return g;
@@ -103,6 +107,9 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     } else if (k === 'low') {
       const h = clamp(0.22 + 0.015 * tramo + 0.01 * rank + rand(0, 0.04), 0.22, 0.34);
       seg.push(piece(id, k, 0, tramo, { h }));
+    } else if (k === 'side') {
+      // el cangrejo, pegado a un lado al azar (hay que apartarse al otro)
+      seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1 }));
     } else if (k === 'fruit') {
       const side: -1 | 1 = env.rnd() < 0.5 ? -1 : 1;
       const f = piece(id, k, 0, tramo, { side });
@@ -154,7 +161,9 @@ export function courseRules(pieces: Piece[], vmax: number): string[] {
     const p = pieces[i]!;
     const prev = pieces[i - 1];
     if (p.k === 'burpee') out.push(`La pieza ${p.id} es de clase «burpee»: el burpee es un túnel y una plataforma, no una pieza`);
-    if (p.k === 'side') out.push(`La pieza ${p.id} es de clase «side»: los obstáculos a un lado no están en el recorrido`);
+    if (p.k === 'side' && p.side !== -1 && p.side !== 1) out.push(`El cangrejo ${p.id} no tiene lado (side ${p.side}): debería ser −1 o 1`);
+    if (p.k === 'side' && p.tramo < 2) out.push(`El cangrejo ${p.id} sale en el tramo ${p.tramo}: no antes del tercero`);
+    if (p.k === 'foe' && p.tramo < 1) out.push(`La seta ${p.id} sale en el tramo ${p.tramo}: no antes del segundo`);
     if (p.k !== 'step' && p.burpee) out.push(`La pieza ${p.id} (${p.k}) lleva burpee: solo puede llevarlo una plataforma`);
     if (p.k === 'fruit') {
       if (p.side !== -1 && p.side !== 1) out.push(`La fruta ${p.id} no tiene lado (side ${p.side}): debería ser −1 o 1`);

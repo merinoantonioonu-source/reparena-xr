@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { HEAD_TOP } from '../../src/modes/trek/env.js';
 import { TREK_CH } from '../../src/modes/trek/path.js';
 import { BufferAttribute, BufferGeometry, DoubleSide, Euler, Matrix4, Mesh, MeshBasicMaterial, Quaternion, Raycaster, Vector3 } from 'three';
-import { CRAWL_ROOF, DOCK_LEN, DOCK_W, FRUIT_SIZE, FRUIT_SIZE_SPECIAL, GROUND_Y, KIT_MODELS, decoPuts, floorPuts, piecePuts, type Kit, type Put } from '../../src/modes/trek/plat/pieces.js';
+import { CRAWL_ROOF, DOCK_LEN, DOCK_W, FRUIT_SIZE, FRUIT_SIZE_SPECIAL, GROUND_Y, KIT_MODELS, DECO_N, decoPuts, floorPuts, piecePuts, type Kit, type Put } from '../../src/modes/trek/plat/pieces.js';
 import { FRUIT_U, piece, type PieceKind } from '../../src/modes/trek/plat/types.js';
 
 interface Gltf {
@@ -254,22 +254,9 @@ describe('las piezas', () => {
     expect(b.max[0] - b.min[0]).toBeGreaterThan(DOCK_W);
     expect(b.min[0] + b.max[0]).toBeCloseTo(0, 6);
   });
-  it('el barril deja libre el otro lado: nada a más de 0,15 m del centro hacia él; el suyo, a ~0,1 m del centro', () => {
-    for (const side of [-1, 1] as const) for (const id of [1, 2, 3, 4]) {
-      const l = piecePuts(mk('side', 0, { side }, id), REF, []);
-      expect(l.length).toBeGreaterThanOrEqual(1);
-      expect(l.length).toBeLessThanOrEqual(2);
-      for (const p of l) {
-        expect(p.n).toBe('Barrel');
-        const b = placed(p), inner = side === 1 ? b.min[0] : -b.max[0], outer = side === 1 ? b.max[0] : -b.min[0];
-        expect(inner).toBeGreaterThan(-0.15);
-        expect(inner).toBeLessThan(0.2);
-        expect(inner).toBeGreaterThan(0.05);
-        expect(outer).toBeLessThan(DOCK_W / 2 + 0.6);
-        expect(b.min[1]).toBeCloseTo(0, 2);
-      }
-    }
-    expect(piecePuts(mk('side', 0, { side: 0 }), REF, [])).toEqual([]);
+  it('la seta y el cangrejo no son instancias (los pinta el sistema, animados)', () => {
+    for (const side of [-1, 1] as const) expect(piecePuts(mk('side', 0, { side }, 3), REF, [])).toEqual([]);
+    expect(piecePuts(mk('foe', 0), REF, [])).toEqual([]);
   });
   it('el hueco no se dibuja: solo postes cortos en cada borde y a cada lado, y un muelle roto bajo el borde cercano', () => {
     const l = piecePuts(mk('gap', 30, { len: 3.5 }), REF, []);
@@ -556,6 +543,20 @@ describe('los modelos de las piezas nuevas', () => {
 });
 
 describe('el paisaje', () => {
+  it('cada tramo, su paisaje: determinista, distinto del bosque y con sus modelos (la aldea, abierta; el atardecer, pinar)', () => {
+    for (let b = 1; b < DECO_N; b++) {
+      expect(decoPuts(3, [], b)).toEqual(decoPuts(3, [], b));
+      expect(decoPuts(3, [], b)).not.toEqual(decoPuts(3, []));
+      for (const p of decoPuts(3, [], b)) {
+        expect(KIT_MODELS.nature).toContain(p.n);
+        expect(Math.abs(p.u)).toBeGreaterThanOrEqual(2.5);
+      }
+    }
+    const trees = (b: number): number => { let n = 0; for (let c = 0; c < 20; c++) n += decoPuts(c, [], b).filter((p) => /Tree|Pine/.test(p.n)).length; return n; };
+    expect(trees(1)).toBeLessThan(trees(0) / 2);
+    expect(trees(3)).toBeGreaterThanOrEqual(trees(0));
+    expect(decoPuts(3, [], DECO_N)).toEqual(decoPuts(3, []));
+  });
   const L = (c: number): Put[] => decoPuts(c, []);
   it('es determinista: el mismo trozo sale igual, y trozos distintos, distintos', () => {
     expect(L(3)).toEqual(L(3));
