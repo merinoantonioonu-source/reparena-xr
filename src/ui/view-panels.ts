@@ -30,11 +30,13 @@ import { clamp, loadCanvasFonts, mkCanvas, smooth } from './canvas-kit.js';
 import { makeCanvasPanel, type CanvasPanel } from './canvas-panel.js';
 import { hudSlot, hudSpot, lazyAt, lazyClear, mkLazy, ViewFrame, type Threat } from './view.js';
 import { demoDraw, type DemoOpts } from './demo-art.js';
+import { CORT_H, CORT_W, cortDraw, cortImage, cortInfo, cortUrl } from './cortinilla.js';
 import { duelBoss, duelRecord, duelScene, duelName, duelSub, type DuelEnv } from '../combat/duel.js';
 import { duelDeco, duelPaint, duelPlates } from './duel-art.js';
 
 const CENTER_SC = 1.5;
-const DEMO_W = 0.5, DEMO_H = 0.3, DEMO_HS = 1.15, DEMO_MS = 1.45; // (la de la espera, algo más grande; la del menú, más aún)
+// (la de la espera, algo más grande; la del menú, más aún; con la forma de las cortinillas)
+const DEMO_W = 0.5, DEMO_H = (0.5 * CORT_H) / CORT_W, DEMO_HS = 1.15, DEMO_MS = 1.45;
 const DUEL_DUR = 7;
 
 /** El marco de los avisos de la vista (lo usan también el marcador, los logros y el panel entre oleadas). */
@@ -63,6 +65,8 @@ export class ViewSystem extends createSystem({}) {
   private demoMenu!: Mesh;
   private demoT = 0;
   private demoDrawT = 0;
+  /** La cortinilla que está pintada (su dirección y su franja): se repinta solo si cambia. */
+  private cortKey = '';
   private demoInit = false;
   // la carátula del duelo: la ilustración se pinta antes, en el menú, por partes (una cada 0,15 s) y se guarda; al
   // empezar la ronda solo se copia y se escriben los datos encima (RepArena: INTRO_ART)
@@ -95,7 +99,7 @@ export class ViewSystem extends createSystem({}) {
       this.demoDrawT = 0;
     });
     // la caricatura
-    this.demo = makeCanvasPanel(DEMO_W, DEMO_H, 640);
+    this.demo = makeCanvasPanel(DEMO_W, DEMO_H, CORT_W); // (a la resolución de las cortinillas: sus letras, nítidas)
     this.demo.mesh.scale.setScalar(DEMO_HS);
     this.demo.mesh.renderOrder = 29;
     this.demo.mesh.visible = false;
@@ -261,6 +265,18 @@ export class ViewSystem extends createSystem({}) {
     }
     this.demoMenu.visible = menu;
     if (!wait && !menu) return;
+    // la cortinilla del ejercicio (quieta: se pinta una vez, y otra si cambia lo que dice su franja); mientras carga, la caricatura
+    const url = cortUrl(settings.mode, settings.exercise, import.meta.env.BASE_URL), img = url ? cortImage(url) : null;
+    if (img && url) {
+      const info = cortInfo(settings.mode, nWaves(), nLives(), !!num('toFail')), key = url + '|' + info;
+      if (key !== this.cortKey) {
+        this.cortKey = key;
+        cortDraw(this.demo.ctx, this.demo.W, this.demo.H, img, info);
+        this.demo.tex.needsUpdate = true;
+      }
+      return;
+    }
+    this.cortKey = '';
     this.demoDrawT -= dt;
     if (this.demoDrawT > 0) return;
     this.demoDrawT = 1 / 12; // (basta para que se vea fluido y no pesa en las gafas: cada dibujo se vuelve a subir)

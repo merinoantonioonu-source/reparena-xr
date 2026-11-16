@@ -77,7 +77,7 @@ import { dv, onSettingsChange, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setS
 import { EX_NAMES, EX_SHORT, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
-import { GAME, HOOKS, LITE, VIEW, type CenterInfo } from '../core/state.js';
+import { GAME, HOOKS, LITE, SPECIAL, VIEW, type CenterInfo } from '../core/state.js';
 import { hands, head, headFwd, SIDES, type Side } from '../input/hand-model.js';
 import { BODY, haptic } from '../input/hand-system.js';
 import { HTH, throwCharge, throwReset, throwStep, type Charge, type ThrowEnv } from '../input/throw.js';
@@ -1739,6 +1739,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.msgT -= dt;
     }
     this.stepTrophy(dt);
+    // un momento especial (las luciérnagas destellan más vivas): la fiebre, el relámpago, el turbo o la supervelocidad
+    const tk = settings.mode === 'trek' ? this.trek()?.runner : null;
+    SPECIAL.on = GAME.phase === 'playing' && !GAME.paused && !GAME.between && (!!this.rw?.rush.on || (settings.mode === 'arcs' && !!this.arcs()?.arx.fever) || (!!tk && (tk.tk.turbo || tk.superT > 0)));
     this.boardT -= dt;
     if (this.boardT <= 0) {
       this.boardT = 0.25;
