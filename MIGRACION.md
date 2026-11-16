@@ -422,6 +422,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   **Falta el repaso con el diagnóstico de las gafas**: pídeselo al usuario (Travesía jugada en las gafas: «Guardar
   diagnóstico» en la pausa) antes de tocar umbrales o tiempos. Lo que queda del plan: el PR C (correr con los brazos),
   aplazado por el usuario.
+- PR E, lo que pidió el usuario al probar el PR D: el **supersalto vale desde antes del borde** (`STEP_EARLY_S`/`STEP_EARLY_MIN`:
+  si es bueno y no hay otro reto en medio, `Runner.leap` te lleva en el aire hasta encima, `STEP_LAND` pasado el borde, y el
+  suelo sube mientras; un salto normal ahí es un salto sin más y la plataforma se juzga al llegar). El **fondo gira con las
+  curvas** (`PANO_FOLLOW`, un cuarto de lo que gira el mundo: la rotación del `DomeTexture`, con `_needsUpdate`, solo si
+  cambia más de `PANO_STEP` y si IWSDK no está cargando otro fondo). **El PR D no se había publicado**: en la máquina de
+  GitHub la prueba de los 5.000 recorridos pasaba de los 5 s de serie; las dos pruebas pesadas llevan su propio tiempo (30 s).
+  Si una publicación falla, el usuario sigue con la versión anterior en las gafas: tras fusionar, mira «Publicar en GitHub
+  Pages». **Pendiente**: un plano gris oscuro detrás del marcador y de los avisos (y en la bola colgante de Arcos) cuando la
+  calibración del principio cambia mucho tu sitio; sin causa clara en el código (los menús se llevan su pantalla invisible al
+  cerrarse): se le ha pedido al usuario una foto.
 
 - Travesía de plataformas, PR D → el E (tabla del desarrollador y repaso): **enemigos** (elegido por el usuario: la seta se
   pisa; el cangrejo se esquiva a un lado; a un lado, solo enemigos). Son piezas como las demás: `foe` (la seta, por el

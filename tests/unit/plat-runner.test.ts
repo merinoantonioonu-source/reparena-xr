@@ -413,7 +413,8 @@ describe('la Travesía de plataformas: la plataforma alta (supersalto)', () => {
     expect(s.until(() => s.room(st) < 0.8 * s.r.v + 1, 72 * 10)).toBe(true);
     const v0 = s.r.v;
     let minDip = deepJump(s);
-    for (let i = 0; i < 72 && s.r.airT >= 0; i++) {
+    // (en el aire, el salto o, si despegaste antes del borde, el cruce que te lleva encima)
+    for (let i = 0; i < 72 && (s.r.airT >= 0 || s.r.hop); i++) {
       s.frame();
       minDip = Math.min(minDip, s.r.dip);
     }
@@ -435,6 +436,41 @@ describe('la Travesía de plataformas: la plataforma alta (supersalto)', () => {
     }
     expect(s.r.lev).toBe(0);
     expect(worst).toBeLessThan(0.03);
+  });
+
+  it('el supersalto hecho antes del borde (cerca) ya te sube: el mundo te lleva en el aire hasta encima, sin subir sola después', () => {
+    for (const z of [3.2, 2.0, 1.2]) {
+      const s = new Sim();
+      const st = piece(1, 'step', 40, 1, { h: 1.1, len: 6 });
+      s.load(course([st, piece(2, 'chest', 120, 1)]));
+      expect(s.squatsTo(st, 9)).toBe(true);
+      // (la sentadilla honda y el salto duran ~0,7 s: se empiezan para despegar a unos z m del borde)
+      expect(s.until(() => s.room(st) < z + 0.7 * s.r.v, 72 * 10)).toBe(true);
+      const v0 = s.r.v;
+      deepJump(s);
+      expect(st.judged, `a ${z} m`).toBe(true);
+      expect(st.ok, `a ${z} m`).toBe(true);
+      // en el aire, el mundo te lleva hasta encima de la plataforma: al aterrizar ya estás arriba, pasado su borde
+      for (let i = 0; i < 72 * 2 && (s.r.hop || s.r.airT >= 0); i++) s.frame();
+      expect(s.r.dist, `a ${z} m`).toBeGreaterThan(st.at);
+      expect(s.r.lev, `a ${z} m`).toBeCloseTo(1.1, 6);
+      expect(s.of('hit'), `a ${z} m`).toHaveLength(0);
+      expect(s.of('cheer').filter((e) => /Supersalto/.test(e.text)), `a ${z} m`).toHaveLength(1);
+      expect(s.r.v).toBeGreaterThan(v0 - 0.6);
+    }
+  });
+
+  it('un salto normal antes del borde es un salto sin más: al llegar, a trompicones', () => {
+    const s = new Sim();
+    const st = piece(1, 'step', 40, 1, { h: 1.0, len: 5 });
+    s.load(course([st, piece(2, 'chest', 120, 1)]));
+    expect(s.squatsTo(st, 9)).toBe(true);
+    expect(s.until(() => s.room(st) < 3, 72 * 10)).toBe(true);
+    s.r.moves.deepT = 9;
+    hopHead(s);
+    expect(st.judged).toBe(false);
+    expect(s.until(() => st.judged, 72 * 10)).toBe(true);
+    expect(st.ok).toBe(false);
   });
 
   it('un salto sin sentadilla honda no basta: subes a trompicones (frenas y se rompe la racha)', () => {

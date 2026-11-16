@@ -12,7 +12,7 @@
  * vista (de 20 m detrás a 88 m delante), sin crear objetos. La partida (GameSystem) lo engancha como Arcos: `begin`,
  * `startWave`, `waveLeft`, `rep`, `hud`, `end` y `clear`.
  */
-import { AdditiveBlending, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, Euler, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DomeTexture, Euler, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, Vector3 } from '@iwsdk/core';
 import type { AnimationAction, DirectionalLight, FogExp2, HemisphereLight, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { diagEvent } from '../../core/diag.js';
@@ -63,6 +63,11 @@ interface FoeRig {
   off: number;
   dir: number;
 }
+
+/** El fondo realista gira un poco con las curvas del sendero (pedido del usuario: quieto del todo con la pasarela, parecía
+ * de cartón): esta parte de lo que gira el mundo, en el mismo sentido (1 sería pegado al paisaje). Y lo que tiene que
+ * cambiar para pedírselo a IWSDK (rad). */
+const PANO_FOLLOW = 0.25, PANO_STEP = 0.002;
 
 /** Las estelas del turbo (RepArena: TREK_WIND): cuántas y dónde va cada una (a un lado, alto, a lo largo, largo y su paso). */
 const WIND_N = 44;
@@ -124,6 +129,8 @@ export class TrekSystem extends createSystem({}) {
   /** Las estelas del turbo. */
   private wind!: InstancedMesh;
   private readonly winds: Wind[] = [];
+  /** El giro del fondo realista que se pidió a IWSDK por última vez (rad). */
+  private panoYaw = 0;
   /** Lo que se guardó al acabar la última ronda (la medalla y el fantasma). */
   last: PlatEnd | null = null;
   private readonly m4 = new Matrix4();
@@ -378,6 +385,7 @@ export class TrekSystem extends createSystem({}) {
     }
     this.lights = null;
     this.biome = 0;
+    this.turnPano(0); // (los demás modos, con el fondo derecho)
     this.pano = TREK_BIOMES[0].pano;
     this.wind.visible = false;
     (this.wind.material as MeshBasicMaterial).opacity = 0; // (al volver, sin estelas que se apagan)
@@ -588,6 +596,19 @@ export class TrekSystem extends createSystem({}) {
     const F = tk.tf;
     this.ground.rotation.y = F.th;
     this.groundTex.offset.set(F.x / GROUND_CELL, -F.z / GROUND_CELL);
+    this.turnPano(PANO_FOLLOW * F.th);
+  }
+
+  /** Gira el fondo realista (el DomeTexture de IWSDK en la raíz del nivel) a `yaw`: solo si ha cambiado algo y si IWSDK no
+   * está ya con él (cargando el fondo de otro tramo, por ejemplo). */
+  private turnPano(yaw: number): void {
+    if (Math.abs(yaw - this.panoYaw) < PANO_STEP) return;
+    const lv = this.world.activeLevel?.peek?.();
+    if (!lv || !lv.hasComponent(DomeTexture) || lv.getValue(DomeTexture, '_needsUpdate')) return;
+    const rot = lv.getVectorView(DomeTexture, 'rotation');
+    rot[1] = yaw;
+    lv.setValue(DomeTexture, '_needsUpdate', true);
+    this.panoYaw = yaw;
   }
 
   /** Una instancia: el modelo `u` en (s, u.u + du) del sendero, a su escala por `k`; `roll`, lo que vuelca (el barril). */

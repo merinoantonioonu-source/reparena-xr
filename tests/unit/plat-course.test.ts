@@ -128,7 +128,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
       }
       expect(c.pieces.filter((p) => p.special).length, tag).toBeLessThanOrEqual(1);
     }
-  });
+  }, 30000); // (pesada: miles de casos; en la máquina de GitHub tarda más de los 5 s de serie)
 
   it('tras la seta o el cangrejo, el sitio de siempre y FOE_WALK m más (los encuentras hasta ahí, andando hacia ti)', () => {
     const V = 3, log = piece(9, 'log', 0, 2);
