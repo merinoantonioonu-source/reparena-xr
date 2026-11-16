@@ -36,7 +36,7 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, platTune, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -168,6 +168,8 @@ export class Runner {
   best: PlatGhost | null = null;
   tl: number[] = [];
   private tlT = 0;
+  /** El paso de la seta y el cangrejo (m/s: «Paso de los enemigos», de la tabla de dificultad; se lee en cada fotograma). */
+  foeV = FOE_V;
   /** Lo que baja el mundo en lo más alto del salto sin hueco de ahora (m: el rebote de la seta, más). */
   private airLift = JUMP_LIFT;
   private id = 1;
@@ -249,7 +251,7 @@ export class Runner {
     if (this.ends.length > i) return;
     while (this.ends.length < i) this.addTramo(this.ends.length, len); // (los de antes, por orden)
     const start = this.ends.length ? this.ends[this.ends.length - 1] + 0.5 : this.tk.dist;
-    this.addCourse(buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd() }, i, this.env.rank, start, this.id));
+    this.addCourse(buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)) }, i, this.env.rank, start, this.id));
   }
 
   /** Añade un tramo ya hecho detrás de lo que hay (lo usa `addTramo`; las pruebas, con recorridos a mano). */
@@ -302,6 +304,8 @@ export class Runner {
   step(dt: number): void {
     const env = this.env, tk = this.tk, st = env.state, H = env.head;
     moveCfg((k) => env.s(k), this.cfg);
+    const fv = env.s('platFoeV');
+    this.foeV = fv > 0 ? fv : FOE_V;
     this.cfg.deepNeed = Math.max(0.12, (0.8 * (env.dv('squatDepth') || 26)) / 100);
     this.moves.hold = this.sideAhead();
     this.moves.update(dt, H, this.cfg);
@@ -369,6 +373,7 @@ export class Runner {
     this.pull();
   }
 
+
   /** La seta y el cangrejo: cuando te quedan a FOE_WAKE m, andan hacia ti hasta su sitio (y allí te esperan). */
   private walk(dt: number): void {
     const d = this.tk.dist;
@@ -383,7 +388,7 @@ export class Runner {
         p.woke = true;
         this.ev.push({ t: 'wake', p });
       }
-      if (p.woke && p.walk > 0) p.walk = Math.max(0, p.walk - FOE_V * dt);
+      if (p.woke && p.walk > 0) p.walk = Math.max(0, p.walk - this.foeV * dt);
     }
   }
 
@@ -487,7 +492,7 @@ export class Runner {
     }
     if (p.k === 'foe') {
       // la seta: en el aire cuando llega a tus pies (andando hacia ti, llega antes: la ventana, con su paso), la pisas
-      const win = Math.max(LOG_WIN, LOG_WIN_S * (v + (p.walk > 0 ? FOE_V : 0)));
+      const win = Math.max(LOG_WIN, LOG_WIN_S * (v + (p.walk > 0 ? this.foeV : 0)));
       if (Math.abs(z) < win) {
         p.maxUp = Math.max(p.maxUp, M.up);
         if (M.air && p.maxUp >= C.jumpH) this.stomp(p);

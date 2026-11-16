@@ -32,9 +32,10 @@ beforeEach(() => {
 });
 
 describe('el esquema', () => {
-  it('tiene los 186 ajustes de RepArena y los 2 nuevos (las manos y el tamaño del menú), sin claves repetidas', () => {
-    expect(SCHEMA.length).toBe(188);
-    expect(new Set(SCHEMA.map((f) => f.key)).size).toBe(188);
+  it('tiene los 186 ajustes de RepArena y los 8 nuevos (las manos, el tamaño del menú y los 6 de la Travesía de plataformas), sin claves repetidas', () => {
+    expect(SCHEMA.length).toBe(194);
+    expect(new Set(SCHEMA.map((f) => f.key)).size).toBe(194);
+    expect(SCHEMA.filter((f) => f.xr).length).toBe(8);
     expect(SCHEMA.filter((f) => f.key === 'handLook' || f.key === 'menuSize').length).toBe(2);
   });
   it('cada valor de serie está dentro de sus límites', () => {
@@ -197,7 +198,8 @@ describe('guardar', () => {
     expect(s.squatDepth).toBe(30);
     // los de RepArena XR, aparte (RepArena no los conoce)
     expect(s).not.toHaveProperty('handLook');
-    expect(saved(XR_STORE_KEY)).toEqual({ handLook: 'glove', menuSize: 75 });
+    // (los de la Travesía de plataformas, los del rango de serie: el cabo)
+    expect(saved(XR_STORE_KEY)).toEqual({ handLook: 'glove', menuSize: 75, platSpace: 100, platGap: 90, platDuck: 24, platHigh: 86, platTunnel: 3.3, platFoeV: 0.9 });
     expect(s.mode).toBe('combat');
     expect(store(STORE_KEY)).toEqual(s);
   });

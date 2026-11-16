@@ -18,7 +18,7 @@
  *
  * Lógica pura, sin IWSDK.
  */
-import { BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
+import { BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
 
 /** Las clases de la lista de cada tramo: la primera, lo básico (el tronco, la viga y el hueco); desde el segundo, también
  * la fruta, la plataforma alta y la seta (que se pisa); desde el tercero, el túnel, el burpee y el cangrejo (que se esquiva
@@ -61,19 +61,22 @@ export function minGap(prev: Piece, next: Piece, vmax: number): number {
  * empiezan en `id0` y van seguidos. Cada clase del tramo sale al menos una vez (las primeras, más juntas: caben todas en
  * el tramo más corto, de 40 m).
  *
- * Lo que mide cada pieza (sube con el tramo y el rango, nunca a mitad de tramo):
- * - gap: largo de 0,8 m (tramo 0, rango 0) a 1,6 m como mucho;
- * - low: `h` (lo que hay que bajar la coronilla) de 0,22 a 0,34 m;
- * - step (plataforma alta de supersalto): `h` (lo que sube el suelo) de 0,8 m (tramo 1, rango 0) a 1,5 m, y `len` (lo de
- *   arriba) de 4 a 9 m;
+ * Lo que mide cada pieza (sube con el tramo y con la tabla de dificultad, `env.tune`, que va por rango; nunca a mitad de
+ * tramo):
+ * - gap: largo de `tune.gap` (tramo 0) a `tune.gap + 0,8` m como mucho;
+ * - low: `h` (lo que hay que bajar la coronilla) de `tune.duck` a `tune.duck + 0,12` m;
+ * - step (plataforma alta de supersalto): `h` (lo que sube el suelo) de `tune.high` (tramo 1) a `tune.high + 0,7` m, y
+ *   `len` (lo de arriba) de 4 a 9 m (más largas con el rango);
  * - burpee (segmento): un crawl y, `BURPEE_GAP_S * vmax` m después, una step con `burpee = true`: `h` de 0,6 a 1,0 m y
  *   `len` de 4 a 7 m;
- * - crawl (túnel cubierto, en plancha): `len` de 3 a 6 m (más largo con tramo y rango) y `n` = 0 (ya no hay flexiones);
+ * - crawl (túnel cubierto, en plancha): `len` de `tune.tunnel` a `tune.tunnel + 3` m (más largo con el tramo) y `n` = 0;
+ * - el sitio de más entre piezas, por `tune.space` (nunca menos que `minGap`);
  * - fruit: a un lado al azar; especial con probabilidad 0,15, como mucho una por tramo;
  * - log y low: `len` 0.
  */
 export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: number, id0: number): Course {
   const rand = (a: number, b: number): number => a + (b - a) * env.rnd();
+  const T = env.tune ?? TUNE_DEF;
   const clamp = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
   const kinds = courseKinds(tramo);
   const end = start + env.len;
@@ -90,7 +93,7 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
   const tp = Math.max(0, tramo - 1); // (tramos de plataforma)
   const tc = Math.max(0, tramo - 2); // (tramos de túnel)
   const crawlPiece = (id: number): Piece => {
-    const len = clamp(3 + 0.3 * tc + 0.15 * rank + rand(0, 0.5), 3, 6);
+    const len = clamp(T.tunnel + 0.3 * tc + rand(0, 0.5), T.tunnel, T.tunnel + TUNE_UP.tunnel);
     return piece(id, 'crawl', 0, tramo, { len, n: 0 });
   };
   for (;;) {
@@ -102,10 +105,10 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     // Lo que sale ahora: una pieza o, el burpee, dos (el túnel y su plataforma).
     const seg: Piece[] = [];
     if (k === 'gap') {
-      const len = clamp(0.8 + 0.12 * tramo + 0.05 * rank + rand(-0.1, 0.1), 0.8, 1.6);
+      const len = clamp(T.gap + 0.12 * tramo + rand(-0.1, 0.1), T.gap, T.gap + TUNE_UP.gap);
       seg.push(piece(id, k, 0, tramo, { len }));
     } else if (k === 'low') {
-      const h = clamp(0.22 + 0.015 * tramo + 0.01 * rank + rand(0, 0.04), 0.22, 0.34);
+      const h = clamp(T.duck + 0.015 * tramo + rand(0, 0.04), T.duck, T.duck + TUNE_UP.duck);
       seg.push(piece(id, k, 0, tramo, { h }));
     } else if (k === 'side') {
       // el cangrejo, pegado a un lado al azar (hay que apartarse al otro)
@@ -116,7 +119,7 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
       if (env.rnd() < SPECIAL_P && !special) f.special = special = true;
       seg.push(f);
     } else if (k === 'step') {
-      const h = clamp(0.8 + 0.06 * tp + 0.03 * rank + rand(0, 0.05), 0.8, 1.5);
+      const h = clamp(T.high + 0.06 * tp + rand(0, 0.05), T.high, T.high + TUNE_UP.high);
       const len = clamp(4 + 0.4 * tp + 0.25 * rank + rand(0, 1.5), 4, 9);
       seg.push(piece(id, k, 0, tramo, { h, len }));
     } else if (k === 'crawl') {
@@ -133,7 +136,7 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     const first = seg[0]!;
     if (prev) {
       // Sitio de más al azar, algo menos en los tramos altos: más piezas, más apretado (nunca bajo el mínimo).
-      const extra = intro ? rand(0.5, 2) : rand(4, 10) - Math.min(2, 0.4 * tramo);
+      const extra = intro ? rand(0.5, 2) : (rand(4, 10) - Math.min(2, 0.4 * tramo)) * T.space;
       first.at = prev.at + prev.len + minGap(prev, first, env.vmax) + extra;
     } else {
       // (hasta 3 m de más, no 4: con el sitio de frenada ante el cofre, el peor azar del tramo de 40 m a vmax 4,8 ya no cabía)
@@ -150,8 +153,10 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
   return { pieces, end };
 }
 
-/** Las incumplidas del recorrido `pieces` (con velocidad máxima `vmax`): lo que mide cada pieza y el sitio entre ellas. */
-export function courseRules(pieces: Piece[], vmax: number): string[] {
+/** Las incumplidas del recorrido `pieces` (con velocidad máxima `vmax` y la tabla `tune`): lo que mide cada pieza y el
+ * sitio entre ellas. */
+export function courseRules(pieces: Piece[], vmax: number, tune: PlatTune = TUNE_DEF): string[] {
+  const T = tune, cm = (m: number): string => (m * 100).toFixed(0);
   const out: string[] = [];
   const eps = 1e-9;
   const last = pieces[pieces.length - 1];
@@ -170,8 +175,8 @@ export function courseRules(pieces: Piece[], vmax: number): string[] {
       if (p.special) especiales.set(p.tramo, (especiales.get(p.tramo) ?? 0) + 1);
     }
     if (p.k !== 'fruit' && p.special) out.push(`La pieza ${p.id} (${p.k}) es especial: solo puede serlo una fruta`);
-    if (p.k === 'gap' && (p.len < 0.8 - eps || p.len > 1.6 + eps)) out.push(`El hueco ${p.id} mide ${p.len.toFixed(3)} m: debe medir entre 0,8 y 1,6 m`);
-    if (p.k === 'low' && (p.h < 0.22 - eps || p.h > 0.34 + eps)) out.push(`La viga ${p.id} pide bajar ${p.h.toFixed(3)} m: debe pedir entre 0,22 y 0,34 m`);
+    if (p.k === 'gap' && (p.len < T.gap - eps || p.len > T.gap + TUNE_UP.gap + eps)) out.push(`El hueco ${p.id} mide ${p.len.toFixed(3)} m: debe medir entre ${cm(T.gap)} y ${cm(T.gap + TUNE_UP.gap)} cm`);
+    if (p.k === 'low' && (p.h < T.duck - eps || p.h > T.duck + TUNE_UP.duck + eps)) out.push(`La viga ${p.id} pide bajar ${p.h.toFixed(3)} m: debe pedir entre ${cm(T.duck)} y ${cm(T.duck + TUNE_UP.duck)} cm`);
     if (p.k === 'step') {
       if (p.len <= 0) out.push(`La plataforma ${p.id} no tiene largo (len ${p.len.toFixed(3)}): debe medir más de 0 m`);
       if (p.burpee) {
@@ -184,12 +189,12 @@ export function courseRules(pieces: Piece[], vmax: number): string[] {
         }
       } else {
         if (p.len < 4 - eps || p.len > 9 + eps) out.push(`La plataforma ${p.id} mide ${p.len.toFixed(3)} m de largo: debe medir entre 4 y 9 m`);
-        if (p.h < 0.8 - eps || p.h > 1.5 + eps) out.push(`La plataforma ${p.id} sube ${p.h.toFixed(3)} m: debe subir entre 0,8 y 1,5 m`);
+        if (p.h < T.high - eps || p.h > T.high + TUNE_UP.high + eps) out.push(`La plataforma ${p.id} sube ${p.h.toFixed(3)} m: debe subir entre ${cm(T.high)} y ${cm(T.high + TUNE_UP.high)} cm`);
       }
     }
     if (p.k === 'crawl') {
       if (p.n !== 0) out.push(`El túnel ${p.id} pide ${p.n} flexiones: ya no las hay (n debe ser 0)`);
-      if (p.len < 3 - eps || p.len > 6 + eps) out.push(`El túnel ${p.id} mide ${p.len.toFixed(3)} m: debe medir entre 3 y 6 m`);
+      if (p.len < T.tunnel - eps || p.len > T.tunnel + TUNE_UP.tunnel + eps) out.push(`El túnel ${p.id} mide ${p.len.toFixed(3)} m: debe medir entre ${T.tunnel} y ${T.tunnel + TUNE_UP.tunnel} m`);
     }
     if (!prev) continue;
     if (p.at <= prev.at) {

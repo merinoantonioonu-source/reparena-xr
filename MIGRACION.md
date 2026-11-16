@@ -141,8 +141,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
   - [x] **PR A · Armazón jugable** (sentadillas, viga, tronco, barril a un lado y el hueco; el cofre al final de cada tramo) — #45, #46
   - [x] **PR B · Plataformas, túnel y burpee** — #47; **PR B2** (lo que pidió el usuario al probarlo: túnel en plancha con la inercia, burpee = túnel y plataforma, supersalto, frutas y energía) — #48
   - [ ] **PR C · Correr con los brazos** (aplazado por el usuario)
-  - [ ] **PR D · Enemigos, cofre, paisajes, fantasma y medalla** (la seta se pisa; el cangrejo, a un lado; un paisaje por tramo; el cofre dice qué lleva y da llave y gema; estelas del turbo; la Travesía en las misiones)
-  - [ ] **PR E · Tabla del desarrollador y repaso**
+  - [x] **PR D · Enemigos, cofre, paisajes, fantasma y medalla** (la seta se pisa; el cangrejo, a un lado; un paisaje por tramo; el cofre dice qué lleva y da llave y gema; estelas del turbo; la Travesía en las misiones) — #49
+  - [ ] **PR E · Tabla del desarrollador y repaso** (la dificultad de la Travesía por rango, en la tabla; el repaso del código; falta el repaso con el diagnóstico de las gafas)
 - [ ] **PR 19 · Sesiones** (aplazado por el usuario: se hará más adelante)
 - [x] **PR 20 · Entornos** — #28
 - [ ] **PR 21 · Realidad mixta** (aplazado por el usuario: se hará más adelante; nada de lo demás depende de ella. Se empezó con lo de serie de IWSDK: entrar con `launchXR` en modo `immersive-ar` con detección de planos y mallas, anclas y profundidad, `DepthSensingSystem` y `DepthOccludable` en compuertas, cajas, rocas (ya quitadas, PR 28) y enemigos, y `GAME.mr`/`arenaDepth` —6 m en realidad mixta—; el plan de la habitación de RepArena, `src/37_room.js`, se porta a lógica pura con su comparación)

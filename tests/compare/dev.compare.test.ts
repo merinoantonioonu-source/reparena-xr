@@ -33,7 +33,9 @@ function original(mem: Mem): Api {
 
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
 const COMBOS = Object.keys(MODE_EX).flatMap((m) => MODE_EX[m].map((x) => m + '|' + x));
-const DEVROW = SCHEMA.filter((f) => P.devRowOk(f));
+// (sin las filas que solo tiene RepArena XR: RepArena no las conoce)
+const DEVROW = SCHEMA.filter((f) => P.devRowOk(f) && !f.xr);
+const XRK = new Set(SCHEMA.filter((f) => f.xr).map((f) => f.key));
 const FOES = D.devFoes().map((x) => x[0]);
 
 /** Un valor al azar para una casilla: dentro, fuera de límites, texto o vacío. */
@@ -143,7 +145,7 @@ describe.skipIf(!RA_DIR)('el modo desarrollador, igual que RepArena', { timeout:
         expect(DEV.on, where).toBe(O.DEV.on);
         for (const k of ['reparena3-dev', 'reparena3-devon', 'reparena3-exsongs', 'reparena3-settings']) expect(mp.getItem(k), `${where} (${k})`).toBe(mo.getItem(k));
         expect(D.devEye(), where).toEqual(O.devEye());
-        expect(D.devRows(), where).toEqual(O.devRows());
+        expect(D.devRows().filter((k) => !XRK.has(k)), where).toEqual(O.devRows());
         expect(D.exSongs(), where).toEqual(O.exSongs());
         const keys = Object.keys(O.settings);
         expect(keys.filter((k) => JSON.stringify(PS[k]) !== JSON.stringify(O.settings[k])), where).toEqual([]);
