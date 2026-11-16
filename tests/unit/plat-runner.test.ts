@@ -10,8 +10,16 @@
 // - el paso a un lado se puede repetir hacia el otro lado (el centro no se pierde).
 import { describe, expect, it } from 'vitest';
 import { BEHIND, BOUNCE_LIFT, CHEST_PTS, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, STOMP_PTS, SUPER_K, TREASURE_PTS } from '../../src/modes/trek/plat/runner.js';
-import { BURPEE_GAP_S, FOE_V, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
-import { course, DT, piece, Sim } from './plat-sim.js';
+import { BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
+import { course, DT, piece as mk, Sim } from './plat-sim.js';
+import type { Piece } from '../../src/modes/trek/plat/types.js';
+
+/** Las piezas; los cangrejos de las pruebas del paso a un lado, sin escupir (el escupitajo tiene sus pruebas, al final). */
+const piece = (...a: Parameters<typeof mk>): Piece => {
+  const p = mk(...a);
+  if (p.k === 'side') p.spat = true;
+  return p;
+};
 
 /** Los sucesos que mueven la vida (la Travesía no tiene: chocar no quita vidas). */
 const lifeEv = (s: Sim): boolean => s.log.some((e) => /life|lives|vida|hurt/i.test(e.t));
@@ -725,5 +733,66 @@ describe('la Travesía de plataformas: el cofre, la medalla y el fantasma (PR D)
     const e2 = t.r.end(10);
     expect(e2.ghost).toBeNull();
     expect(e2.farther).toBe(false);
+  });
+});
+
+describe('la Travesía de plataformas: el escupitajo del cangrejo', () => {
+  /** Un cangrejo que sí escupe. */
+  const crab = (at: number, side: -1 | 1 = 1): Piece => mk(1, 'side', at, 2, { side });
+
+  it('escupe una vez, desde lejos, hacia tu cabeza; quieto, te da: frenas y se rompe la racha, sin vidas', () => {
+    const s = new Sim();
+    // (ya a tiro: escupe enseguida, contigo de pie y quieto)
+    const c = crab(9);
+    s.load(course([c, mk(2, 'chest', 160, 2)]));
+    expect(s.until(() => s.of('spit').length > 0, 72 * 3)).toBe(true);
+    const sp = s.of('spit')[0]!;
+    // desde lejos (entre SPIT_NEAR y SPIT_FAR) y rápido (antes de un segundo y medio)
+    const z = c.at + c.walk - s.when(sp).d + s.head.z;
+    expect(z).toBeGreaterThanOrEqual(SPIT_NEAR - 0.2);
+    expect(z).toBeLessThanOrEqual(SPIT_FAR + 0.2);
+    expect(sp.wind + sp.dur).toBeLessThan(1.6);
+    s.stand(sp.wind + sp.dur + 0.1);
+    const r = s.of('spat');
+    expect(r).toHaveLength(1);
+    expect(r[0]!.ok).toBe(false);
+    expect(s.of('combo0').length).toBeGreaterThanOrEqual(1);
+    expect(s.of('say').some((e) => e.warn && /escupido/.test(e.text))).toBe(true);
+    expect(lifeEv(s)).toBe(false);
+    // y no vuelve a escupir
+    s.stand(3);
+    expect(s.of('spit')).toHaveLength(1);
+  });
+
+  it('apartando la cabeza (a un lado o agachándote) al verlo venir, lo esquivas', () => {
+    for (const how of ['lado', 'abajo'] as const) {
+      const s = new Sim();
+      const c = crab(9, -1);
+      s.load(course([c, mk(2, 'chest', 160, 2)]));
+      expect(s.until(() => s.of('spit').length > 0, 72 * 3)).toBe(true);
+      const sp = s.of('spit')[0]!;
+      if (how === 'lado') s.side(0.3, sp.wind + sp.dur + 0.05, 0.3);
+      else s.duck(0.3, sp.wind + sp.dur + 0.05, 0.3);
+      expect(s.of('spat')[0]?.ok, how).toBe(true);
+      expect(s.of('cheer').some((e) => /Escupitajo esquivado/.test(e.text)), how).toBe(true);
+    }
+  });
+
+  it('nunca escupe de cerca ni si otro reto está cerca de ti', () => {
+    // (cerca: el cangrejo ya está a menos de SPIT_NEAR cuando echa a andar)
+    const s = new Sim();
+    const c = crab(SPIT_NEAR - FOE_WALK - 2);
+    s.load(course([c, mk(2, 'chest', 100, 2)]));
+    s.stand(4);
+    expect(s.of('spit')).toHaveLength(0);
+    // (una viga justo delante cuando le tocaría: espera a que pase y, si ya está cerca, no escupe)
+    const t = new Sim();
+    const low = mk(1, 'low', SPIT_FAR - 1, 2, { h: 0.25 }), c2 = mk(2, 'side', SPIT_FAR + 4, 2, { side: 1 });
+    t.load(course([low, c2, mk(3, 'chest', 140, 2)]));
+    for (let i = 0; i < 72 * 30 && !low.judged; i++) {
+      if (t.of('spit').length) break;
+      t.frame();
+    }
+    expect(t.of('spit')).toHaveLength(0);
   });
 });

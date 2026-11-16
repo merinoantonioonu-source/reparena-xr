@@ -6,10 +6,11 @@
  */
 import { EX_NAMES, exOk, MODE_NAMES } from '../core/catalog.js';
 import { autoAim, foes, foesHas, isCombat } from '../core/rules.js';
-import { fmtNum, hangSecs, nWaves, waveReps } from '../core/settings.js';
+import { fmtNum, hangSecs, nLives, nWaves, waveReps } from '../core/settings.js';
 import { num, on, settings } from '../core/values.js';
 import { REP_TIME } from '../combat/waves.js';
 import { demoDraw } from '../ui/demo-art.js';
+import { cortDraw, cortImage, cortInfo, cortUrl } from '../ui/cortinilla.js';
 import { $ } from './dom.js';
 
 /** Lo que tarda una repetición (RepArena: repTimeOf; para calcular cuánto dura la ronda). */
@@ -49,16 +50,31 @@ export function updateSummary(): void {
   el.innerHTML = `${MODE_NAMES[settings.mode]} · ${EX_NAMES[settings.exercise]}: ${nWaves() ? `${nWaves()} oleadas` : `oleadas sin fin${num('toFail') ? ', al fallo' : ''} (cuento las 5 primeras)`} suman <strong>${total}</strong> ${hang ? 'segundos colgado' : settings.mode === 'touch' ? 'objetivos' : 'repeticiones'}${settings.exercise === 'curl' || settings.exercise === 'press' ? ' entre los dos brazos' : ''}, unos <strong>${Math.max(1, mins)} min</strong> con descansos. ${speed}`;
 }
 
-/** La caricatura de la página: el monigote repite el ejercicio elegido mientras se ve (RepArena: demoPage). */
+/** La cortinilla del ejercicio elegido en la página (la misma que en las gafas; mientras carga, la caricatura de RepArena:
+ * el monigote repite el ejercicio, demoPage). */
 export function demoPage(): void {
   const cv = $<HTMLCanvasElement>('#demoCv');
   const c = cv?.getContext('2d');
   if (!cv || !c || typeof requestAnimationFrame !== 'function') return;
-  let t0 = 0;
+  let t0 = 0, drawn = '';
   const loop = (ts: number): void => {
     if (!document.hidden && !document.documentElement.classList.contains('stage')) {
       const r = cv.getBoundingClientRect();
-      if (r.bottom > 0 && r.top < (innerHeight || 1e4)) demoDraw(c, cv.width, cv.height, settings.exercise, settings.mode, (ts - t0) / 1000, { perfectTime: num('perfectTime'), perks: on('perks'), foes: foes(), sword: false, pistol: false });
+      if (r.bottom > 0 && r.top < (innerHeight || 1e4)) {
+        const url = cortUrl(settings.mode, settings.exercise, import.meta.env.BASE_URL), img = url ? cortImage(url) : null;
+        if (img && url) {
+          // (quieta: se repinta solo si cambia)
+          const info = cortInfo(settings.mode, nWaves(), nLives(), !!num('toFail')), key = url + '|' + info + '|' + cv.width;
+          if (key !== drawn) {
+            if (cv.height !== Math.round((cv.width * img.naturalHeight) / img.naturalWidth)) cv.height = Math.round((cv.width * img.naturalHeight) / img.naturalWidth);
+            cortDraw(c, cv.width, cv.height, img, info);
+            drawn = key;
+          }
+        } else {
+          drawn = '';
+          demoDraw(c, cv.width, cv.height, settings.exercise, settings.mode, (ts - t0) / 1000, { perfectTime: num('perfectTime'), perks: on('perks'), foes: foes(), sword: false, pistol: false });
+        }
+      }
     }
     requestAnimationFrame(loop);
   };

@@ -406,6 +406,22 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- Tras el PR E (pedidos del usuario al probar en las gafas): **cortinillas** (`src/ui/cortinilla.ts`, imágenes en
+  `public/cortinillas/<modo>-<ejercicio>.jpg`, una por cada ejercicio de `MODE_EX`: lo comprueba `cortinilla.test.ts`): en el
+  panel de la caricatura (`ViewSystem.stepDemo`, y en la página, `demoPage`), quietas (se pintan una vez y otra si cambia la
+  franja, `cortInfo`); la caricatura de `demo-art.ts` solo sale mientras carga la imagen. **Pompas** de Barras con la película
+  de jabón de RepArena (`createBubble(big)`, `bars.scene-asset.ts`: `uTime`/`uOpacity` cada fotograma, el ojo de la grande
+  mira a la cabeza). **Luciérnagas**: 180, con `aTint` (algunas de color) y `uHype` (destello), que sigue a `SPECIAL.on`
+  (`src/core/state.ts`: lo pone la partida con la fiebre, el relámpago, el turbo o la supervelocidad). **La maza** de Arcos
+  ya no lleva un plano cuadrado de brillo (el «plano gris» del vídeo del usuario): un brillo redondo (`Sprite`). **El
+  marcador de suelo**, a 45° (`BOARD_TILT`, `placeBoard`); los avisos de la vista se apartan del marcador (`VIEW.board`) y
+  del menú abierto (`collectThreats`). **El escupitajo del cangrejo** (`Runner.spit`, `SPIT_*` en types.ts; lo pinta
+  `TrekSystem.stepSpits`): una vez, desde lejos y si no hay otro reto cerca; se esquiva apartando la cabeza `SPIT_R`.
+  **La pausa nunca se queda sin menú**: en ella no se recoge con el puño ni la palma y, si aun así no hay menú a la vista,
+  vuelve el de la pausa (`pauseLostT`, con `diagEvent`). Era la sospecha del congelón al poner Spotify desde Pausa → Sonido →
+  Música; **sin confirmar**: si vuelve, pide al usuario el diagnóstico. Pendiente: el plano gris tras el marcador y los
+  avisos (el usuario solo grabó la maza).
+
 - Travesía de plataformas, PR E → los siguientes: **la dificultad de la Travesía va por rango** en la tabla del
   desarrollador: seis ajustes solo de RepArena XR (`xr: true`, grupo `travesia`, pestaña «Modo Travesía»): `platSpace`
   (separación entre retos, %), `platGap` (el hueco más corto, cm), `platDuck` (lo que hay que agacharse bajo la viga más

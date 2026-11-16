@@ -16,11 +16,14 @@ import { BEAT, MOTES } from '../core/beat-hub.js';
 import { moteBpm } from '../core/beat.js';
 import { bpm as bpmSvc, spotify } from '../services/hub.js';
 import { settings } from '../core/values.js';
-import { GAME, LITE } from '../core/state.js';
+import { GAME, LITE, SPECIAL } from '../core/state.js';
 import { head } from '../input/hand-model.js';
 
 const TAU = Math.PI * 2;
-const MOTE_N = 90, MOTE_SPAN = 15;
+// (el doble que en RepArena, pedido del usuario: con 90 se veían pocas; las 90 primeras, en los mismos sitios de siempre)
+const MOTE_N = 180, MOTE_SPAN = 15;
+/** Algunas, de otros colores (pedido del usuario): rosa, turquesa, violeta, menta y naranja, en una de cada `MOTE_TINT_P`. */
+const MOTE_TINTS = [0xff7ad9, 0x6ae8ff, 0xb48cff, 0x7dffb0, 0xffa35a], MOTE_TINT_P = 0.3;
 const FONDOS = ['aldea', 'bosque', 'montana', 'cumbre', 'lago', 'atardecer', 'ocaso'];
 const fondoUrl = (k: string): string => `${import.meta.env.BASE_URL}fondos/${k}.jpg`;
 
@@ -35,19 +38,25 @@ function rng(seed: number): () => number {
   };
 }
 
-/** Las luciérnagas (RepArena: src/56_motes.js): 90 puntos con su vuelo sereno y sinuoso, que nunca van hacia atrás ni se acercan a menos de 80 cm. */
+/** Las luciérnagas (RepArena: src/56_motes.js): 180 puntos con su vuelo sereno y sinuoso, que nunca van hacia atrás ni se
+ * acercan a menos de 80 cm; algunas, de colores; en un momento especial (`SPECIAL`), destellan más vivas. */
 function makeMotes(): Points {
-  const g = new BufferGeometry(), base = new Float32Array(MOTE_N * 3), seed = new Float32Array(MOTE_N * 4), R = rng(91);
+  const g = new BufferGeometry(), base = new Float32Array(MOTE_N * 3), seed = new Float32Array(MOTE_N * 4), tint = new Float32Array(MOTE_N * 4), R = rng(91), RT = rng(173), c = new Color();
   for (let i = 0; i < MOTE_N; i++) {
     const a = R() * TAU, d = 1.3 + Math.pow(R(), 0.8) * 12; // (más cerca que lejos, pero no encima)
     base.set([Math.sin(a) * d, 0.25 + Math.pow(R(), 1.3) * 3, -Math.cos(a) * d], i * 3);
     seed.set([R(), R(), R(), R()], i * 4);
+    // su color propio (y cuánto lo lleva: 0, el de todas)
+    const on = RT() < MOTE_TINT_P;
+    c.setHex(MOTE_TINTS[Math.floor(RT() * MOTE_TINTS.length)]);
+    tint.set([c.r, c.g, c.b, on ? 0.85 : 0], i * 4);
   }
   g.setAttribute('position', new BufferAttribute(base, 3));
   g.setAttribute('aSeed', new BufferAttribute(seed, 4));
+  g.setAttribute('aTint', new BufferAttribute(tint, 4));
   const mat = new ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uFly: { value: 0 }, uBeat: { value: 0 }, uDance: { value: 0 }, uSwing: { value: 0 }, uSpan: { value: MOTE_SPAN }, uHead: { value: new Vector3(0, 1.6, 0) }, uVH: { value: 1000 }, uColor: { value: new Color(0xfff2b8) }, uGain: { value: 1 } },
-    vertexShader: `attribute vec4 aSeed; uniform float uTime, uFly, uBeat, uDance, uSwing, uSpan, uVH; uniform vec3 uHead; varying float vA;
+    uniforms: { uTime: { value: 0 }, uFly: { value: 0 }, uBeat: { value: 0 }, uDance: { value: 0 }, uSwing: { value: 0 }, uSpan: { value: MOTE_SPAN }, uHead: { value: new Vector3(0, 1.6, 0) }, uVH: { value: 1000 }, uColor: { value: new Color(0xfff2b8) }, uGain: { value: 1 }, uHype: { value: 0 } },
+    vertexShader: `attribute vec4 aSeed; attribute vec4 aTint; uniform float uTime, uFly, uBeat, uDance, uSwing, uSpan, uVH, uHype; uniform vec3 uHead; varying float vA; varying vec4 vTint;
       void main() {
         float t = uTime, F = uFly; vec3 ph = aSeed.wzy * 6.2832;
         // su tiempo propio: a ratos corre y a ratos casi se para, pero nunca va hacia atrás
@@ -66,13 +75,19 @@ function makeMotes(): Points {
         float b = 0.5 + 0.5 * sin(t * (0.5 + 0.9 * aSeed.y) + aSeed.x * 6.2832), tw2 = 0.35 + 0.65 * pow(b, 3.0); // (se encienden y apagan despacio; a ratos, un destello)
         float fb = fract(uBeat), acc = step(fract(uBeat * 0.25), 0.25), pulse = exp(-fb * 5.0) * (0.55 + 0.55 * acc) * (0.6 + 0.4 * aSeed.w); // (con música, un destello en cada pulso; más en el primero de cada cuatro)
         tw2 = mix(tw2, 0.3 + 0.45 * tw2 + pulse, uDance);
+        // en un momento especial, más vivas: chisporrotean deprisa, cada una a su ritmo, y brillan más y más grandes
+        float sp = pow(0.5 + 0.5 * sin(t * (11.0 + 7.0 * aSeed.x) + aSeed.y * 40.0), 6.0);
+        tw2 = mix(tw2, 0.55 + 0.35 * tw2 + 1.1 * sp, uHype);
         vA = tw2 * smoothstep(16.0, 7.0, -mv.z) * smoothstep(0.35, 0.9, -mv.z);
-        gl_PointSize = clamp(0.1 * (0.75 + 0.5 * aSeed.w) * projectionMatrix[1][1] * uVH * 0.5 / -mv.z, 1.5, 48.0); // (unos 10 cm con el halo; el punto, un par de centímetros)
+        // (y las de color, más de su color; en el momento especial, todas algo de color)
+        vTint = vec4(aTint.rgb, max(aTint.a, uHype * 0.6));
+        gl_PointSize = clamp(0.1 * (0.75 + 0.5 * aSeed.w) * (1.0 + 0.35 * uHype) * projectionMatrix[1][1] * uVH * 0.5 / -mv.z, 1.5, 48.0); // (unos 10 cm con el halo; el punto, un par de centímetros)
       }`,
-    fragmentShader: `uniform vec3 uColor; uniform float uGain; varying float vA;
+    fragmentShader: `uniform vec3 uColor; uniform float uGain; varying float vA; varying vec4 vTint;
       void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float d2 = dot(q, q); if (d2 > 1.0) discard;
         float core = exp(-d2 * 14.0), halo = exp(-d2 * 3.5) * 0.4, a = min(1.0, (core * 1.4 + halo) * vA * uGain);
-        gl_FragColor = vec4(mix(uColor, vec3(1.0), core * 0.6), a); }`,
+        vec3 col = mix(uColor, vTint.rgb, vTint.a);
+        gl_FragColor = vec4(mix(col, vec3(1.0), core * 0.6), a); }`,
     transparent: true,
     depthWrite: false,
     blending: AdditiveBlending,
@@ -191,6 +206,8 @@ export class EnvSystem extends createSystem({}) {
     (U.uHead.value as Vector3).copy(head.p);
     (U.uColor.value as Color).copy(night ? this.night : this.day);
     U.uGain.value = night ? 1.1 : 1.5;
+    // el momento especial (la fiebre, el relámpago, el turbo, la supervelocidad): entra y sale en medio segundo
+    U.uHype.value += ((SPECIAL.on ? 1 : 0) - U.uHype.value) * Math.min(1, dt * 4);
     // el alto de la imagen de cada ojo (en las gafas) o de la ventana: para que midan lo mismo en todas partes
     const r = this.world.renderer, xs = r.xr.isPresenting ? r.xr.getSession() : null, L = xs?.renderState?.baseLayer as { framebufferHeight?: number } | undefined;
     U.uVH.value = L?.framebufferHeight ? L.framebufferHeight : innerHeight * r.getPixelRatio();

@@ -16,7 +16,7 @@ import { GateSystem } from '../../combat/gates.js';
 import { hands, head } from '../../input/hand-model.js';
 import { setSetting } from '../../core/settings.js';
 import { HangScene } from './hang-scene.js';
-import { createBubble, createDipBars, createDoorBar, type BarRigParts, type BubbleParts } from '../../scene-assets/bars.scene-asset.js';
+import { BUBBLE_SPLASH, createBubble, createDipBars, createDoorBar, type BarRigParts, type BubbleParts } from '../../scene-assets/bars.scene-asset.js';
 import { BarDetector, powRgb } from './detect.js';
 import { dipOne, eqName, eqPose, loadEquip, type Equip } from './equip.js';
 import type { BarEvent, BarsEnv, PlaceEnv } from './env.js';
@@ -447,7 +447,7 @@ export class BarsSystem extends createSystem({}) {
   private add(t: HeadTarget): void {
     const e: TEntry = { t, grp: new Group(), own: [] };
     if (t.bubble) {
-      const b = createBubble(t.kind === 'bigbubble' ? 0xffb0e8 : 0x7fe3ff);
+      const b = createBubble(t.kind === 'bigbubble');
       e.bubble = b;
       e.grp = b.grp;
       e.own = b.own;
@@ -476,7 +476,7 @@ export class BarsSystem extends createSystem({}) {
         }
         e.grp = root;
       } else {
-        const b = createBubble(0xff6a4a); // (sin el modelo: una bola roja)
+        const b = createBubble(); // (sin el modelo: una pompa)
         e.bubble = b;
         e.grp = b.grp;
         e.own = b.own;
@@ -489,11 +489,7 @@ export class BarsSystem extends createSystem({}) {
 
   private free(e: TEntry): void {
     this.root.remove(e.grp);
-    if (e.bubble)
-      e.grp.traverse((c) => {
-        const m = c as Mesh;
-        if (m.isMesh) m.geometry.dispose();
-      });
+    // (la forma de las pompas es de todas: solo se sueltan sus materiales)
     for (const m of e.own) m.dispose();
   }
 
@@ -503,8 +499,8 @@ export class BarsSystem extends createSystem({}) {
     for (let i = this.entries.length - 1; i >= 0; i--) {
       const e = this.entries[i], t = e.t;
       if (!t.alive) {
-        // reventado: la pompa estalla con sus gotas de colores y se va
-        if (e.bubble) HOOKS.sparks(t.center(this.tmp, this.env), 22, 0xffa0e0);
+        // reventado: la pompa estalla salpicando gotas irisadas, de cuatro colores (RepArena: BUBBLE_SPLASH), y se va
+        if (e.bubble) for (const col of BUBBLE_SPLASH) HOOKS.sparks(t.center(this.tmp, this.env), t.kind === 'bigbubble' ? 12 : 7, col);
         if (!e.bubble) HOOKS.sparks(t.center(this.tmp, this.env), 16, 0xb8ff5a);
         this.free(e);
         this.entries.splice(i, 1);
@@ -514,7 +510,11 @@ export class BarsSystem extends createSystem({}) {
       e.mixer?.update(dt);
       if (e.bubble) {
         e.grp.scale.copy(t.shell).multiplyScalar(t.fade);
-        e.bubble.mat.opacity = (0.3 + (t.flick > 0 ? 0.35 : 0)) * t.fade;
+        // su película se arremolina con el tiempo; al darle, parpadea más opaca; al irse, se desvanece
+        const U = e.bubble.mat.uniforms;
+        U.uTime.value = this.clock;
+        U.uOpacity.value = (t.flick > 0 ? 1.4 : 1) * t.fade;
+        if (e.bubble.eye) e.bubble.eye.lookAt(head.p);
       } else {
         e.grp.rotation.set(t.rotX, t.rotY, 0);
         e.grp.scale.setScalar(t.scale * t.fade);

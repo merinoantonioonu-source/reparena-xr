@@ -4,7 +4,7 @@
  * con dos postes, una cadena de eslabones y una bola de acero con doce pinchos) y el orbe dorado. Sin azar ni reloj: el juego
  * los mueve. Los materiales son de cada uno (la luz cambia con el peligro).
  */
-import { AdditiveBlending, BoxGeometry, CylinderGeometry, DataTexture, DoubleSide, Group, IcosahedronGeometry, LinearFilter, Mesh, MeshBasicMaterial, MeshStandardMaterial, OctahedronGeometry, PlaneGeometry, RepeatWrapping, RGBAFormat, SRGBColorSpace, TorusGeometry, UnsignedByteType } from '@iwsdk/core';
+import { AdditiveBlending, BoxGeometry, CylinderGeometry, DataTexture, DoubleSide, Group, IcosahedronGeometry, LinearFilter, Mesh, MeshBasicMaterial, MeshStandardMaterial, OctahedronGeometry, PlaneGeometry, RepeatWrapping, RGBAFormat, Sprite, SpriteMaterial, SRGBColorSpace, TorusGeometry, UnsignedByteType } from '@iwsdk/core';
 import type { Material } from '@iwsdk/core';
 
 const steel = new MeshStandardMaterial({ color: 0x6d7280, roughness: 0.45, metalness: 0.6 });
@@ -107,9 +107,23 @@ export interface MaceParts {
   grp: Group;
   arm: Group;
   ball: Group;
-  glow: Mesh;
-  glowMat: MeshBasicMaterial;
+  glow: Sprite;
+  glowMat: SpriteMaterial;
   own: Material[];
+}
+/** Un resplandor redondo que se difumina hacia fuera (RepArena: glowSprite): sin bordes, para que no se vea un plano. */
+let GLOW_TEX: DataTexture | null = null;
+function roundGlowTex(): DataTexture {
+  if (GLOW_TEX) return GLOW_TEX;
+  const n = 64, d = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const r = Math.min(1, Math.hypot((x + 0.5) / n - 0.5, (y + 0.5) / n - 0.5) * 2);
+    d.set([255, 255, 255, Math.round(255 * Math.pow(1 - r, 2))], (y * n + x) * 4);
+  }
+  const t = new DataTexture(d, n, n, RGBAFormat, UnsignedByteType);
+  t.magFilter = t.minFilter = LinearFilter;
+  t.needsUpdate = true;
+  return (GLOW_TEX = t);
 }
 export function createMace(piv: number, L: number): MaceParts {
   const grp = new Group(), arm = new Group(), ball = new Group();
@@ -143,8 +157,12 @@ export function createMace(piv: number, L: number): MaceParts {
     sp.rotateX(Math.PI / 2);
     ball.add(sp);
   }
-  const glowMat = new MeshBasicMaterial({ color: 0xff2a14, transparent: true, opacity: 0.25, depthWrite: false, blending: AdditiveBlending, toneMapped: false, side: DoubleSide });
-  const glow = noInk(new Mesh(new PlaneGeometry(0.75, 0.75), glowMat));
+  // el resplandor rojo de la bola (con el peligro, más fuerte): redondo y difuminado, siempre de cara a ti (antes, un cuadrado
+  // de color liso, que en las gafas se veía como un plano alrededor de la bola)
+  const glowMat = new SpriteMaterial({ map: roundGlowTex(), color: 0xff2a14, transparent: true, opacity: 0.25, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
+  const glow = new Sprite(glowMat);
+  glow.userData.noInk = true;
+  glow.scale.setScalar(0.75);
   ball.add(glow);
   return { grp, arm, ball, glow, glowMat, own: [glowMat] };
 }

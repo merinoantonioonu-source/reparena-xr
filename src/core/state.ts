@@ -66,12 +66,18 @@ export const VIEW = {
   /** Echado en plena partida aunque el ejercicio sea de pie (la Travesía: en plancha bajo un túnel): los avisos, en el suelo
    * bajo la cara y siguiendo la mirada (fijos delante, a la altura de estar de pie, no se leerían). Lo pone TrekSystem. */
   prone: false,
+  /** Dónde está el marcador (en la arena) y su radio (m): los avisos de la vista se apartan de él (no lo tapan). Lo pone la
+   * partida al colocarlo. */
+  board: { x: 0, y: 0, z: 0, r: 0, on: false },
 };
 
 /** Avisos entre sistemas (los pone el sistema del juego al arrancar). */
 /** Con un menú abierto en las gafas, la escena se aligera (idea 4 elegida por el usuario): sin los árboles, rocas y plantas del
  * entorno ni los enemigos, para que el menú vaya fluido al mover la cabeza. Lo pone `RaMenuSystem`. */
 export const LITE = { on: false };
+/** Un momento especial de la partida (la fiebre de Arcos, el relámpago de Combate, el turbo o la supervelocidad de la
+ * Travesía): las luciérnagas destellan más vivas. Lo pone la partida en cada fotograma. */
+export const SPECIAL = { on: false };
 
 export const HOOKS = {
   /** Un enemigo te ha dado (str: las vidas que quita, su fuerza). */
