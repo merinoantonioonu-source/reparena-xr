@@ -93,8 +93,8 @@ export interface CareerBits {
   streakUp: { n: number; best: number } | null;
   /** Lo ganado en la ronda (la carrera: misiones, cofre, nivel, escudos…); si no hay, null. */
   notes: [string, string][] | null;
-  /** Arcos: la medalla, si llegaste más lejos que nunca y los orbes cogidos. */
-  arcs?: { medal: [string, string] | null; farther: boolean; orbs: number } | null;
+  /** Arcos (y la Travesía): la medalla, si llegaste más lejos que nunca y los orbes cogidos (la Travesía, las frutas). */
+  arcs?: { medal: [string, string] | null; farther: boolean; orbs: number; fruits?: number } | null;
 }
 
 export function summaryOf(s: RunStats, manual: boolean, waveNow: number, nWaves: number, exName: string, hist: { ex?: string; mode?: string; reps?: number; fail?: number }[], career: CareerBits | null = null): Summary {
@@ -110,6 +110,7 @@ export function summaryOf(s: RunStats, manual: boolean, waveNow: number, nWaves:
   if (career?.arcs?.farther) chips.push(['¡Más lejos que nunca!', '#3cf0c6']);
   if (career?.streakUp) chips.push([`${career.streakUp.n} días seguidos${career.streakUp.n >= career.streakUp.best ? ' · tu mejor racha' : ''}`, '#3cf0c6']);
   if (career?.arcs?.orbs) chips.push([`${career.arcs.orbs} orbes`, '#ffd166']);
+  if (career?.arcs?.fruits) chips.push([`${career.arcs.fruits} ${career.arcs.fruits === 1 ? 'fruta' : 'frutas'}`, '#c8ff3a']);
   const all = sumChips(chips, career?.notes ?? null);
   return {
     title: s.win ? '¡VICTORIA!' : manual ? 'RESUMEN' : 'DERROTA',

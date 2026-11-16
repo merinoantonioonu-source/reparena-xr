@@ -572,10 +572,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         if (h) {
           lines[0] = `${Math.floor(h.dist)} m · ${h.kmh.toFixed(1).replace('.', ',')} km/h${h.turbo ? ' · TURBO' : ''}`;
           lines[1] = h.stop === 'chest' ? `Tramo ${h.tramo + 1}: ¡cofre!` : `Tramo ${h.tramo + 1}: faltan ${Math.ceil(h.left)} m`;
-          // la energía de las frutas (llena: supervelocidad)
-          lines[2] = h.superT > 0 ? `¡SUPERVELOCIDAD! ${Math.ceil(h.superT)} s` : `Energía ${Math.round(h.energy * 100)} %`;
-          const g = this.rw.ghostText();
-          if (g) lines[2] = minus(g[0]);
+          // la energía de las frutas (llena: supervelocidad) y lo que llevas de más o de menos que en tu mejor Travesía (el fantasma)
+          const gd = h.ghost == null ? '' : ` · tu mejor ${h.ghost >= 0 ? '+' : '-'}${Math.abs(Math.round(h.ghost))} m`;
+          lines[2] = (h.superT > 0 ? `¡SUPERVELOCIDAD! ${Math.ceil(h.superT)} s` : `Energía ${Math.round(h.energy * 100)} %`) + gd;
           if (!msg && h.turbo) { msg = '¡TURBO! ×2'; col = '#c8ff3a'; }
         }
       } else if (settings.mode === 'bars') {
@@ -1028,11 +1027,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.saveRun(win, s); // (con su experiencia, misiones y escudos: la carrera)
     const P = progressNow(), gain = career().take();
     const AX = settings.mode === 'arcs' ? this.arcs()?.end(GAME.score, GAME.reps, GAME.taken) ?? null : null; // (medalla, metros, orbes y fantasma)
+    const TX = settings.mode === 'trek' ? this.trek()?.end(GAME.score) ?? null : null; // (la Travesía: medalla, metros, frutas y fantasma)
     this.arcs()?.clear();
     this.touch()?.clear();
     this.bars()?.clear();
     this.trek()?.clear();
-    const sum = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist, { arcs: AX && { medal: AX.medal, farther: AX.farther, orbs: AX.orbs }, streakUp: P.streak > P0.streak && P.streak > 1 ? { n: P.streak, best: P.best } : null, notes: gain?.notes ?? null });
+    const sum = summaryOf(s, manual, GAME.wave, nWaves(), EX_NAMES[settings.exercise] ?? settings.exercise, hist, { arcs: AX ? { medal: AX.medal, farther: AX.farther, orbs: AX.orbs } : TX && { medal: TX.medal, farther: TX.farther, orbs: 0, fruits: TX.fruits }, streakUp: P.streak > P0.streak && P.streak > 1 ? { n: P.streak, best: P.best } : null, notes: gain?.notes ?? null });
     if (CAMP.run) {
       // en la campaña: el nivel con sus estrellas (y la medalla que dicen), y los botones de seguir
       const c = gain?.camp ?? { lv: CAMP.run.lv, stars: 0, next: null };

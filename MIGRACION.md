@@ -138,7 +138,11 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 17a · Barras: el modo (aparatos que se recuerdan, dominadas, remo, colgado y objetivos)** — #27
 - [x] **PR 17b · Barras: el bosque nocturno, el remolino y los tentáculos** — #27
 - [ ] **PR 18 · Travesía** → sustituida por la **Travesía de plataformas** (plan del usuario: `docs/PLAN-TRAVESIA-PLATAFORMAS.md`, PR A a E; la clásica sigue en `clasica.html`)
-  - [ ] **PR A · Armazón jugable** (sentadillas, viga, tronco, barril a un lado y el hueco; el cofre al final de cada tramo)
+  - [x] **PR A · Armazón jugable** (sentadillas, viga, tronco, barril a un lado y el hueco; el cofre al final de cada tramo) — #45, #46
+  - [x] **PR B · Plataformas, túnel y burpee** — #47; **PR B2** (lo que pidió el usuario al probarlo: túnel en plancha con la inercia, burpee = túnel y plataforma, supersalto, frutas y energía) — #48
+  - [ ] **PR C · Correr con los brazos** (aplazado por el usuario)
+  - [ ] **PR D · Enemigos, cofre, paisajes, fantasma y medalla** (la seta se pisa; el cangrejo, a un lado; un paisaje por tramo; el cofre dice qué lleva y da llave y gema; estelas del turbo; la Travesía en las misiones)
+  - [ ] **PR E · Tabla del desarrollador y repaso**
 - [ ] **PR 19 · Sesiones** (aplazado por el usuario: se hará más adelante)
 - [x] **PR 20 · Entornos** — #28
 - [ ] **PR 21 · Realidad mixta** (aplazado por el usuario: se hará más adelante; nada de lo demás depende de ella. Se empezó con lo de serie de IWSDK: entrar con `launchXR` en modo `immersive-ar` con detección de planos y mallas, anclas y profundidad, `DepthSensingSystem` y `DepthOccludable` en compuertas, cajas, rocas (ya quitadas, PR 28) y enemigos, y `GAME.mr`/`arenaDepth` —6 m en realidad mixta—; el plan de la habitación de RepArena, `src/37_room.js`, se porta a lógica pura con su comparación)
@@ -401,6 +405,30 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- Travesía de plataformas, PR D → el E (tabla del desarrollador y repaso): **enemigos** (elegido por el usuario: la seta se
+  pisa; el cangrejo se esquiva a un lado; a un lado, solo enemigos). Son piezas como las demás: `foe` (la seta, por el
+  centro, en `JUMPS`: se pisa estando en el aire cuando llega a tus pies, `Runner.stomp`, con rebote `BOUNCE_LIFT`) y `side`
+  (el cangrejo, pegado a su lado a `CRAB_U`: se juzga como el barril de antes, apartando la cabeza al otro). Llegan
+  andando: salen `FOE_WALK` m más allá de su sitio (`Piece.walk`) y, a `FOE_WAKE` m, andan hacia ti a `FOE_V` hasta él (y
+  esperan); por eso `minGap` suma `FOE_WALK` tras ellos y se juzgan en `at + walk`. Si fallas, te muerden (`hit`: la mitad
+  de la velocidad y la racha, sin vidas) y se apartan a un lado. Entran con `courseKinds`: la seta desde el tramo 2, el
+  cangrejo desde el 3. **No son instancias**: `TrekSystem` hace `FOE_POOL` de cada uno al cargarse sus modelos (`foe-mushroom`,
+  `foe-crab`), con sus animaciones (`Idle`, `Walk`, `Bite_Front`, `Death`), y los reutiliza (`takeRig`/`freeRig`); en
+  `piecePuts` no dan nada. **Paisaje por tramo** (`setBiome`): el fondo realista (`TrekSystem.pano`, que pone el entorno),
+  la niebla y la luz de la escena (el sol y la de relleno, teñidos con el bioma respecto al bosque y devueltos al salir) de
+  `TREK_BIOMES`; los árboles van con el sendero (`decoPuts(c, out, biome)` con `DECO_BIOMES`; `biomeAt` dice de qué tramo
+  es cada trozo). La aldea no tiene casas (no hay pack de aldea en `public/models`) ni el lago agua: si el usuario los
+  quiere, hace falta un pack (el Medieval Village de las reglas). **El cofre** dice qué hay dentro cuando se ve (o al empezar
+  el tramo si ya se veía) y al llegar se abre (`Chest_Gold`): una llave (con tres, el tesoro, +1500) y una gema
+  (`reparena3-gems`, la de la clásica), con su aviso dorado (`trophy`). **Fantasma y medalla**: `Runner.tl` apunta dónde vas
+  cada `GHOST_DT` s; al acabar (`TrekSystem.end`), si llegaste más lejos que nunca y no es la campaña, se guarda en
+  `reparenaxr-trekghost`, y el marcador dice «tu mejor ±N m» (`ghostDiff`). La medalla, por las piezas superadas sin chocar
+  (sin contar frutas), como en Arcos; el resumen la enseña con «¡Más lejos que nunca!» y las frutas. **Turbo**: el de
+  `Trek` (ya estaba) con sus estelas de viento (RepArena: `TREK_WIND`, `stepWind`). **Misiones**: las de variedad piden
+  también la Travesía (`moreModes` del entorno de la carrera: sin él, como en RepArena; `career.compare` sigue igual). La
+  campaña ya valía (es por modo y ejercicio). Lo siguiente, el PR E (la tabla del desarrollador por rango y el repaso con el
+  diagnóstico de las gafas).
 
 - Travesía de plataformas, PR B2 → los siguientes (lo que pidió el usuario al probar el B; ver docs/REGLAS.md): el túnel ya
   no para ni pide flexiones (en plancha, con la inercia y como poco `CRAWL_V`; de pie bajo el techo, choque); el muro se

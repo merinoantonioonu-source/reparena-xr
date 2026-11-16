@@ -9,8 +9,8 @@
 // - el salto del hueco dura entre 0,5 y 1 s y el mundo baja y sube en medio;
 // - el paso a un lado se puede repetir hacia el otro lado (el centro no se pierde).
 import { describe, expect, it } from 'vitest';
-import { BEHIND, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, SUPER_K } from '../../src/modes/trek/plat/runner.js';
-import { BURPEE_GAP_S, LAND_PAST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
+import { BEHIND, BOUNCE_LIFT, CHEST_PTS, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, STOMP_PTS, SUPER_K, TREASURE_PTS } from '../../src/modes/trek/plat/runner.js';
+import { BURPEE_GAP_S, FOE_V, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece, Sim } from './plat-sim.js';
 
 /** Los sucesos que mueven la vida (la Travesía no tiene: chocar no quita vidas). */
@@ -570,5 +570,124 @@ describe('la Travesía de plataformas: las frutas', () => {
     expect(f.ok).toBe(true);
     expect(s.r.superT).toBeGreaterThan(0);
     expect(FRUIT_E).toBeLessThan(1);
+  });
+});
+
+describe('la Travesía de plataformas: los enemigos (PR D)', () => {
+  it('la seta llega andando hacia ti desde FOE_WAKE m, hasta su sitio (FOE_WALK m), y allí espera', () => {
+    const s = new Sim();
+    const foe = piece(1, 'foe', 60, 1);
+    s.load(course([foe, piece(2, 'chest', 140, 1)]));
+    expect(foe.walk).toBe(FOE_WALK);
+    expect(s.squatsTo(foe, FOE_WAKE + 3)).toBe(true);
+    expect(foe.woke).toBe(false);
+    expect(s.squatsTo(foe, FOE_WAKE - 2)).toBe(true);
+    expect(foe.woke).toBe(true);
+    expect(s.ofPiece('wake', foe)).toHaveLength(1);
+    // anda a su paso: en 1 s, FOE_V m (o hasta su sitio)
+    const w0 = foe.walk;
+    s.stand(1);
+    expect(foe.walk).toBeCloseTo(Math.max(0, w0 - FOE_V), 1);
+    s.stand(FOE_WALK / FOE_V + 1);
+    expect(foe.walk).toBe(0);
+  });
+
+  it('saltar encima de la seta: se chafa (puntos y rebote) y sigues sin frenar', () => {
+    const s = new Sim();
+    const foe = piece(1, 'foe', 50, 1);
+    s.load(course([foe, piece(2, 'chest', 140, 1)]));
+    expect(s.pass(foe)).toBe(true);
+    expect(foe.ok).toBe(true);
+    expect(s.ofPiece('pass', foe)).toHaveLength(1);
+    expect(s.of('hit')).toHaveLength(0);
+    expect(s.of('score').some((e) => e.n === STOMP_PTS)).toBe(true);
+    // el rebote: el mundo vuelve a bajar bajo los pies, más que un salto
+    let low = 0;
+    for (let i = 0; i < 72; i++) {
+      s.frame();
+      low = Math.min(low, s.r.dip);
+    }
+    expect(low).toBeLessThan(-JUMP_LIFT);
+    expect(low).toBeGreaterThanOrEqual(-BOUNCE_LIFT - 1e-9);
+  });
+
+  it('sin saltar, la seta te muerde: frenas a la mitad y se rompe la racha, sin perder vidas', () => {
+    const s = new Sim();
+    const foe = piece(1, 'foe', 50, 1);
+    s.load(course([foe, piece(2, 'chest', 140, 1)]));
+    expect(s.blow(foe)).toBe(true);
+    expect(foe.ok).toBe(false);
+    expect(s.ofPiece('hit', foe)).toHaveLength(1);
+    expect(s.of('combo0')).toHaveLength(1);
+    expect(s.of('say').some((e) => e.warn && /seta/.test(e.text))).toBe(true);
+    expect(lifeEv(s)).toBe(false);
+  });
+
+  it('el cangrejo, a un lado: apartarse al otro lo esquiva; quedarse en el centro, te muerde', () => {
+    for (const lado of [-1, 1] as const) {
+      const s = new Sim();
+      const crab = piece(1, 'side', 50, 2, { side: lado });
+      s.load(course([crab, piece(2, 'chest', 140, 2)]));
+      expect(s.of('say').length).toBeGreaterThanOrEqual(0);
+      expect(s.pass(crab)).toBe(true);
+      expect(crab.ok, `lado ${lado}`).toBe(true);
+      expect(s.of('say').some((e) => /cangrejo/.test(e.text))).toBe(true);
+      const m = new Sim();
+      const c2 = piece(1, 'side', 50, 2, { side: lado });
+      m.load(course([c2, piece(2, 'chest', 140, 2)]));
+      expect(m.blow(c2)).toBe(true);
+      expect(c2.ok).toBe(false);
+      expect(m.of('say').some((e) => e.warn && /mordido/.test(e.text))).toBe(true);
+    }
+  });
+});
+
+describe('la Travesía de plataformas: el cofre, la medalla y el fantasma (PR D)', () => {
+  it('el cofre dice qué hay dentro al empezar a verse y, al llegar, da una llave y una gema (con tres llaves, el tesoro)', () => {
+    const s = new Sim();
+    s.env.mem.set(PLAT_GEMS, 4);
+    const c1 = piece(1, 'chest', 40, 0);
+    s.load(course([c1]));
+    expect(s.pass(c1)).toBe(true);
+    expect(s.of('say').some((e) => /dentro, una llave \(1 de 3/.test(e.text))).toBe(true);
+    expect(s.of('store').at(-1)).toMatchObject({ key: PLAT_GEMS, val: 5 });
+    expect(s.of('trophy').at(-1)?.title).toBe('¡COFRE ABIERTO!');
+    expect(s.of('score').some((e) => e.n === CHEST_PTS)).toBe(true);
+    expect(s.r.keys).toBe(1);
+    // dos cofres más: el tercero abre el tesoro
+    s.r.keys = 2;
+    s.r.startTramo();
+    const c2 = piece(2, 'chest', 90, 1);
+    s.r.addCourse(course([c2]));
+    expect(s.pass(c2)).toBe(true);
+    expect(s.of('trophy').at(-1)?.title).toBe('¡TESORO DEL TRAMO!');
+    expect(s.of('score').some((e) => e.n === TREASURE_PTS)).toBe(true);
+    expect(s.r.keys).toBe(0);
+  });
+
+  it('la medalla, por lo superado sin chocar (las frutas no cuentan); el fantasma se guarda si llegas más lejos', () => {
+    const s = new Sim();
+    const ps = [piece(1, 'log', 30, 0), piece(2, 'low', 60, 0, { h: 0.25 }), piece(3, 'chest', 100, 0)];
+    s.load(course(ps));
+    for (const p of ps) expect(s.pass(p)).toBe(true);
+    const e = s.r.end(1000);
+    expect(e.medal?.[0]).toBe('oro');
+    expect(e.ghost).not.toBeNull();
+    expect(e.ghost!.dist).toBe(Math.round(s.r.dist));
+    expect(e.ghost!.tl.length).toBeGreaterThan(2);
+    expect(e.farther).toBe(false); // (no había fantasma: no es «más lejos que nunca»)
+    // con ese fantasma guardado, la ronda siguiente compara contigo
+    s.env.mem.set(PLAT_GHOST, e.ghost);
+    const t = new Sim();
+    t.env.mem.set(PLAT_GHOST, e.ghost);
+    t.load(course([piece(1, 'chest', 100, 0)]));
+    expect(t.r.best?.dist).toBe(e.ghost!.dist);
+    t.stand(5);
+    const g = t.r.ghostDiff();
+    expect(g).not.toBeNull();
+    expect(g!).toBeLessThan(0); // (parado, vas por detrás de tu mejor ronda)
+    const e2 = t.r.end(10);
+    expect(e2.ghost).toBeNull();
+    expect(e2.farther).toBe(false);
   });
 });

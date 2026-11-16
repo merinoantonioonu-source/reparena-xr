@@ -66,7 +66,10 @@ tabla de `README.md` dice qué hace cada archivo.
   hasta 1 m). El túnel se pasa en plancha con la inercia (`BodyMoves.plank`; echado, los avisos van al suelo: `VIEW.prone`);
   la plataforma alta, con un supersalto (sentadilla honda, `deepT`, y salto; `Runner.lev`, el suelo bajo los pies), y se
   baja sola; el burpee, un túnel y su plataforma (`Piece.burpee`). Las frutas (`fruit`, modelos de `frutas.glb`) llenan
-  la energía (`Runner.energy`); llena, supervelocidad (`superT`). Cada salto se nota (el mundo baja `JUMP_LIFT` bajo los pies) y en el aire llevas tu inercia. Las reglas de separación (`minGap`) las comprueba `plat-course.test.ts`; los guiones
+  la energía (`Runner.energy`); llena, supervelocidad (`superT`). Los enemigos (PR D) son piezas: la seta (`foe`, se pisa) y el
+  cangrejo (`side`, a un lado) llegan andando (`Piece.walk`: se juzgan en `at + walk`) y los pinta `TrekSystem` animados
+  (`FOE_POOL` de cada uno, reutilizados); cada tramo, su paisaje (`setBiome`, `decoPuts(…, biome)`); el cofre da llave y gema
+  y el fantasma va en `reparenaxr-trekghost`. Cada salto se nota (el mundo baja `JUMP_LIFT` bajo los pies) y en el aire llevas tu inercia. Las reglas de separación (`minGap`) las comprueba `plat-course.test.ts`; los guiones
   de cabeza, `plat-runner.test.ts` con `plat-sim.ts`. Todo con instancias y sin crear objetos en cada fotograma.
 - **Datos**: RepArena guarda todo en el navegador con claves `reparena3-*`, y las dos versiones comparten esos datos (se
   publican en el mismo sitio): usa las mismas claves con el mismo formato; lo nuevo, con `reparenaxr-*` (un ajuste que solo tiene RepArena XR lleva `xr: true` en

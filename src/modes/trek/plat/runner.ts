@@ -19,7 +19,13 @@
  *   techo. Al salir, de pie.
  * - **Las frutas** flotan a la altura de la cabeza, a un lado: se cogen apartando la cabeza hacia ellas. Llenan la barra de
  *   energía (`FRUIT_E` cada una; la especial, entera); llena, **supervelocidad** (`SUPER_K` la máxima, `SUPER_T` s).
- * - **Pasos**: solo el cofre al final del tramo: el mundo frena suave (`HALT_BRAKE`) hasta dejarte a `STOP_AT` (1 m).
+ * - **Los enemigos** llegan andando hacia ti (`FOE_V`, desde `FOE_WAKE` m): **la seta**, por el centro, se pisa saltando
+ *   cuando llega a tus pies (se chafa y rebotas: el mundo baja otra vez bajo los pies); **el cangrejo**, pegado a un lado,
+ *   se esquiva con un paso al otro (elegido por el usuario). Si no, te muerden: frenas a la mitad y se rompe la racha.
+ * - **Pasos**: solo el cofre al final del tramo: el mundo frena suave (`HALT_BRAKE`) hasta dejarte a `STOP_AT` (1 m). Dice
+ *   al aparecer qué hay dentro (una llave —con tres, el tesoro— y una gema, como en la Travesía clásica) y al llegar se abre.
+ * - **El fantasma**: cada `GHOST_DT` s se apunta dónde vas; al acabar, si llegaste más lejos que nunca, se guarda
+ *   (`PLAT_GHOST`) y la ronda siguiente compara contigo (`ghostDiff`). La medalla, por las piezas superadas sin chocar.
  * - **Más deprisa que la Travesía clásica** (`PLAT_SPEED`, pedido del usuario): la misma «Velocidad de avance», un 35 % más,
  *   y acelera antes.
  *
@@ -30,7 +36,7 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, FLUID, FRUIT_WIN, HALT, HALT_BRAKE, LAND_PAST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './types.js';
+import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -63,6 +69,27 @@ export const LOG_WIN = 0.45, LOG_WIN_S = 0.3, SIDE_WIN = 0.35;
 export const BEHIND = 8;
 /** Cuántos segundos antes de un obstáculo a un lado el centro deja de seguir a la cabeza. */
 export const SIDE_HOLD_S = 3;
+/** Pisar la seta: el rebote (el mundo baja esto bajo los pies, m, en AIR_T s) y los puntos; esquivar el cangrejo, los suyos. */
+export const BOUNCE_LIFT = 0.55, STOMP_PTS = 200, CRAB_PTS = 150;
+/** El cofre: sus puntos, los del tesoro (con tres llaves) y las llaves que pide (los de la Travesía clásica). */
+export const CHEST_PTS = 400, TREASURE_PTS = 1500, TREASURE_KEYS = 3;
+
+/** Tu mejor Travesía de plataformas (el fantasma): hasta dónde llegaste, tus puntos y dónde ibas cada GHOST_DT s. */
+export interface PlatGhost {
+  dist: number;
+  score: number;
+  tl: number[];
+}
+
+/** Lo que sale al acabar la ronda: la medalla (por las piezas superadas sin chocar: 95 % oro, 80 % plata, 60 % bronce,
+ * como en Arcos), los metros, si llegaste más lejos que nunca, las frutas y el fantasma nuevo que hay que guardar. */
+export interface PlatEnd {
+  medal: [string, string] | null;
+  dist: number;
+  farther: boolean;
+  fruits: number;
+  ghost: PlatGhost | null;
+}
 
 /** Lo que mide el tramo hasta el cofre (m) con las repeticiones de su oleada: unos 3,5 m por repetición (por PLAT_SPEED),
  * entre 40 y 400. */
@@ -131,9 +158,18 @@ export class Runner {
   dip = 0;
   /** Los tramos montados: dónde acaba cada uno (su cofre). */
   ends: number[] = [];
-  /** Superadas y chocadas en la ronda. */
+  /** Superadas y chocadas en la ronda, y las frutas cogidas (cuentan en `passed`). */
   passed = 0;
   hits = 0;
+  fruits = 0;
+  /** Las llaves de los cofres (con TREASURE_KEYS, el tesoro). */
+  keys = 0;
+  /** El fantasma: tu mejor ronda guardada (o null) y dónde vas cada GHOST_DT s en esta. */
+  best: PlatGhost | null = null;
+  tl: number[] = [];
+  private tlT = 0;
+  /** Lo que baja el mundo en lo más alto del salto sin hueco de ahora (m: el rebote de la seta, más). */
+  private airLift = JUMP_LIFT;
   private id = 1;
 
   constructor(public env: PlatEnv) {
@@ -194,8 +230,12 @@ export class Runner {
     this.levTo = null;
     this.onStep = null;
     this.ends = [];
-    this.passed = this.hits = 0;
+    this.passed = this.hits = this.fruits = this.keys = 0;
     this.id = 1;
+    const B = this.env.store(PLAT_GHOST) as PlatGhost | null;
+    this.best = B && Array.isArray(B.tl) ? B : null;
+    this.tl = [];
+    this.tlT = 0;
     this.moves.reset(this.env.calibRef, this.env.head.x);
   }
 
@@ -315,11 +355,36 @@ export class Runner {
     tk.frame();
     this.reveal();
     if (st === 'play') {
+      this.walk(dt);
       if (this.moves.takeoff && !this.hop && !this.stop) this.takeoff(H.z);
-      for (const p of this.live) if (!p.judged && FLUID.includes(p.k) && p !== this.hop?.p) this.judge(p, p.at - tk.dist + H.z);
+      for (const p of this.live) if (!p.judged && FLUID.includes(p.k) && p !== this.hop?.p) this.judge(p, p.at + p.walk - tk.dist + H.z);
+      // el fantasma: dónde vas, cada GHOST_DT s
+      this.tlT += dt;
+      if (this.tlT >= GHOST_DT) {
+        this.tlT -= GHOST_DT;
+        if (this.tl.length < 900) this.tl.push(Math.round(tk.dist));
+      }
     } else this.airT = -1;
     this.drop();
     this.pull();
+  }
+
+  /** La seta y el cangrejo: cuando te quedan a FOE_WAKE m, andan hacia ti hasta su sitio (y allí te esperan). */
+  private walk(dt: number): void {
+    const d = this.tk.dist;
+    for (const p of this.live) {
+      // el cofre dice al aparecer (o al empezar el tramo, si ya se veía) qué hay dentro (regla del usuario)
+      if (p.k === 'chest' && !p.warned && !p.judged && p !== this.chest) {
+        p.warned = true;
+        this.say(`Al final del tramo, un cofre: dentro, una llave (${this.keys + 1} de ${TREASURE_KEYS}: con ${TREASURE_KEYS}, el tesoro) y una gema`, COL_ASK, 3, false);
+      }
+      if ((p.k !== 'foe' && p.k !== 'side') || p.judged) continue;
+      if (!p.woke && p.at + p.walk - d < FOE_WAKE) {
+        p.woke = true;
+        this.ev.push({ t: 'wake', p });
+      }
+      if (p.woke && p.walk > 0) p.walk = Math.max(0, p.walk - FOE_V * dt);
+    }
   }
 
   /** ¿Se acerca un obstáculo a un lado (o está pasando)? Entonces el centro no sigue a la cabeza. */
@@ -370,7 +435,7 @@ export class Runner {
   /** El juicio de una fluida; `z`, lo que le falta para llegar a tu cabeza (m). */
   private judge(p: Piece, z: number): void {
     const M = this.moves, C = this.cfg, v = this.tk.v;
-    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit';
+    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe';
     // (el túnel, con más tiempo: hay que echarse al suelo)
     const warnAt = p.k === 'crawl' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
     if (!p.warned && z < warnAt) {
@@ -415,8 +480,20 @@ export class Runner {
       return;
     }
     if (p.k === 'side') {
+      // el cangrejo: mientras pasa a tu lado, la cabeza (el cuerpo) apartada al otro
       if (Math.abs(z) < SIDE_WIN && !M.clear(p.side as -1 | 1, C)) p.bad = true;
       if (z < -SIDE_WIN) this.result(p, !p.bad);
+      return;
+    }
+    if (p.k === 'foe') {
+      // la seta: en el aire cuando llega a tus pies (andando hacia ti, llega antes: la ventana, con su paso), la pisas
+      const win = Math.max(LOG_WIN, LOG_WIN_S * (v + (p.walk > 0 ? FOE_V : 0)));
+      if (Math.abs(z) < win) {
+        p.maxUp = Math.max(p.maxUp, M.up);
+        if (M.air && p.maxUp >= C.jumpH) this.stomp(p);
+        return;
+      }
+      if (z < -win) this.result(p, false);
       return;
     }
     if (p.k === 'log') {
@@ -439,15 +516,31 @@ export class Runner {
     if (ok) {
       this.passed++;
       this.ev.push({ t: 'pass', p });
-      this.score(p.k === 'log' ? 150 : 120);
+      this.score(p.k === 'log' ? 150 : p.k === 'side' ? CRAB_PTS : 120);
       this.snd('whoosh', at, 'arc');
-      this.cheer(p.k === 'log' ? '¡Saltado!' : p.k === 'low' ? '¡Esquivada!' : '¡Esquivado!', COL_OK, 0.9);
+      this.cheer(p.k === 'log' ? '¡Saltado!' : p.k === 'low' ? '¡Esquivada!' : '¡Cangrejo esquivado!', COL_OK, 0.9);
       return;
     }
     this.tk.v *= HIT_KEEP;
     this.hit(p, at);
     const away = p.side < 0 ? 'derecha' : 'izquierda';
-    this.say(p.k === 'log' ? '¡Salta el tronco!' : p.k === 'low' ? '¡Agáchate bajo la viga!' : `¡Apártate a la ${away}!`, COL_WARN, 1.6, true);
+    this.say(p.k === 'log' ? '¡Salta el tronco!' : p.k === 'low' ? '¡Agáchate bajo la viga!' : p.k === 'foe' ? '¡Te ha mordido! Sáltale encima a la seta' : `¡Te ha mordido! Apártate a la ${away}`, COL_WARN, 1.6, true);
+  }
+
+  /** Pisas la seta: se chafa, puntos y rebote (el mundo vuelve a bajar bajo los pies, algo más que un salto). */
+  private stomp(p: Piece): void {
+    p.judged = true;
+    p.ok = true;
+    this.passed++;
+    this.ev.push({ t: 'pass', p });
+    this.score(STOMP_PTS);
+    this.snd('squish', this.pos(p, p.walk, 0.2));
+    this.ev.push({ t: 'fx', name: 'sparks', at: this.pos(p, p.walk, 0.2), n: 14, col: 0xc8ff3a });
+    this.ev.push({ t: 'haptic', k: 0.7, ms: 90 });
+    this.cheer('¡Aplastada!', COL_OK, 1.0);
+    this.airT = 0;
+    this.airDur = AIR_T;
+    this.airLift = BOUNCE_LIFT;
   }
 
   /** Lo de chocar o tropezar: se rompe la racha, se apaga el turbo, golpe, polvo y vibración. */
@@ -479,8 +572,24 @@ export class Runner {
       this.chest = p;
       this.ev.push({ t: 'chest', p });
       this.snd('victory', null);
+      this.openChest();
       return;
     }
+  }
+
+  /** Se abre el cofre (como en la Travesía clásica): una llave (con tres, el tesoro del tramo) y una gema para tu colección,
+   * con su aviso grande de lo que has conseguido y lo que falta para el premio siguiente. */
+  private openChest(): void {
+    this.keys++;
+    this.score(CHEST_PTS);
+    const gems = ((this.env.store(PLAT_GEMS) as number) || 0) + 1;
+    this.ev.push({ t: 'store', key: PLAT_GEMS, val: gems });
+    this.cheer(`¡Cofre abierto! Llave ${this.keys}/${TREASURE_KEYS} · gema ${gems}`, '#ffd166', 2.2);
+    if (this.keys >= TREASURE_KEYS) {
+      this.keys = 0;
+      this.score(TREASURE_PTS);
+      this.ev.push({ t: 'trophy', title: '¡TESORO DEL TRAMO!', sub: `Tres llaves: +${TREASURE_PTS} puntos (y +${CHEST_PTS} del cofre). Gema nº ${gems} para tu colección` });
+    } else this.ev.push({ t: 'trophy', title: '¡COFRE ABIERTO!', sub: `+${CHEST_PTS} puntos y la llave ${this.keys} de ${TREASURE_KEYS}: ${TREASURE_KEYS - this.keys === 1 ? 'una más' : 'dos más'} y abres el tesoro del tramo (+${TREASURE_PTS}). Gema nº ${gems}` });
   }
 
   /** Subes a la plataforma: con el supersalto (`won`: el mundo baja su altura mientras estás en el aire) o a trompicones
@@ -493,6 +602,7 @@ export class Runner {
       this.levTo = { from: this.lev, to: p.h, t: 0, dur: SUPER_LEV_T };
       this.airT = 0;
       this.airDur = SUPER_AIR_T;
+      this.airLift = JUMP_LIFT;
       this.passed++;
       this.ev.push({ t: 'pass', p });
       const burpee = p.burpee && this.prevOk(p, 'crawl');
@@ -519,6 +629,7 @@ export class Runner {
     p.judged = true;
     p.ok = true;
     this.passed++;
+    this.fruits++;
     this.ev.push({ t: 'pass', p });
     this.score(p.special ? 300 : 100);
     this.snd('perfect', this.pos(p, 0, this.env.calibRef));
@@ -562,6 +673,7 @@ export class Runner {
     }
     this.airT = 0;
     this.airDur = AIR_T;
+    this.airLift = JUMP_LIFT;
   }
 
   /** Empieza el cruce del hueco: con el salto (`won`), a tu velocidad (o algo más, si no llegas al otro lado en HOP_MAX) y
@@ -630,7 +742,7 @@ export class Runner {
       this.airT = -1;
       return;
     }
-    this.dip = -JUMP_LIFT * arc(k);
+    this.dip = -this.airLift * arc(k);
   }
 
   /** Lo que pide cada pieza (al avisar de ella, al pararte o si tardas). */
@@ -641,7 +753,8 @@ export class Runner {
     else if (p.k === 'fruit') this.say(`¡${p.special ? 'Fruta especial' : 'Fruta'} a la ${p.side < 0 ? 'izquierda' : 'derecha'}!`, COL_ASK, 1.2, false);
     else if (p.k === 'log') this.say('¡Salta!', COL_ASK, 1.2, false);
     else if (p.k === 'low') this.say('¡Agáchate!', COL_ASK, 1.2, false);
-    else if (p.k === 'side') this.say(`¡Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}!`, COL_ASK, 1.4, false);
+    else if (p.k === 'side') this.say(`¡Un cangrejo a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}`, COL_ASK, 1.6, false);
+    else if (p.k === 'foe') this.say('¡Una seta! Sáltale encima cuando llegue', COL_ASK, 1.6, false);
   }
 
   /* ---------- lo de la marcha ---------- */
@@ -669,10 +782,29 @@ export class Runner {
     return TREK_VMAX * trekK(this.tk.env) * TREK_TURBO_V;
   }
 
+  /* ---------- el fantasma y la medalla ---------- */
+
+  /** Lo que llevas de más (m, positivo) o de menos que en tu mejor ronda a estas alturas; null sin fantasma. */
+  ghostDiff(): number | null {
+    const B = this.best;
+    if (!B || !B.tl.length) return null;
+    const i = Math.min(B.tl.length - 1, this.tl.length - 1);
+    return i < 0 ? 0 : this.tk.dist - (B.tl[i] || 0);
+  }
+
+  /** Al acabar la ronda (`score`, tus puntos): la medalla, los metros y, si llegaste más lejos que nunca, el fantasma nuevo. */
+  end(score: number): PlatEnd {
+    const ok = this.passed - this.fruits, n = ok + this.hits, k = n ? ok / n : 0, dist = Math.round(this.tk.dist);
+    const medal: [string, string] | null = !n ? null : k >= 0.95 ? ['oro', '#ffd166'] : k >= 0.8 ? ['plata', '#d8dce6'] : k >= 0.6 ? ['bronce', '#e0975a'] : null;
+    const prev = this.best, farther = !prev || dist > (prev.dist || 0);
+    const ghost = farther && dist > 0 ? { dist, score, tl: this.tl.concat(dist).slice(0, 900) } : null;
+    return { medal, dist, farther: farther && !!prev && dist > 0, fruits: this.fruits, ghost };
+  }
+
   /* ---------- sucesos ---------- */
 
   private pos(p: Piece, ds: number, y: number): PlatPos {
-    return { s: p.at + ds, u: p.side * 0.45, y };
+    return { s: p.at + ds, u: p.side * (p.k === 'side' ? CRAB_U : 0.45), y };
   }
   private say(text: string, col: string, dur: number, warn: boolean): void {
     this.ev.push({ t: 'say', text, col, dur, warn });
@@ -680,7 +812,7 @@ export class Runner {
   private cheer(text: string, col: string, dur: number): void {
     this.ev.push({ t: 'cheer', text, col, dur });
   }
-  private snd(name: 'whoosh' | 'metalHit' | 'perfect' | 'combo' | 'step' | 'victory' | 'tick', at: PlatPos | null, arg?: string | boolean): void {
+  private snd(name: PlatSnd, at: PlatPos | null, arg?: string | boolean): void {
     this.ev.push(arg === undefined ? { t: 'snd', name, at } : { t: 'snd', name, at, arg });
   }
   private score(n: number): void {

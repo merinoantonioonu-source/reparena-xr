@@ -70,6 +70,10 @@ No las cambies sin preguntarle.
   - **Frutas en vez de obstáculos a un lado** (los obstáculos laterales volverán con los enemigos): flotan a la altura de
     la cabeza, a un lado; se cogen llevando la cabeza hacia ellas. Llenan una **barra de energía**; llena, supervelocidad.
     De vez en cuando, una especial que la llena de golpe. Modelos: el «Food Kit» de Kenney (CC0).
+- Travesía de plataformas, PR D (elegido por el usuario): **los enemigos llegan andando por la pasarela** (los monstruitos
+  de Quaternius que ya hay): **la seta**, por el centro, **se pisa** saltando cuando llega a tus pies (se chafa y rebotas);
+  **el cangrejo**, pegado a un lado, **se esquiva** con un paso al otro. Si no, te muerden: frenas a la mitad y se rompe la
+  racha, sin quitar vidas. Lo que hay que esquivar a un lado son **solo enemigos** (nada quieto).
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.
