@@ -10,7 +10,7 @@
  * tests/unit/dev.test.ts y se compara con RepArena en tests/compare/dev.compare.test.ts.
  */
 import { DEV_FOE_HP, FOE_TIER, devFoe } from '../combat/foes.js';
-import { EX_NAMES, FOE_FLY, FOE_GATE, FOE_HATCH, MODE_EX, MODE_NAMES, RANKS, RANK_VALS, exOk } from './catalog.js';
+import { EX_NAMES, FOE_FLY, FOE_GATE, FOE_HATCH, MODE_EX, MODE_NAMES, RANKS, RANK_VALS, RANK_VALS_XR, exOk } from './catalog.js';
 import { DEV, DEV_FACTORY, type DevTable } from './dev-state.js';
 import { FIELD, SCHEMA, type FieldDef } from './schema.js';
 import { DEV_ON_KEY, applyRank, clampSetting, comboId, devCell, devCtl, devEye, devRowOk, devSave, devVal, rankIdx, setSetting, store } from './settings.js';
@@ -81,7 +81,7 @@ export function devRowClear(key: string, id = comboId()): void {
   }
 }
 /** ¿Manda el rango en esta fila? (las de siempre, RANK_VALS, y las tocadas en este modo y ejercicio) */
-export const devRowOn = (key: string, id = comboId()): boolean => !!RANK_VALS[key] || devCtl(id).includes(key);
+export const devRowOn = (key: string, id = comboId()): boolean => !!RANK_VALS[key] || !!RANK_VALS_XR[key] || devCtl(id).includes(key);
 
 // ---------------------------------------------------------------- las filas de la tabla, listas para pintar
 
@@ -107,7 +107,7 @@ export function devTable(id = comboId()): DevRowView[] {
       const v = devVal(k, i, id);
       return { v, text: devFmt(f, v), own: devCell(k, i, id) !== null, now: i === ri };
     });
-    return { key: k, label: f.label, unit: f.unit ?? '', hint: f.hint ?? '', cells, eye: eye.has(k), ctl, clear: ctl && !RANK_VALS[k] };
+    return { key: k, label: f.label, unit: f.unit ?? '', hint: f.hint ?? '', cells, eye: eye.has(k), ctl, clear: ctl && !RANK_VALS[k] && !RANK_VALS_XR[k] };
   });
 }
 

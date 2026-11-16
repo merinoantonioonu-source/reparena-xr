@@ -122,8 +122,32 @@ export function piece(id: number, k: PieceKind, at: number, tramo: number, o: Pa
   return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: k === 'foe' || k === 'side' ? FOE_WALK : 0, woke: false };
 }
 
+/** Lo que manda la tabla de dificultad (por rango, PR E; los ajustes `plat*`): el sitio de más entre retos (×, 1 = el de
+ * siempre), el hueco más corto (m), lo que hay que bajar bajo la viga más alta (m), la plataforma más baja (m), el túnel más
+ * corto (m) y el paso de los enemigos (m/s). En cada tramo, algo más (hasta `TUNE_UP`). */
+export interface PlatTune {
+  space: number;
+  gap: number;
+  duck: number;
+  high: number;
+  tunnel: number;
+  foeV: number;
+}
+/** Los de serie (los del cabo, el rango de serie: como antes de la tabla). */
+export const TUNE_DEF: PlatTune = { space: 1, gap: 0.9, duck: 0.24, high: 0.86, tunnel: 3.3, foeV: FOE_V };
+/** Lo que más crece cada medida sobre la de la tabla, tramo a tramo (m). */
+export const TUNE_UP = { gap: 0.8, duck: 0.12, high: 0.7, tunnel: 3 } as const;
+/** Los ajustes de la tabla, de los valores de los ajustes (`s`: platSpace en %, platGap/platDuck/platHigh en cm,
+ * platTunnel en m, platFoeV en m/s; 0 o sin ellos, los de serie). */
+export function platTune(s: (k: string) => number): PlatTune {
+  const v = (k: string, k2: number, d: number): number => (s(k) > 0 ? s(k) * k2 : d);
+  return { space: v('platSpace', 0.01, TUNE_DEF.space), gap: v('platGap', 0.01, TUNE_DEF.gap), duck: v('platDuck', 0.01, TUNE_DEF.duck), high: v('platHigh', 0.01, TUNE_DEF.high), tunnel: v('platTunnel', 1, TUNE_DEF.tunnel), foeV: v('platFoeV', 1, TUNE_DEF.foeV) };
+}
+
 /** Lo que `buildCourse` necesita para hacer un tramo. */
 export interface CourseEnv {
+  /** Lo que manda la tabla de dificultad (sin él, `TUNE_DEF`). */
+  tune?: PlatTune;
   /** La velocidad más alta que se puede llevar (m/s: la de «Velocidad de avance» con el turbo): las separaciones en
    * segundos se pasan a metros con ella. */
   vmax: number;

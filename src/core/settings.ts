@@ -11,7 +11,7 @@
  *
  * Lógica pura (sin IWSDK): se prueba en tests/unit/settings.test.ts. Hay que llamar a initSettings() al arrancar.
  */
-import { EX_NAMES, LEGACY_MODES, MODE_NAMES, RANKS, RANK_VALS, exFor, exOk, modeFor } from './catalog.js';
+import { EX_NAMES, LEGACY_MODES, MODE_NAMES, RANKS, RANK_VALS, RANK_VALS_XR, exFor, exOk, modeFor } from './catalog.js';
 import { DEV, DEV_FACTORY, type DevTable } from './dev-state.js';
 import { foeCatPatch, foeList, foesHas, isBars, isCombat } from './rules.js';
 import { FIELD, SCHEMA, type FieldDef } from './schema.js';
@@ -138,7 +138,7 @@ export function saveSettings(): void {
 const COMBO_G = new Set(['partida', 'ejercicio', 'enemigos', 'armas', 'cada', 'arcos', 'toques', 'barras']);
 const COMBO_SKIP = new Set(['doorH', 'doorW', 'dipH', 'dipBars', 'dipGap', 'dipLen']);
 let _comboKeys: string[] | null = null;
-export const comboKeys = (): string[] => _comboKeys || (_comboKeys = SCHEMA.filter((f) => COMBO_G.has(f.g) && !COMBO_SKIP.has(f.key)).map((f) => f.key));
+export const comboKeys = (): string[] => _comboKeys || (_comboKeys = SCHEMA.filter((f) => COMBO_G.has(f.g) && !COMBO_SKIP.has(f.key) && !f.xr).map((f) => f.key));
 export const comboId = (): string => settings.mode + '|' + settings.exercise;
 type Combos = Record<string, Record<string, SettingValue>>;
 export function comboSave(id = comboId()): void {
@@ -181,7 +181,8 @@ let comboLoading = false; // (al cargar los de un modo y ejercicio, su rango vie
 const DEV_NOT = new Set(['rank', 'toFail', 'foeKind', 'sword', 'swordKind', 'swordHand', 'padHands', 'handLook', 'pistol', 'aim', 'throwPick', 'comboBase', 'comboOrder', 'hangPit', 'supArms', 'dipBars', 'guard', 'barOffset', 'fallMargin']);
 const DEV_CHOICE_OK = new Set(['guardDiff', 'arcTiming', 'barTarget']);
 let _devCombo: Set<string> | null = null;
-const devComboSet = (): Set<string> => _devCombo || (_devCombo = new Set(comboKeys()));
+// (más los de RepArena XR que manda el rango: van en la tabla, pero no en lo guardado de cada ejercicio, que es de RepArena)
+const devComboSet = (): Set<string> => _devCombo || (_devCombo = new Set([...comboKeys(), ...Object.keys(RANK_VALS_XR)]));
 export const devRowOk = (f: FieldDef | undefined): boolean => !!f && f.g !== 'ejercicio' && devComboSet().has(f.key) && !DEV_NOT.has(f.key) && (f.type === 'num' || f.type === 'toggle' || DEV_CHOICE_OK.has(f.key));
 // (sin mirar las condiciones de cada ajuste: la tabla enseña todo lo que vale para el modo y el ejercicio)
 export const fieldFits = (f: FieldDef): boolean => (!f.modes || f.modes.includes(settings.mode)) && (!f.ex || f.ex.includes(settings.exercise)) && !(f.noEx && f.noEx.includes(settings.exercise));
@@ -194,7 +195,7 @@ export function devCell(key: string, i: number, id = comboId()): number | string
   for (const a of [devArr(devEntry(id), key), devArr(devFact(id), key)]) if (a && a[i] !== undefined && a[i] !== null) return a[i];
   return null;
 }
-export const devBase = (key: string, i: number): SettingValue => (RANK_VALS[key] ? RANK_VALS[key][i] : FIELD[key].def);
+export const devBase = (key: string, i: number): SettingValue => (RANK_VALS[key] ? RANK_VALS[key][i] : RANK_VALS_XR[key] ? RANK_VALS_XR[key][i] : FIELD[key].def);
 export const devVal = (key: string, i: number, id?: string): SettingValue => {
   const v = devCell(key, i, id);
   return clampSetting(FIELD[key], v === null ? devBase(key, i) : v);
@@ -250,6 +251,7 @@ export const rankName = (r: SettingValue = settings.rank): string => RANKS[rankI
 export function rankVals(r: SettingValue = settings.rank): Record<string, SettingValue> {
   const i = rankIdx(r), o: Record<string, SettingValue> = {};
   for (const k in RANK_VALS) o[k] = devVal(k, i);
+  for (const k in RANK_VALS_XR) o[k] = devVal(k, i); // (los de RepArena XR: se guardan aparte, en reparenaxr-settings)
   for (const k of devCtl()) o[k] = devVal(k, i);
   return o;
 }

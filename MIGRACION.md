@@ -141,8 +141,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
   - [x] **PR A · Armazón jugable** (sentadillas, viga, tronco, barril a un lado y el hueco; el cofre al final de cada tramo) — #45, #46
   - [x] **PR B · Plataformas, túnel y burpee** — #47; **PR B2** (lo que pidió el usuario al probarlo: túnel en plancha con la inercia, burpee = túnel y plataforma, supersalto, frutas y energía) — #48
   - [ ] **PR C · Correr con los brazos** (aplazado por el usuario)
-  - [ ] **PR D · Enemigos, cofre, paisajes, fantasma y medalla** (la seta se pisa; el cangrejo, a un lado; un paisaje por tramo; el cofre dice qué lleva y da llave y gema; estelas del turbo; la Travesía en las misiones)
-  - [ ] **PR E · Tabla del desarrollador y repaso**
+  - [x] **PR D · Enemigos, cofre, paisajes, fantasma y medalla** (la seta se pisa; el cangrejo, a un lado; un paisaje por tramo; el cofre dice qué lleva y da llave y gema; estelas del turbo; la Travesía en las misiones) — #49
+  - [ ] **PR E · Tabla del desarrollador y repaso** (la dificultad de la Travesía por rango, en la tabla; el repaso del código; falta el repaso con el diagnóstico de las gafas)
 - [ ] **PR 19 · Sesiones** (aplazado por el usuario: se hará más adelante)
 - [x] **PR 20 · Entornos** — #28
 - [ ] **PR 21 · Realidad mixta** (aplazado por el usuario: se hará más adelante; nada de lo demás depende de ella. Se empezó con lo de serie de IWSDK: entrar con `launchXR` en modo `immersive-ar` con detección de planos y mallas, anclas y profundidad, `DepthSensingSystem` y `DepthOccludable` en compuertas, cajas, rocas (ya quitadas, PR 28) y enemigos, y `GAME.mr`/`arenaDepth` —6 m en realidad mixta—; el plan de la habitación de RepArena, `src/37_room.js`, se porta a lógica pura con su comparación)
@@ -405,6 +405,33 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- Travesía de plataformas, PR E → los siguientes: **la dificultad de la Travesía va por rango** en la tabla del
+  desarrollador: seis ajustes solo de RepArena XR (`xr: true`, grupo `travesia`, pestaña «Modo Travesía»): `platSpace`
+  (separación entre retos, %), `platGap` (el hueco más corto, cm), `platDuck` (lo que hay que agacharse bajo la viga más
+  alta, cm), `platHigh` (la plataforma más baja, cm), `platTunnel` (el túnel más corto, m) y `platFoeV` (el paso de la seta y
+  el cangrejo, m/s). Sus valores por rango, en `RANK_VALS_XR` (`src/core/catalog.ts`; el cabo, el de serie, da lo mismo que
+  antes de la tabla); `devBase`, `rankVals` y `devRowOn` los leen como los de `RANK_VALS`, pero no van en lo guardado de cada
+  ejercicio (`comboKeys` deja fuera los `xr`: es de RepArena) y se guardan en `reparenaxr-settings`. El jugador no los ve
+  salvo que el desarrollador les marque el ojo. `buildCourse` los recibe en `CourseEnv.tune` (`platTune`, types.ts) y
+  `courseRules(…, tune)` comprueba cada medida entre la de la tabla y ella más `TUNE_UP` (lo que crece tramo a tramo); el
+  rango ya no entra a mano en esas medidas (sí en el largo de las plataformas y en el burpee). En `dev.compare` se dejan
+  fuera las filas `xr` (RepArena no las conoce). **Repaso del código** (una revisión aparte): las estelas del turbo y los
+  enemigos se precompilan como se pintan (instanciadas; con sombra), `getGLTF(…, { shared: true })` para ver si ya hay
+  modelo sin copiarlo, sin funciones nuevas en cada fotograma en `Runner.step`, y los enemigos no andan entre tramos.
+  **Falta el repaso con el diagnóstico de las gafas**: pídeselo al usuario (Travesía jugada en las gafas: «Guardar
+  diagnóstico» en la pausa) antes de tocar umbrales o tiempos. Lo que queda del plan: el PR C (correr con los brazos),
+  aplazado por el usuario.
+- PR E, lo que pidió el usuario al probar el PR D: el **supersalto vale desde antes del borde** (`STEP_EARLY_S`/`STEP_EARLY_MIN`:
+  si es bueno y no hay otro reto en medio, `Runner.leap` te lleva en el aire hasta encima, `STEP_LAND` pasado el borde, y el
+  suelo sube mientras; un salto normal ahí es un salto sin más y la plataforma se juzga al llegar). El **fondo gira con las
+  curvas** (`PANO_FOLLOW`, un cuarto de lo que gira el mundo: la rotación del `DomeTexture`, con `_needsUpdate`, solo si
+  cambia más de `PANO_STEP` y si IWSDK no está cargando otro fondo). **El PR D no se había publicado**: en la máquina de
+  GitHub la prueba de los 5.000 recorridos pasaba de los 5 s de serie; las dos pruebas pesadas llevan su propio tiempo (30 s).
+  Si una publicación falla, el usuario sigue con la versión anterior en las gafas: tras fusionar, mira «Publicar en GitHub
+  Pages». **Pendiente**: un plano gris oscuro detrás del marcador y de los avisos (y en la bola colgante de Arcos) cuando la
+  calibración del principio cambia mucho tu sitio; sin causa clara en el código (los menús se llevan su pantalla invisible al
+  cerrarse): se le ha pedido al usuario una foto.
 
 - Travesía de plataformas, PR D → el E (tabla del desarrollador y repaso): **enemigos** (elegido por el usuario: la seta se
   pisa; el cangrejo se esquiva a un lado; a un lado, solo enemigos). Son piezas como las demás: `foe` (la seta, por el

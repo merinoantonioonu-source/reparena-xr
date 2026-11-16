@@ -62,6 +62,14 @@ export const RANK_VALS: Record<string, (number | string)[]> = {
   tchArrive: [4.5, 4, 3, 2.5, 2, 1.5, 1], tchWindow: [2, 1.6, 1.2, 1, 0.9, 0.7, 0.6], tchGap: [3.4, 2.9, 2.4, 2.1, 1.8, 1.5, 1.2], barArrive: [6, 5, 4, 3.5, 3, 2.5, 2], barWait: [0, 16, 12, 10, 8, 6, 4],
   guardDiff: ['easy', 'easy', 'normal', 'normal', 'normal', 'hard', 'hard']
 };
+/** Lo mismo para los ajustes que solo tiene RepArena XR (los de la Travesía de plataformas): aparte, para no tocar los de
+ * RepArena (las dos versiones comparten la tabla). Del recluta al general: más juntos los retos, huecos más largos, vigas
+ * más bajas, plataformas más altas, túneles más largos y enemigos que andan más deprisa. Al cabo (el de serie), como
+ * estaba antes de la tabla. */
+export const RANK_VALS_XR: Record<string, (number | string)[]> = {
+  platSpace: [140, 120, 100, 95, 90, 85, 80], platGap: [80, 85, 90, 95, 100, 105, 110], platDuck: [22, 23, 24, 25, 26, 27, 28],
+  platHigh: [80, 83, 86, 89, 92, 95, 98], platTunnel: [3, 3.1, 3.3, 3.4, 3.6, 3.7, 3.9], platFoeV: [0.6, 0.75, 0.9, 1, 1.1, 1.25, 1.4],
+};
 // Con las piernas (sentadillas, zancadas, peso muerto…): aguantar abajo carga el disparo, y bajar mucho, la recarga profunda
 export const DEEP_EX = ['squat', 'lunge', 'jsquat', 'thruster', 'frontsq', 'dlrow'];
 

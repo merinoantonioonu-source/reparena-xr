@@ -36,7 +36,7 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, platTune, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -55,6 +55,10 @@ export const HIT_KEEP = 0.5;
  * altura: suave también en las altas); el supersalto, lo que dura en el aire (s) y lo que tarda el suelo en subir (s); y la
  * sentadilla honda que pide, como mucho tantos s antes del salto. */
 export const CLIMB_T = 0.45, DROP_T = 0.45, LEV_PER_M = 0.4, SUPER_AIR_T = 0.9, SUPER_LEV_T = 0.6, DEEP_WIN = 1.5;
+/** El supersalto vale desde antes del borde (pedido del usuario: hecho cerca de la plataforma, ya te sube a ella): desde lo
+ * que recorres en STEP_EARLY_S s o, como poco, STEP_EARLY_MIN m. Si saltas antes del borde, el mundo te lleva en el aire
+ * hasta encima de la plataforma (`STEP_LAND` m pasado su borde), a tu velocidad o algo más deprisa si no llegas. */
+export const STEP_EARLY_S = 1.2, STEP_EARLY_MIN = 3.5, STEP_LAND = 0.5;
 /** El túnel: la velocidad que llevas como poco cerca y dentro de él, echado (m/s), y desde dónde (m antes). */
 export const CRAWL_V = 1.2, CRAWL_NEAR = 15;
 /** Las frutas: la energía de cada una (la especial, toda), lo que dura la supervelocidad (s) y cuánto más que la máxima. */
@@ -116,6 +120,8 @@ interface Hop {
   lift: number;
   score: number;
   cheer: string;
+  /** El supersalto antes del borde de la plataforma: ya se celebró al despegar (al aterrizar, nada más). */
+  done?: boolean;
 }
 
 /** El suelo sube o baja (la plataforma): de dónde a dónde y en cuánto. */
@@ -168,6 +174,10 @@ export class Runner {
   best: PlatGhost | null = null;
   tl: number[] = [];
   private tlT = 0;
+  /** El paso de la seta y el cangrejo (m/s: «Paso de los enemigos», de la tabla de dificultad; se lee en cada fotograma). */
+  foeV = FOE_V;
+  /** Los ajustes, hecha una vez (sin crear una función en cada fotograma). */
+  private readonly sFn = (k: string): number => this.env.s(k);
   /** Lo que baja el mundo en lo más alto del salto sin hueco de ahora (m: el rebote de la seta, más). */
   private airLift = JUMP_LIFT;
   private id = 1;
@@ -249,7 +259,7 @@ export class Runner {
     if (this.ends.length > i) return;
     while (this.ends.length < i) this.addTramo(this.ends.length, len); // (los de antes, por orden)
     const start = this.ends.length ? this.ends[this.ends.length - 1] + 0.5 : this.tk.dist;
-    this.addCourse(buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd() }, i, this.env.rank, start, this.id));
+    this.addCourse(buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)) }, i, this.env.rank, start, this.id));
   }
 
   /** Añade un tramo ya hecho detrás de lo que hay (lo usa `addTramo`; las pruebas, con recorridos a mano). */
@@ -301,7 +311,9 @@ export class Runner {
 
   step(dt: number): void {
     const env = this.env, tk = this.tk, st = env.state, H = env.head;
-    moveCfg((k) => env.s(k), this.cfg);
+    moveCfg(this.sFn, this.cfg);
+    const fv = env.s('platFoeV');
+    this.foeV = fv > 0 ? fv : FOE_V;
     this.cfg.deepNeed = Math.max(0.12, (0.8 * (env.dv('squatDepth') || 26)) / 100);
     this.moves.hold = this.sideAhead();
     this.moves.update(dt, H, this.cfg);
@@ -369,6 +381,7 @@ export class Runner {
     this.pull();
   }
 
+
   /** La seta y el cangrejo: cuando te quedan a FOE_WAKE m, andan hacia ti hasta su sitio (y allí te esperan). */
   private walk(dt: number): void {
     const d = this.tk.dist;
@@ -383,7 +396,7 @@ export class Runner {
         p.woke = true;
         this.ev.push({ t: 'wake', p });
       }
-      if (p.woke && p.walk > 0) p.walk = Math.max(0, p.walk - FOE_V * dt);
+      if (p.woke && p.walk > 0) p.walk = Math.max(0, p.walk - this.foeV * dt);
     }
   }
 
@@ -487,7 +500,7 @@ export class Runner {
     }
     if (p.k === 'foe') {
       // la seta: en el aire cuando llega a tus pies (andando hacia ti, llega antes: la ventana, con su paso), la pisas
-      const win = Math.max(LOG_WIN, LOG_WIN_S * (v + (p.walk > 0 ? FOE_V : 0)));
+      const win = Math.max(LOG_WIN, LOG_WIN_S * (v + (p.walk > 0 ? this.foeV : 0)));
       if (Math.abs(z) < win) {
         p.maxUp = Math.max(p.maxUp, M.up);
         if (M.air && p.maxUp >= C.jumpH) this.stomp(p);
@@ -660,20 +673,45 @@ export class Runner {
    * con lo que sube la cabeza); al borde de una plataforma, subes a ella. Todos se notan: el mundo baja y sube bajo los
    * pies. `hz`, la cabeza hacia ti (m). */
   private takeoff(hz: number): void {
-    const v = this.tk.v, win = Math.max(GAP_EARLY_MIN, GAP_EARLY_S * v);
+    const v = this.tk.v, win = Math.max(GAP_EARLY_MIN, GAP_EARLY_S * v), stepWin = Math.max(STEP_EARLY_MIN, STEP_EARLY_S * v);
+    let between = false; // (otro reto por delante de la plataforma: el salto no te lleva por encima de él)
     for (const p of this.live) {
-      if ((p.k !== 'gap' && p.k !== 'step') || p.judged) continue;
+      if (p.judged) continue;
       const z = p.at - this.tk.dist + hz;
-      if (z > win) break; // (el primero que queda por delante, y aún lejos: es pronto)
+      if (p.k !== 'gap' && p.k !== 'step') {
+        if (p.k !== 'fruit' && p.k !== 'chest' && z > -0.2) between = true;
+        continue;
+      }
+      if (z > (p.k === 'step' ? stepWin : win)) break; // (el primero que queda por delante, y aún lejos: es pronto)
       if (z > -0.2) {
         if (p.k === 'gap') this.go(p, true);
-        else this.climb(p, p.burpee || this.moves.deepT < DEEP_WIN); // (la alta pide sentadilla honda antes del salto)
+        else {
+          // la alta pide sentadilla honda antes del salto (la del burpee, un salto); antes del borde, solo el bueno y sin
+          // nada en medio: si no, es un salto sin más y la plataforma se juzga al llegar a ella
+          const won = p.burpee || this.moves.deepT < DEEP_WIN;
+          if (z > win && (!won || between)) break;
+          this.climb(p, won);
+          if (won && z > 0.3) this.leap(p, hz);
+        }
         return;
       }
     }
     this.airT = 0;
     this.airDur = AIR_T;
     this.airLift = JUMP_LIFT;
+  }
+
+  /** El supersalto antes del borde: el mundo te lleva en el aire hasta encima de la plataforma (a tu velocidad o algo más
+   * deprisa si no llegas en SUPER_AIR_T), mientras el suelo sube su altura; al aterrizar, ya estás arriba. */
+  private leap(p: Piece, hz: number): void {
+    const tk = this.tk, v0 = tk.v, s0 = tk.dist, land = p.at + hz + STEP_LAND, need = Math.max(0, land - s0);
+    const dur = Math.max(HOP_MIN, Math.min(SUPER_AIR_T, need / Math.max(v0, 1e-3)));
+    const s1 = Math.max(land, s0 + v0 * dur);
+    this.hop = { p, s0, s1, t: 0, dur, won: true, v1: v0, lift: JUMP_LIFT, score: 0, cheer: '', done: true };
+    this.airT = -1; // (el arco del salto lo lleva el cruce)
+    this.levTo = { from: this.lev, to: p.h, t: 0, dur: Math.min(SUPER_LEV_T, dur * 0.85) };
+    this.ev.push({ t: 'go', p, dur });
+    this.snd('whoosh', this.pos(p, 0, p.h), 'arc');
   }
 
   /** Empieza el cruce del hueco: con el salto (`won`), a tu velocidad (o algo más, si no llegas al otro lado en HOP_MAX) y
@@ -722,7 +760,7 @@ export class Runner {
     this.tk.v = H.v1; // (sigues con la velocidad que traías; tras un tropiezo, con la mitad)
     this.tk.idle = 0;
     const p = H.p;
-    if (!H.won) return;
+    if (!H.won || H.done) return;
     p.judged = true;
     p.ok = true;
     this.passed++;

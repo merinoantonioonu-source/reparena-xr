@@ -7,10 +7,13 @@
 // cofre, para echarse al suelo ante un túnel y para levantarse; y la dificultad sube de un tramo a otro, no dentro de él.
 import { describe, expect, it } from 'vitest';
 import { buildCourse, courseKinds, courseRules, minGap } from '../../src/modes/trek/plat/course.js';
-import { BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece } from '../../src/modes/trek/plat/types.js';
+import { BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece, type PlatTune, platTune, TUNE_DEF } from '../../src/modes/trek/plat/types.js';
 
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
-const env = (seed: number, vmax: number, len: number): CourseEnv => ({ vmax, len, rnd: rng(seed) });
+/** La tabla de dificultad más fácil (la del recluta salvo la separación: lo mínimo de cada medida) y una difícil. */
+const T0: PlatTune = { space: 1, gap: 0.8, duck: 0.22, high: 0.8, tunnel: 3, foeV: 0.9 };
+const T6: PlatTune = { space: 0.8, gap: 1.1, duck: 0.28, high: 0.98, tunnel: 3.9, foeV: 1.4 };
+const env = (seed: number, vmax: number, len: number, tune: PlatTune = T0): CourseEnv => ({ vmax, len, rnd: rng(seed), tune });
 /** ¿Hay en el recorrido la clase `k`? El burpee no es una pieza: es un túnel con, justo detrás, una plataforma de burpee. */
 const hay = (ps: Piece[], k: string): boolean => (k === 'burpee' ? ps.some((p) => p.k === 'step' && p.burpee) : ps.some((p) => p.k === k));
 
@@ -20,7 +23,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
     for (let n = 0; n < 2000; n++) {
       const vmax = 1.2 + 3.6 * r();
       const c = buildCourse(env(n + 7, vmax, 40), 0, 0, 500 * r(), 0);
-      expect(courseRules(c.pieces, vmax)).toEqual([]);
+      expect(courseRules(c.pieces, vmax, T0)).toEqual([]);
       for (const k of courseKinds(0)) expect(hay(c.pieces, k), `#${n} vmax ${vmax.toFixed(2)}: falta ${k}`).toBe(true);
     }
   });
@@ -30,7 +33,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
       for (let vmax = 1.2; vmax <= 4.8001; vmax += 0.1) {
         for (const rank of [0, 3, 6]) {
           const c = buildCourse({ vmax, len: 40, rnd: () => rnd }, 0, rank, 0, 0);
-          expect(courseRules(c.pieces, vmax)).toEqual([]);
+          expect(courseRules(c.pieces, vmax, T0)).toEqual([]);
           for (const k of courseKinds(0)) expect(hay(c.pieces, k), `rnd ${rnd} vmax ${vmax.toFixed(2)} rango ${rank}: falta ${k}`).toBe(true);
         }
       }
@@ -92,7 +95,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
       const id0 = Math.floor(r() * 1000);
       const c = buildCourse(env(n + 1, vmax, len), tramo, rank, start, id0);
       const tag = `#${n} tramo ${tramo} rango ${rank} vmax ${vmax.toFixed(2)} len ${len.toFixed(0)}`;
-      expect(courseRules(c.pieces, vmax), tag).toEqual([]);
+      expect(courseRules(c.pieces, vmax, T0), tag).toEqual([]);
       const last = c.pieces[c.pieces.length - 1]!;
       expect(last.k, tag).toBe('chest');
       expect(last.at, tag).toBeCloseTo(start + len, 9);
@@ -125,7 +128,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
       }
       expect(c.pieces.filter((p) => p.special).length, tag).toBeLessThanOrEqual(1);
     }
-  });
+  }, 30000); // (pesada: miles de casos; en la máquina de GitHub tarda más de los 5 s de serie)
 
   it('tras la seta o el cangrejo, el sitio de siempre y FOE_WALK m más (los encuentras hasta ahí, andando hacia ti)', () => {
     const V = 3, log = piece(9, 'log', 0, 2);
@@ -133,6 +136,36 @@ describe('el recorrido de la Travesía de plataformas', () => {
     expect(minGap(piece(0, 'side', 0, 2, { side: 1 }), log, V)).toBeCloseTo(Math.max(MIN_GAP, SIDE_BACK_S * V) + FOE_WALK, 9);
     // la pieza de antes: su sitio basta (nunca se acercan más que él)
     expect(minGap(log, piece(0, 'foe', 0, 2), V)).toBeCloseTo(Math.max(MIN_GAP, JUMP_GAP_S * V), 9);
+  });
+
+  it('la tabla de dificultad manda en las medidas (cada una, de la suya a la suya más lo que crece) y en la separación', () => {
+    for (const T of [T0, TUNE_DEF, T6]) for (let n = 0; n < 300; n++) {
+      const tramo = n % 7, ps = buildCourse(env(n + 1, 3, 300, T), tramo, 3, 0, 0).pieces;
+      expect(courseRules(ps, 3, T), `tramo ${tramo}`).toEqual([]);
+      for (const p of ps) {
+        if (p.k === 'gap') expect(p.len).toBeGreaterThanOrEqual(T.gap - 1e-9);
+        if (p.k === 'low') expect(p.h).toBeGreaterThanOrEqual(T.duck - 1e-9);
+        if (p.k === 'step' && !p.burpee) expect(p.h).toBeGreaterThanOrEqual(T.high - 1e-9);
+        if (p.k === 'crawl') expect(p.len).toBeGreaterThanOrEqual(T.tunnel - 1e-9);
+      }
+    }
+    // más juntos con menos separación: más piezas en el mismo tramo
+    const cuantas = (T: PlatTune): number => { let k = 0; for (let n = 0; n < 200; n++) k += buildCourse(env(n + 1, 3, 300, T), 3, 3, 0, 0).pieces.length; return k; };
+    expect(cuantas({ ...T0, space: 0.6 })).toBeGreaterThan(cuantas({ ...T0, space: 1.6 }));
+    // lo que pide fuera de la tabla, se ve
+    expect(courseRules([piece(0, 'gap', 20, 0, { len: 0.85 }), piece(1, 'chest', 100, 0)], 3, T6).some((x) => x.includes('hueco'))).toBe(true);
+  });
+
+  it('platTune lee los ajustes (en cm, m, % y m/s) y sin ellos da los de serie', () => {
+    expect(platTune(() => 0)).toEqual(TUNE_DEF);
+    const S: Record<string, number> = { platSpace: 80, platGap: 110, platDuck: 28, platHigh: 98, platTunnel: 3.9, platFoeV: 1.4 };
+    const t = platTune((k) => S[k] ?? 0);
+    expect(t.space).toBeCloseTo(0.8, 9);
+    expect(t.gap).toBeCloseTo(1.1, 9);
+    expect(t.duck).toBeCloseTo(0.28, 9);
+    expect(t.high).toBeCloseTo(0.98, 9);
+    expect(t.tunnel).toBeCloseTo(3.9, 9);
+    expect(t.foeV).toBeCloseTo(1.4, 9);
   });
 
   it('el mismo azar da el mismo recorrido', () => {
@@ -162,10 +195,10 @@ describe('el recorrido de la Travesía de plataformas', () => {
     expect(fruit1).toBeGreaterThan(0);
   });
 
-  it('la plataforma, la de burpee y el túnel piden más con el tramo y el rango', () => {
+  it('la plataforma, la de burpee y el túnel piden más con el tramo y el rango (la tabla de dificultad)', () => {
     const media = (tramo: number, rank: number, f: (p: Piece) => number, sel: (p: Piece) => boolean): number => {
       const v: number[] = [];
-      for (let n = 0; n < 300; n++) for (const p of buildCourse(env(n + 1, 2.5, 300), tramo, rank, 0, 0).pieces) if (sel(p)) v.push(f(p));
+      for (let n = 0; n < 300; n++) for (const p of buildCourse(env(n + 1, 2.5, 300, rank >= 6 ? T6 : T0), tramo, rank, 0, 0).pieces) if (sel(p)) v.push(f(p));
       return v.reduce((a, b) => a + b, 0) / v.length;
     };
     const alta = (p: Piece): boolean => p.k === 'step' && !p.burpee;
@@ -303,47 +336,47 @@ describe('courseRules detecta lo que incumple', () => {
   };
 
   it('una lista buena no incumple nada', () => {
-    expect(courseRules(ok(), V)).toEqual([]);
+    expect(courseRules(ok(), V, T0)).toEqual([]);
   });
 
   it('el orden de at', () => {
     const ps = ok();
     ps[1]!.at = 10;
-    const r = courseRules(ps, V);
+    const r = courseRules(ps, V, T0);
     expect(r.some((s) => s.includes('orden') && s.includes('1'))).toBe(true);
   });
 
   it('piezas solapadas o más juntas que el mínimo', () => {
     const ps = [piece(0, 'gap', 20, 0, { len: 1 }), piece(1, 'log', 21.5, 0), chest(2, 100)];
     expect(minGap(ps[0]!, ps[1]!, V)).toBeGreaterThan(0.5);
-    const r = courseRules(ps, V);
+    const r = courseRules(ps, V, T0);
     expect(r.some((s) => s.includes('juntas') && s.includes('0') && s.includes('1'))).toBe(true);
     // el solape también cuenta
     const solape = [piece(0, 'gap', 20, 0, { len: 5 }), piece(1, 'log', 22, 0), chest(2, 100)];
-    expect(courseRules(solape, V).some((s) => s.includes('juntas'))).toBe(true);
+    expect(courseRules(solape, V, T0).some((s) => s.includes('juntas'))).toBe(true);
   });
 
   it('el sitio que pide cada movimiento (volver al centro tras la fruta, caer y volver a saltar, echarse al suelo)', () => {
     const fruta = [piece(0, 'fruit', 20, 1, { side: 1 }), piece(1, 'log', 24, 1), chest(2, 100)]; // 4 m < 1,5·3 = 4,5 m
-    expect(courseRules(fruta, V).some((s) => s.includes('juntas'))).toBe(true);
+    expect(courseRules(fruta, V, T0).some((s) => s.includes('juntas'))).toBe(true);
     const salto = [piece(0, 'log', 20, 0), piece(1, 'log', 23.5, 0), chest(2, 100)]; // 3,5 m < 1,1·3 y < 4 m
-    expect(courseRules(salto, V).some((s) => s.includes('juntas'))).toBe(true);
+    expect(courseRules(salto, V, T0).some((s) => s.includes('juntas'))).toBe(true);
     // ante un túnel: 3,5·3 = 10,5 m
     const tunel = (room: number): Piece[] => [piece(0, 'low', 20, 2, { h: 0.25 }), piece(1, 'crawl', 20.0 + room, 2, { len: 4 }), chest(2, 200)];
-    expect(courseRules(tunel(10.4), V).some((s) => s.includes('juntas'))).toBe(true);
-    expect(courseRules(tunel(10.5), V)).toEqual([]);
+    expect(courseRules(tunel(10.4), V, T0).some((s) => s.includes('juntas'))).toBe(true);
+    expect(courseRules(tunel(10.5), V, T0)).toEqual([]);
   });
 
   it('dos frutas seguidas, del mismo lado o de lados distintos, valen', () => {
     for (const lado of [-1, 1] as const) {
       const ps = [piece(0, 'fruit', 20, 1, { side: 1 }), piece(1, 'fruit', 40, 1, { side: lado }), chest(2, 100)];
-      expect(courseRules(ps, V)).toEqual([]);
+      expect(courseRules(ps, V, T0)).toEqual([]);
     }
   });
 
   it('una fruta sin lado', () => {
     const ps = [piece(0, 'fruit', 20, 1), chest(1, 100)];
-    expect(courseRules(ps, V).some((s) => s.includes('fruta') && s.includes('lado'))).toBe(true);
+    expect(courseRules(ps, V, T0).some((s) => s.includes('fruta') && s.includes('lado'))).toBe(true);
   });
 
   it('como mucho una fruta especial por tramo', () => {
@@ -352,64 +385,64 @@ describe('courseRules detecta lo que incumple', () => {
       p.special = true;
       return p;
     };
-    expect(courseRules([f(0, 20, 1), chest(1, 100)], V)).toEqual([]);
-    expect(courseRules([f(0, 20, 1), f(1, 40, 1), chest(2, 100)], V).some((s) => s.includes('especiales'))).toBe(true);
+    expect(courseRules([f(0, 20, 1), chest(1, 100)], V, T0)).toEqual([]);
+    expect(courseRules([f(0, 20, 1), f(1, 40, 1), chest(2, 100)], V, T0).some((s) => s.includes('especiales'))).toBe(true);
     // (en tramos distintos, una por tramo, vale)
-    expect(courseRules([f(0, 20, 1), f(1, 40, 2), chest(2, 100)], V)).toEqual([]);
+    expect(courseRules([f(0, 20, 1), f(1, 40, 2), chest(2, 100)], V, T0)).toEqual([]);
   });
 
   it('piezas de clase burpee, cangrejos sin lado o antes de tiempo y setas en el primer tramo', () => {
-    expect(courseRules([piece(0, 'side', 20, 0, { side: 1 }), chest(1, 100)], V).some((s) => s.includes('cangrejo'))).toBe(true);
-    expect(courseRules([piece(0, 'side', 20, 2), chest(1, 100)], V).some((s) => s.includes('lado'))).toBe(true);
-    expect(courseRules([piece(0, 'side', 20, 2, { side: -1 }), chest(1, 100)], V)).toEqual([]);
-    expect(courseRules([piece(0, 'foe', 20, 0), chest(1, 100)], V).some((s) => s.includes('seta'))).toBe(true);
-    expect(courseRules([piece(0, 'burpee', 20, 2, { len: 0.5, h: 0.7 }), chest(1, 100)], V).some((s) => s.includes('burpee'))).toBe(true);
+    expect(courseRules([piece(0, 'side', 20, 0, { side: 1 }), chest(1, 100)], V, T0).some((s) => s.includes('cangrejo'))).toBe(true);
+    expect(courseRules([piece(0, 'side', 20, 2), chest(1, 100)], V, T0).some((s) => s.includes('lado'))).toBe(true);
+    expect(courseRules([piece(0, 'side', 20, 2, { side: -1 }), chest(1, 100)], V, T0)).toEqual([]);
+    expect(courseRules([piece(0, 'foe', 20, 0), chest(1, 100)], V, T0).some((s) => s.includes('seta'))).toBe(true);
+    expect(courseRules([piece(0, 'burpee', 20, 2, { len: 0.5, h: 0.7 }), chest(1, 100)], V, T0).some((s) => s.includes('burpee'))).toBe(true);
   });
 
   it('que la última no sea el cofre', () => {
     const ps = ok().slice(0, 2);
-    expect(courseRules(ps, V).some((s) => s.includes('cofre'))).toBe(true);
-    expect(courseRules([], V).some((s) => s.includes('cofre'))).toBe(true);
+    expect(courseRules(ps, V, T0).some((s) => s.includes('cofre'))).toBe(true);
+    expect(courseRules([], V, T0).some((s) => s.includes('cofre'))).toBe(true);
   });
 
   it('un hueco fuera de medida', () => {
     for (const len of [0.7, 1.7]) {
       const ps = ok();
       ps[1]!.len = len;
-      expect(courseRules(ps, V).some((s) => s.includes('hueco') && s.includes('1'))).toBe(true);
+      expect(courseRules(ps, V, T0).some((s) => s.includes('hueco') && s.includes('1'))).toBe(true);
     }
   });
 
   it('una viga fuera de medida', () => {
     for (const h of [0.2, 0.36]) {
       const ps = [piece(0, 'low', 20, 0, { h }), chest(1, 100)];
-      expect(courseRules(ps, V).some((s) => s.includes('viga') && s.includes('0'))).toBe(true);
+      expect(courseRules(ps, V, T0).some((s) => s.includes('viga') && s.includes('0'))).toBe(true);
     }
   });
 
   it('una plataforma fuera de medida o sin largo', () => {
     const buena = (): Piece => piece(0, 'step', 20, 1, { len: 5, h: 1 });
-    expect(courseRules([buena(), chest(1, 100)], V)).toEqual([]);
+    expect(courseRules([buena(), chest(1, 100)], V, T0)).toEqual([]);
     const sinLargo = buena();
     sinLargo.len = 0;
-    expect(courseRules([sinLargo, chest(1, 100)], V).some((s) => s.includes('plataforma') && s.includes('0'))).toBe(true);
+    expect(courseRules([sinLargo, chest(1, 100)], V, T0).some((s) => s.includes('plataforma') && s.includes('0'))).toBe(true);
     for (const len of [3.9, 9.1]) {
       const p = buena();
       p.len = len;
-      expect(courseRules([p, chest(1, 100)], V).some((s) => s.includes('plataforma') && s.includes('largo'))).toBe(true);
+      expect(courseRules([p, chest(1, 100)], V, T0).some((s) => s.includes('plataforma') && s.includes('largo'))).toBe(true);
     }
     for (const h of [0.7, 1.6]) {
       const p = buena();
       p.h = h;
-      expect(courseRules([p, chest(1, 100)], V).some((s) => s.includes('plataforma') && s.includes('sube'))).toBe(true);
+      expect(courseRules([p, chest(1, 100)], V, T0).some((s) => s.includes('plataforma') && s.includes('sube'))).toBe(true);
     }
   });
 
   it('un túnel con flexiones, o que no mide entre 3 y 6 m', () => {
     const bueno = (len: number, n = 0): Piece => piece(0, 'crawl', 20, 2, { len, n });
-    for (const len of [3, 4.5, 6]) expect(courseRules([bueno(len), chest(1, 100)], V)).toEqual([]);
-    for (const n of [1, 3]) expect(courseRules([bueno(4, n), chest(1, 100)], V).some((s) => s.includes('túnel') && s.includes('flexiones'))).toBe(true);
-    for (const len of [2.9, 6.1]) expect(courseRules([bueno(len), chest(1, 100)], V).some((s) => s.includes('túnel') && s.includes('mide'))).toBe(true);
+    for (const len of [3, 4.5, 6]) expect(courseRules([bueno(len), chest(1, 100)], V, T0)).toEqual([]);
+    for (const n of [1, 3]) expect(courseRules([bueno(4, n), chest(1, 100)], V, T0).some((s) => s.includes('túnel') && s.includes('flexiones'))).toBe(true);
+    for (const len of [2.9, 6.1]) expect(courseRules([bueno(len), chest(1, 100)], V, T0).some((s) => s.includes('túnel') && s.includes('mide'))).toBe(true);
   });
 
   it('la plataforma de burpee: medidas, justo tras un túnel y al hueco exacto', () => {
@@ -418,28 +451,28 @@ describe('courseRules detecta lo que incumple', () => {
       const t = piece(0, 'crawl', 20, 2, { len: 4, n: 0 });
       return [t, burpeeStep(24 + room, h, len), chest(2, 200)].map((p, i) => ((p.id = i), p));
     };
-    expect(courseRules(par(gap), V)).toEqual([]);
-    expect(courseRules(par(gap + 1e-7), V)).toEqual([]); // (tolerancia de 1e-6)
-    for (const room of [gap + 0.01, gap - 0.01]) expect(courseRules(par(room), V).some((s) => s.includes('burpee') && s.includes('túnel'))).toBe(true);
-    for (const h of [0.5, 1.1]) expect(courseRules(par(gap, h), V).some((s) => s.includes('burpee') && s.includes('sube'))).toBe(true);
-    for (const len of [3.9, 7.1]) expect(courseRules(par(gap, 0.8, len), V).some((s) => s.includes('burpee') && s.includes('largo'))).toBe(true);
+    expect(courseRules(par(gap), V, T0)).toEqual([]);
+    expect(courseRules(par(gap + 1e-7), V, T0)).toEqual([]); // (tolerancia de 1e-6)
+    for (const room of [gap + 0.01, gap - 0.01]) expect(courseRules(par(room), V, T0).some((s) => s.includes('burpee') && s.includes('túnel'))).toBe(true);
+    for (const h of [0.5, 1.1]) expect(courseRules(par(gap, h), V, T0).some((s) => s.includes('burpee') && s.includes('sube'))).toBe(true);
+    for (const len of [3.9, 7.1]) expect(courseRules(par(gap, 0.8, len), V, T0).some((s) => s.includes('burpee') && s.includes('largo'))).toBe(true);
     // la de burpee admite alturas bajas que la normal no
-    expect(courseRules(par(gap, 0.6, 4), V)).toEqual([]);
+    expect(courseRules(par(gap, 0.6, 4), V, T0)).toEqual([]);
     // sin túnel justo delante
     const sola = [piece(0, 'log', 20, 2), burpeeStep(60), chest(2, 200)];
-    expect(courseRules(sola, V).some((s) => s.includes('burpee') && s.includes('detrás'))).toBe(true);
-    expect(courseRules([burpeeStep(60), chest(2, 200)], V).some((s) => s.includes('detrás'))).toBe(true);
+    expect(courseRules(sola, V, T0).some((s) => s.includes('burpee') && s.includes('detrás'))).toBe(true);
+    expect(courseRules([burpeeStep(60), chest(2, 200)], V, T0).some((s) => s.includes('detrás'))).toBe(true);
   });
 
   it('el sitio para bajar de la plataforma, para levantarse del túnel y para frenar ante el cofre', () => {
     // plataforma (len 5) y viga: piden 4 + 2 = 6 m
     const bajar = (room: number): Piece[] => [piece(0, 'step', 20, 1, { len: 5, h: 1 }), piece(1, 'low', 25 + room, 1, { h: 0.25 }), chest(2, 200)];
-    expect(courseRules(bajar(5.9), V).some((s) => s.includes('juntas'))).toBe(true);
-    expect(courseRules(bajar(6), V)).toEqual([]);
+    expect(courseRules(bajar(5.9), V, T0).some((s) => s.includes('juntas'))).toBe(true);
+    expect(courseRules(bajar(6), V, T0)).toEqual([]);
     // túnel y viga a 3 m/s: 3·3 + 0,6 = 9,6 m
     const levantar = (room: number): Piece[] => [piece(0, 'crawl', 20, 2, { len: 4, n: 0 }), piece(1, 'low', 24 + room, 2, { h: 0.25 }), chest(2, 200)];
-    expect(courseRules(levantar(9.5), V).some((s) => s.includes('juntas'))).toBe(true);
-    expect(courseRules(levantar(9.6), V)).toEqual([]);
+    expect(courseRules(levantar(9.5), V, T0).some((s) => s.includes('juntas'))).toBe(true);
+    expect(courseRules(levantar(9.6), V, T0)).toEqual([]);
     // viga y cofre a 4,8 m/s: frenar pide 1 + 4,608 + 1 = 6,608 m (a 3 m/s, 5 m)
     const frenar = (room: number, v: number): string[] => courseRules([piece(0, 'low', 20, 0, { h: 0.25 }), chest(1, 20 + room)], v);
     expect(frenar(6.5, 4.8).some((s) => s.includes('juntas'))).toBe(true);

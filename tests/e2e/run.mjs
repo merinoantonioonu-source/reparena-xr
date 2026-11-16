@@ -409,12 +409,13 @@ try {
     }
     // viga baja (C) y obstáculo a un lado (A/D, al lado contrario): con la tecla mantenida a la vista; si te quedas sin
     // impulso antes de llegar, se suelta, otra sentadilla y se vuelve a mantener
-    const key = nx.k === 'low' ? 'KeyC' : nx.side < 0 ? 'KeyD' : 'KeyA';
+    // (la fruta, hacia su lado, para cogerla; el cangrejo, al lado contrario)
+    const key = nx.k === 'low' ? 'KeyC' : nx.k === 'fruit' ? (nx.side > 0 ? 'KeyD' : 'KeyA') : nx.side < 0 ? 'KeyD' : 'KeyA';
     if (v < 0.35) {
       // (sin impulso, también si ya la tienes encima: otra sentadilla, que bajo la viga también te agacha)
       await hold('');
       await rep(false);
-    } else if (rel <= (nx.k === 'low' ? 3 + v * 1.5 : 4 + v * 1.2)) {
+    } else if (rel <= (nx.k === 'low' ? 3 + v * 1.5 : nx.k === 'fruit' ? 2.5 + v * 1.2 : 4 + v * 1.2)) {
       tried.add(nx.k);
       await hold(key);
       await page.waitForTimeout(100);

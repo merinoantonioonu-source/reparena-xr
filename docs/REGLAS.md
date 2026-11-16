@@ -74,6 +74,10 @@ No las cambies sin preguntarle.
   de Quaternius que ya hay): **la seta**, por el centro, **se pisa** saltando cuando llega a tus pies (se chafa y rebotas);
   **el cangrejo**, pegado a un lado, **se esquiva** con un paso al otro. Si no, te muerden: frenas a la mitad y se rompe la
   racha, sin quitar vidas. Lo que hay que esquivar a un lado son **solo enemigos** (nada quieto).
+- Travesía de plataformas, tras probar el PR D (fijado por el usuario): **el supersalto hecho cerca de la plataforma ya te
+  sube a ella** (aunque sea antes del borde: el salto te lleva hasta arriba; nada de un salto normal y luego subir solo).
+  **El fondo realista gira un poco con las curvas** del sendero, en el mismo sentido (quieto del todo con la pasarela
+  parecía irreal).
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.

@@ -458,7 +458,7 @@ describe('el túnel (crawl)', () => {
       expect(hi).toBeGreaterThan(CRAWL_ROOF + 2.5);
       expect(Math.max(...big.map((p) => placed(p).max[0])) - Math.min(...big.map((p) => placed(p).min[0]))).toBeGreaterThan(DOCK_W + 4);
     }
-  });
+  }, 30000); // (pesada: miles de casos; en la máquina de GitHub tarda más de los 5 s de serie)
   it('pocas piezas: como mucho unas dos docenas por túnel', () => {
     for (const len of LENS) expect(tunnel(len).length, `${len}`).toBeLessThanOrEqual(24);
   });

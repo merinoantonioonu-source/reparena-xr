@@ -12,7 +12,7 @@
  * vista (de 20 m detrás a 88 m delante), sin crear objetos. La partida (GameSystem) lo engancha como Arcos: `begin`,
  * `startWave`, `waveLeft`, `rep`, `hud`, `end` y `clear`.
  */
-import { AdditiveBlending, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, Euler, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DomeTexture, Euler, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, Vector3 } from '@iwsdk/core';
 import type { AnimationAction, DirectionalLight, FogExp2, HemisphereLight, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { diagEvent } from '../../core/diag.js';
@@ -63,6 +63,11 @@ interface FoeRig {
   off: number;
   dir: number;
 }
+
+/** El fondo realista gira un poco con las curvas del sendero (pedido del usuario: quieto del todo con la pasarela, parecía
+ * de cartón): esta parte de lo que gira el mundo, en el mismo sentido (1 sería pegado al paisaje). Y lo que tiene que
+ * cambiar para pedírselo a IWSDK (rad). */
+const PANO_FOLLOW = 0.25, PANO_STEP = 0.002;
 
 /** Las estelas del turbo (RepArena: TREK_WIND): cuántas y dónde va cada una (a un lado, alto, a lo largo, largo y su paso). */
 const WIND_N = 44;
@@ -124,6 +129,8 @@ export class TrekSystem extends createSystem({}) {
   /** Las estelas del turbo. */
   private wind!: InstancedMesh;
   private readonly winds: Wind[] = [];
+  /** El giro del fondo realista que se pidió a IWSDK por última vez (rad). */
+  private panoYaw = 0;
   /** Lo que se guardó al acabar la última ronda (la medalla y el fantasma). */
   last: PlatEnd | null = null;
   private readonly m4 = new Matrix4();
@@ -188,7 +195,7 @@ export class TrekSystem extends createSystem({}) {
     this.wind.userData.noInk = true;
     for (let i = 0; i < WIND_N; i++) this.winds.push({ x: (Math.random() < 0.5 ? 1 : -1) * (0.7 + 2.5 * Math.random()), y: 0.15 + 2.45 * Math.random(), z: -14 + 18 * Math.random(), l: 0.8 + 1.4 * Math.random(), k: 0.7 + 0.6 * Math.random() });
     this.world.createTransformEntity(this.wind);
-    warmKeep(new Mesh(this.wind.geometry, this.wind.material));
+    warmKeep(new InstancedMesh(this.wind.geometry, this.wind.material, 1)); // (instanciada como la de verdad: el mismo sombreador)
   }
 
   private get on(): boolean {
@@ -378,8 +385,10 @@ export class TrekSystem extends createSystem({}) {
     }
     this.lights = null;
     this.biome = 0;
+    this.turnPano(0); // (los demás modos, con el fondo derecho)
     this.pano = TREK_BIOMES[0].pano;
     this.wind.visible = false;
+    (this.wind.material as MeshBasicMaterial).opacity = 0; // (al volver, sin estelas que se apagan)
   }
 
   /** Las instancias de cada modelo, en cuanto los kits estén cargados (y su sombreador, precompilado antes de la ronda). */
@@ -587,6 +596,19 @@ export class TrekSystem extends createSystem({}) {
     const F = tk.tf;
     this.ground.rotation.y = F.th;
     this.groundTex.offset.set(F.x / GROUND_CELL, -F.z / GROUND_CELL);
+    this.turnPano(PANO_FOLLOW * F.th);
+  }
+
+  /** Gira el fondo realista (el DomeTexture de IWSDK en la raíz del nivel) a `yaw`: solo si ha cambiado algo y si IWSDK no
+   * está ya con él (cargando el fondo de otro tramo, por ejemplo). */
+  private turnPano(yaw: number): void {
+    if (Math.abs(yaw - this.panoYaw) < PANO_STEP) return;
+    const lv = this.world.activeLevel?.peek?.();
+    if (!lv || !lv.hasComponent(DomeTexture) || lv.getValue(DomeTexture, '_needsUpdate')) return;
+    const rot = lv.getVectorView(DomeTexture, 'rotation');
+    rot[1] = yaw;
+    lv.setValue(DomeTexture, '_needsUpdate', true);
+    this.panoYaw = yaw;
   }
 
   /** Una instancia: el modelo `u` en (s, u.u + du) del sendero, a su escala por `k`; `roll`, lo que vuelca (el barril). */
@@ -607,10 +629,12 @@ export class TrekSystem extends createSystem({}) {
   /** Los enemigos, en cuanto sus modelos estén cargados: FOE_POOL de cada uno, escondidos hasta que salga su pieza (y
    * precompilados en el menú: sin tirón al salir el primero). */
   private buildFoes(): boolean {
-    for (const kind of ['foe', 'side'] as const) if (!AssetManager.getGLTF(FOE_LOOK[kind].asset)) return false;
+    // (¿ya están? sin copiarlos: getGLTF copia el modelo entero si no se le pide el compartido)
+    for (const kind of ['foe', 'side'] as const) if (!AssetManager.getGLTF(FOE_LOOK[kind].asset, { shared: true })) return false;
     for (const kind of ['foe', 'side'] as const) {
       const L = FOE_LOOK[kind];
-      for (let i = 0; i < FOE_POOL; i++) {
+      // FOE_POOL para el juego y uno más, escondido, para precompilarlo igual que ellos (con su sombra) en el menú
+      for (let i = 0; i <= FOE_POOL; i++) {
         const gltf = AssetManager.getGLTF(L.asset)!, model = gltf.scene, root = new Group();
         root.name = `travesia-${kind === 'foe' ? 'seta' : 'cangrejo'}-${i}`;
         model.scale.setScalar(L.h / L.nat);
@@ -620,13 +644,16 @@ export class TrekSystem extends createSystem({}) {
           m.castShadow = true;
           if ((o as SkinnedMesh).isSkinnedMesh) m.frustumCulled = false; // (animado, se sale de su caja de reposo)
         });
+        if (i === FOE_POOL) {
+          warmKeep(model);
+          break;
+        }
         root.add(model);
         root.visible = false;
         this.root.add(root);
         const mixer = new AnimationMixer(model), acts = new Map<string, AnimationAction>();
         for (const c of gltf.animations) acts.set(c.name, mixer.clipAction(c));
         this.rigs.push({ kind, root, model, mixer, acts, cur: '', p: null, act: 'live', t: 0, off: 0, dir: 1 });
-        if (i === 0) warmKeep(AssetManager.getGLTF(L.asset)!.scene);
       }
     }
     // (las piezas que salieron antes de tener los modelos)
@@ -688,7 +715,8 @@ export class TrekSystem extends createSystem({}) {
       const p = r.p;
       if (!p) continue;
       r.t += dt;
-      if (r.act === 'live') this.clip(r, p.woke && p.walk > 0 ? 'Walk' : 'Idle');
+      // (andan solo en pleno tramo: entre tramos, el recorrido está quieto y ellos también)
+      if (r.act === 'live') this.clip(r, p.woke && p.walk > 0 && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 'Walk' : 'Idle');
       else if ((r.act === 'bite' || r.act === 'miss') && r.t > BITE_T) {
         r.act = 'live';
         this.clip(r, 'Idle');

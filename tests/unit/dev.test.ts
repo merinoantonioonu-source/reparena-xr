@@ -125,3 +125,34 @@ describe('canciones de cada ejercicio', () => {
     expect(saved(D.EXS_KEY)).toEqual({});
   });
 });
+
+describe('la Travesía de plataformas en la tabla (PR E: solo RepArena XR)', () => {
+  it('sus seis filas salen en la tabla de la Travesía (no en las de otros modos) y el rango las pone', () => {
+    setSetting('mode', 'trek');
+    setSetting('exercise', 'squat');
+    const rows = D.devRows();
+    for (const k of ['platSpace', 'platGap', 'platDuck', 'platHigh', 'platTunnel', 'platFoeV']) expect(rows, k).toContain(k);
+    expect(D.devRowOn('platGap')).toBe(true);
+    setSetting('rank', 'general');
+    expect(settings.platGap).toBe(110);
+    expect(settings.platFoeV).toBe(1.4);
+    setSetting('rank', 'recluta');
+    expect(settings.platSpace).toBe(140);
+    expect(settings.platDuck).toBe(22);
+    // se guardan aparte (RepArena no los conoce) y no van en lo guardado de cada ejercicio
+    expect(saved('reparena3-settings')).not.toHaveProperty('platGap');
+    expect(saved('reparenaxr-settings').platGap).toBe(80);
+    setSetting('mode', 'combat');
+    expect(D.devRows()).not.toContain('platGap');
+    expect(JSON.stringify(saved('reparena3-combos') ?? {})).not.toContain('plat');
+  });
+  it('lo que el desarrollador pone en una casilla manda en ese rango', () => {
+    setSetting('mode', 'trek');
+    setSetting('rank', 'cabo');
+    D.devSet('platHigh', 2, 120);
+    expect(devVal('platHigh', 2)).toBe(120);
+    setSetting('rank', 'soldado');
+    setSetting('rank', 'cabo');
+    expect(settings.platHigh).toBe(120);
+  });
+});
