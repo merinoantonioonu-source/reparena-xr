@@ -163,6 +163,9 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 35 · Compuertas, contornos, Spotify y la paralela** (las compuertas esperan a que salga el que tienen dentro; el diablillo y el lanzador, sin contorno; Play pone tus canciones elegidas, no lo que sonaba en otro aparato; la paralela única se coloca a lo largo de tus manos) — #42
 - [x] **PR 36 · Menú plano y paneles como en RepArena** (menú modelo A sin relieve; rehacerlo al pulsar no pinta ni sube nada; con un menú abierto, sin bosque ni enemigos; los siete paneles informativos, en lienzos como en RepArena, con su letra y sin que el texto se salga) — #43
 - [ ] **PR 37 · Las gafas a 72 imágenes por segundo y el menú del todo plano** (se aplica «Fotogramas por segundo en las gafas», que se había quedado sin portar: iban a 90 y el juego no llegaba; las teclas, a 2 mm de la bandeja)
+- [ ] **Curl con barra: disparos a destiempo** (plan del usuario en cuatro fases, un PR cada una y prueba en las gafas entre ellas: `docs/PLAN-CURL-BARRA.md`)
+  - [ ] **Fase 1 · Caja negra y reproductor** (sin cambiar el juego: los últimos 25 s del detector de los ejercicios con pesas, fotograma a fotograma, se guardan con el diagnóstico; `tests/replay` los reproduce; los fallos D1-D6, en pruebas)
+  - [ ] Fase 2 · Arreglos del detector (tras el ajuste «Manos: filtro nuevo») · Fase 3 · Calidad de la mano · Fase 4 · Cierre
 
 ## Los PR
 
@@ -405,6 +408,19 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- Curl con barra, fase 1 → la 2 (`docs/PLAN-CURL-BARRA.md`): **la caja negra** (`src/core/blackbox.ts`) graba, en partida y
+  con un ejercicio con pesas, cada fotograma de lo que entra en `StandingDetector` y lo que decide (la llama
+  `GameSystem.blackBox` justo después de `st.update`; `st.reset` va por `stReset`, que lo apunta; los ajustes, al empezar cada
+  oleada, `BB.markCfg`). Lo que dicen las gafas de cada mano (postura nueva o repetida, `emulatedPosition`, si hay fuente) lo
+  mira `probeSide` (`src/input/hand-probe.ts`) sin tocar `HandSystem`. `barStep` deja en `bar.y` y `bar.clasp` la altura usada y
+  si iban juntas (solo para la caja negra). Se guarda con el diagnóstico en `reparenaxr-blackbox` (`bbSave`, las 3 últimas);
+  la página: «Descargar la caja negra». **El reproductor** (`tests/replay/replay.ts`: `replay`, `mismatches`, `table`) la pasa
+  por el detector; `npm test` reproduce `tests/replay/capturas/*.txt` (deben dar lo mismo que se grabó) y `CAPTURA=archivo
+  npm run replay` la imprime. Para el camino nuevo, `replay(captura, { cfg: (c) => ({ ...c, robust: true }) })`. **Los fallos
+  de hoy**, en `tests/unit/curl2-fallos.test.ts` (afirman el defecto; al arreglarlo, se les da la vuelta). **Antes de la fase
+  2**, pide al usuario las capturas (pausa › «Guardar diagnóstico» justo tras un disparo raro; barra ancha o kettlebell) y
+  mira con ellas el ritmo de las posturas (marca 4), las congeladas, `emulatedPosition` (marca 8) y si la mano pasa a mando.
 
 - Tras el PR E (pedidos del usuario al probar en las gafas): **cortinillas** (`src/ui/cortinilla.ts`, imágenes en
   `public/cortinillas/<modo>-<ejercicio>.jpg`, una por cada ejercicio de `MODE_EX`: lo comprueba `cortinilla.test.ts`): en el

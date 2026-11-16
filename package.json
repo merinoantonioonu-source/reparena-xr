@@ -14,6 +14,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "replay": "vitest run tests/replay --silent=false",
     "test:e2e": "vite build --logLevel warn && node tests/e2e/run.mjs",
     "test:compare": "vitest run --config vitest.compare.config.ts"
   },

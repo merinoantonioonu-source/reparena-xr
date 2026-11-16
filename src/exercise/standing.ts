@@ -117,7 +117,9 @@ export class StandingDetector {
   readonly jump = { vy: 0, lastY: 0, fastT: 9 };
   // los brazos (DET.curl, DET.bar, DET.fr) y los antebrazos (DET.tw)
   readonly curl = { left: mkArm(), right: mkArm() };
-  readonly bar = { ...mkArm(), hv: { left: 0, right: 0 }, hy: { left: NaN, right: NaN } };
+  /** y, clasp: la altura de la pesa usada en el último fotograma y si iba con las manos juntas (solo para la caja negra:
+   * src/core/blackbox.ts; no deciden nada). */
+  readonly bar = { ...mkArm(), hv: { left: 0, right: 0 }, hy: { left: NaN, right: NaN }, y: NaN, clasp: false };
   readonly fr = { state: 'down' as 'down' | 'rising' | 'top', bottom: -0.85, max: 0, t0: 0, lost: 0, fwd: 0, o: null as RepOpts | null, holdT: 0, pow: 1 };
   readonly tw = { last: NaN, acc: 0, lo: 0, hi: 0, dir: 0, n: 0, t0: 0, lostT: 0, warnT: 0, ext: 0, holdT: 0, pow: 1, first: false };
   /** ¿Hay un disparo cargado? (RepArena: `charged`, que se pone al cargar y se quita al disparar o al perderlo) */
@@ -152,6 +154,8 @@ export class StandingDetector {
     for (const a of [this.curl.left, this.curl.right, this.bar]) Object.assign(a, mkArm());
     this.bar.hv.left = this.bar.hv.right = 0;
     this.bar.hy.left = this.bar.hy.right = NaN;
+    this.bar.y = NaN;
+    this.bar.clasp = false;
     Object.assign(this.fr, { state: 'down', bottom: -0.85, max: 0, t0: 0, lost: 0, fwd: 0, o: null, holdT: 0, pow: 1 });
     Object.assign(this.tw, { last: NaN, acc: 0, lo: 0, hi: 0, dir: 0, n: 0, t0: 0, lostT: 0, warnT: 0, ext: 0, holdT: 0, pow: 1, first: false });
     this.charged = false;
@@ -373,6 +377,8 @@ export class StandingDetector {
       return d < 0.05 && d > -1.15 && Math.hypot(h.wrist.x - hp.x, h.wrist.z - hp.z) < 0.9;
     };
     const clasp = hl.ok && hr.ok && hl.wrist.distanceTo(hr.wrist) < 0.25 && inReach(hl) && inReach(hr);
+    B.clasp = clasp;
+    B.y = NaN; // (para la caja negra; se pone abajo si hay altura)
     // cuánto se ha movido cada mano (para saber, si no coinciden, cuál es la de verdad)
     for (const s of ['left', 'right'] as const) {
       const h = this.I.hands[s];
@@ -401,6 +407,7 @@ export class StandingDetector {
       }
       return;
     }
+    B.y = y;
     const back = B.lost;
     B.lost = 0;
     B.bottom += (y - B.bottom) * (y < B.bottom ? 0.5 : 0.0012); // lo más bajo del recorrido
