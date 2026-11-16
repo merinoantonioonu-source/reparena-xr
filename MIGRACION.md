@@ -402,6 +402,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- Travesía de plataformas, PR B2 → los siguientes (lo que pidió el usuario al probar el B; ver docs/REGLAS.md): el túnel ya
+  no para ni pide flexiones (en plancha, con la inercia y como poco `CRAWL_V`; de pie bajo el techo, choque); el muro se
+  quitó: el burpee es un túnel y, `BURPEE_GAP_S` después, una plataforma con `burpee` (salto normal; las demás, altas, con
+  supersalto); el único paso que para es el cofre. Echado, `TrekSystem` pone `VIEW.prone` y los avisos van al suelo bajo
+  la cara siguiendo la mirada. Los obstáculos a un lado ya no salen (`side` sigue en el código, para los enemigos del PR D):
+  en su lugar, frutas (`fruit`) que llenan la energía y dan supervelocidad. Lo siguiente del plan: el PR D (enemigos,
+  paisajes por tramo, cofre); el C (correr con los brazos) queda aplazado por el usuario.
+
 - Travesía de plataformas, PR B → los siguientes: **plataforma** (`step`: se sube de un salto en marcha al llegar a su
   borde; sin salto, a trompicones; al acabarla se baja sola; `Runner.lev` y `onStep`), **túnel de flexiones** (`crawl`) y
   **muro de burpee** (`burpee`): los pasos de suelo frenan suave (`HALT_BRAKE`) hasta 1 m, con aviso grande; el túnel pide

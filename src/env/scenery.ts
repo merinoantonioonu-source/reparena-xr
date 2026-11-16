@@ -107,12 +107,12 @@ export function groundTexture(kind: 'nature' | 'island'): CanvasTexture {
   return t;
 }
 
-/** Las piezas de un kit (el bosque o la isla), cargadas una vez y compartidas: cada modelo (nodo de primer nivel), en metros
+/** Las piezas de un kit (el bosque, la isla o las frutas), cargadas una vez y compartidas: cada modelo (nodo de primer nivel), en metros
  * y con +Y hacia arriba, con su material mate (lo usan el entorno y la Travesía). Nulo mientras carga. */
-const KIT_PARTS: Record<'nature' | 'island', Record<string, Part[]> | null> = { nature: null, island: null };
-export function kitParts(kind: 'nature' | 'island'): Record<string, Part[]> | null {
+const KIT_PARTS: Record<'nature' | 'island' | 'food', Record<string, Part[]> | null> = { nature: null, island: null, food: null };
+export function kitParts(kind: 'nature' | 'island' | 'food'): Record<string, Part[]> | null {
   if (KIT_PARTS[kind]) return KIT_PARTS[kind];
-  const gltf = AssetManager.getGLTF(kind === 'nature' ? 'nature-kit' : 'island-kit');
+  const gltf = AssetManager.getGLTF(kind === 'nature' ? 'nature-kit' : kind === 'food' ? 'food-kit' : 'island-kit');
   if (!gltf) return null;
   const mats: Record<string, Material> = {};
   if (kind === 'nature') {
@@ -140,7 +140,7 @@ export function kitParts(kind: 'nature' | 'island'): Record<string, Part[]> | nu
       const src = m.material as MeshStandardMaterial, key = src.name || src.uuid;
       if (!mats[key]) {
         // mate, como pintado (sin brillos de metal)
-        mats[key] = kind === 'island' ? new MeshStandardMaterial({ map: src.map || null, color: src.color, roughness: 0.95, metalness: 0, vertexColors: !!m.geometry.attributes.color }) : src;
+        mats[key] = kind !== 'nature' ? new MeshStandardMaterial({ map: src.map || null, color: src.color, roughness: 0.95, metalness: 0, vertexColors: !!m.geometry.attributes.color }) : src;
       }
       parts.push({ geo, mat: mats[key] });
     });

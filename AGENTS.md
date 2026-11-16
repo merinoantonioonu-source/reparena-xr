@@ -62,9 +62,11 @@ tabla de `README.md` dice qué hace cada archivo.
   lógica pura decide (`Runner`, `buildCourse`, `BodyMoves`) y devuelve sucesos (`PlatEv`) que `TrekSystem` aplica en orden;
   cada pieza es un `Piece` y lo que se ve de ella sale de `pieces.ts` (modelos de los kits ya cargados: `kitParts`). Fluidas
   (se pasan sin parar, también el hueco, que se salta en marcha: el avance nunca se para ante un obstáculo, pedido del
-  usuario; fallar frena a la mitad y rompe la racha, sin vidas, y nunca se cae) y pasos (el cofre, el túnel de flexiones y el muro de
-  burpee: el mundo frena suave, `HALT_BRAKE`, hasta 1 m; no se baja al suelo con el mundo en marcha). La plataforma se sube
-  de un salto en marcha (`Runner.lev`, el suelo bajo los pies) y se baja sola. Cada salto se nota (el mundo baja `JUMP_LIFT` bajo los pies) y en el aire llevas tu inercia. Las reglas de separación (`minGap`) las comprueba `plat-course.test.ts`; los guiones
+  usuario; fallar frena a la mitad y rompe la racha, sin vidas, y nunca se cae) y el cofre (el único paso: el mundo frena suave, `HALT_BRAKE`,
+  hasta 1 m). El túnel se pasa en plancha con la inercia (`BodyMoves.plank`; echado, los avisos van al suelo: `VIEW.prone`);
+  la plataforma alta, con un supersalto (sentadilla honda, `deepT`, y salto; `Runner.lev`, el suelo bajo los pies), y se
+  baja sola; el burpee, un túnel y su plataforma (`Piece.burpee`). Las frutas (`fruit`, modelos de `frutas.glb`) llenan
+  la energía (`Runner.energy`); llena, supervelocidad (`superT`). Cada salto se nota (el mundo baja `JUMP_LIFT` bajo los pies) y en el aire llevas tu inercia. Las reglas de separación (`minGap`) las comprueba `plat-course.test.ts`; los guiones
   de cabeza, `plat-runner.test.ts` con `plat-sim.ts`. Todo con instancias y sin crear objetos en cada fotograma.
 - **Datos**: RepArena guarda todo en el navegador con claves `reparena3-*`, y las dos versiones comparten esos datos (se
   publican en el mismo sitio): usa las mismas claves con el mismo formato; lo nuevo, con `reparenaxr-*` (un ajuste que solo tiene RepArena XR lleva `xr: true` en

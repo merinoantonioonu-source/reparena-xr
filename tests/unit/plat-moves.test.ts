@@ -43,10 +43,10 @@ describe('la Travesía de plataformas: el salto', () => {
   });
 });
 
-describe('la Travesía de plataformas: en el suelo', () => {
+describe('la Travesía de plataformas: en el suelo y la sentadilla honda', () => {
   const m = new BodyMoves();
   const go = (frames: [number, number][]): void => {
-    for (const [dt, y] of frames) m.update(dt, at(y), cfg);
+    for (const [dt, y] of frames) m.update(dt, at(y), { ...cfg, deepNeed: 0.2 });
   };
   const ramp = (a: number, b: number, sec: number): [number, number][] => {
     const n = Math.round(sec * 72), out: [number, number][] = [];
@@ -54,35 +54,30 @@ describe('la Travesía de plataformas: en el suelo', () => {
     return out;
   };
 
-  it('en plancha (cabeza por debajo de 70 cm) cuenta las flexiones; al echarte al suelo, no', () => {
+  it('en plancha: la cabeza por debajo de 70 cm; de pie otra vez, no', () => {
     m.reset(1.6, 0);
-    go(ramp(1.6, 0.5, 0.8)); // (al suelo)
+    go(ramp(1.6, 0.5, 0.8));
     expect(m.plank).toBe(true);
     expect(m.standing).toBe(false);
-    go(ramp(0.5, 0.5, 0.6)); // (asentarse)
-    expect(m.pushups).toBe(0);
-    for (let i = 1; i <= 3; i++) {
-      go(ramp(0.5, 0.35, 0.5));
-      go(ramp(0.35, 0.5, 0.5));
-      expect(m.pushups).toBe(i);
-    }
-    // bajar poco (5 cm) no es una flexión
-    go(ramp(0.5, 0.45, 0.5));
-    go(ramp(0.45, 0.5, 0.5));
-    expect(m.pushups).toBe(3);
     go(ramp(0.5, 1.6, 1));
     expect(m.plank).toBe(false);
     expect(m.standing).toBe(true);
   });
 
-  it('agacharse hondo de pie (sentadilla a 1,1 m) no es estar en el suelo ni cuenta flexiones', () => {
+  it('agacharse hondo de pie (a 1,1 m) no es estar en el suelo', () => {
     m.reset(1.6, 0);
-    const p0 = m.pushups; // (la cuenta solo sube: se mira lo que cambia)
-    for (let k = 0; k < 4; k++) {
-      go(ramp(1.6, 1.1, 0.6));
-      expect(m.plank).toBe(false);
-      go(ramp(1.1, 1.6, 0.6));
-    }
-    expect(m.pushups).toBe(p0);
+    go(ramp(1.6, 1.1, 0.6));
+    expect(m.plank).toBe(false);
+  });
+
+  it('la sentadilla honda se recuerda: deepT cuenta desde que la cabeza bajó lo que pide', () => {
+    m.reset(1.6, 0);
+    go(ramp(1.6, 1.45, 0.5)); // (poco honda: 15 cm)
+    expect(m.deepT).toBeGreaterThan(1);
+    go(ramp(1.45, 1.35, 0.3)); // (25 cm: honda)
+    expect(m.deepT).toBe(0);
+    go(ramp(1.35, 1.6, 0.5));
+    expect(m.deepT).toBeGreaterThan(0.3);
+    expect(m.deepT).toBeLessThan(0.6);
   });
 });

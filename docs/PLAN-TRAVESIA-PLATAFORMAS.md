@@ -32,6 +32,11 @@ niveles ni aspecto de ningún juego existente. Los modelos son los de los packs 
 
 ## 2. Decisiones de diseño (recomendadas; el usuario confirma las del apartado 9 antes de empezar)
 
+> **Cambiado por el usuario tras probar el PR B:** el túnel se pasa en marcha, en plancha y con la inercia, sin flexiones;
+> el burpee es un túnel y, unos 2 s después, una plataforma que saltar (sin muro); las plataformas altas piden supersalto;
+> en plancha, los avisos van al suelo; los obstáculos a un lado se cambian por frutas que llenan una barra de energía
+> (llena: supervelocidad). El PR C (correr con los brazos) queda aplazado: lo siguiente es el D.
+>
 > **Cambiado por el usuario tras probar el PR A en las gafas:** el avance **nunca se para ante un obstáculo** (la idea es
 > entrenar los reflejos): el hueco se salta en marcha, al llegar a su borde, y si no saltas a tiempo tropiezas al cruzarlo
 > (frenas a la mitad y pierdes la racha; nunca se cae). Chocar frena a la mitad, sin pararte. Cada salto se nota: el mundo

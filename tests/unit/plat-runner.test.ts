@@ -9,10 +9,9 @@
 // - el salto del hueco dura entre 0,5 y 1 s y el mundo baja y sube en medio;
 // - el paso a un lado se puede repetir hacia el otro lado (el centro no se pierde).
 import { describe, expect, it } from 'vitest';
-import { BEHIND, GIVE_UP_T, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT } from '../../src/modes/trek/plat/runner.js';
-import { HALT_BRAKE, LAND_PAST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
+import { BEHIND, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, SUPER_K } from '../../src/modes/trek/plat/runner.js';
+import { BURPEE_GAP_S, LAND_PAST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece, Sim } from './plat-sim.js';
-import type { Piece } from '../../src/modes/trek/plat/types.js';
 
 /** Los sucesos que mueven la vida (la Travesía no tiene: chocar no quita vidas). */
 const lifeEv = (s: Sim): boolean => s.log.some((e) => /life|lives|vida|hurt/i.test(e.t));
@@ -378,35 +377,55 @@ function hopHead(s: Sim): number {
 }
 
 /** Frames con la cabeza quieta hasta que te pares ante `p`; devuelve lo que más frenó en un fotograma (m/s). */
-function brakeTo(s: Sim, p: Piece): number {
-  let worst = 0, v = s.r.v;
-  for (let i = 0; i < 72 * 30 && s.r.stop !== p; i++) {
-    if (s.r.v < 0.3 && s.room(p) > STOP_AT + 0.5) s.squat();
-    else s.frame();
-    worst = Math.max(worst, v - s.r.v);
-    v = s.r.v;
+
+/** Una sentadilla honda deprisa (baja `d` m en 0,4 s y sube en 0,3 s) y, sin pararse, un salto: el supersalto. */
+function deepJump(s: Sim, d = 0.32): number {
+  const n1 = Math.round(0.4 / DT), n2 = Math.round(0.3 / DT);
+  for (let i = 1; i <= n1; i++) {
+    s.head.y = s.ref - d * Math.sin((Math.PI / 2) * (i / n1));
+    s.frame();
   }
-  return worst;
+  for (let i = 1; i <= n2; i++) {
+    s.head.y = s.ref - d * Math.cos((Math.PI / 2) * (i / n2));
+    s.frame();
+  }
+  return hopHead(s);
 }
 
-describe('la Travesía de plataformas: la plataforma', () => {
-  it('se sube de un salto al llegar a su borde: el mundo baja su altura y, al acabarla, vuelve suave; sin frenar', () => {
+/** Echarse en plancha y seguir así (sin sentadillas) hasta que el túnel `p` quede atrás; devuelve las velocidades. */
+function crawlThrough(s: Sim, p: { at: number; len: number; judged: boolean }): number[] {
+  s.plank(0.5, 0.8);
+  const vs: number[] = [];
+  for (let i = 0; i < 72 * 30 && !p.judged; i++) {
+    s.frame();
+    vs.push(s.r.v);
+  }
+  return vs;
+}
+
+describe('la Travesía de plataformas: la plataforma alta (supersalto)', () => {
+  it('sentadilla honda y salto al llegar a su borde: subes (el mundo baja toda su altura en el aire) sin frenar', () => {
     const s = new Sim();
-    const st = piece(1, 'step', 40, 1, { h: 0.4, len: 6 });
-    s.load(course([st, piece(2, 'chest', 100, 1)]));
-    expect(s.squatsTo(st, 1.0)).toBe(true);
+    const st = piece(1, 'step', 40, 1, { h: 1.2, len: 6 });
+    s.load(course([st, piece(2, 'chest', 120, 1)]));
+    // (la sentadilla honda y el salto duran ~0,8 s: se empiezan a lo que se recorre en ese tiempo, más 1 m)
+    expect(s.squatsTo(st, 8)).toBe(true);
+    expect(s.until(() => s.room(st) < 0.8 * s.r.v + 1, 72 * 10)).toBe(true);
     const v0 = s.r.v;
-    const minDip = hopHead(s);
-    expect(st.judged).toBe(true);
+    let minDip = deepJump(s);
+    for (let i = 0; i < 72 && s.r.airT >= 0; i++) {
+      s.frame();
+      minDip = Math.min(minDip, s.r.dip);
+    }
     expect(st.ok).toBe(true);
-    expect(minDip).toBeLessThan(-0.4 - 0.5 * JUMP_LIFT); // (la altura de la plataforma y el salto)
-    s.stand(0.6);
-    expect(s.r.lev).toBeCloseTo(0.4, 6);
-    expect(s.r.dip).toBeCloseTo(-0.4, 6);
-    expect(s.r.v).toBeGreaterThan(v0 - 0.4);
-    // al acabarla, bajas: suave (sin saltos de más de 3 cm por fotograma) hasta 0
+    expect(minDip).toBeLessThan(-1.2);
+    expect(s.r.lev).toBeCloseTo(1.2, 6);
+    expect(s.r.dip).toBeCloseTo(-1.2, 6);
+    expect(s.r.v).toBeGreaterThan(v0 - 0.6);
+    expect(s.of('hit')).toHaveLength(0);
+    expect(s.of('cheer').some((e) => /Supersalto/.test(e.text))).toBe(true);
+    // al acabarla bajas suave (sin saltos de más de 3 cm por fotograma) hasta el suelo
     expect(s.walk(() => st.at + st.len - 0.5 - s.r.dist, 0)).toBe(true);
-    expect(s.r.lev).toBeCloseTo(0.4, 6);
     let worst = 0, last = s.r.dip;
     for (let i = 0; i < 72 * 3 && (s.r.lev > 0 || i < 10); i++) {
       if (s.r.v < 0.3) s.squat();
@@ -415,114 +434,141 @@ describe('la Travesía de plataformas: la plataforma', () => {
       last = s.r.dip;
     }
     expect(s.r.lev).toBe(0);
-    expect(s.r.dip).toBe(0);
     expect(worst).toBeLessThan(0.03);
-    expect(s.of('hit')).toHaveLength(0);
-    expect(s.ofPiece('pass', st)).toHaveLength(1);
   });
 
-  it('sin saltar, tropiezas y subes a trompicones: frenas a la mitad y se rompe la racha, sin pararte', () => {
+  it('un salto sin sentadilla honda no basta: subes a trompicones (frenas y se rompe la racha)', () => {
     const s = new Sim();
-    const st = piece(1, 'step', 40, 1, { h: 0.3, len: 5 });
-    s.load(course([st, piece(2, 'chest', 100, 1)]));
-    expect(s.squatsTo(st, 3)).toBe(true);
-    let v0 = s.r.v;
-    while (!st.judged) {
-      v0 = s.r.v;
-      s.frame();
-    }
-    expect(st.ok).toBe(false);
-    expect(s.r.v).toBeCloseTo(v0 * HIT_KEEP, 1);
-    expect(s.r.v).toBeGreaterThan(0);
-    expect(s.ofPiece('hit', st)).toHaveLength(1);
-    s.stand(0.6);
-    expect(s.r.lev).toBeCloseTo(0.3, 6);
-  });
-});
-
-describe('la Travesía de plataformas: el túnel de flexiones', () => {
-  it('frenas suave hasta 1 m, al suelo en plancha, las flexiones suben el techo y, de pie, sigues con tu velocidad', () => {
-    const s = new Sim();
-    const tn = piece(1, 'crawl', 50, 2, { len: 2, n: 3 });
-    s.load(course([tn, piece(2, 'chest', 120, 2)]));
-    expect(s.squatsTo(tn, 12)).toBe(true);
-    const vIn = s.r.v;
-    expect(vIn).toBeGreaterThan(1);
-    const worst = brakeTo(s, tn);
-    expect(s.r.stop).toBe(tn);
-    expect(s.r.dist).toBeCloseTo(tn.at - STOP_AT, 6);
-    // frena suave, nunca de golpe: lo más que pierde en un fotograma es el último pasito (a menos de 0,4 m/s)
-    expect(worst).toBeLessThan(Math.max(0.4, HALT_BRAKE * DT * 1.5));
-    expect(s.of('say').some((e) => /Túnel/.test(e.text))).toBe(true);
-    // de pie, las sentadillas no empujan
-    expect(s.squat()).toBe(false);
-    expect(s.r.dist).toBeCloseTo(tn.at - STOP_AT, 6);
-    // una flexión de pie no cuenta: hay que estar en plancha
-    s.plank(0.5);
-    for (let i = 0; i < 40; i++) s.frame(); // (asentarse)
-    for (let i = 1; i <= 3; i++) {
-      s.pushup();
-      expect(tn.done).toBe(i);
-    }
-    expect(s.r.stop).toBe(tn); // (aún en el suelo: el mundo quieto)
-    expect(s.r.dist).toBeCloseTo(tn.at - STOP_AT, 6);
-    s.getUp();
-    expect(s.until(() => !!s.r.hop, 72 * 2)).toBe(true);
-    expect(s.r.hop!.v1).toBeGreaterThan(vIn * 0.7);
-    let minDip = 0;
-    while (s.r.hop) {
-      s.frame();
-      minDip = Math.min(minDip, s.r.dip);
-    }
-    expect(minDip).toBe(0); // (el túnel no se salta)
-    expect(tn.ok).toBe(true);
-    expect(s.ofPiece('pass', tn)).toHaveLength(1);
-    expect(s.r.dist).toBeGreaterThanOrEqual(tn.at + tn.len + LAND_PAST - 1e-6);
-    expect(s.r.v).toBeGreaterThan(vIn * 0.7);
-  });
-
-  it('si no puedes, a los 60 s lo rodeas sin puntos', () => {
-    const s = new Sim();
-    const tn = piece(1, 'crawl', 40, 2, { len: 2, n: 3 });
-    s.load(course([tn, piece(2, 'chest', 120, 2)]));
-    brakeTo(s, tn);
-    expect(s.r.stop).toBe(tn);
-    s.stand(GIVE_UP_T + 1);
-    expect(s.until(() => tn.judged, 72 * 3)).toBe(true);
-    expect(tn.ok).toBe(false);
-    expect(s.ofPiece('pass', tn)).toHaveLength(0);
-    expect(s.r.dist).toBeGreaterThan(tn.at);
-  });
-});
-
-describe('la Travesía de plataformas: el muro de burpee', () => {
-  it('saltar sin echarte al suelo no vale; al suelo, de pie y el salto te lleva por encima (se nota) con tu velocidad', () => {
-    const s = new Sim();
-    const w = piece(1, 'burpee', 50, 2, { len: 0.5, h: 0.7 });
-    s.load(course([w, piece(2, 'chest', 120, 2)]));
-    expect(s.squatsTo(w, 12)).toBe(true);
-    const vIn = s.r.v;
-    brakeTo(s, w);
-    expect(s.r.stop).toBe(w);
+    const st = piece(1, 'step', 40, 1, { h: 1.0, len: 5 });
+    s.load(course([st, piece(2, 'chest', 120, 1)]));
+    expect(s.squatsTo(st, 1.0)).toBe(true);
+    s.stand(0.1);
+    s.r.moves.deepT = 9; // (la última sentadilla de la marcha ya queda lejos)
+    const v0 = s.r.v;
     hopHead(s);
-    s.stand(0.5);
-    expect(s.r.stop).toBe(w);
-    expect(s.r.hop).toBeNull();
-    s.plank(0.5);
-    for (let i = 0; i < 20; i++) s.frame();
+    expect(st.judged).toBe(true);
+    expect(st.ok).toBe(false);
+    expect(s.r.v).toBeLessThan(v0 - 0.4); // (frenas; luego vuelve a acelerar si empujas)
+    expect(s.ofPiece('hit', st)).toHaveLength(1);
+    s.stand(1.2);
+    expect(s.r.lev).toBeCloseTo(1.0, 6);
+  });
+
+  it('sin saltar, también a trompicones; sin pararte', () => {
+    const s = new Sim();
+    const st = piece(1, 'step', 40, 1, { h: 0.9, len: 5 });
+    s.load(course([st, piece(2, 'chest', 120, 1)]));
+    expect(s.squatsTo(st, 3)).toBe(true);
+    while (!st.judged) s.frame();
+    expect(st.ok).toBe(false);
+    expect(s.r.v).toBeGreaterThan(0);
+  });
+});
+
+describe('la Travesía de plataformas: el túnel (en plancha, con la inercia)', () => {
+  it('echado antes de llegar, la velocidad no se gasta y pasas por debajo sin sentadillas; las sentadillas echado no empujan', () => {
+    const s = new Sim();
+    const tn = piece(1, 'crawl', 50, 2, { len: 5 });
+    s.load(course([tn, piece(2, 'chest', 150, 2)]));
+    expect(s.squatsTo(tn, 9)).toBe(true);
+    expect(s.of('say').some((e) => /Túnel/.test(e.text))).toBe(true); // (avisa con tiempo)
+    const v0 = s.r.v;
+    const vs = crawlThrough(s, tn);
+    expect(tn.ok).toBe(true);
+    expect(Math.min(...vs)).toBeGreaterThanOrEqual(Math.min(v0, CRAWL_V) - 0.05);
+    expect(s.r.v).toBeGreaterThan(v0 * 0.9);
+    expect(s.of('hit')).toHaveLength(0);
+    expect(s.of('halt')).toHaveLength(0);
+    expect(s.r.rep(false)).toBe(false); // (echado, no empujas)
+    expect(s.of('say').some((e) => e.text === '¡De pie!')).toBe(true);
     s.getUp();
-    s.stand(0.5);
-    expect(s.r.stop).toBe(w);
-    const minDip = hopHead(s);
-    expect(s.r.hop?.won ?? w.ok).toBe(true);
-    let m = minDip;
-    while (s.r.hop) {
-      s.frame();
-      m = Math.min(m, s.r.dip);
+    expect(s.r.moves.plank).toBe(false);
+  });
+
+  it('despacio, cerca y dentro del túnel te lleva como poco a CRAWL_V', () => {
+    const s = new Sim();
+    const tn = piece(1, 'crawl', 30, 2, { len: 4 });
+    s.load(course([tn, piece(2, 'chest', 150, 2)]));
+    expect(s.squatsTo(tn, 6)).toBe(true);
+    s.r.tk.v = 0.3; // (casi parado)
+    s.r.tk.push = 0;
+    crawlThrough(s, tn);
+    expect(tn.judged).toBe(true);
+    expect(tn.ok).toBe(true);
+  });
+
+  it('de pie bajo el techo, chocas una vez (frenas a la mitad, se rompe la racha) y sigues', () => {
+    const s = new Sim();
+    const tn = piece(1, 'crawl', 40, 2, { len: 4 });
+    s.load(course([tn, piece(2, 'chest', 150, 2)]));
+    expect(s.squatsTo(tn, 1)).toBe(true);
+    for (let i = 0; i < 72 * 20 && !tn.judged; i++) {
+      if (s.r.v < 0.3) s.squat();
+      else s.frame();
     }
-    expect(m).toBeLessThan(-0.8 * JUMP_LIFT);
-    expect(w.ok).toBe(true);
-    expect(s.r.v).toBeGreaterThan(vIn * 0.7);
-    expect(s.r.dist).toBeGreaterThanOrEqual(w.at + w.len + LAND_PAST - 1e-6);
+    expect(tn.ok).toBe(false);
+    expect(s.ofPiece('hit', tn)).toHaveLength(1);
+    expect(s.of('say').filter((e) => e.warn).map((e) => e.text)).toContain('¡Cabeza abajo en el túnel!');
+    expect(s.r.dist).toBeGreaterThan(tn.at + tn.len);
+  });
+});
+
+describe('la Travesía de plataformas: el burpee (túnel y, enseguida, su plataforma)', () => {
+  it('en plancha por el túnel, de pie y un salto normal a la plataforma: ¡BURPEE!', () => {
+    const s = new Sim();
+    const tn = piece(1, 'crawl', 50, 2, { len: 4 });
+    const st = piece(2, 'step', 0, 2, { h: 0.8, len: 5 });
+    st.burpee = true;
+    st.at = tn.at + tn.len + BURPEE_GAP_S * 4;
+    s.load(course([tn, st, piece(3, 'chest', 200, 2)]));
+    expect(s.squatsTo(tn, 9)).toBe(true);
+    crawlThrough(s, tn);
+    expect(tn.ok).toBe(true);
+    s.getUp(0.8);
+    expect(s.until(() => s.room(st) < 1.2, 72 * 10) || s.squatsTo(st, 1.2)).toBe(true);
+    s.r.moves.deepT = 9; // (sin sentadilla honda: en el burpee basta un salto)
+    hopHead(s);
+    expect(st.ok).toBe(true);
+    expect(s.of('cheer').some((e) => e.text === '¡BURPEE!')).toBe(true);
+    s.stand(1);
+    expect(s.r.lev).toBeCloseTo(0.8, 6);
+  });
+});
+
+describe('la Travesía de plataformas: las frutas', () => {
+  it('se cogen llevando la cabeza a su lado; si no, pasan sin más; cuatro llenan la energía: supervelocidad', () => {
+    const s = new Sim();
+    const fr = [1, 2, 3, 4, 5].map((i) => piece(i, 'fruit', 30 + 25 * i, 1, { side: i % 2 ? 1 : -1 }));
+    s.load(course([...fr, piece(9, 'chest', 400, 1)]));
+    // la primera, sin moverse: pasa de largo, sin choque ni energía
+    expect(s.squatsTo(fr[0], 0.5)).toBe(true);
+    expect(s.until(() => fr[0].judged, 72 * 5)).toBe(true);
+    expect(fr[0].ok).toBe(false);
+    expect(s.of('hit')).toHaveLength(0);
+    expect(s.r.energy).toBe(0);
+    // las otras cuatro, apartando la cabeza a su lado
+    for (const f of fr.slice(1)) {
+      expect(s.squatsTo(f, 2.5)).toBe(true);
+      s.side(f.side * 0.35, () => f.judged);
+      expect(f.ok, `fruta ${f.id}`).toBe(true);
+    }
+    expect(s.of('pass')).toHaveLength(4);
+    expect(s.r.superT).toBeGreaterThan(0);
+    expect(s.r.energy).toBe(0);
+    expect(s.of('cheer').some((e) => e.text === '¡SUPERVELOCIDAD!')).toBe(true);
+    s.frame();
+    expect(s.r.v).toBeGreaterThanOrEqual(s.r.vmax * SUPER_K - 1e-6);
+  });
+
+  it('la especial llena la energía de golpe', () => {
+    const s = new Sim();
+    const f = piece(1, 'fruit', 40, 1, { side: -1 });
+    f.special = true;
+    s.load(course([f, piece(2, 'chest', 200, 1)]));
+    expect(s.squatsTo(f, 2.5)).toBe(true);
+    s.side(-0.35, () => f.judged);
+    expect(f.ok).toBe(true);
+    expect(s.r.superT).toBeGreaterThan(0);
+    expect(FRUIT_E).toBeLessThan(1);
   });
 });

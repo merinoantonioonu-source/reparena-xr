@@ -10,13 +10,16 @@
  *   con la velocidad que traías; si no saltas a tiempo, tropiezas al cruzarlo (nunca se cae).
  * - **Cada salto se nota**: el mundo baja y sube bajo los pies (`dip`, hasta `JUMP_LIFT`), como si el salto te elevara
  *   mucho más que lo que sube tu cabeza. En el aire llevas tu inercia: la velocidad no cae y, al aterrizar, sigues igual.
- * - **La plataforma** se sube de un salto en marcha al llegar a su borde (el mundo baja `h` y te deja arriba); si no
- *   saltas, tropiezas y subes a trompicones. Al acabarla, bajas sola, suave.
- * - **Pasos** (el cofre al final del tramo; el túnel de flexiones y el muro de burpee): no se baja al suelo con el mundo en
- *   marcha (seguridad), así que el mundo frena suave (`HALT_BRAKE`) hasta dejarte a `STOP_AT` (1 m), con un aviso grande.
- *   Túnel: al suelo en plancha y `n` flexiones (cada una sube su techo), y de pie. Muro: al suelo, de pie y un salto por
- *   encima. Al acabar, el mundo te lleva al otro lado y sigues con la velocidad que traías antes de frenar. Si no puedes,
- *   a los `GIVE_UP_T` s lo rodeas (sin puntos).
+ * - **La plataforma** (alta: de 0,8 a 1,5 m) se sube con un **supersalto** en marcha al llegar a su borde: sentadilla
+ *   honda (`DEEP_WIN` s antes, como mucho) y salto; el mundo baja su altura mientras estás en el aire. Sin sentadilla honda
+ *   o sin salto, tropiezas y subes a trompicones. Al acabarla, bajas sola, suave. La de un **burpee** (llega tras un túnel)
+ *   se sube con un salto normal.
+ * - **El túnel** se pasa en marcha, en plancha: echado, no empujas, pero la velocidad que traías se mantiene (y como poco
+ *   `CRAWL_V` cerca y dentro de él), así que pasas por debajo sin hacer nada más; si la cabeza no va baja, chocas con el
+ *   techo. Al salir, de pie.
+ * - **Las frutas** flotan a la altura de la cabeza, a un lado: se cogen apartando la cabeza hacia ellas. Llenan la barra de
+ *   energía (`FRUIT_E` cada una; la especial, entera); llena, **supervelocidad** (`SUPER_K` la máxima, `SUPER_T` s).
+ * - **Pasos**: solo el cofre al final del tramo: el mundo frena suave (`HALT_BRAKE`) hasta dejarte a `STOP_AT` (1 m).
  * - **Más deprisa que la Travesía clásica** (`PLAT_SPEED`, pedido del usuario): la misma «Velocidad de avance», un 35 % más,
  *   y acelera antes.
  *
@@ -27,7 +30,7 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, FLUID, HALT, HALT_BRAKE, LAND_PAST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './types.js';
+import { COL_ASK, COL_OK, COL_WARN, FLUID, FRUIT_WIN, HALT, HALT_BRAKE, LAND_PAST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -42,12 +45,14 @@ export const HOP_MIN = 0.45, HOP_MAX = 0.9, GAP_EARLY_S = 0.6, GAP_EARLY_MIN = 1
 export const TRIP_V = 1.2, TRIP_MIN = 0.6;
 /** Chocar o tropezar: la velocidad que te queda (la mitad: frenas, pero sigues). */
 export const HIT_KEEP = 0.5;
-/** Parado ante un paso sin hacer nada: cada cuánto se repite lo que hay que hacer (s) y cuándo lo rodeas (s, sin puntos). */
-export const NAG_T = 6, GIVE_UP_T = 60;
-/** La plataforma: lo que tarda en subirte a trompicones si no saltas y en bajarte al acabarla (s). */
-export const CLIMB_T = 0.45, DROP_T = 0.45;
-/** Al salir de un paso de suelo: la velocidad con que sigues como poco (m/s) y lo que hay que estar de pie antes (s). */
-export const EXIT_V = 1.5, UP_HOLD = 0.3;
+/** La plataforma: lo que tarda en subirte a trompicones si no saltas y en bajarte al acabarla (s, más por cada m de
+ * altura: suave también en las altas); el supersalto, lo que dura en el aire (s) y lo que tarda el suelo en subir (s); y la
+ * sentadilla honda que pide, como mucho tantos s antes del salto. */
+export const CLIMB_T = 0.45, DROP_T = 0.45, LEV_PER_M = 0.4, SUPER_AIR_T = 0.9, SUPER_LEV_T = 0.6, DEEP_WIN = 1.5;
+/** El túnel: la velocidad que llevas como poco cerca y dentro de él, echado (m/s), y desde dónde (m antes). */
+export const CRAWL_V = 1.2, CRAWL_NEAR = 15;
+/** Las frutas: la energía de cada una (la especial, toda), lo que dura la supervelocidad (s) y cuánto más que la máxima. */
+export const FRUIT_E = 0.25, SUPER_T = 5, SUPER_K = 1.3;
 /** Dónde se avisa de lo que viene (m antes de la cabeza, o lo que recorres en tantos s si es más): las fluidas, a 4 m o
  * 1,4 s; el obstáculo a un lado y el hueco, antes (para prepararse). */
 export const WARN_AT = 4, WARN_S = 1.4, SIDE_WARN_AT = 6, SIDE_WARN_S = 1.8;
@@ -86,14 +91,6 @@ interface Hop {
   cheer: string;
 }
 
-/** Un paso de suelo en marcha: qué toca ahora (echarte al suelo, las flexiones, levantarte o saltar) y cuánto llevas. */
-interface Floor {
-  p: Piece;
-  phase: 'down' | 'push' | 'up' | 'jump';
-  t: number;
-  push0: number;
-}
-
 /** El suelo sube o baja (la plataforma): de dónde a dónde y en cuánto. */
 interface Lev {
   from: number;
@@ -108,7 +105,7 @@ export class Runner {
   /** El impulso de la Travesía (su `dist` es dónde vas). */
   readonly tk: Trek;
   readonly moves = new BodyMoves();
-  readonly cfg: MoveCfg = { jumpH: 0.06, sideNeed: 0.3, plankY: 0.7, pushNeed: 0.1 };
+  readonly cfg: MoveCfg = { jumpH: 0.06, sideNeed: 0.3, plankY: 0.7, pushNeed: 0.1, deepNeed: 0.2 };
   /** El recorrido hecho hasta ahora (los tramos ya montados, en orden) y el primero que aún no ha salido a la vista. */
   pieces: Piece[] = [];
   private nextShow = 0;
@@ -120,17 +117,16 @@ export class Runner {
   private nagT = 0;
   hop: Hop | null = null;
   chest: Piece | null = null;
-  /** Un salto sin hueco (el tronco, o saltar porque sí): lo que lleva en el aire (s; −1, en el suelo). */
+  /** Un salto sin hueco (el tronco, o saltar porque sí): lo que lleva en el aire (s; −1, en el suelo) y lo que dura. */
   airT = -1;
-  /** El paso de suelo de ahora (túnel o muro) y lo que toca. */
-  floor: Floor | null = null;
+  private airDur = AIR_T;
+  /** La energía de las frutas (de 0 a 1) y lo que queda de supervelocidad (s). */
+  energy = 0;
+  superT = 0;
   /** Lo alto que está el suelo bajo tus pies (m: sobre una plataforma, su `h`), su cambio en curso y la plataforma. */
   lev = 0;
   private levTo: Lev | null = null;
   onStep: Piece | null = null;
-  /** La velocidad que traías al empezar a frenar ante un paso (con ella sigues al acabarlo). */
-  private brakeFor: Piece | null = null;
-  private brakeV = 0;
   /** Lo que baja el mundo ahora (m, negativo: el salto te eleva). */
   dip = 0;
   /** Los tramos montados: dónde acaba cada uno (su cofre). */
@@ -193,11 +189,10 @@ export class Runner {
     this.live = [];
     this.nextShow = 0;
     this.stop = this.hop = this.chest = null;
-    this.stopT = this.nagT = this.dip = this.lev = this.brakeV = 0;
+    this.stopT = this.dip = this.lev = this.energy = this.superT = 0;
     this.airT = -1;
-    this.floor = null;
     this.levTo = null;
-    this.onStep = this.brakeFor = null;
+    this.onStep = null;
     this.ends = [];
     this.passed = this.hits = 0;
     this.id = 1;
@@ -252,7 +247,7 @@ export class Runner {
   /** Una repetición del ejercicio. Empuja si vas en marcha; parado ante un paso, recuerda lo que toca (y no empuja); en
    * el aire, no empuja. Devuelve si ha empujado (las de una parada no cuentan para el tramo). */
   rep(perfect: boolean): boolean {
-    if (this.env.state !== 'play') return false;
+    if (this.env.state !== 'play' || this.moves.plank) return false; // (echado, no empujas: llevas la inercia)
     if (this.stop || this.hop) {
       if (this.stop) this.ask(this.stop, false);
       return false;
@@ -267,9 +262,10 @@ export class Runner {
   step(dt: number): void {
     const env = this.env, tk = this.tk, st = env.state, H = env.head;
     moveCfg((k) => env.s(k), this.cfg);
+    this.cfg.deepNeed = Math.max(0.12, (0.8 * (env.dv('squatDepth') || 26)) / 100);
     this.moves.hold = this.sideAhead();
     this.moves.update(dt, H, this.cfg);
-    const d0 = tk.dist, push0 = tk.push;
+    const d0 = tk.dist, push0 = tk.push, v0 = tk.v;
     if (this.stop || this.hop) tk.idle = 0; // (el turbo espera en las paradas y en el aire)
     tk.step(dt, env.now);
     if (this.stop) {
@@ -281,7 +277,21 @@ export class Runner {
       tk.dist = d0;
       tk.v = this.hop.v1;
       tk.push = push0;
+    } else if (st === 'play' && this.airT >= 0) {
+      // en el aire (el tronco, el supersalto o saltar porque sí), la inercia: no frenas
+      tk.v = Math.max(tk.v, v0);
+      tk.push = push0;
+    } else if (st === 'play' && this.moves.plank) {
+      // echado (el túnel): la inercia, sin gastarse; cerca y dentro de un túnel, como poco CRAWL_V (pasas por debajo)
+      tk.v = Math.max(v0, this.crawlNear() ? CRAWL_V : 0);
+      tk.push = push0;
+      tk.dist = d0 + tk.v * dt;
     } else if (st === 'play' && tk.push > 0 && tk.v < tk.want) tk.v = Math.min(tk.want, tk.v + dt * PLAT_ACCEL); // (acelera antes)
+    // la supervelocidad: como poco SUPER_K la máxima, mientras dura
+    if (this.superT > 0 && st === 'play') {
+      this.superT = Math.max(0, this.superT - dt);
+      if (!this.stop && !this.hop) tk.v = Math.max(tk.v, this.vmax * SUPER_K);
+    }
     this.stepHop(dt);
     this.stepAir(dt);
     this.stepLev(dt);
@@ -289,13 +299,7 @@ export class Runner {
     const h = this.nextHalt();
     if (h && !this.hop && this.stop !== h) {
       const room = h.at - STOP_AT - tk.dist, vcap = Math.sqrt(2 * HALT_BRAKE * Math.max(0, room));
-      if (tk.v > vcap) {
-        if (this.brakeFor !== h) {
-          this.brakeFor = h;
-          this.brakeV = tk.v;
-        }
-        tk.v = vcap;
-      }
+      if (tk.v > vcap) tk.v = vcap;
       if (room < 0.02) {
         tk.dist = h.at - STOP_AT;
         if (st === 'play' || h.k === 'chest') this.halt(h);
@@ -306,14 +310,13 @@ export class Runner {
     const S = this.onStep;
     if (S && !this.hop && tk.dist + H.z >= S.at + S.len) {
       this.onStep = null;
-      this.levTo = { from: this.lev, to: 0, t: 0, dur: DROP_T };
+      this.levTo = { from: this.lev, to: 0, t: 0, dur: DROP_T + LEV_PER_M * this.lev };
     }
     tk.frame();
     this.reveal();
     if (st === 'play') {
       if (this.moves.takeoff && !this.hop && !this.stop) this.takeoff(H.z);
       for (const p of this.live) if (!p.judged && FLUID.includes(p.k) && p !== this.hop?.p) this.judge(p, p.at - tk.dist + H.z);
-      this.stepStop(dt);
     } else this.airT = -1;
     this.drop();
     this.pull();
@@ -322,7 +325,14 @@ export class Runner {
   /** ¿Se acerca un obstáculo a un lado (o está pasando)? Entonces el centro no sigue a la cabeza. */
   private sideAhead(): boolean {
     const look = Math.max(SIDE_WARN_AT, SIDE_HOLD_S * Math.max(this.tk.v, 0.5));
-    for (const p of this.live) if (p.k === 'side' && !p.judged && p.at - this.tk.dist < look) return true;
+    for (const p of this.live) if ((p.k === 'side' || p.k === 'fruit') && !p.judged && p.at - this.tk.dist < look) return true;
+    return false;
+  }
+
+  /** ¿Hay un túnel cerca por delante (CRAWL_NEAR m) o lo estás pasando? */
+  private crawlNear(): boolean {
+    const d = this.tk.dist;
+    for (const p of this.live) if (p.k === 'crawl' && !p.judged && p.at - d < CRAWL_NEAR && p.at + p.len > d - 0.5) return true;
     return false;
   }
 
@@ -360,8 +370,10 @@ export class Runner {
   /** El juicio de una fluida; `z`, lo que le falta para llegar a tu cabeza (m). */
   private judge(p: Piece, z: number): void {
     const M = this.moves, C = this.cfg, v = this.tk.v;
-    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step';
-    if (!p.warned && z < Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S))) {
+    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit';
+    // (el túnel, con más tiempo: hay que echarse al suelo)
+    const warnAt = p.k === 'crawl' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
+    if (!p.warned && z < warnAt) {
       p.warned = true;
       this.ask(p, true);
     }
@@ -371,6 +383,35 @@ export class Runner {
     }
     if (p.k === 'step') {
       if (z <= 0) this.climb(p, false); // (sin saltar: subes a trompicones)
+      return;
+    }
+    if (p.k === 'crawl') {
+      // bajo el techo: la cabeza, abajo (en plancha); si no, chocas una vez (frenas y se rompe la racha) y sigues
+      if (z < 0.1 && z > -p.len && !M.plank && !p.bad) {
+        p.bad = true;
+        this.tk.v *= HIT_KEEP;
+        this.hit(p, this.pos(p, 0, 0.75));
+        this.say('¡Cabeza abajo en el túnel!', COL_WARN, 1.6, true);
+      }
+      if (z < -p.len - 0.3) {
+        p.judged = true;
+        p.ok = !p.bad;
+        if (p.ok) {
+          this.passed++;
+          this.ev.push({ t: 'pass', p });
+          this.score(200);
+          this.cheer('¡Túnel superado!', COL_OK, 1.0);
+        }
+        this.say('¡De pie!', COL_ASK, 1.2, false);
+      }
+      return;
+    }
+    if (p.k === 'fruit') {
+      if (Math.abs(z) < FRUIT_WIN && p.side * M.dx >= C.sideNeed * 0.8) this.eat(p);
+      else if (z < -FRUIT_WIN) {
+        p.judged = true;
+        p.ok = false;
+      }
       return;
     }
     if (p.k === 'side') {
@@ -440,98 +481,56 @@ export class Runner {
       this.snd('victory', null);
       return;
     }
-    this.floor = { p, phase: 'down', t: 0, push0: this.moves.pushups };
-    this.ask(p, true);
   }
 
-  /** Parado ante un paso de suelo: lo que toca, fase a fase (el cofre, no: ahí se acaba el tramo). Lo que toca se repite
-   * si tardas; a los GIVE_UP_T s, lo rodeas sin puntos. */
-  private stepStop(dt: number): void {
-    const F = this.floor, M = this.moves;
-    if (!F || this.stop !== F.p) return;
-    const p = F.p;
-    this.stopT += dt;
-    F.t += dt;
-    if (F.phase === 'down') {
-      if (M.plank) this.phase(F, p.k === 'crawl' ? 'push' : 'up');
-    } else if (F.phase === 'push') {
-      const d = Math.min(p.n, M.pushups - F.push0);
-      if (d > p.done) {
-        p.done = d;
-        this.score(50);
-        this.snd('tick', null);
-        this.ev.push({ t: 'haptic', k: 0.3, ms: 40 });
-        if (p.done < p.n) this.say(`¡${p.done}! Faltan ${p.n - p.done}`, COL_ASK, 1.0, false);
-      }
-      if (p.done >= p.n) this.phase(F, 'up');
-    } else if (F.phase === 'up') {
-      if (!M.standing) F.t = 0;
-      else if (F.t > UP_HOLD) {
-        if (p.k === 'crawl') this.exit(p, true);
-        else this.phase(F, 'jump');
-      }
-    } else if (M.takeoff) this.exit(p, true); // (el muro: el salto te lleva por encima)
-    if (this.stop !== p) return;
-    if (this.stopT > GIVE_UP_T) {
-      this.say(p.k === 'crawl' ? 'Rodeas el túnel (sin puntos)' : 'Rodeas el muro (sin puntos)', '#a49fc8', 1.6, false);
-      this.exit(p, false);
-      return;
-    }
-    if ((this.nagT += dt) > NAG_T) {
-      this.nagT = 0;
-      this.ask(p, false);
-    }
-  }
-
-  /** Lo siguiente de un paso de suelo (y lo que se pide entonces). */
-  private phase(F: Floor, ph: Floor['phase']): void {
-    F.phase = ph;
-    F.t = 0;
-    this.nagT = 0;
-    this.ask(F.p, false);
-  }
-
-  /** Sales de un paso de suelo: el mundo te lleva al otro lado (por encima del muro, con el salto) y sigues con la velocidad
-   * que traías antes de frenar. `won`: hecho (si no, rodeado, sin puntos). */
-  private exit(p: Piece, won: boolean): void {
-    const s0 = this.tk.dist, s1 = p.at + p.len + LAND_PAST, v1 = Math.max(EXIT_V, this.brakeFor === p ? this.brakeV : 0);
-    const dur = Math.max(HOP_MIN, Math.min(1.2, (s1 - s0) / v1));
-    const jump = won && p.k === 'burpee';
-    this.hop = { p, s0, s1, t: 0, dur, won, v1, lift: jump ? JUMP_LIFT : 0, score: p.k === 'crawl' ? 100 * p.n : 300, cheer: p.k === 'crawl' ? '¡Túnel superado!' : '¡Muro saltado!' };
-    this.stop = null;
-    this.floor = null;
-    this.brakeFor = null;
-    this.ev.push({ t: 'go', p, dur });
-    if (jump) {
-      this.snd('whoosh', this.pos(p, 0, 0.3), 'arc');
-      this.ev.push({ t: 'haptic', k: 0.5, ms: 60 });
-    }
-    if (!won) {
-      p.judged = true;
-      p.ok = false;
-    }
-  }
-
-  /** Subes a la plataforma: con el salto (`won`: el mundo baja su altura mientras estás en el aire) o a trompicones (frenas
-   * y se rompe la racha). Al acabarla bajas solo (en `step`). */
+  /** Subes a la plataforma: con el supersalto (`won`: el mundo baja su altura mientras estás en el aire) o a trompicones
+   * (frenas y se rompe la racha). Al acabarla bajas solo (en `step`). La de un burpee celebra el burpee. */
   private climb(p: Piece, won: boolean): void {
     p.judged = true;
     p.ok = won;
     this.onStep = p;
     if (won) {
-      this.levTo = { from: this.lev, to: p.h, t: 0, dur: AIR_T * 0.6 };
+      this.levTo = { from: this.lev, to: p.h, t: 0, dur: SUPER_LEV_T };
       this.airT = 0;
+      this.airDur = SUPER_AIR_T;
       this.passed++;
       this.ev.push({ t: 'pass', p });
-      this.score(150);
+      const burpee = p.burpee && this.prevOk(p, 'crawl');
+      this.score(burpee ? 400 : 250);
       this.snd('step', null, true);
-      this.cheer('¡Arriba!', COL_OK, 0.9);
+      this.cheer(burpee ? '¡BURPEE!' : '¡Supersalto!', COL_OK, 1.1);
       return;
     }
-    this.levTo = { from: this.lev, to: p.h, t: 0, dur: CLIMB_T };
+    this.levTo = { from: this.lev, to: p.h, t: 0, dur: CLIMB_T + LEV_PER_M * p.h };
     this.tk.v *= HIT_KEEP;
     this.hit(p, this.pos(p, 0, p.h));
-    this.say('¡Salta para subir a la plataforma!', COL_WARN, 1.6, true);
+    this.say(p.burpee ? '¡Salta para subir!' : '¡Sentadilla honda y salta!', COL_WARN, 1.6, true);
+  }
+
+  /** ¿La pieza de clase `k` anterior a `p` se superó? (El burpee: el túnel antes de su plataforma.) */
+  private prevOk(p: Piece, k: Piece['k']): boolean {
+    const i = this.pieces.indexOf(p);
+    for (let j = i - 1; j >= 0; j--) if (this.pieces[j].k === k) return this.pieces[j].ok === true;
+    return false;
+  }
+
+  /** Coges una fruta: energía (la especial, toda) y, con la barra llena, supervelocidad. */
+  private eat(p: Piece): void {
+    p.judged = true;
+    p.ok = true;
+    this.passed++;
+    this.ev.push({ t: 'pass', p });
+    this.score(p.special ? 300 : 100);
+    this.snd('perfect', this.pos(p, 0, this.env.calibRef));
+    this.ev.push({ t: 'haptic', k: 0.4, ms: 50 });
+    this.energy = p.special ? 1 : Math.min(1, this.energy + FRUIT_E);
+    if (this.energy >= 1) {
+      this.energy = 0;
+      this.superT = SUPER_T;
+      this.cheer('¡SUPERVELOCIDAD!', '#c8ff3a', 1.8);
+      this.snd('combo', null);
+      this.ev.push({ t: 'haptic', k: 0.8, ms: 200 });
+    } else this.cheer(p.special ? '¡Fruta especial!' : '¡Fruta!', COL_OK, 0.8);
   }
 
   /** El suelo que sube o baja bajo los pies (suave). */
@@ -557,11 +556,12 @@ export class Runner {
       if (z > win) break; // (el primero que queda por delante, y aún lejos: es pronto)
       if (z > -0.2) {
         if (p.k === 'gap') this.go(p, true);
-        else this.climb(p, true);
+        else this.climb(p, p.burpee || this.moves.deepT < DEEP_WIN); // (la alta pide sentadilla honda antes del salto)
         return;
       }
     }
     this.airT = 0;
+    this.airDur = AIR_T;
   }
 
   /** Empieza el cruce del hueco: con el salto (`won`), a tu velocidad (o algo más, si no llegas al otro lado en HOP_MAX) y
@@ -625,7 +625,7 @@ export class Runner {
   private stepAir(dt: number): void {
     if (this.airT < 0 || this.hop) return;
     this.airT += dt;
-    const k = this.airT / AIR_T;
+    const k = this.airT / this.airDur;
     if (k >= 1) {
       this.airT = -1;
       return;
@@ -636,33 +636,12 @@ export class Runner {
   /** Lo que pide cada pieza (al avisar de ella, al pararte o si tardas). */
   private ask(p: Piece, first: boolean): void {
     if (p.k === 'gap') this.say('¡Un hueco! Salta al llegar al borde', COL_ASK, 1.6, false);
-    else if (p.k === 'step') this.say('¡Plataforma! Sube de un salto', COL_ASK, 1.6, false);
-    else if (p.k === 'crawl' || p.k === 'burpee') this.askFloor(p, first);
+    else if (p.k === 'step') this.say(p.burpee ? '¡Arriba y salta a la plataforma!' : '¡Plataforma alta! Sentadilla honda y salta', COL_ASK, 1.8, false);
+    else if (p.k === 'crawl') this.say('¡Túnel! Al suelo, en plancha', COL_ASK, 2.6, false);
+    else if (p.k === 'fruit') this.say(`¡${p.special ? 'Fruta especial' : 'Fruta'} a la ${p.side < 0 ? 'izquierda' : 'derecha'}!`, COL_ASK, 1.2, false);
     else if (p.k === 'log') this.say('¡Salta!', COL_ASK, 1.2, false);
     else if (p.k === 'low') this.say('¡Agáchate!', COL_ASK, 1.2, false);
     else if (p.k === 'side') this.say(`¡Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}!`, COL_ASK, 1.4, false);
-  }
-
-  /** Lo que pide un paso de suelo según lo que toca (al llegar, un aviso grande). */
-  private askFloor(p: Piece, first: boolean): void {
-    const ph = this.floor?.p === p ? this.floor.phase : 'down';
-    if (first) {
-      this.say(p.k === 'crawl' ? `¡Túnel! Al suelo en plancha y ${p.n} flexiones` : '¡Muro! Al suelo, arriba y salta por encima', COL_ASK, 2.6, false);
-      return;
-    }
-    const text = ph === 'down' ? '¡Al suelo, en plancha!' : ph === 'push' ? `¡Flexiones! Faltan ${p.n - p.done}` : ph === 'up' ? (p.k === 'crawl' ? '¡Arriba! El túnel está abierto' : '¡Arriba!') : '¡Salta el muro!';
-    this.say(text, COL_ASK, 1.4, false);
-  }
-
-  /** Lo que toca ahora en un paso de suelo, para el marcador ('' si no hay). */
-  task(): string {
-    const F = this.floor;
-    if (!F || this.stop !== F.p) return '';
-    const p = F.p;
-    if (F.phase === 'down') return 'Al suelo, en plancha';
-    if (F.phase === 'push') return `Flexiones: ${p.done} de ${p.n}`;
-    if (F.phase === 'up') return 'De pie';
-    return 'Salta el muro';
   }
 
   /* ---------- lo de la marcha ---------- */

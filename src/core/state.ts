@@ -63,6 +63,9 @@ export interface CenterInfo {
 export const VIEW = {
   center: null as CenterInfo | null,
   duel: false,
+  /** Echado en plena partida aunque el ejercicio sea de pie (la Travesía: en plancha bajo un túnel): los avisos, en el suelo
+   * bajo la cara y siguiendo la mirada (fijos delante, a la altura de estar de pie, no se leerían). Lo pone TrekSystem. */
+  prone: false,
 };
 
 /** Avisos entre sistemas (los pone el sistema del juego al arrancar). */
