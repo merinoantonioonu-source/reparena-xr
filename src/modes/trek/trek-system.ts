@@ -21,7 +21,7 @@ import { head } from '../../input/hand-model.js';
 import { groundTexture, kitParts, type Part } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
-import { DOCK_LEN, GROUND_Y, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
+import { DOCK_LEN, GROUND_Y, KIT_MODELS, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { Runner, tramoLen } from './plat/runner.js';
 import { FRUIT_U, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
@@ -29,7 +29,7 @@ import { FRUIT_U, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos 
 const BACK = 20, AHEAD = PLAT_SEE + 8;
 /** Cuántas instancias caben de cada modelo: el muelle (unos 45 a la vista), las piezas y el paisaje. */
 // (las plataformas llevan unos 20 barriles cada una y sus tablas: con varias a la vista, hace falta sitio)
-const CAP_DOCK = 120, CAP_PIECE = 160, CAP_DECO = 96;
+const CAP_DOCK = 120, CAP_PIECE = 160, CAP_DECO = 96, CAP_FOOD = 24;
 /** El césped de debajo: lo que mide y cada cuánto se repite su dibujo (m). */
 const GROUND_SIZE = 260, GROUND_CELL = 4;
 
@@ -261,8 +261,8 @@ export class TrekSystem extends createSystem({}) {
 
   /** Las instancias de cada modelo, en cuanto los kits estén cargados (y su sombreador, precompilado antes de la ronda). */
   private build(): boolean {
-    const isl = kitParts('island'), nat = kitParts('nature');
-    if (!isl || !nat) return false;
+    const isl = kitParts('island'), nat = kitParts('nature'), food = kitParts('food');
+    if (!isl || !nat || !food) return false;
     const add = (kit: Kit, n: string, parts: Part[] | undefined, cap: number, shadow: boolean): void => {
       if (!parts || this.batches.has(`${kit}:${n}`)) return;
       const ims = parts.map((p) => {
@@ -278,7 +278,9 @@ export class TrekSystem extends createSystem({}) {
       this.batches.set(`${kit}:${n}`, { ims, n: 0, cap });
     };
     add('island', 'Dock', isl.Dock, CAP_DOCK, false);
-    for (const n of ['Dock_Broken', 'Dock_Pole', 'Barrel', 'Chest_Closed', 'Chest_Gold']) add('island', n, isl[n], CAP_PIECE, true);
+    // (las piezas: lo que use pieces.ts de cada kit, KIT_MODELS; el resto del bosque, para el paisaje)
+    for (const n of KIT_MODELS.island) if (n !== 'Dock') add('island', n, isl[n], CAP_PIECE, true);
+    for (const n of KIT_MODELS.food) add('food', n, food[n], CAP_FOOD, true);
     for (const n of Object.keys(nat)) add('nature', n, nat[n], CAP_DECO, false);
     return true;
   }
