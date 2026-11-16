@@ -78,6 +78,9 @@ No las cambies sin preguntarle.
   sube a ella** (aunque sea antes del borde: el salto te lleva hasta arriba; nada de un salto normal y luego subir solo).
   **El fondo realista gira un poco con las curvas** del sendero, en el mismo sentido (quieto del todo con la pasarela
   parecía irreal).
+- Travesía de plataformas (pedido del usuario): **el cangrejo escupe**, una vez y solo desde lejos (entre 10 y 15 m), rápido y
+  con aviso (se encabrita y suena), hacia tu cabeza; se esquiva **apartando la cabeza** (a un lado o agachándote; una
+  sentadilla en el momento justo también vale). Si te da, frenas a la mitad y se rompe la racha, sin quitar vidas.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.
@@ -146,7 +149,9 @@ No las cambies sin preguntarle.
   daño); la onda, de colores vivos y levantando polvo a su paso. Los bichos que mueren en el aire caen al suelo.
 - Arcos de semipuente (`arcLow`): inclinados tan bajos que hay que apartarse al lado alto y bajar hasta apoyar una mano en
   el suelo; llegan más despacio, con aviso grande y la huella de la mano en el suelo.
-- El marcador tumbado en el suelo (flexiones, planchas, inchworm) es sólido: los bichos lo rodean.
+- El marcador de los ejercicios de suelo (flexiones, planchas, inchworm) es sólido: los bichos lo rodean. Va apoyado en el
+  suelo como un atril, de cara al jugador y con el borde de arriba levantado a **45°** (elegido por el usuario: tumbado, los
+  avisos del suelo lo tapaban).
 - **[PR 30: portado de RepArena (opción B del usuario: con lo de serie de IWSDK las manos iban peor): la mano perdida sigue su gesto o la coloca el cuerpo, que se pide al entrar con «Manos con el cuerpo»; no se pinta ni pulsa menús (`src/input/hand-filter.ts`)]** Manos perdidas (solo manos desnudas): la que iba deprisa sigue su gesto un instante (`h.est = 'pred'`) y, con «Manos
   con el cuerpo» (Ajustes → Menú, de serie) y si el navegador da el cuerpo, la perdida se coloca en la muñeca del
   cuerpo con su última forma (`h.est = 'body'`). Ninguna mano con `h.est` se pinta (salían volando hacia delante o delante
@@ -216,6 +221,10 @@ No las cambies sin preguntarle.
 - Pulsómetro (`src/57_pulse.js`): reloj o banda Bluetooth con el servicio estándar de pulso; el pulso, en el marcador. El
   navegador de las Quest no tiene Bluetooth para páginas: el móvil lo pasa a las gafas por la sincronización (cifrado con
   el código, en otro hueco de Firebase con la forma `meta` + `blob`, uno por segundo como mucho; las gafas lo escuchan).
+- Luciérnagas: **el doble que en RepArena** (180), **algunas de colores** (rosa, turquesa, violeta, menta, naranja) y, en los
+  momentos especiales (la fiebre, el relámpago, el turbo, la supervelocidad), **un destello más vivo** (pedido del usuario).
+- Pompas de Barras: **de jabón, como en RepArena** (película irisada con brillos, más opaca en el borde; la grande, con un ojo
+  dentro): las de color liso no tenían relieve (pedido del usuario).
 - Luciérnagas (`src/56_motes.js`, Entorno → «Luciérnagas»): puntitos de luz con vuelo sereno y sinuoso de insecto (se
   ciernen y siguen; sin temblor de alas ni retrocesos, que daban una sacudida sin sentido), en la tarjeta gráfica; nada de
   sprites que giren en círculo (las de antes, toscas). Con música, bailan a su compás: vaivén con un extremo en cada pulso
@@ -229,7 +238,12 @@ No las cambies sin preguntarle.
   nuevo: añádelo a `FOE_PIC` (`src/00_core.js`) y rehaz `models/retratos.png` con `node tests/retratos.js`.
 
 **Paneles y avisos en las gafas**
-- Ningún panel puede tapar lo que viene hacia el jugador.
+- Ningún panel puede tapar lo que viene hacia el jugador. Los avisos tampoco tapan el marcador ni los menús (pedido del
+  usuario): se apartan de ellos como de lo que llega.
+- **Cortinillas** (elegidas por el usuario: «Modelo 2», estilo HUD holográfico, una imagen por modo y ejercicio en
+  `public/cortinillas/`): explican cada ejercicio junto al menú principal, antes de calibrar y en la página; quietas, con la
+  franja de abajo diciendo las oleadas (o tramos) y las vidas que tienes puestas. Sustituyen a la caricatura animada (que
+  solo sale mientras carga la imagen).
 - Cuentas de vida (opción A elegida; `LIFE`, `src/70_game.js`): encima de cada enemigo, desde que sale, una fila de bolitas
   doradas de cara al jugador, una por disparo normal; las que pierde **desaparecen** (no se quedan huecas) y las demás se
   juntan; los que aguantan más de 8, bolitas grandes de 5. Sustituyen a la barra de vida. Un solo dibujo (puntos).

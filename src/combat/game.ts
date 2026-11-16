@@ -129,6 +129,9 @@ const WARN_SECS = 4;
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
 
+/** El marcador de los ejercicios de suelo (la batalla diminuta): lo que se levanta del suelo, como un atril (rad). */
+const BOARD_TILT = Math.PI / 4;
+
 export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) {
   private fx!: Effects;
   private enemies!: EnemySystem;
@@ -631,10 +634,14 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (!o) return;
     const hs = this.world.getSystem(HatchSystem);
     if (hs?.on) {
-      // en la batalla diminuta, tumbado en el suelo delante de tus manos (76 cm, como en RepArena), sólido para ellos
-      o.position.set(hs.origin.x, 0.02, hs.origin.z - 0.95);
-      o.rotation.set(-Math.PI / 2, 0, 0);
-      o.scale.setScalar(0.76 / 0.64);
+      // en la batalla diminuta, delante de tus manos (76 cm de ancho, como en RepArena), sólido para ellos: apoyado en el suelo
+      // como un atril, de cara a ti y con el borde de arriba levantado a 45° (elegido por el usuario: tumbado, los avisos del
+      // suelo lo tapaban), con el borde de abajo donde antes empezaba
+      const S = 0.76 / 0.64, H = 0.64 * 0.445 * S, a = BOARD_TILT, hy = (H / 2) * Math.sin(a), hz = (H / 2) * Math.cos(a);
+      o.position.set(hs.origin.x, 0.01 + hy, hs.origin.z - 0.95 + H / 2 - hz);
+      o.rotation.set(-a, 0, 0);
+      o.scale.setScalar(S);
+      this.boardSpot(o.position, 0.38);
       return;
     }
     // como en RepArena (src/30_env.js: layoutArena): a un lado, flotando, por delante (a unos 50° y 5 m), grande (4,2 m de
@@ -646,6 +653,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       o.position.set(0, yc, -D - 0.35);
       o.rotation.set(Math.atan((yc - 1.6) / D) * 0.8, 0, 0, 'YXZ');
       o.scale.setScalar(W / PW);
+      this.boardSpot(o.position, W / 2);
       return;
     }
     const R = 5.0, W = 4.2, yc = 2.15, edge = Math.atan((sp + 1.3) / D), a = Math.min(1.2, Math.max(0.85, edge + Math.atan(W / 2 / R) + 0.03));
@@ -653,6 +661,17 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     o.position.set(cx, yc, cz);
     o.rotation.set(Math.atan((yc - 1.6) / R) * 0.8, Math.atan2(-cx, -cz), 0, 'YXZ');
     o.scale.setScalar(W / PW);
+    this.boardSpot(o.position, W / 2);
+  }
+
+  /** Dónde queda el marcador, para que los avisos de la vista no lo tapen. */
+  private boardSpot(p: Vector3, r: number): void {
+    const B = VIEW.board;
+    B.x = p.x;
+    B.y = p.y;
+    B.z = p.z;
+    B.r = r;
+    B.on = true;
   }
 
   // Los logros importantes, en grande y dorados (RepArena: trophy), uno tras otro: arriba, por encima de lo que llega

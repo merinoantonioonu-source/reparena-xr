@@ -47,6 +47,8 @@ export class RaMenuSystem extends createSystem({}, {}) {
   private quality = 1;
   private vrOk = false;
   private closeT = 0;
+  /** Lo que lleva la pausa sin menú a la vista (s): pasado un momento, vuelve el de la pausa. */
+  private pauseLostT = 0;
   private hold = { left: new Vector3(), right: new Vector3() };
   private tmp = new Vector3();
   private iw = new Vector3();
@@ -286,11 +288,23 @@ export class RaMenuSystem extends createSystem({}, {}) {
     }
     // el menú se recoge con la palma izquierda hacia abajo o con el puño (un momento, para no recogerlo sin querer)
     const h = hands.left;
-    const closing = inXR && !!m && (m.kind === 'lobby' || m.kind === 'options' || m.kind === 'screen') && !m.closed && (!m.wrist || WM.on) && h.ok && !h.est && !h.virt && (isFist(h) || this.tmp.set(0, 1, 0).applyQuaternion(h.wristQ).y > 0.85);
+    // (en la pausa de una ronda, nunca: recogido el menú, la partida se quedaba parada sin nada a la vista —parecía colgada—,
+    // también al abrir la música desde la pausa, que es una pantalla de las que se recogen)
+    const inPause = GAME.phase === 'playing' && GAME.paused;
+    const closing = inXR && !inPause && !!m && (m.kind === 'lobby' || m.kind === 'options' || m.kind === 'screen') && !m.closed && (!m.wrist || WM.on) && h.ok && !h.est && !h.virt && (isFist(h) || this.tmp.set(0, 1, 0).applyQuaternion(h.wristQ).y > 0.85);
     this.closeT = closing ? this.closeT + dt : 0;
     if (this.closeT > 0.5) {
       this.closeT = 0;
       menuClose();
+    }
+    // en la pausa siempre hay un menú a la vista: si se ha recogido o quitado (por lo que sea), vuelve el de la pausa
+    const um = UI.menu, lost = inPause && (!um || um.closed || (um.wrist && !WM.on));
+    this.pauseLostT = lost ? this.pauseLostT + dt : 0;
+    if (this.pauseLostT > 0.6) {
+      this.pauseLostT = 0;
+      diagEvent('pausa sin menú a la vista: vuelve el de la pausa');
+      if (um?.wrist && !WM.on) WM.on = true;
+      else this.open(pauseMenu);
     }
     // qué menú se ve (para la partida): el que está abierto aunque esté recogido
     const k = UI.menu?.kind;

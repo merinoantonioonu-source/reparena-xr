@@ -155,6 +155,21 @@ export class ViewSystem extends createSystem({}) {
       th.r = Math.max(0.1, t.radius * 1.5);
       n++;
     }
+    // y el marcador y el menú abierto (pedido del usuario: los avisos no deben taparlos)
+    const B = VIEW.board;
+    if (B.on) {
+      const th = this.threats[n] ?? (this.threats[n] = { p: new Vector3(), r: 0 });
+      th.p.set(B.x, B.y, B.z);
+      th.r = B.r;
+      n++;
+    }
+    const M = UI.menu;
+    if (M && !M.closed && M.group.visible) {
+      const th = this.threats[n] ?? (this.threats[n] = { p: new Vector3(), r: 0 });
+      M.group.getWorldPosition(th.p);
+      th.r = (Math.max(MW, M.H) / 2) * M.group.getWorldScale(this.v).x;
+      n++;
+    }
     return n;
   }
 

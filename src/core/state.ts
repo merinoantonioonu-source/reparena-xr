@@ -66,6 +66,9 @@ export const VIEW = {
   /** Echado en plena partida aunque el ejercicio sea de pie (la Travesía: en plancha bajo un túnel): los avisos, en el suelo
    * bajo la cara y siguiendo la mirada (fijos delante, a la altura de estar de pie, no se leerían). Lo pone TrekSystem. */
   prone: false,
+  /** Dónde está el marcador (en la arena) y su radio (m): los avisos de la vista se apartan de él (no lo tapan). Lo pone la
+   * partida al colocarlo. */
+  board: { x: 0, y: 0, z: 0, r: 0, on: false },
 };
 
 /** Avisos entre sistemas (los pone el sistema del juego al arrancar). */
