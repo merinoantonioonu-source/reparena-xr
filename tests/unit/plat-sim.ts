@@ -28,6 +28,7 @@ export function mkEnv(over: Record<string, number> = {}, seed = 5): SimEnv {
     ex: 'squat',
     state: 'play',
     head: { x: 0, y: 1.6, z: 0 },
+    hands: { l: { ok: false, x: 0, y: 0, z: 0 }, r: { ok: false, x: 0, y: 0, z: 0 } },
     calibRef: 1.6,
     wave: 0,
     rank: 0,

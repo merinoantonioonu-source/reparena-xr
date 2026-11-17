@@ -21,13 +21,13 @@ import { CAMP } from '../../core/campaign.js';
 import { GAME, HOOKS, LITE, VIEW } from '../../core/state.js';
 import { num, settings } from '../../core/values.js';
 import { haptic } from '../../input/hand-system.js';
-import { head } from '../../input/hand-model.js';
+import { hands, head, type Hand } from '../../input/hand-model.js';
 import { groundTexture, kitParts, type Part } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
 import { DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
-import { CRAB_U, FRUIT_U, GOLD_Y, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
+import { CRAB_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
@@ -105,6 +105,22 @@ interface Anim {
   dir: number;
 }
 
+/** Una muñeca para la lógica (lo que ve de ella, sin copiarla en cada fotograma). */
+const armOf = (h: Hand): { ok: boolean; x: number; y: number; z: number } => ({
+  get ok() {
+    return h.ok && !h.est;
+  },
+  get x() {
+    return h.wrist.x;
+  },
+  get y() {
+    return h.wrist.y;
+  },
+  get z() {
+    return h.wrist.z;
+  },
+});
+
 export class TrekSystem extends createSystem({}) {
   readonly runner: Runner;
   /** La altura de tus ojos de pie al calibrar. */
@@ -173,6 +189,8 @@ export class TrekSystem extends createSystem({}) {
         return self.state();
       },
       head: head.p,
+      // las muñecas (las que se ven de verdad: una calculada al perderla, no)
+      hands: { l: armOf(hands.left), r: armOf(hands.right) },
       get calibRef() {
         return self.calibRef;
       },
@@ -556,8 +574,9 @@ export class TrekSystem extends createSystem({}) {
         break;
       case 'pick': {
         // una fruta del arco, comida: chispas de colores donde estaba
-        const P = e.p, u = (e.i + 0.5) / Math.max(1, P.n);
-        HOOKS.sparks(this.world3({ s: P.at + u * P.len, u: 0, y: this.calibRef - 0.05 + 0.45 * 4 * u * (1 - u) }, this.at), 8, [0xff6a8a, 0xffd166, 0x8cff99, 0xff9a3c][e.i % 4]);
+        const P = e.p, u = (e.i + 0.5) / Math.max(1, P.n), gl = P.k === 'glide';
+        const y = gl ? GLIDE_LIFT * glideArc((u * P.len) / (P.len + LAND_PAST)) : 0.45 * 4 * u * (1 - u);
+        HOOKS.sparks(this.world3({ s: P.at + u * P.len, u: gl ? glideU(P, e.i) : 0, y: this.calibRef - 0.05 + y }, this.at), 8, [0xff6a8a, 0xffd166, 0x8cff99, 0xff9a3c][e.i % 4]);
         break;
       }
       case 'gold': {
@@ -657,7 +676,7 @@ export class TrekSystem extends createSystem({}) {
       this.floorS0 = s0;
       this.floorN = R.pieces.length;
       this.holes.length = 0;
-      for (const p of R.pieces) if (p.k === 'gap' && p.at + p.len > s0 && p.at < s0 + BACK + AHEAD + DOCK_LEN) this.holes.push([p.at, p.at + p.len]);
+      for (const p of R.pieces) if ((p.k === 'gap' || p.k === 'glide') && p.at + p.len > s0 && p.at < s0 + BACK + AHEAD + DOCK_LEN) this.holes.push([p.at, p.at + p.len]);
       this.floor.length = 0;
       floorPuts(s0, s0 + BACK + AHEAD + DOCK_LEN, this.holes, this.floor);
     }
@@ -684,7 +703,7 @@ export class TrekSystem extends createSystem({}) {
       const spin = this.clock * (p.k === 'box' ? 1.1 : 1.8) + p.id, bob = 0.04 * Math.sin(this.clock * 2.6 + p.id), turn = p.k === 'fruit' || p.k === 'box';
       for (const u of L) {
         // (las frutas del arco que ya te has comido y la dorada de la plataforma ya cogida, no)
-        if (u.tag !== undefined && (u.tag === GOLD_TAG ? p.got > 0 : u.tag < p.got)) continue;
+        if (u.tag !== undefined && (u.tag === GOLD_TAG ? p.got > 0 : p.k === 'glide' ? ((p.mask >> u.tag) & 1) === 1 : u.tag < p.got)) continue;
         const f = turn || u.kit === 'food';
         this.put(u, p.at + u.ds, off, k, kn ? kn.t : 0, p, f ? spin : 0, f ? bob : 0);
       }
@@ -892,7 +911,8 @@ export class TrekSystem extends createSystem({}) {
   /** Las estelas de viento del turbo (RepArena: trekWindStep): aparecen y se van suaves y corren hacia atrás a tu lado. */
   private stepWind(dt: number): void {
     const M = this.wind.material as MeshBasicMaterial, R = this.runner;
-    const want = R.tk.turbo && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 0.7 : 0;
+    // (con el turbo y planeando sobre un barranco)
+    const want = (R.tk.turbo || (!!R.hop?.glide && R.hop.won)) && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 0.7 : 0;
     M.opacity += (want - M.opacity) * Math.min(1, dt * 3);
     this.wind.visible = M.opacity > 0.01;
     if (!this.wind.visible) return;

@@ -36,7 +36,7 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -131,6 +131,10 @@ interface Hop {
   cheer: string;
   /** El supersalto antes del borde de la plataforma: ya se celebró al despegar (al aterrizar, nada más). */
   done?: boolean;
+  /** El vuelo sobre un barranco (con los brazos en cruz): lo que llevas con los brazos bajados y si ya se ha perdido. */
+  glide?: boolean;
+  dropT?: number;
+  bad?: boolean;
 }
 
 /** El suelo sube o baja (la plataforma): de dónde a dónde y en cuánto. */
@@ -186,6 +190,9 @@ export class Runner {
   best: PlatGhost | null = null;
   tl: number[] = [];
   private tlT = 0;
+  /** Los brazos en cruz (para planear): se abren al ver las dos muñecas a un lado y otro, a la altura de los hombros (o una, si
+   * la otra no se ve: con los brazos tan abiertos, las gafas a veces la pierden) y se cierran al ver una cerca de la cabeza. */
+  armsOpen = false;
   /** Los escupitajos en el aire. */
   spits: Spit[] = [];
   /** El paso de la seta y el cangrejo (m/s: «Paso de los enemigos», de la tabla de dificultad; se lee en cada fotograma). */
@@ -331,7 +338,8 @@ export class Runner {
     const fv = env.s('platFoeV');
     this.foeV = fv > 0 ? fv : FOE_V;
     this.cfg.deepNeed = Math.max(0.12, (0.8 * (env.dv('squatDepth') || 26)) / 100);
-    this.moves.hold = this.sideAhead();
+    this.moves.hold = this.sideAhead() || !!this.hop?.glide; // (planeando, la cabeza a un lado coge las frutas)
+    this.armsStep();
     this.moves.update(dt, H, this.cfg);
     const d0 = tk.dist, push0 = tk.push, v0 = tk.v;
     if (this.stop || this.hop) tk.idle = 0; // (el turbo espera en las paradas y en el aire)
@@ -468,6 +476,16 @@ export class Runner {
     return !this.hop && !this.stop;
   }
 
+  /** Los brazos en cruz (ver `armsOpen`). */
+  private armsStep(): void {
+    const H = this.env.head, A = this.env.hands, sh = H.y - ARMS_SH;
+    const out = (h: { ok: boolean; x: number; y: number }): boolean => h.ok && Math.abs(h.x - H.x) >= ARMS_OUT && Math.abs(h.y - sh) <= ARMS_DY;
+    const near = (h: { ok: boolean; x: number }): boolean => h.ok && Math.abs(h.x - H.x) < ARMS_IN;
+    const L = A.l, R = A.r;
+    if ((out(L) && out(R)) || (out(L) && !R.ok) || (out(R) && !L.ok)) this.armsOpen = true;
+    else if (near(L) || near(R)) this.armsOpen = false;
+  }
+
   /** ¿Se acerca un obstáculo a un lado (o está pasando)? Entonces el centro no sigue a la cabeza. */
   private sideAhead(): boolean {
     const look = Math.max(SIDE_WARN_AT, SIDE_HOLD_S * Math.max(this.tk.v, 0.5));
@@ -518,13 +536,18 @@ export class Runner {
     const M = this.moves, C = this.cfg, v = this.tk.v;
     const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box';
     // (el túnel, con más tiempo: hay que echarse al suelo)
-    const warnAt = p.k === 'crawl' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
+    const warnAt = p.k === 'crawl' || p.k === 'glide' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
     if (!p.warned && z < warnAt) {
       p.warned = true;
       this.ask(p, true);
     }
     if (p.k === 'gap') {
       if (z <= 0 && !this.hop) this.go(p, false); // (llegas al borde sin haber saltado: tropiezas al cruzarlo)
+      return;
+    }
+    if (p.k === 'glide') {
+      // el barranco: al llegar a su borde con los brazos en cruz, planeas; si no, lo cruzas a trompicones (nunca se cae)
+      if (z <= 0 && !this.hop) this.glideStart(p, this.armsOpen);
       return;
     }
     if (p.k === 'step') {
@@ -879,6 +902,26 @@ export class Runner {
     this.say('¡Salta el hueco!', COL_WARN, 1.6, true);
   }
 
+  /** Empieza el cruce del barranco: planeando (`won`), a tu velocidad o como poco GLIDE_V, subiendo deprisa y bajando
+   * despacio (el mundo baja `GLIDE_LIFT`); sin los brazos en cruz, a trompicones (frenas y se rompe la racha). */
+  private glideStart(p: Piece, won: boolean): void {
+    const tk = this.tk, s0 = tk.dist, land = p.at + p.len + LAND_PAST, need = Math.max(0, land - s0), v0 = tk.v;
+    const v = Math.max(GLIDE_V, v0), dur = need / v;
+    this.hop = { p, s0, s1: land, t: 0, dur, won, v1: won ? Math.max(v0, GLIDE_V * 0.8) : v0 * HIT_KEEP, lift: won ? GLIDE_LIFT : 0, score: 300, cheer: '¡Has planeado sobre el barranco!', glide: true, dropT: 0, bad: false };
+    this.airT = -1;
+    this.ev.push({ t: 'go', p, dur });
+    if (won) {
+      this.snd('whoosh', this.pos(p, 0, 0.5), 'arc');
+      this.ev.push({ t: 'haptic', k: 0.5, ms: 90 });
+      this.cheer('¡Planeando!', COL_OK, 1.0);
+      return;
+    }
+    p.judged = true;
+    p.ok = false;
+    this.hit(p, this.pos(p, 0, 0));
+    this.say('¡Abre los brazos en cruz para planear!', COL_WARN, 1.8, true);
+  }
+
   /** El cruce (del hueco o de un paso de suelo): el mundo te lleva al otro lado a velocidad fija (tu inercia) y, si es un
    * salto, baja y sube como si te elevara. */
   private stepHop(dt: number): void {
@@ -888,7 +931,8 @@ export class Runner {
     H.t += dt;
     const k = Math.min(1, H.t / H.dur);
     this.tk.dist = H.s0 + (H.s1 - H.s0) * k;
-    this.dip = H.lift ? -H.lift * arc(k) : 0;
+    this.dip = H.lift ? -H.lift * (H.glide ? glideArc(k) : arc(k)) : 0;
+    if (H.glide && H.won) this.glideStep(H, dt);
     // las frutas en arco sobre el hueco: saltando, te las vas comiendo según las pasas (siguen la curva del salto)
     const p0 = H.p;
     if (H.won && p0.k === 'gap' && p0.n > 0) {
@@ -909,6 +953,14 @@ export class Runner {
     this.tk.idle = 0;
     const p = H.p;
     if (!H.won || H.done) return;
+    if (H.bad) {
+      // bajaste los brazos en pleno vuelo: aterrizas, pero frenando y sin racha
+      p.judged = true;
+      p.ok = false;
+      this.tk.v *= HIT_KEEP;
+      this.hit(p, this.pos(p, p.len, 0));
+      return;
+    }
     p.judged = true;
     p.ok = true;
     this.passed++;
@@ -917,6 +969,28 @@ export class Runner {
     this.ev.push({ t: 'fx', name: 'dust', at: this.pos(p, H.s1 - p.at, 0), n: 8, col: 0xd8c8a8 });
     this.snd('step', null, true);
     this.cheer(H.cheer, COL_OK, 1.2);
+  }
+
+  /** Planeando: los brazos (bajados más de GLIDE_DROP s, pierdes el vuelo: aterrizas frenando) y las frutas del aire, que
+   * se cogen con la cabeza ladeada hacia ellas al pasar. */
+  private glideStep(H: Hop, dt: number): void {
+    const p = H.p;
+    H.dropT = this.armsOpen ? 0 : (H.dropT ?? 0) + dt;
+    if (!H.bad && (H.dropT ?? 0) > GLIDE_DROP) {
+      H.bad = true;
+      this.say('¡Abre los brazos!', COL_WARN, 1.4, true);
+    }
+    const head = this.tk.dist - this.env.head.z;
+    while (p.got < p.n && head >= p.at + ((p.got + 0.5) / p.n) * p.len) {
+      const i = p.got++;
+      if (H.bad || Math.abs(this.moves.dx - glideU(p, i)) > GLIDE_CATCH) continue;
+      p.mask |= 1 << i;
+      this.ev.push({ t: 'pick', p, i });
+      this.fruits++;
+      this.score(80);
+      this.snd('perfect', null);
+      this.addEnergy(FRUIT_E / 2);
+    }
   }
 
   /** Un salto sin hueco: el mundo baja y sube bajo los pies (AIR_T s), sin cambiar lo que avanzas. */
@@ -936,6 +1010,7 @@ export class Runner {
     if (p.k === 'gap') this.say('¡Un hueco! Salta al llegar al borde', COL_ASK, 1.6, false);
     else if (p.k === 'step') this.say(p.burpee ? '¡Arriba y salta a la plataforma!' : '¡Plataforma alta! Sentadilla honda y salta', COL_ASK, 1.8, false);
     else if (p.k === 'crawl') this.say('¡Túnel! Al suelo, en plancha', COL_ASK, 2.6, false);
+    else if (p.k === 'glide') this.say('¡Un barranco! Abre los brazos en cruz para planear', COL_ASK, 2.4, false);
     else if (p.k === 'box') this.say('¡Un barril sorpresa! Salta debajo y dale con la cabeza', COL_ASK, 1.6, false);
     else if (p.k === 'fruit' && p.gold) this.say('¡Una fruta dorada! Salta para cogerla', COL_ASK, 1.6, false);
     else if (p.k === 'fruit') this.say(`¡${p.special ? 'Fruta especial' : 'Fruta'} a la ${p.side < 0 ? 'izquierda' : 'derecha'}!`, COL_ASK, 1.2, false);

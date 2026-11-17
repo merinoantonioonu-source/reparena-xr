@@ -23,7 +23,7 @@
  */
 import { trekRng, TREK_CH } from '../path.js';
 import { HEAD_TOP } from '../env.js';
-import { BOX_CLEAR, FRUIT_U, GOLD_Y, type Piece } from './types.js';
+import { BOX_CLEAR, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, type Piece } from './types.js';
 
 export type Kit = 'island' | 'nature' | 'food';
 
@@ -238,6 +238,24 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
     case 'chest':
       chestPuts(false, out);
       break;
+    case 'glide': {
+      // el barranco: sin tablas (el sistema deja el hueco), con postes en sus bordes, el muelle roto colgando del cercano y un
+      // pedregal abajo; y sus frutas en el aire, por donde pasará tu cabeza planeando (el mundo baja con el vuelo)
+      for (const ds of [-0.2, p.len + 0.2]) for (const u of [-DOCK_W / 2, DOCK_W / 2]) out.push(standPole(ds, u, -0.1, 0.9, 0.7));
+      const st = ['Rock_2', 'Rock_3', 'Rock_4', 'Rock_5'];
+      for (let i = 0, n = Math.max(3, Math.round(p.len / 1.1)); i < n; i++) {
+        // (por debajo de las tablas: Rock_2, el más alto, mide 1,05 m; a 0,7–1, su cima queda bajo la pasarela)
+        const s = 0.7 + 0.3 * (((i * 0.43 + p.id * 0.29) % 1 + 1) % 1), u = (((i * 0.71 + p.id * 0.13) % 1) - 0.5) * 2.4;
+        out.push(put('island', st[(p.id + i) % 4], (i + 0.5) * (p.len / n), u, GROUND_Y - 0.05, { ry: i * 1.3, sx: s, sy: s, sz: s }));
+      }
+      for (let i = 0; i < p.n; i++) {
+        const u = (i + 0.5) / p.n, f = fruitPut(ARC_FRUITS[(p.id + i) % ARC_FRUITS.length], 0.2, glideU(p, i), ref - 0.05 + GLIDE_LIFT * glideArc((u * p.len) / (p.len + LAND_PAST)));
+        f.ds += u * p.len;
+        f.tag = i;
+        out.push(f);
+      }
+      break;
+    }
     case 'box': {
       // el barril sorpresa: flotando sobre la pasarela, con su borde de abajo BOX_CLEAR por encima de tu coronilla (el
       // sistema lo hace girar); al saltar, el mundo baja y te lo encuentras en la cabeza

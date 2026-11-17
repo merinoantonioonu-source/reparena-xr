@@ -86,6 +86,11 @@ No las cambies sin preguntarle.
   fruta; uno de cada cuatro, un racimo que llena la energía), **frutas en arco sobre los huecos** que se comen saltando a
   tiempo, y **tres frutas doradas por tramo** (altas en el centro, se cogen saltando; o encima de una plataforma, subiendo
   de un supersalto), con su cuenta en el marcador y en el cofre. Fallar un premio no frena ni rompe la racha.
+- Travesía de plataformas, **planear** (elegido por el usuario): los barrancos (6–10 m, con pedregal abajo) se cruzan
+  llegando a su borde con **los brazos abiertos en cruz** (a los lados, a la altura de los hombros): planeas (el mundo sube y
+  baja despacio, con estelas de viento) y, ladeando la cabeza, coges las frutas del aire. Bajar los brazos en pleno vuelo:
+  aterrizas frenando y sin racha; sin abrirlos, a trompicones. Nunca se cae. Una mano que las gafas pierden estando abierta
+  cuenta como abierta.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.
