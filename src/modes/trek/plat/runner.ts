@@ -36,7 +36,7 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -426,6 +426,7 @@ export class Runner {
     if (st === 'play') {
       this.bossStep(dt);
       this.walk(dt);
+      this.attack(dt);
       this.spit(dt);
       if (this.moves.takeoff && !this.hop && !this.stop) this.takeoff(H.z);
       this.forkStep();
@@ -460,7 +461,7 @@ export class Runner {
         p.warned = true;
         this.say(`Al final del tramo, un cofre: dentro, una llave (${this.keys + 1} de ${TREASURE_KEYS}: con ${TREASURE_KEYS}, el tesoro) y una gema`, COL_ASK, 3, false);
       }
-      if ((p.k !== 'foe' && p.k !== 'side') || p.judged) continue;
+      if (!WALKERS.includes(p.k) || p.judged) continue;
       if (!p.woke && p.at + p.walk - d < FOE_WAKE) {
         p.woke = true;
         this.ev.push({ t: 'wake', p });
@@ -489,6 +490,10 @@ export class Runner {
       S.t += dt;
       if (S.t < S.end) continue;
       this.spits.splice(i, 1);
+      if (S.p.k === 'fire') {
+        this.burn(S);
+        continue;
+      }
       const ok = Math.hypot(H.x - S.x, H.y - S.y) >= SPIT_R;
       this.ev.push({ t: 'spat', p: S.p, ok });
       if (ok) {
@@ -507,6 +512,51 @@ export class Runner {
       this.ev.push({ t: 'haptic', k: 0.7, ms: 140 });
       this.say('¡Te ha escupido! Aparta la cabeza', COL_WARN, 1.6, true);
     }
+  }
+
+  /** El cíclope y el demonio, a un lado: al acercarte, el cíclope golpea el suelo (su onda corre por la pasarela hacia ti) y
+   * el demonio lanza su bola de fuego en arco hacia donde está tu cabeza. */
+  private attack(dt: number): void {
+    const d = this.tk.dist, H = this.env.head;
+    for (const p of this.live) {
+      if (p.judged || (p.k !== 'quake' && p.k !== 'fire') || (p.lane && p.lane !== this.lane)) continue;
+      const z = p.at - d + H.z;
+      if (p.k === 'quake') {
+        if (p.spat) p.fx += QUAKE_V * dt;
+        else if (z < QUAKE_AT) {
+          p.spat = true;
+          p.fx = -QUAKE_WIND * QUAKE_V; // (sale cuando el puño llega al suelo)
+          this.ev.push({ t: 'slam', p, wind: QUAKE_WIND });
+          this.say('¡Salta la onda!', COL_ASK, 1.2, false);
+        }
+        continue;
+      }
+      if (p.spat || z > FIRE_AT) continue;
+      p.spat = true;
+      this.spits.push({ p, t: 0, end: FIRE_WIND + FIRE_DUR, x: H.x, y: H.y });
+      this.ev.push({ t: 'spit', p, wind: FIRE_WIND, dur: FIRE_DUR, aim: { x: H.x, y: Math.max(0.3, H.y - 0.7), z: H.z } });
+      this.say('¡Bola de fuego! Un paso a un lado', COL_ASK, 1.4, false);
+    }
+  }
+
+  /** La bola de fuego llega: si te has apartado FIRE_R m de donde estaba tu cabeza, la esquivas; si no, te quemas (frenas a
+   * la mitad y se rompe la racha, sin vidas). */
+  private burn(S: Spit): void {
+    const p = S.p, ok = Math.abs(this.env.head.x - S.x) >= FIRE_R;
+    this.ev.push({ t: 'spat', p, ok });
+    p.judged = true;
+    p.ok = ok;
+    if (ok) {
+      this.passed++;
+      this.ev.push({ t: 'pass', p });
+      this.score(150);
+      this.snd('whoosh', null, 'arc');
+      this.cheer('¡Bola de fuego esquivada!', COL_OK, 0.9);
+      return;
+    }
+    this.tk.v *= HIT_KEEP;
+    this.hit(p, this.pos(p, 0, 0.6));
+    this.say('¡Te has quemado! Un paso a un lado cuando la lance', COL_WARN, 1.6, true);
   }
 
   /** ¿No hay otro reto (que pida un movimiento) a menos de `room` m por delante de tu cabeza, ni pasando ahora? */
@@ -549,7 +599,7 @@ export class Runner {
   /** ¿Se acerca un obstáculo a un lado (o está pasando)? Entonces el centro no sigue a la cabeza. */
   private sideAhead(): boolean {
     const look = Math.max(SIDE_WARN_AT, SIDE_HOLD_S * Math.max(this.tk.v, 0.5));
-    for (const p of this.live) if ((p.k === 'side' || p.k === 'fruit' || p.k === 'fork') && !p.judged && p.at - this.tk.dist < look) return true;
+    for (const p of this.live) if ((p.k === 'side' || p.k === 'fruit' || p.k === 'fork' || p.k === 'fire') && !p.judged && p.at - this.tk.dist < look + (p.k === 'fire' ? FIRE_AT : 0)) return true;
     return false;
   }
 
@@ -594,12 +644,43 @@ export class Runner {
   /** El juicio de una fluida; `z`, lo que le falta para llegar a tu cabeza (m). */
   private judge(p: Piece, z: number): void {
     const M = this.moves, C = this.cfg, v = this.tk.v;
-    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box' || p.k === 'spring' || p.k === 'fork';
-    // (el túnel, con más tiempo: hay que echarse al suelo)
-    const warnAt = p.k === 'crawl' || p.k === 'glide' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
+    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box' || p.k === 'spring' || p.k === 'fork' || p.k === 'dive' || p.k === 'skull';
+    // (el túnel, con más tiempo: hay que echarse al suelo; el cíclope y el demonio, antes de su ataque)
+    const warnAt = p.k === 'quake' ? QUAKE_AT + 4 : p.k === 'fire' ? FIRE_AT + 4 : p.k === 'crawl' || p.k === 'glide' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
     if (!p.warned && z < warnAt) {
       p.warned = true;
       this.ask(p, true);
+    }
+    if (p.k === 'dive') {
+      // la abeja o el murciélago en picado: cuando llega a tu cabeza, agachado (como bajo una viga)
+      if (z < 0.1) this.result(p, M.under(p.h));
+      return;
+    }
+    if (p.k === 'skull') {
+      // la calavera que bota: en el aire cuando pasa bajo ti (llega andando: la ventana, con su paso)
+      const win = Math.max(LOG_WIN, LOG_WIN_S * (v + (p.walk > 0 ? this.foeV : 0)));
+      if (Math.abs(z) < win) {
+        p.maxUp = Math.max(p.maxUp, M.up);
+        if (M.air) p.fast = true;
+      }
+      if (z < -win) this.result(p, p.maxUp >= C.jumpH && p.fast);
+      return;
+    }
+    if (p.k === 'quake') {
+      // la onda del cíclope: en el aire cuando pasa bajo tus pies
+      if (!p.spat) return;
+      const zw = p.at - Math.max(0, p.fx) - this.tk.dist + this.env.head.z, win = Math.max(QUAKE_WIN, LOG_WIN_S * (v + QUAKE_V));
+      if (Math.abs(zw) < win && M.air) p.fast = true;
+      if (zw < -win) this.result(p, p.fast);
+      return;
+    }
+    if (p.k === 'fire') {
+      // (lo juzga su bola de fuego; si la pasas sin que la lance, nada)
+      if (z < -2 && !p.spat) {
+        p.judged = true;
+        p.ok = true;
+      }
+      return;
     }
     if (p.k === 'gap') {
       if (z <= 0 && !this.hop) this.go(p, false); // (llegas al borde sin haber saltado: tropiezas al cruzarlo)
@@ -727,18 +808,22 @@ export class Runner {
   private result(p: Piece, ok: boolean): void {
     p.judged = true;
     p.ok = ok;
-    const at = this.pos(p, 0, p.k === 'low' ? this.env.calibRef + HEAD_TOP - p.h : 0.3);
+    const at = this.pos(p, p.k === 'quake' ? -Math.max(0, p.fx) : p.walk, p.k === 'low' || p.k === 'dive' ? this.env.calibRef + HEAD_TOP - p.h : 0.3);
     if (ok) {
       this.passed++;
       this.ev.push({ t: 'pass', p });
-      this.score(p.k === 'log' ? 150 : p.k === 'side' ? CRAB_PTS : 120);
+      this.score(p.k === 'log' || p.k === 'dive' || p.k === 'skull' ? 150 : p.k === 'quake' ? 180 : p.k === 'side' ? CRAB_PTS : 120);
       this.snd('whoosh', at, 'arc');
-      this.cheer(p.k === 'log' ? '¡Saltado!' : p.k === 'low' ? '¡Esquivada!' : '¡Cangrejo esquivado!', COL_OK, 0.9);
+      this.cheer(p.k === 'log' ? '¡Saltado!' : p.k === 'low' ? '¡Esquivada!' : p.k === 'dive' ? '¡Picado esquivado!' : p.k === 'skull' ? '¡Calavera saltada!' : p.k === 'quake' ? '¡Onda saltada!' : '¡Cangrejo esquivado!', COL_OK, 0.9);
       return;
     }
     this.tk.v *= HIT_KEEP;
     this.hit(p, at);
     const away = p.side < 0 ? 'derecha' : 'izquierda';
+    if (p.k === 'dive' || p.k === 'skull' || p.k === 'quake') {
+      this.say(p.k === 'dive' ? `¡Te ha ${p.n % 2 ? 'mordido' : 'picado'}! Agáchate cuando baje en picado` : p.k === 'skull' ? '¡Salta la calavera!' : '¡Salta la onda del cíclope!', COL_WARN, 1.6, true);
+      return;
+    }
     this.say(p.k === 'log' ? '¡Salta el tronco!' : p.k === 'low' ? '¡Agáchate bajo la viga!' : p.k === 'foe' ? '¡Te ha mordido! Sáltale encima a la seta' : `¡Te ha mordido! Apártate a la ${away}`, COL_WARN, 1.6, true);
   }
 
@@ -1122,6 +1207,10 @@ export class Runner {
     else if (p.k === 'low') this.say('¡Agáchate!', COL_ASK, 1.2, false);
     else if (p.k === 'side') this.say(`¡Un cangrejo a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}`, COL_ASK, 1.6, false);
     else if (p.k === 'foe') this.say('¡Una seta! Sáltale encima cuando llegue', COL_ASK, 1.6, false);
+    else if (p.k === 'dive') this.say(`¡${p.n % 2 ? 'Un murciélago' : 'Una abeja'} en picado! Agáchate`, COL_ASK, 1.6, false);
+    else if (p.k === 'skull') this.say('¡Una calavera botando! Sáltala', COL_ASK, 1.6, false);
+    else if (p.k === 'quake') this.say(`¡Un cíclope a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Va a golpear el suelo: salta su onda`, COL_ASK, 2, false);
+    else if (p.k === 'fire') this.say(`¡Un demonio a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Esquiva su bola de fuego con un paso`, COL_ASK, 2, false);
   }
 
   /* ---------- el jefe del mundo ---------- */
@@ -1303,7 +1392,7 @@ export class Runner {
   /* ---------- sucesos ---------- */
 
   private pos(p: Piece, ds: number, y: number): PlatPos {
-    return { s: p.at + ds, u: p.side * (p.k === 'side' ? CRAB_U : 0.45) + p.lane * FORK_U, y };
+    return { s: p.at + ds, u: p.side * (p.k === 'side' ? CRAB_U : p.k === 'quake' || p.k === 'fire' ? ASIDE_U : 0.45) + p.lane * FORK_U, y };
   }
   private say(text: string, col: string, dur: number, warn: boolean): void {
     this.ev.push({ t: 'say', text, col, dur, warn });

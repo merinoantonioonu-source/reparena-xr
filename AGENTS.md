@@ -67,7 +67,7 @@ tabla de `README.md` dice qué hace cada archivo.
   la plataforma alta, con un supersalto (sentadilla honda, `deepT`, y salto; `Runner.lev`, el suelo bajo los pies), y se
   baja sola; el burpee, un túnel y su plataforma (`Piece.burpee`). Las frutas (`fruit`, modelos de `frutas.glb`) llenan
   la energía (`Runner.energy`); llena, supervelocidad (`superT`). Los enemigos (PR D) son piezas: la seta (`foe`, se pisa) y el
-  cangrejo (`side`, a un lado) llegan andando (`Piece.walk`: se juzgan en `at + walk`) y los pinta `TrekSystem` animados
+  cangrejo (`side`, a un lado), el picado (`dive`) y la calavera (`skull`) llegan andando (`Piece.walk`, `WALKERS`: se juzgan en `at + walk`); el cíclope (`quake`) y el demonio (`fire`), a un lado, atacan al acercarte; cada cuatro tramos, el jefe (`boss`, `Runner.fight`) y los pinta `TrekSystem` animados
   (`FOE_POOL` de cada uno, reutilizados); cada tramo, su paisaje (`setBiome`, `decoPuts(…, biome)`); el cofre da llave y gema
   y el fantasma va en `reparenaxr-trekghost`. Su dificultad por rango (separación, huecos, vigas, plataformas, túneles y
   paso de los enemigos: los ajustes `plat*`, `xr: true`) sale de `RANK_VALS_XR` (`src/core/catalog.ts`) y de la tabla del

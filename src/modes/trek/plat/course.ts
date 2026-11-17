@@ -18,7 +18,7 @@
  *
  * Lógica pura, sin IWSDK.
  */
-import { BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
+import { FIRE_AT, QUAKE_AT, WALKERS, BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
 
 /** Las clases de la lista de cada tramo: la primera, lo básico (el tronco, la viga y el hueco); desde el segundo, también
  * la fruta, la plataforma alta y la seta (que se pisa); desde el tercero, el túnel, el burpee y el cangrejo (que se esquiva
@@ -28,8 +28,8 @@ import { BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_
 export function courseKinds(tramo: number): PieceKind[] {
   // (el barril sorpresa y el trampolín, desde el principio: son premios, no obstáculos)
   const k: PieceKind[] = ['log', 'low', 'gap', 'box', 'spring'];
-  if (tramo >= 1) k.push('fruit', 'step', 'foe', 'glide', 'fork');
-  if (tramo >= 2) k.push('crawl', 'burpee', 'side');
+  if (tramo >= 1) k.push('fruit', 'step', 'foe', 'glide', 'fork', 'dive', 'skull');
+  if (tramo >= 2) k.push('crawl', 'burpee', 'side', 'quake', 'fire');
   return k;
 }
 
@@ -51,7 +51,10 @@ export function minGap(prev: Piece, next: Piece, vmax: number): number {
   if (FLOORS.includes(prev.k)) g = Math.max(g, FLOOR_UP_S * vmax + LAND_PAST); // (levantarte, y el mundo te deja pasado su final)
   if (isJump(prev) && isJump(next)) g = Math.max(g, JUMP_GAP_S * vmax);
   if ((prev.k === 'fruit' && !prev.gold) || prev.k === 'side') g = Math.max(g, SIDE_BACK_S * vmax); // (volver al centro)
-  if (prev.k === 'foe' || prev.k === 'side') g += FOE_WALK; // (lo encuentras hasta FOE_WALK m más allá de su sitio)
+  if (WALKERS.includes(prev.k)) g += FOE_WALK; // (lo encuentras hasta FOE_WALK m más allá de su sitio)
+  // (la onda del cíclope y la bola de fuego del demonio te llegan antes de pasar a su lado: ese sitio, libre)
+  if (next.k === 'quake') g += QUAKE_AT;
+  if (next.k === 'fire') g += FIRE_AT;
   if (next.k === 'crawl') g = Math.max(g, CRAWL_WARN_S * vmax); // (echarse al suelo con tiempo)
   if (next.k === 'glide') g = Math.max(g, GLIDE_WARN_S * vmax); // (abrir los brazos con tiempo)
   if (prev.k === 'step') g += DROP_ROOM; // (lo último, encima de todo lo demás: se baja de la plataforma al acabarla)
@@ -167,6 +170,13 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
       // el barranco: más ancho con el tramo, con sus frutas en el aire
       const len = clamp(GLIDE_MIN + 0.5 * tp + rand(0, 2), GLIDE_MIN, GLIDE_MAX);
       seg.push(piece(id, k, 0, tramo, { len, n: GLIDE_NMIN + Math.floor(env.rnd() * (GLIDE_NMAX - GLIDE_NMIN + 1)) }));
+    } else if (k === 'dive') {
+      // en picado: hay que agacharse lo de una viga baja; la abeja o el murciélago, al azar
+      const h = clamp(T.duck + 0.015 * tramo + rand(0, 0.04), T.duck, T.duck + TUNE_UP.duck);
+      seg.push(piece(id, k, 0, tramo, { h, n: env.rnd() < 0.5 ? 0 : 1 }));
+    } else if (k === 'quake' || k === 'fire') {
+      // el cíclope y el demonio, a un lado al azar
+      seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1 }));
     } else if (k === 'side') {
       // el cangrejo, pegado a un lado al azar (hay que apartarse al otro)
       seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1 }));
@@ -257,6 +267,10 @@ export function courseRules(pieces: Piece[], vmax: number, tune: PlatTune = TUNE
     if (p.k === 'burpee') out.push(`La pieza ${p.id} es de clase «burpee»: el burpee es un túnel y una plataforma, no una pieza`);
     if (p.k === 'side' && p.side !== -1 && p.side !== 1) out.push(`El cangrejo ${p.id} no tiene lado (side ${p.side}): debería ser −1 o 1`);
     if (p.k === 'side' && p.tramo < 2) out.push(`El cangrejo ${p.id} sale en el tramo ${p.tramo}: no antes del tercero`);
+    if ((p.k === 'dive' || p.k === 'skull') && p.tramo < 1) out.push(`La pieza ${p.id} (${p.k}) sale en el tramo ${p.tramo}: no antes del segundo`);
+    if ((p.k === 'quake' || p.k === 'fire') && p.tramo < 2) out.push(`La pieza ${p.id} (${p.k}) sale en el tramo ${p.tramo}: no antes del tercero`);
+    if ((p.k === 'quake' || p.k === 'fire') && p.side !== -1 && p.side !== 1) out.push(`La pieza ${p.id} (${p.k}) no tiene lado (side ${p.side})`);
+    if (p.k === 'dive' && (p.h < T.duck - eps || p.h > T.duck + TUNE_UP.duck + eps)) out.push(`El picado ${p.id} pide bajar ${p.h.toFixed(3)} m: debe pedir entre ${cm(T.duck)} y ${cm(T.duck + TUNE_UP.duck)} cm`);
     if (p.k === 'foe' && p.tramo < 1) out.push(`La seta ${p.id} sale en el tramo ${p.tramo}: no antes del segundo`);
     if (p.gold && p.k !== 'fruit' && p.k !== 'step') out.push(`La pieza ${p.id} (${p.k}) es dorada: solo puede serlo una fruta o una plataforma`);
     if (p.k === 'glide' && (p.len < GLIDE_MIN - eps || p.len > GLIDE_MAX + eps || p.n < GLIDE_NMIN || p.n > GLIDE_NMAX)) out.push(`El barranco ${p.id} mide ${p.len.toFixed(2)} m con ${p.n} frutas: debe medir entre ${GLIDE_MIN} y ${GLIDE_MAX} m, con ${GLIDE_NMIN} a ${GLIDE_NMAX}`);
