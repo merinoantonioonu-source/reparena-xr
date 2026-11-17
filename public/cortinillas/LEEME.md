@@ -1,6 +1,6 @@
 # Cortinillas
 
-Las ilustraciones que explican cada ejercicio (junto al menú principal, antes de calibrar y en la página), elegidas por el
+Las ilustraciones de cada ejercicio que salen en grande antes de cada ronda (la carátula del duelo), elegidas por el
 usuario: «Modelo 2», estilo HUD holográfico táctico, una por modo y ejercicio (`<modo>-<ejercicio>.jpg`, los de `MODE_EX` en
 `src/core/catalog.ts`). Las dio el usuario (documento «Cortinillas RepArena XR»), reducidas a 1024 × 572.
 

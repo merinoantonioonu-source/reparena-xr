@@ -1,9 +1,9 @@
 /**
  * Las cortinillas de cada ejercicio (elegidas por el usuario: «Modelo 2», estilo HUD holográfico, una por modo y ejercicio, en
- * `public/cortinillas/<modo>-<ejercicio>.jpg`): sustituyen a la caricatura animada (demo-art.ts) junto al menú principal, en la
- * espera de antes de calibrar y en la página. Son quietas (no se repintan en cada fotograma) y la franja de abajo, que en las
- * imágenes dice «OLEADAS: 3 · VIDAS: 3», se tapa con una igual que dice lo que tú tienes puesto (`cortInfo`). Mientras la
- * imagen carga (o si no hay para ese modo y ejercicio), sigue la caricatura.
+ * `public/cortinillas/<modo>-<ejercicio>.jpg`): la pantalla grande de antes de cada ronda (en la carátula del duelo, view-panels.ts;
+ * la caricatura animada se queda en su sitio). Son quietas y la franja de abajo, que en las imágenes dice «OLEADAS: 3 ·
+ * VIDAS: 3», se tapa con una igual que dice lo que tú tienes puesto (`cortInfo`). Si la imagen no ha cargado, la carátula
+ * de siempre.
  */
 import { exOk } from '../core/catalog.js';
 import { FB, fitFont, rr } from './canvas-kit.js';
