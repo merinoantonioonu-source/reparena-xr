@@ -81,6 +81,11 @@ No las cambies sin preguntarle.
 - Travesía de plataformas (pedido del usuario): **el cangrejo escupe**, una vez y solo desde lejos (entre 10 y 15 m), rápido y
   con aviso (se encabrita y suena), hacia tu cabeza; se esquiva **apartando la cabeza** (a un lado o agachándote; una
   sentadilla en el momento justo también vale). Si te da, frenas a la mitad y se rompe la racha, sin quitar vidas.
+- Travesía de plataformas, premios (elegidos por el usuario de las ideas para hacerla más divertida, al estilo de los juegos
+  de plataformas pero con el cuerpo): **barriles sorpresa** flotando que se rompen de un cabezazo saltando debajo (dan
+  fruta; uno de cada cuatro, un racimo que llena la energía), **frutas en arco sobre los huecos** que se comen saltando a
+  tiempo, y **tres frutas doradas por tramo** (altas en el centro, se cogen saltando; o encima de una plataforma, subiendo
+  de un supersalto), con su cuenta en el marcador y en el cofre. Fallar un premio no frena ni rompe la racha.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.

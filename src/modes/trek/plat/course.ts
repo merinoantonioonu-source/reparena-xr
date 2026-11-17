@@ -18,7 +18,7 @@
  *
  * Lógica pura, sin IWSDK.
  */
-import { BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
+import { ARC_MAX, ARC_MIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
 
 /** Las clases de la lista de cada tramo: la primera, lo básico (el tronco, la viga y el hueco); desde el segundo, también
  * la fruta, la plataforma alta y la seta (que se pisa); desde el tercero, el túnel, el burpee y el cangrejo (que se esquiva
@@ -26,7 +26,8 @@ import { BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FL
  * segmento de dos (un túnel y, `BURPEE_GAP_S` después, una plataforma con `burpee`): en el recorrido no hay piezas de esa
  * clase. (Las gemas del plan son las frutas.) */
 export function courseKinds(tramo: number): PieceKind[] {
-  const k: PieceKind[] = ['log', 'low', 'gap'];
+  // (el barril sorpresa, desde el principio: es un premio, no un obstáculo)
+  const k: PieceKind[] = ['log', 'low', 'gap', 'box'];
   if (tramo >= 1) k.push('fruit', 'step', 'foe');
   if (tramo >= 2) k.push('crawl', 'burpee', 'side');
   return k;
@@ -47,8 +48,8 @@ export function minGap(prev: Piece, next: Piece, vmax: number): number {
   // (para frenar suave a HALT_BRAKE hasta quedarte a STOP_AT de su borde, y un metro de colchón)
   if (HALT.includes(next.k)) g = Math.max(g, STOP_AT + (vmax * vmax) / (2 * HALT_BRAKE) + 1);
   if (FLOORS.includes(prev.k)) g = Math.max(g, FLOOR_UP_S * vmax + LAND_PAST); // (levantarte, y el mundo te deja pasado su final)
-  if (JUMPS.includes(prev.k) && JUMPS.includes(next.k)) g = Math.max(g, JUMP_GAP_S * vmax);
-  if (prev.k === 'fruit' || prev.k === 'side') g = Math.max(g, SIDE_BACK_S * vmax); // (volver al centro)
+  if (isJump(prev) && isJump(next)) g = Math.max(g, JUMP_GAP_S * vmax);
+  if ((prev.k === 'fruit' && !prev.gold) || prev.k === 'side') g = Math.max(g, SIDE_BACK_S * vmax); // (volver al centro)
   if (prev.k === 'foe' || prev.k === 'side') g += FOE_WALK; // (lo encuentras hasta FOE_WALK m más allá de su sitio)
   if (next.k === 'crawl') g = Math.max(g, CRAWL_WARN_S * vmax); // (echarse al suelo con tiempo)
   if (prev.k === 'step') g += DROP_ROOM; // (lo último, encima de todo lo demás: se baja de la plataforma al acabarla)
@@ -88,6 +89,13 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     const j = Math.floor(env.rnd() * (i + 1));
     [queue[i], queue[j]] = [queue[j]!, queue[i]!];
   }
+  // los premios (el barril sorpresa y las GOLD_N frutas doradas: altas en el centro, o una encima de una plataforma), detrás
+  // de los retos en la cola (se sacan por el final: primero salen los retos; en un tramo corto, los premios que quepan)
+  const bonus: (PieceKind | 'gold')[] = ['box'];
+  for (let i = 0; i < GOLD_N; i++) bonus.splice(Math.floor(env.rnd() * (bonus.length + 1)), 0, 'gold');
+  const bi = queue.indexOf('box');
+  if (bi >= 0) queue.splice(bi, 1);
+  queue.unshift(...(bonus as PieceKind[]));
   const pieces: Piece[] = [];
   let special = false; // (ya salió la fruta especial de este tramo)
   const tp = Math.max(0, tramo - 1); // (tramos de plataforma)
@@ -99,14 +107,21 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
   for (;;) {
     // (las de la cola, las que aún no han salido en el tramo, van más juntas: así caben todas aunque el tramo sea corto)
     const intro = queue.length > 0;
-    const k = queue.pop() ?? kinds[Math.floor(env.rnd() * kinds.length)]!;
+    const k = (queue.pop() ?? kinds[Math.floor(env.rnd() * kinds.length)]!) as PieceKind | 'gold';
     const prev = pieces[pieces.length - 1];
     const id = id0 + pieces.length;
     // Lo que sale ahora: una pieza o, el burpee, dos (el túnel y su plataforma).
     const seg: Piece[] = [];
-    if (k === 'gap') {
+    if (k === 'gold') {
+      // la fruta dorada: alta, en el centro (se coge saltando)
+      const g = piece(id, 'fruit', 0, tramo);
+      g.gold = true;
+      seg.push(g);
+    } else if (k === 'gap') {
       const len = clamp(T.gap + 0.12 * tramo + rand(-0.1, 0.1), T.gap, T.gap + TUNE_UP.gap);
-      seg.push(piece(id, k, 0, tramo, { len }));
+      // (más de la mitad, con frutas en arco encima: siguen la curva del salto)
+      const n = env.rnd() < 0.6 ? ARC_MIN + Math.floor(env.rnd() * (ARC_MAX - ARC_MIN + 1)) : 0;
+      seg.push(piece(id, k, 0, tramo, { len, n }));
     } else if (k === 'low') {
       const h = clamp(T.duck + 0.015 * tramo + rand(0, 0.04), T.duck, T.duck + TUNE_UP.duck);
       seg.push(piece(id, k, 0, tramo, { h }));
@@ -121,7 +136,14 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     } else if (k === 'step') {
       const h = clamp(T.high + 0.06 * tp + rand(0, 0.05), T.high, T.high + TUNE_UP.high);
       const len = clamp(4 + 0.4 * tp + 0.25 * rank + rand(0, 1.5), 4, 9);
-      seg.push(piece(id, k, 0, tramo, { h, len }));
+      const st = piece(id, k, 0, tramo, { h, len });
+      // (a veces, una de las doradas del tramo encima: se coge subiendo de un supersalto)
+      const gi = queue.indexOf('gold' as PieceKind);
+      if (gi >= 0 && env.rnd() < 0.5) {
+        queue.splice(gi, 1);
+        st.gold = true;
+      }
+      seg.push(st);
     } else if (k === 'crawl') {
       seg.push(crawlPiece(id));
     } else if (k === 'burpee') {
@@ -169,8 +191,11 @@ export function courseRules(pieces: Piece[], vmax: number, tune: PlatTune = TUNE
     if (p.k === 'side' && p.side !== -1 && p.side !== 1) out.push(`El cangrejo ${p.id} no tiene lado (side ${p.side}): debería ser −1 o 1`);
     if (p.k === 'side' && p.tramo < 2) out.push(`El cangrejo ${p.id} sale en el tramo ${p.tramo}: no antes del tercero`);
     if (p.k === 'foe' && p.tramo < 1) out.push(`La seta ${p.id} sale en el tramo ${p.tramo}: no antes del segundo`);
+    if (p.gold && p.k !== 'fruit' && p.k !== 'step') out.push(`La pieza ${p.id} (${p.k}) es dorada: solo puede serlo una fruta o una plataforma`);
+    if (p.k === 'gap' && (p.n < 0 || p.n > ARC_MAX)) out.push(`El hueco ${p.id} lleva ${p.n} frutas en arco: como mucho ${ARC_MAX}`);
     if (p.k !== 'step' && p.burpee) out.push(`La pieza ${p.id} (${p.k}) lleva burpee: solo puede llevarlo una plataforma`);
-    if (p.k === 'fruit') {
+    if (p.k === 'fruit' && p.gold && p.side !== 0) out.push(`La fruta dorada ${p.id} va a un lado (side ${p.side}): debería ir en el centro`);
+    if (p.k === 'fruit' && !p.gold) {
       if (p.side !== -1 && p.side !== 1) out.push(`La fruta ${p.id} no tiene lado (side ${p.side}): debería ser −1 o 1`);
       if (p.special) especiales.set(p.tramo, (especiales.get(p.tramo) ?? 0) + 1);
     }
@@ -206,5 +231,8 @@ export function courseRules(pieces: Piece[], vmax: number, tune: PlatTune = TUNE
     if (room < need - eps) out.push(`Las piezas ${prev.id} (${prev.k}) y ${p.id} (${p.k}) están demasiado juntas: ${room.toFixed(2)} m de sitio y piden ${need.toFixed(2)} m`);
   }
   for (const [tramo, n] of especiales) if (n > 1) out.push(`El tramo ${tramo} tiene ${n} frutas especiales: como mucho una`);
+  const doradas = new Map<number, number>();
+  for (const p of pieces) if (p.gold) doradas.set(p.tramo, (doradas.get(p.tramo) ?? 0) + 1);
+  for (const [tramo, n] of doradas) if (n > GOLD_N) out.push(`El tramo ${tramo} tiene ${n} frutas doradas: como mucho ${GOLD_N}`);
   return out;
 }

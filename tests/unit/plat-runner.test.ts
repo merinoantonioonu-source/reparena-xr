@@ -796,3 +796,60 @@ describe('la Travesía de plataformas: el escupitajo del cangrejo', () => {
     expect(t.of('spit')).toHaveLength(0);
   });
 });
+
+describe('la Travesía de plataformas: los premios (barril sorpresa, doradas y frutas en arco)', () => {
+  it('saltando debajo del barril sorpresa, se rompe de un cabezazo y da fruta; sin saltar, pasa por encima sin más', () => {
+    const s = new Sim();
+    const b = mk(1, 'box', 40, 0);
+    s.load(course([b, mk(2, 'chest', 120, 0)]));
+    expect(s.squatsTo(b, 0.5)).toBe(true);
+    s.jump();
+    expect(s.until(() => b.judged, 72 * 5)).toBe(true);
+    expect(b.ok).toBe(true);
+    expect(s.r.boxes).toBe(1);
+    expect(s.r.energy).toBeGreaterThan(0);
+    const t = new Sim();
+    const b2 = mk(1, 'box', 40, 0);
+    t.load(course([b2, mk(2, 'chest', 120, 0)]));
+    expect(t.blow(b2)).toBe(true);
+    expect(b2.ok).toBe(false);
+    expect(t.of('hit')).toHaveLength(0); // (es un premio: no pasa nada)
+    expect(t.of('combo0')).toHaveLength(0);
+  });
+
+  it('la fruta dorada se coge saltando cuando pasa; y la de encima de una plataforma, subiendo de un supersalto', () => {
+    const s = new Sim();
+    const g = mk(1, 'fruit', 40, 1);
+    g.gold = true;
+    s.load(course([g, mk(2, 'chest', 120, 1)]));
+    expect(s.squatsTo(g, 0.5)).toBe(true);
+    s.jump();
+    expect(s.until(() => g.judged, 72 * 5)).toBe(true);
+    expect(g.ok).toBe(true);
+    expect(s.of('gold')[0]).toMatchObject({ n: 1, of: 1 });
+    // sin saltar, se escapa (sin choque)
+    const t = new Sim();
+    const g2 = mk(1, 'fruit', 40, 1);
+    g2.gold = true;
+    t.load(course([g2, mk(2, 'chest', 120, 1)]));
+    expect(t.blow(g2)).toBe(true);
+    expect(g2.ok).toBe(false);
+    expect(t.of('gold')).toHaveLength(0);
+    expect(t.of('hit')).toHaveLength(0);
+  });
+
+  it('las frutas en arco sobre el hueco: saltándolo te las comes todas; tropezando, ninguna', () => {
+    const s = new Sim();
+    const gap = mk(1, 'gap', 40, 0, { len: 1.2, n: 4 });
+    s.load(course([gap, mk(2, 'chest', 120, 0)]));
+    expect(s.pass(gap)).toBe(true);
+    expect(gap.ok).toBe(true);
+    expect(gap.got).toBe(4);
+    expect(s.of('pick').map((e) => e.i)).toEqual([0, 1, 2, 3]);
+    const t = new Sim();
+    const g2 = mk(1, 'gap', 40, 0, { len: 1.2, n: 4 });
+    t.load(course([g2, mk(2, 'chest', 120, 0)]));
+    expect(t.blow(g2)).toBe(true);
+    expect(g2.got).toBe(0);
+  });
+});

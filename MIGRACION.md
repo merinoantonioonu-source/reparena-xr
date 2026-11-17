@@ -410,6 +410,17 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- Travesía, ideas elegidas por el usuario (un PR cada una, en este orden): **1 premios** (hecho), 2 planear con los brazos en
+  cruz sobre los huecos largos, 3 trampolín y bifurcaciones, 4 jefe al final de cada mundo, 5 enemigos nuevos (abeja o
+  murciélago en picado: agacharse; calavera que bota: saltar; cíclope con su onda: saltar; demonio con bola de fuego en
+  arco: paso a un lado). Nada que te persiga por detrás (no lo quiere). **Premios**: el barril sorpresa es una pieza
+  (`box`, en `JUMPS`: se juzga como el tronco, pero fallarlo no es choque); las frutas en arco, `Piece.n` del hueco (`got`,
+  las comidas: `Runner.stepHop` se las come según pasa la cabeza si el salto es bueno; `pick`); las doradas, `Piece.gold`
+  (una `fruit` en el centro, alta, `GOLD_Y`; o una `step`, la de encima), `GOLD_N` por tramo como mucho, en la cola de
+  `buildCourse` detrás de los retos (en un tramo corto, las que quepan); `Runner.golds[tramo]`, en el marcador («★ n/3») y en
+  el aviso del cofre. Lo que se ve: el barril (`Barrel` del kit pirata, no hay cajas) gira y flota; las frutas que se comen
+  dejan de pintarse por su `Put.tag`; el brillo dorado, `goldGlow`.
+
 - Curl con barra, fase 2 → la 3 (`docs/PLAN-CURL-BARRA.md`): **«Manos: filtro nuevo»** (`handsNew`, `xr: true`, grupo
   ejercicio, solo con `curl2`; también una fila en la pausa, `pauseMenu`) pone `StandCfg.robust` (`readCfg`, y otra vez al
   quitar la pausa) y el detector va por `barRobust` en vez de `barStep` (que sigue igual: lo comparan `tests/compare`). Lo nuevo

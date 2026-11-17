@@ -22,17 +22,20 @@ export type PieceKind =
   | 'burpee' // (sin usar: el burpee es un túnel y, BURPEE_GAP_S después, una plataforma con `burpee`)
   | 'fruit' // fruta flotando a la altura de la cabeza, a un lado: se coge apartando la cabeza (fluido; da energía)
   | 'foe' // la seta, que llega andando por el centro: se pisa saltando encima (fluido; PR D)
-  | 'gems' // hilera de gemas que alcanzar con la mano (fluido; PR D)
+  | 'gems' // (sin usar: las gemas del plan son las frutas)
+  | 'box' // el barril sorpresa, flotando sobre la pasarela: se rompe de un cabezazo, saltando debajo (fluido; da fruta)
   | 'chest'; // fin del tramo (paso)
 
 /** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
  * si fallas, chocas o tropiezas (frenas y pierdes la racha, sin perder vidas, y sigues). El hueco también: si no saltas a
  * tiempo, tropiezas al cruzarlo (nunca se cae). */
-export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems'];
+export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box'];
 /** Los pasos: el mundo frena suave y te para a `STOP_AT` (solo el cofre, al acabar el tramo). */
 export const HALT: readonly PieceKind[] = ['chest'];
 /** Los que se cruzan saltando (entre dos seguidos, al menos `JUMP_GAP_S` a velocidad máxima). */
-export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe'];
+export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'box'];
+/** ¿Se cruza saltando? (las de `JUMPS` y la fruta dorada, que flota alta en el centro) */
+export const isJump = (p: Piece): boolean => JUMPS.includes(p.k) || (p.k === 'fruit' && p.gold);
 /** Los de suelo (tras ellos, `FLOOR_UP_S` para levantarse antes de otra cosa; salvo la plataforma de un burpee, que llega
  * `BURPEE_GAP_S` después del túnel). */
 export const FLOORS: readonly PieceKind[] = ['crawl'];
@@ -40,6 +43,11 @@ export const FLOORS: readonly PieceKind[] = ['crawl'];
 export const BURPEE_GAP_S = 2;
 /** La fruta: a qué distancia del centro flota (m, a su lado) y la ventana en la que se coge al pasar (m). */
 export const FRUIT_U = 0.35, FRUIT_WIN = 0.45;
+/** El barril sorpresa: lo que queda su borde de abajo por encima de tu coronilla (m; al saltar, el mundo baja `JUMP_LIFT` y
+ * te lo encuentras en la cabeza). La fruta dorada: lo alta que flota sobre tus ojos (m: hay que saltar para cogerla); las
+ * de cada tramo, como mucho `GOLD_N`. Las frutas en arco sobre un hueco: de `ARC_MIN` a `ARC_MAX` (siguen la curva del
+ * salto: se cogen todas saltando a tiempo). */
+export const BOX_CLEAR = 0.22, GOLD_Y = 0.32, GOLD_N = 3, ARC_MIN = 3, ARC_MAX = 5;
 /** Los enemigos (la seta y el cangrejo, PR D) llegan andando hacia ti: salen `FOE_WALK` m más allá de su sitio (`at`) y,
  * cuando te quedan a menos de `FOE_WAKE` m, andan hacia ti a `FOE_V` m/s hasta su sitio, y allí te esperan. Así nunca
  * quedan más cerca de la pieza de antes que su sitio (las separaciones de course.ts siguen valiendo). */
@@ -95,7 +103,7 @@ export interface Piece {
   /** Viga baja: cuánto hay que bajar la coronilla bajo tu altura de pie (m). Plataforma: lo que sube el suelo (m). 0 en
    * los demás. */
   h: number;
-  /** Túnel: las flexiones que pide. Gemas: cuántas. 0 en los demás. */
+  /** Túnel: las flexiones que pide. Hueco: las frutas en arco sobre él (0, ninguna). 0 en los demás. */
   n: number;
   /** El tramo al que pertenece (desde 0). */
   tramo: number;
@@ -122,11 +130,16 @@ export interface Piece {
   woke: boolean;
   /** El cangrejo: ya escupió (lo hace una vez, desde lejos). */
   spat: boolean;
+  /** La fruta dorada (alta, en el centro: se coge saltando) o la plataforma con una encima (se coge subiendo de un
+   * supersalto). */
+  gold: boolean;
+  /** Las frutas en arco del hueco que ya te has comido. */
+  got: number;
 }
 
 /** Una pieza nueva, con su estado a cero. */
 export function piece(id: number, k: PieceKind, at: number, tramo: number, o: Partial<Pick<Piece, 'len' | 'side' | 'h' | 'n'>> = {}): Piece {
-  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: k === 'foe' || k === 'side' ? FOE_WALK : 0, woke: false, spat: false };
+  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: k === 'foe' || k === 'side' ? FOE_WALK : 0, woke: false, spat: false, gold: false, got: 0 };
 }
 
 /** Lo que manda la tabla de dificultad (por rango, PR E; los ajustes `plat*`): el sitio de más entre retos (×, 1 = el de
@@ -218,6 +231,7 @@ export type PlatSnd = 'whoosh' | 'metalHit' | 'perfect' | 'combo' | 'step' | 'vi
  * - lift: el suelo sube o baja `dy` m en `dur` s (las plataformas, PR B).
  * - chest: has llegado al cofre (se acaba el tramo; se abre). vanish: el cofre abierto se esfuma (al empezar el siguiente).
  * - wake: la seta o el cangrejo empiezan a andar hacia ti (su voz).
+ * - pick: te comes la fruta i del arco de un hueco. gold: coges una fruta dorada (la n de las `of` del tramo).
  * - spit: el cangrejo escupe (se encabrita `wind` s y el escupitajo vuela `dur` s hacia `aim`, donde estaba tu cabeza, en la
  *   arena); spat: llega (ok: lo esquivaste).
 
@@ -242,6 +256,8 @@ export type PlatEv =
   | { t: 'chest'; p: Piece }
   | { t: 'vanish'; p: Piece }
   | { t: 'wake'; p: Piece }
+  | { t: 'pick'; p: Piece; i: number }
+  | { t: 'gold'; p: Piece; n: number; of: number }
   | { t: 'spit'; p: Piece; wind: number; dur: number; aim: { x: number; y: number; z: number } }
   | { t: 'spat'; p: Piece; ok: boolean }
   | { t: 'trophy'; title: string; sub: string }

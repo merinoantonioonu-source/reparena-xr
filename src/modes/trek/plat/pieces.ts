@@ -23,7 +23,7 @@
  */
 import { trekRng, TREK_CH } from '../path.js';
 import { HEAD_TOP } from '../env.js';
-import { FRUIT_U, type Piece } from './types.js';
+import { BOX_CLEAR, FRUIT_U, GOLD_Y, type Piece } from './types.js';
 
 export type Kit = 'island' | 'nature' | 'food';
 
@@ -40,7 +40,16 @@ export interface Put {
   sx: number;
   sy: number;
   sz: number;
+  /** Las frutas en arco del hueco: su número (se dejan de pintar al comérselas); la dorada de una plataforma, `GOLD_TAG`. */
+  tag?: number;
 }
+/** La marca de la fruta dorada de encima de una plataforma (se deja de pintar al cogerla). */
+export const GOLD_TAG = 99;
+/** Lo que sube el salto, para las frutas en arco sobre los huecos (las de JUMP_LIFT de runner.ts: el mundo baja eso). */
+const ARC_LIFT = 0.45;
+/** Las frutas del arco (van variando) y la dorada (un limón grande, con su brillo dorado que pone el sistema). */
+const ARC_FRUITS = ['Cherries', 'Strawberry', 'Apple', 'Orange', 'Grapes'] as const;
+export const GOLD_FRUIT = 'Lemon', GOLD_SIZE = 0.3;
 
 /** Cuánto sobresale la repisa de roca por delante de `at` y por detrás de `at + len` (m): los montículos bajan en los extremos. */
 const STEP_FRONT = 0.5, STEP_BACK = 0.3;
@@ -217,11 +226,25 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       const py = DK.top * S.sy, pz = -DK.z0 * S.sz;
       const oy = py * Math.cos(rx) - pz * Math.sin(rx), oz = py * Math.sin(rx) + pz * Math.cos(rx); // (dónde cae ese punto al girar)
       out.push(put('island', 'Dock_Broken', oz - 0.02, ((DK.x0 + DK.x1) / 2) * S.sx, -0.05 - oy, { ry: Math.PI, rx, ...S }));
+      // las frutas en arco: siguen la curva del salto (en lo alto, a la altura de los ojos cuando el mundo baja)
+      for (let i = 0; i < p.n; i++) {
+        const u = (i + 0.5) / p.n, f = fruitPut(ARC_FRUITS[(p.id + i) % ARC_FRUITS.length], 0.18, 0, ref - 0.05 + ARC_LIFT * 4 * u * (1 - u));
+        f.ds += u * p.len;
+        f.tag = i;
+        out.push(f);
+      }
       break;
     }
     case 'chest':
       chestPuts(false, out);
       break;
+    case 'box': {
+      // el barril sorpresa: flotando sobre la pasarela, con su borde de abajo BOX_CLEAR por encima de tu coronilla (el
+      // sistema lo hace girar); al saltar, el mundo baja y te lo encuentras en la cabeza
+      const s = 0.75;
+      out.push(put('island', 'Barrel', 0, 0, ref + HEAD_TOP + BOX_CLEAR - 0.00127464 * s, { sx: s, sy: s, sz: s }));
+      break;
+    }
     case 'step': {
       if (p.h <= 0 || p.len <= 0) break;
       // una repisa de roca: un bloque (Cliff1: el más llano, pero es un montículo: baja en los extremos) del suelo del paisaje
@@ -231,6 +254,13 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       for (let i = 0; i < n; i++) out.push(rockFit('island', 'Cliff1', -W, W, GROUND_Y - 0.1, p.h - 0.04, i ? i * w - 0.6 : -STEP_FRONT, i < n - 1 ? (i + 1) * w + 0.6 : p.len + STEP_BACK, (p.id + i) % 2 === 1));
       // ...y encima, las tablas del muelle con su cara de arriba en y = h (el suelo por el que se sigue), de borde a borde
       dockRun(0, p.len, p.h, 0.7, out);
+      // la dorada de encima: en medio, a la altura de los ojos sobre la plataforma (se coge subiendo de un supersalto)
+      if (p.gold) {
+        const g = fruitPut(GOLD_FRUIT, GOLD_SIZE, 0, p.h + ref);
+        g.ds += p.len / 2;
+        g.tag = GOLD_TAG;
+        out.push(g);
+      }
       break;
     }
     case 'crawl': {
@@ -261,7 +291,12 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       break;
     }
     case 'fruit': {
-      if (p.side === 0) break;
+      if (p.side === 0 && !p.gold) break;
+      // la dorada: alta, en el centro (hay que saltar)
+      if (p.gold) {
+        out.push(fruitPut(GOLD_FRUIT, GOLD_SIZE, 0, ref + GOLD_Y));
+        break;
+      }
       // flotando a la altura de la cabeza, al lado (el sistema la hace girar y flotar); la misma para el mismo id; la especial, la piña, más grande
       const name = p.special ? 'Pineapple' : FRUIT_NORMAL[Math.abs(p.id) % FRUIT_NORMAL.length];
       out.push(fruitPut(name, p.special ? FRUIT_SIZE_SPECIAL : FRUIT_SIZE, p.side * FRUIT_U, ref));
