@@ -44,8 +44,19 @@ arreglarlo, cambia de signo). Lo medido allí:
 - **D7 · sin datos**: el diagnóstico va a 10 Hz y no apuntaba nada del detector → **caja negra** (fase 1, hecha).
 - **D8 (menor)**: `bottom` empieza en −0,78 sin medir al usuario; `armStep` (curl a un brazo) tiene D1 y D2 y no usa HF;
   `fraiseStep` y `chainStep` comparten D4-D6.
-- **Sin confirmar** (hace falta la caja negra de las gafas): si al perder una mano las Quest dan posturas congeladas, nulas o
-  con `emulatedPosition`; a qué ritmo cambian las posturas; si con los mandos cerca la fuente pasa de mano a mando.
+- ~~Sin confirmar~~ **Lo que dijo la caja negra de las gafas** (Quest 3, kettlebell, `curlRange` 20 cm;
+  `tests/replay/capturas/curl2-kettlebell-rayos-a-destiempo.txt`):
+  - las gafas dan **postura nueva casi en cada imagen** (no repiten la vieja de una mano perdida: rachas repetidas de 34 ms
+    como mucho), **nunca** `emulatedPosition` y la mano **nunca** pasa a mando; una mano que no ven, la dan por perdida.
+    D5 y D6 no pasan así en sus gafas; D1 (lo más bajo hundido) tampoco se vio;
+  - cada mano se pierde y vuelve varias veces por curl; al volver, a veces con **un salto falso** (16 cm, 50 cm…) uno o dos
+    fotogramas; las manos del usuario van a 18-25 cm (justo el límite de `clasp`), y tras la pausa a 80 cm (una vuelve del
+    botón);
+  - **los rayos a destiempo** (12 + 4 rayos; 5 mal): uno subiendo (`clasp` mezcla una mano recién reaparecida con su salto
+    falso: D3); uno al quitar la pausa (seguía «arriba, cargado»: **D9**); uno con la mano que vuelve del botón de la pausa
+    («la que se mueve»: D4); uno a un tercio de la subida al perder las dos manos y ninguno al bajar (D2); y un «Sube hasta el
+    hombro» falso al bajar (las dos manos no bajan a la vez y la subida empezaba con 1 cm de margen);
+  - aparte: tras quitar la pausa la imagen iba a ~28 por segundo (35 ms por imagen) un buen rato.
 
 ## Fases (un PR cada una; el usuario prueba en las gafas entre fases)
 
@@ -66,7 +77,28 @@ arreglarlo, cambia de signo). Lo medido allí:
    - **Lo siguiente**: el usuario juega `curl2` y, justo después de un disparo raro, pausa y «Guardar diagnóstico» (2-3
      capturas, diciendo si es barra ancha o kettlebell). Con ellas se decide cuáles de D1-D6 pasan de verdad y con qué números
      (ritmo de las posturas, cuánto duran las congeladas, tamaño de los saltos) antes de la fase 2.
-2. **Arreglos del detector** (detrás de «Manos: filtro nuevo», con las capturas como prueba), en `barStep` (camino `robust`):
+2. **Arreglos del detector** — hechos, detrás de «Manos: filtro nuevo» (`handsNew`, `xr: true`, apagado de serie; en
+   Ajustes › Ejercicio y en la pausa, que vale al seguir): `StandCfg.robust` → `barRobust` (`src/exercise/standing.ts`, sus
+   números en `RB`). Elegido por el usuario: **opción A** para las perdidas subiendo y los tres arreglos que se le propusieron:
+   - **cada mano solo vale estable** `RB.settle` (0,1 s) tras reaparecer o tras un salto imposible (`RB.vmax` × el tiempo de
+     la imagen) y a tu alcance (`rbHands`; la caja negra la enseña con la marca 20);
+   - **una mano que no casa no está en la pesa**: juntas (misma altura y tu separación de siempre, `rb.sep`, aprendida con
+     las dos a la misma altura), su media; si no, la que sigue a la última altura de confianza (`rbPred`/`rbFits`: su
+     velocidad, hasta 0,3 s); sin con qué comparar, ninguna (`rbRead`). Sustituye a «la que se mueve» (`hv`) y a `clasp`
+     sin filtrar;
+   - **perdidas subiendo (opción A)**: no dispara; queda «en el aire» (`rb.air`): si reaparecen arriba, cuenta y dispara al
+     bajar; abajo antes de 1 s, no cuenta; abajo después, cuenta; sin verlas 1,5 s, cuenta;
+   - **al quitar la pausa** (`barResume`, desde `GameSystem`; la caja negra lo apunta con «sigue») la pesa empieza de cero,
+     como arriba y sin carga;
+   - además, lo más bajo del recorrido se adapta por tiempo (no por imagen) y una subida nueva pide 5 cm sobre lo más bajo
+     desde que bajó (`RB.hyst`: el «Sube hasta el hombro» falso).
+   Pruebas: `tests/unit/curl2-robusto.test.ts` (D1-D5 ya sin disparo, la opción A, la pausa y los curls limpios: kettlebell
+   y barra, lentos y rápidos, a 72 y 90, igual que siempre) y `tests/replay/curl2-robusto.test.ts` (la caja negra del
+   usuario: sin los 5 fallos y con los 11 rayos buenos). `CAPTURA=archivo ROBUSTO=1 npm run replay` enseña una captura con
+   el filtro nuevo. **Lo siguiente**: que el usuario lo pruebe en las gafas, encendido y apagado (con la caja negra).
+   Lo que quedaba en el plan original de esta fase y no ha hecho falta por lo que enseñaron las capturas (lo más bajo medido
+   al calibrar, la banda alrededor del calibrado): si vuelve a verse, se hace. El plan original:
+   en `barStep` (camino `robust`):
    `bottom` con `dt`, sin seguir hacia abajo un dato suelto (que dure ≥ 0,2 s o mediana corta), en una banda creíble alrededor
    del calibrado, sin adaptarse agachado ni fuera de «abajo», y medido al calibrar (`calibStep` → `st.reset`) si se ven las
    manos; `hv` que decae a 0 con la mano perdida y al reaparecer, sin preferir la izquierda (en el empate, la más cercana a la
@@ -74,12 +106,13 @@ arreglarlo, cambia de signo). Lo medido allí:
    tiempo real) no se usa hasta confirmarse durante un tiempo (no un número de fotogramas); `clasp` también con manos de
    confianza. Pruebas: las de D1-D6 pasan a «no dispara» o «dispara a tiempo» y los curls limpios de referencia siguen igual
    (kettlebell y barra ancha, lentos y rápidos, 72 y 90 fps).
-3. **Calidad de la mano** (capa común de lógica pura, p. ej. `src/input/hand-quality.ts`): por mano y fotograma, postura
+3. **Calidad de la mano** (con las capturas, lo de «postura repetida o congelada» no hace falta en las gafas del usuario: la
+   capa común sería sobre todo llevar lo de `rbHands`/`rbRead` a `armStep`, `fraiseStep` y `chainStep`) (capa común de lógica pura, p. ej. `src/input/hand-quality.ts`): por mano y fotograma, postura
    nueva o repetida, tiempo desde la última nueva (congelada pasado un umbral sacado de las capturas, orientativo 100-150 ms),
    velocidad entre posturas nuevas con su tiempo real (arregla D6 sin «procesar solo posturas nuevas»: los fotogramas
    repetidos siguen contando el tiempo), confirmación de reaparición o salto por tiempo y coherencia. Sustituye a HF solo en
-   el camino `robust`; primero `curl2`, luego `armStep`, `fraiseStep` y `chainStep`. **D2: proponerlo al usuario antes de
-   cambiarlo** (recomendación: no disparar al perderlas; la repetición queda «en el aire» y se resuelve al reaparecer —arriba,
+   el camino `robust`; primero `curl2`, luego `armStep`, `fraiseStep` y `chainStep`. **D2: ya decidido (opción A, hecho en la
+   fase 2)** (recomendación: no disparar al perderlas; la repetición queda «en el aire» y se resuelve al reaparecer —arriba,
    cuenta y dispara al bajar; abajo antes de ~1 s, no cuenta—; si no reaparecen en ~1,5 s, cuenta; opcional, si las capturas
    dicen que es fiable, la muñeca del cuerpo para CONFIRMAR la subida, nunca para inventarla). El ajuste en `SCHEMA` con su
    explicación, su fila en el menú y la página, y la documentación.

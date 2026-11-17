@@ -127,12 +127,13 @@ describe.runIf(files.length)('capturas de las gafas', () => {
     });
 });
 
-// CAPTURA=archivo npm run replay: imprime la reproducción de cada captura del archivo
-const CAPTURA = process.env.CAPTURA;
+// CAPTURA=archivo npm run replay: imprime la reproducción de cada captura del archivo (con ROBUSTO=1, la del filtro nuevo de
+// las manos, «Manos: filtro nuevo», frente a lo que se grabó)
+const CAPTURA = process.env.CAPTURA, ROBUSTO = !!process.env.ROBUSTO;
 describe.runIf(!!CAPTURA)('reproducir CAPTURA', () => {
   it('imprime los sucesos', () => {
     for (const text of splitCaptures(readFileSync(CAPTURA!, 'utf8'))) {
-      const r = replay(text), m = mismatches(r);
+      const r = replay(text, ROBUSTO ? { cfg: (c) => ({ ...c, robust: true }) } : {}), m = mismatches(r);
       console.log(`${table(r)}\n\nNo casan: grabados ${JSON.stringify(m.recorded)} · reproducidos ${JSON.stringify(m.replayed)}\n`);
     }
   });

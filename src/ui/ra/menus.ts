@@ -396,7 +396,9 @@ export function pauseMenu(): void {
       { t: 'btns', items: [{ label: 'Continuar', style: 'primary', onPress: () => HOOKS.resume() }], h: 0.08 },
       ...(P.perks ? [{ t: 'text' as const, text: P.perks, color: '#ffd166' }] : []),
       ...(P.warns ? [{ t: 'text' as const, text: P.warns, color: '#ff8a3d' }] : []),
-      ...(PAUSE.diag ? [{ t: 'text' as const, text: 'Diagnóstico guardado: en la página del juego, «Copiar el último»', color: '#3cf0c6' }] : []),
+      ...(PAUSE.diag ? [{ t: 'text' as const, text: 'Diagnóstico guardado: en la página del juego, «Descargar la caja negra» (o «Copiar el último»)', color: '#3cf0c6' }] : []),
+      // («Manos: filtro nuevo», en pruebas: a mano en la pausa para comparar; vale al seguir)
+      ...(fieldVisible(FIELD.handsNew) ? [{ t: 'field' as const, key: 'handsNew' }] : []),
       { t: 'btns', items: [{ label: 'Sonido  ▸', accent: MC.sound, onPress: () => soundMenu(pauseMenu) }, { label: 'Entorno  ▸', accent: MC.scene, onPress: () => sceneMenu(pauseMenu) }, { label: 'Ajustes  ▸', accent: MC.set, onPress: () => settingsMenu(pauseMenu) }] },
       { t: 'btns', items: [{ label: bars ? 'Volver a colgarme' : 'Recalibrar', accent: MC.body, onPress: () => (HOOKS.resume(), HOOKS.recalibrate()) }, { label: 'Guardar diagnóstico', onPress: () => (HOOKS.diagSave('con el botón de la pausa'), (PAUSE.diag = true), pauseMenu()) }] },
       { t: 'btns', items: [{ label: 'Terminar ronda', onPress: () => (HOOKS.resume(), HOOKS.endRound()) }, { label: 'Menú principal', onPress: () => (HOOKS.resume(), HOOKS.toLobby()) }, { label: 'Salir del juego', style: 'danger', onPress: () => (HOOKS.resume(), MENU_ENV.exit()) }] },

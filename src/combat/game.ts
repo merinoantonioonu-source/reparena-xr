@@ -1029,6 +1029,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       powHoldInc: num('powHoldInc'),
       deepDrop: deepOn() ? num('deepDrop') : 0,
       power: true, // (sin pistolas ni espadas todavía: PR 9)
+      robust: on('handsNew'), // («Manos: filtro nuevo», en pruebas: solo el curl con barra)
     };
   }
 
@@ -1655,7 +1656,18 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     spotify().tick(dt); // (la música: se pregunta a Spotify cada pocos segundos)
     this.stepGlide(dt);
     pulse().step(dt); // (el pulso que pasa el móvil, si lo escuchas desde las gafas)
-    if (this.wasPaused && !GAME.paused) BEAT.relock(); // (al seguir tras la pausa, el pulso se vuelve a enganchar a la música)
+    if (this.wasPaused && !GAME.paused) {
+      BEAT.relock(); // (al seguir tras la pausa, el pulso se vuelve a enganchar a la música)
+      // «Manos: filtro nuevo» se puede cambiar en la pausa (para comparar) y vale al seguir; con él, el curl con barra empieza de
+      // cero: lo que hiciste en la pausa no es un curl
+      this.stCfg.robust = on('handsNew');
+      BB.markCfg(time, this.stCfg);
+      if (this.stCfg.robust && this.stCfg.ex === 'curl2') {
+        this.st.barResume();
+        BB.markResume();
+        this.chargePow = 0;
+      }
+    }
     this.wasPaused = GAME.paused;
     if (GAME.phase === 'playing' && !GAME.paused) BEAT.step(dt); // (el pulso de la música, para los modos y los enemigos)
     if (GAME.paused) {

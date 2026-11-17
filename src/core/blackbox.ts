@@ -16,7 +16,7 @@ import type { StandCfg, StandEvent, StandingDetector } from '../exercise/standin
 export const BB_KEY = 'reparenaxr-blackbox';
 /** Cuántos segundos se guardan, cuántos fotogramas caben (25 s a 120 imágenes por segundo) y cuántas capturas se conservan. */
 export const BB_SECS = 25, BB_CAP = 3000, BB_KEEP = 3;
-const NV = 8; // (valores del detector por fotograma)
+const NV = 10; // (valores del detector por fotograma)
 
 // las marcas de cada mano (en hexadecimal en el texto)
 export const HB = { ok: 1, hand: 2, fresh: 4, emu: 8, known: 16, hf: 32, pred: 64, body: 128, src: 256, knuckle: 512, back: 1024 } as const;
@@ -49,7 +49,7 @@ interface DetCols {
   units: string;
 }
 const DET: Record<string, DetCols> = {
-  curl2: { names: 'estado y bottom max lost hvI hvD clasp', units: 'mmmsvvn' },
+  curl2: { names: 'estado y bottom max lost hvI hvD juntas aire(filtro nuevo) separación(filtro nuevo)', units: 'mmmsvvnnm' },
   curl: { names: 'estadoID bottomI bottomD maxI maxD lostI lostD', units: 'mmmmss' },
   fraise: { names: 'estado bottom max lost fwd holdT pow', units: 'mmmsmsn' },
   twist: { names: 'n acc lo hi dir lostT pow', units: 'nnnnnsn' },
@@ -71,7 +71,8 @@ class BlackBox {
   /** Por mano: la muñeca (x, y, z) y el nudillo del corazón (x, y, z; en los antebrazos). */
   readonly w = new Float32Array(BB_CAP * 12);
   readonly hf = new Uint16Array(BB_CAP * 2);
-  /** Marcas del fotograma: 1 jugando (en plena oleada), 2 el detector empezó de cero (a la altura `ry`). */
+  /** Marcas del fotograma: 1 jugando (en plena oleada), 2 el detector empezó de cero (a la altura `ry`), 4 se quitó la pausa
+   * (con «Manos: filtro nuevo», el curl con barra empieza de cero: barResume). */
   readonly ff = new Uint8Array(BB_CAP);
   readonly ry = new Float32Array(BB_CAP);
   readonly st = new Uint8Array(BB_CAP * 2);
@@ -85,6 +86,7 @@ class BlackBox {
   ex = '';
   /** El detector empezó de cero (st.reset): se apunta en el fotograma siguiente. */
   private resetY = NaN;
+  private resumed = false;
   private cfgs: CfgMark[] = [];
   /** La muñeca del fotograma anterior (si las gafas no dicen si la postura es nueva). */
   private prevW = new Float64Array(6);
@@ -93,6 +95,10 @@ class BlackBox {
   /** El detector empieza de cero a la altura y (al calibrar, al empezar la ronda o al recolocarse). */
   markReset(y: number): void {
     this.resetY = y;
+  }
+  /** Se quitó la pausa y el detector del curl con barra empezó de cero (barResume): se apunta en el fotograma siguiente. */
+  markResume(): void {
+    this.resumed = true;
   }
   /** Los ajustes del ejercicio en ese momento (al empezar cada oleada; no en cada fotograma). */
   markCfg(t: number, c: StandCfg): void {
@@ -118,7 +124,8 @@ class BlackBox {
     this.head[hd + 1] = head.p.y;
     this.head[hd + 2] = head.p.z;
     this.head[hd + 3] = head.speed;
-    this.ff[i] = (play ? 1 : 0) | (Number.isNaN(this.resetY) ? 0 : 2);
+    this.ff[i] = (play ? 1 : 0) | (Number.isNaN(this.resetY) ? 0 : 2) | (this.resumed ? 4 : 0);
+    this.resumed = false;
     this.ry[i] = this.resetY;
     this.resetY = NaN;
     for (let k = 0; k < 2; k++) {
@@ -180,6 +187,8 @@ class BlackBox {
       d[o + 4] = B.hv.left;
       d[o + 5] = B.hv.right;
       d[o + 6] = B.clasp ? 1 : 0;
+      d[o + 7] = det.rb.air ? 1 : 0;
+      d[o + 8] = det.rb.sep;
     } else if (ex === 'curl') {
       const L = det.curl.left, R = det.curl.right;
       this.st[s] = ST(L.state);
@@ -227,6 +236,7 @@ class BlackBox {
     this.i = this.n = this.fresh = 0;
     this.ex = '';
     this.resetY = NaN;
+    this.resumed = false;
     this.cfgs.length = 0;
     this.prevOk[0] = this.prevOk[1] = false;
   }
@@ -261,6 +271,7 @@ class BlackBox {
       for (let k = 0; k < this.en[j]; k++) evs.push(evToken(this.ev[j * 4 + k]));
       let row = `F ${us(this.t[j])} ${us(this.dt[j])} ${this.ff[j] & 1 ? 'j' : '-'} | ${mm(this.head[hd])} ${mm(this.head[hd + 1])} ${mm(this.head[hd + 2])} ${Math.round(this.head[hd + 3] * 1000)} | ${sides[0]} | ${sides[1]} | ${det} | ${evs.length ? evs.join(',') : '-'}`;
       if (this.ff[j] & 2) row += ` | reset ${mm(this.ry[j])}`;
+      if (this.ff[j] & 4) row += ' | sigue';
       out.push(row);
       if (j === last) break;
     }
@@ -281,7 +292,7 @@ export const BB_LEGEND = [
   '    · 10 las gafas dieron postura · 20 vale para la pesa (HF) · 40/80 inventada por el juego (gesto/cuerpo) · 100 hay fuente · 200 nudillo · 400 reaparece',
   '  | detector: su estado (d abajo, r subiendo, h arriba aguantando, t arriba; u/d de la cabeza) y sus valores (m en décimas de mm, s en ms, v en mm/s)',
   '  | sucesos: c carga, p2 carga ×2, r repetición (R perfecta, f rápida, ×n carga, I/D brazo), m a medias, t arriba, s aviso',
-  '  | reset y: el detector empezó de cero con la cabeza a esa altura',
+  '  | reset y: el detector empezó de cero con la cabeza a esa altura · sigue: se quitó la pausa (con el filtro nuevo, el curl con barra empieza de cero)',
 ];
 
 /** La caja negra de la partida (una sola). */
@@ -326,6 +337,8 @@ export interface BBFrame {
   det: number[];
   events: string[];
   reset: number | null;
+  /** Se quitó la pausa justo antes (con «Manos: filtro nuevo», el curl con barra empezó de cero). */
+  resume: boolean;
 }
 export interface BBParsed {
   reason: string;
@@ -367,7 +380,8 @@ export function bbParse(text: string): BBParsed {
         st: dv[0],
         det,
         events: g[5] === '-' ? [] : g[5].split(','),
-        reset: g[6]?.startsWith('reset ') ? num(g[6].slice(6)) / 1e4 : null,
+        reset: g.find((x) => x.startsWith('reset ')) ? num(g.find((x) => x.startsWith('reset '))!.slice(6)) / 1e4 : null,
+        resume: g.includes('sigue'),
       });
     }
   }
