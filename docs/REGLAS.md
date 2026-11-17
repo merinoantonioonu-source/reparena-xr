@@ -268,6 +268,11 @@ No las cambies sin preguntarle.
 - Los contornos de tinta: finos de lejos (grosor fijo en el mundo pasados 2,5 m) y solo en el borde de verdad (sin
   parpadeos al mover la cabeza).
 - Los personajes geométricos hechos a mano gustaron poco: para enemigos nuevos, mejor modelos de Quaternius.
+- **Lo que lanzan los enemigos, tipo videojuego** (pedido del usuario: «lo que se veía era muy básico»): un núcleo que brilla
+  con su halo que parpadea, una estela de luz detrás, humo y, al dar, un fogonazo con una onda de chispas; al prepararlo,
+  crece en su mano con luz que gira. Las piedras del lanzador (Combate), en llamas; el escupitajo del cangrejo, baba verde
+  luminosa; el demonio, bola de fuego con humo; cada jefe, lo suyo (el Yeti, nieve; el Demonio verde, fuego verde; el Alien
+  alto, plasma violeta); la onda del cíclope, una llamarada baja que levanta polvo, y su puñetazo, un fogonazo de fuego.
 - Los voladores baten las alas siempre rápido, a su ritmo, sin depender de lo deprisa que avancen.
 - Cada enemigo tiene resistencia, fuerza y dureza en la tabla del desarrollador; los nuevos entran solos en ella.
 - En el menú, cada enemigo es una ficha con su retrato (de su modelo), su nombre, su resistencia y su fuerza. Un enemigo
