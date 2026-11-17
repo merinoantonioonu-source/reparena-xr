@@ -7,7 +7,7 @@
 // cofre, para echarse al suelo ante un túnel y para levantarse; y la dificultad sube de un tramo a otro, no dentro de él.
 import { describe, expect, it } from 'vitest';
 import { buildCourse, courseKinds, courseRules, minGap } from '../../src/modes/trek/plat/course.js';
-import { BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece, type PlatTune, platTune, TUNE_DEF } from '../../src/modes/trek/plat/types.js';
+import { ARC_MAX, ARC_MIN, GOLD_N, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece, type PlatTune, platTune, TUNE_DEF } from '../../src/modes/trek/plat/types.js';
 
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
 /** La tabla de dificultad más fácil (la del recluta salvo la separación: lo mínimo de cada medida) y una difícil. */
@@ -15,7 +15,9 @@ const T0: PlatTune = { space: 1, gap: 0.8, duck: 0.22, high: 0.8, tunnel: 3, foe
 const T6: PlatTune = { space: 0.8, gap: 1.1, duck: 0.28, high: 0.98, tunnel: 3.9, foeV: 1.4 };
 const env = (seed: number, vmax: number, len: number, tune: PlatTune = T0): CourseEnv => ({ vmax, len, rnd: rng(seed), tune });
 /** ¿Hay en el recorrido la clase `k`? El burpee no es una pieza: es un túnel con, justo detrás, una plataforma de burpee. */
-const hay = (ps: Piece[], k: string): boolean => (k === 'burpee' ? ps.some((p) => p.k === 'step' && p.burpee) : ps.some((p) => p.k === k));
+const hay = (ps: Piece[], k: string): boolean => (k === 'burpee' ? ps.some((p) => p.k === 'step' && p.burpee) : k === 'fruit' ? ps.some((p) => p.k === 'fruit' && !p.gold) : ps.some((p) => p.k === k));
+/** Las clases que son retos (el barril sorpresa es un premio: en un tramo corto, si cabe). */
+const retos = (t: number): string[] => courseKinds(t).filter((k) => k !== 'box');
 
 describe('el recorrido de la Travesía de plataformas', () => {
   it('el primer tramo, aun con lo más corto (40 m), trae siempre el tronco, la viga y el hueco', () => {
@@ -24,7 +26,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
       const vmax = 1.2 + 3.6 * r();
       const c = buildCourse(env(n + 7, vmax, 40), 0, 0, 500 * r(), 0);
       expect(courseRules(c.pieces, vmax, T0)).toEqual([]);
-      for (const k of courseKinds(0)) expect(hay(c.pieces, k), `#${n} vmax ${vmax.toFixed(2)}: falta ${k}`).toBe(true);
+      for (const k of retos(0)) expect(hay(c.pieces, k), `#${n} vmax ${vmax.toFixed(2)}: falta ${k}`).toBe(true);
     }
   });
 
@@ -34,16 +36,16 @@ describe('el recorrido de la Travesía de plataformas', () => {
         for (const rank of [0, 3, 6]) {
           const c = buildCourse({ vmax, len: 40, rnd: () => rnd }, 0, rank, 0, 0);
           expect(courseRules(c.pieces, vmax, T0)).toEqual([]);
-          for (const k of courseKinds(0)) expect(hay(c.pieces, k), `rnd ${rnd} vmax ${vmax.toFixed(2)} rango ${rank}: falta ${k}`).toBe(true);
+          for (const k of retos(0)) expect(hay(c.pieces, k), `rnd ${rnd} vmax ${vmax.toFixed(2)} rango ${rank}: falta ${k}`).toBe(true);
         }
       }
     }
   });
 
   it('cada clase de pieza entra en su tramo: fruta, plataforma y seta desde el 1; túnel, burpee y cangrejo desde el 2', () => {
-    expect(courseKinds(0)).toEqual(['log', 'low', 'gap']);
-    expect(courseKinds(1)).toEqual(['log', 'low', 'gap', 'fruit', 'step', 'foe']);
-    for (const t of [2, 3, 6]) expect(courseKinds(t)).toEqual(['log', 'low', 'gap', 'fruit', 'step', 'foe', 'crawl', 'burpee', 'side']);
+    expect(courseKinds(0)).toEqual(['log', 'low', 'gap', 'box']);
+    expect(courseKinds(1)).toEqual(['log', 'low', 'gap', 'box', 'fruit', 'step', 'foe']);
+    for (const t of [2, 3, 6]) expect(courseKinds(t)).toEqual(['log', 'low', 'gap', 'box', 'fruit', 'step', 'foe', 'crawl', 'burpee', 'side']);
     for (let n = 0; n < 200; n++) {
       for (const [t, ausentes] of [[0, ['fruit', 'step', 'foe', 'crawl', 'burpee', 'side']], [1, ['crawl', 'burpee', 'side']]] as const) {
         const ps = buildCourse(env(n + 1, 3, 250), t, 2, 0, 0).pieces;
@@ -106,7 +108,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
         expect(p.tramo, tag).toBe(tramo);
       });
       const kinds = courseKinds(tramo);
-      for (const p of c.pieces) if (p.k !== 'chest') expect(kinds, tag).toContain(p.k);
+      for (const p of c.pieces) if (p.k !== 'chest' && !(p.k === 'fruit' && p.gold)) expect(kinds, tag).toContain(p.k);
       if (len >= 150 && vmax <= 3.2) for (const k of kinds) expect(hay(c.pieces, k), `${tag}: falta ${k}`).toBe(true);
       // Las medidas (courseRules ya las comprueba; aquí, además, a mano).
       for (const p of c.pieces) {
@@ -120,7 +122,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
           expect(p.n, tag).toBe(0);
           expect(p.len, tag).toBeGreaterThanOrEqual(3);
           expect(p.len, tag).toBeLessThanOrEqual(6);
-        } else if (p.k === 'fruit' || p.k === 'side') {
+        } else if ((p.k === 'fruit' && !p.gold) || p.k === 'side') {
           expect([-1, 1], tag).toContain(p.side);
         }
         // los enemigos salen más allá de su sitio, andando hacia ti; los demás, quietos
@@ -168,6 +170,37 @@ describe('el recorrido de la Travesía de plataformas', () => {
     expect(t.foeV).toBeCloseTo(1.4, 9);
   });
 
+  it('los premios: el barril sorpresa, las frutas en arco sobre los huecos y hasta tres doradas por tramo (altas en el centro o encima de una plataforma)', () => {
+    let doradas = 0, enPlataforma = 0, arcos = 0, barriles = 0, huecos = 0;
+    for (let n = 0; n < 400; n++) {
+      const tramo = n % 5, ps = buildCourse(env(n + 1, 3, 260), tramo, 2, 0, 0).pieces;
+      expect(courseRules(ps, 3, T0), `tramo ${tramo}`).toEqual([]);
+      const d = ps.filter((p) => p.gold);
+      expect(d.length).toBeLessThanOrEqual(GOLD_N);
+      doradas += d.length;
+      enPlataforma += d.filter((p) => p.k === 'step').length;
+      for (const p of d) if (p.k === 'fruit') expect(p.side).toBe(0);
+      barriles += ps.filter((p) => p.k === 'box').length;
+      for (const p of ps.filter((q) => q.k === 'gap')) {
+        huecos++;
+        if (p.n > 0) {
+          arcos++;
+          expect(p.n).toBeGreaterThanOrEqual(ARC_MIN);
+          expect(p.n).toBeLessThanOrEqual(ARC_MAX);
+        }
+      }
+    }
+    expect(doradas / 400).toBeGreaterThan(2.5); // (en tramos de 260 m caben casi siempre las tres)
+    expect(enPlataforma).toBeGreaterThan(0);
+    expect(barriles / 400).toBeGreaterThanOrEqual(1);
+    expect(arcos / huecos).toBeGreaterThan(0.4);
+    expect(arcos / huecos).toBeLessThan(0.8);
+    // (la dorada va al centro y salta: lejos de otro salto)
+    const g = piece(0, 'fruit', 20, 1);
+    g.gold = true;
+    expect(minGap(g, piece(1, 'log', 0, 1), 3)).toBeCloseTo(Math.max(MIN_GAP, JUMP_GAP_S * 3), 9);
+  });
+
   it('el mismo azar da el mismo recorrido', () => {
     const a = buildCourse(env(7, 3, 200), 3, 2, 40, 10);
     const b = buildCourse(env(7, 3, 200), 3, 2, 40, 10);
@@ -188,8 +221,8 @@ describe('el recorrido de la Travesía de plataformas', () => {
     let fruit0 = 0;
     let fruit1 = 0;
     for (let n = 0; n < 300; n++) {
-      fruit0 += buildCourse(env(n + 1, 3, 250), 0, 0, 0, 0).pieces.filter((p) => p.k === 'fruit').length;
-      fruit1 += buildCourse(env(n + 1, 3, 250), 1, 0, 0, 0).pieces.filter((p) => p.k === 'fruit').length;
+      fruit0 += buildCourse(env(n + 1, 3, 250), 0, 0, 0, 0).pieces.filter((p) => p.k === 'fruit' && !p.gold).length;
+      fruit1 += buildCourse(env(n + 1, 3, 250), 1, 0, 0, 0).pieces.filter((p) => p.k === 'fruit' && !p.gold).length;
     }
     expect(fruit0).toBe(0);
     expect(fruit1).toBeGreaterThan(0);
@@ -225,7 +258,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
       expect(esp.length).toBeLessThanOrEqual(1);
       tramos++;
       if (esp.length) conEspecial++;
-      for (let i = 1; i < ps.length; i++) if (ps[i]!.k === 'fruit' && ps[i - 1]!.k === 'fruit') lados.add(`${ps[i - 1]!.side},${ps[i]!.side}`);
+      for (let i = 1; i < ps.length; i++) if (ps[i]!.k === 'fruit' && ps[i - 1]!.k === 'fruit' && !ps[i]!.gold && !ps[i - 1]!.gold) lados.add(`${ps[i - 1]!.side},${ps[i]!.side}`);
     }
     expect(conEspecial).toBeGreaterThan(0);
     expect(conEspecial).toBeLessThan(tramos);

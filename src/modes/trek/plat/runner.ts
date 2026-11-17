@@ -36,7 +36,7 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, platTune, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -179,6 +179,9 @@ export class Runner {
   fruits = 0;
   /** Las llaves de los cofres (con TREASURE_KEYS, el tesoro). */
   keys = 0;
+  /** Las frutas doradas cogidas en cada tramo (por su índice) y los barriles sorpresa rotos en la ronda. */
+  golds: number[] = [];
+  boxes = 0;
   /** El fantasma: tu mejor ronda guardada (o null) y dónde vas cada GHOST_DT s en esta. */
   best: PlatGhost | null = null;
   tl: number[] = [];
@@ -251,7 +254,8 @@ export class Runner {
     this.levTo = null;
     this.onStep = null;
     this.ends = [];
-    this.passed = this.hits = this.fruits = this.keys = 0;
+    this.passed = this.hits = this.fruits = this.keys = this.boxes = 0;
+    this.golds = [];
     this.spits.length = 0;
     this.id = 1;
     const B = this.env.store(PLAT_GHOST) as PlatGhost | null;
@@ -512,7 +516,7 @@ export class Runner {
   /** El juicio de una fluida; `z`, lo que le falta para llegar a tu cabeza (m). */
   private judge(p: Piece, z: number): void {
     const M = this.moves, C = this.cfg, v = this.tk.v;
-    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe';
+    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box';
     // (el túnel, con más tiempo: hay que echarse al suelo)
     const warnAt = p.k === 'crawl' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
     if (!p.warned && z < warnAt) {
@@ -545,6 +549,33 @@ export class Runner {
           this.cheer('¡Túnel superado!', COL_OK, 1.0);
         }
         this.say('¡De pie!', COL_ASK, 1.2, false);
+      }
+      return;
+    }
+    if (p.k === 'box') {
+      // el barril sorpresa: en el aire cuando pasa sobre tu cabeza (con el salto, el mundo baja y te lo encuentras), se rompe;
+      // si no, pasa por encima sin más (es un premio, no un obstáculo)
+      const win = Math.max(LOG_WIN, LOG_WIN_S * v);
+      if (Math.abs(z) < win) {
+        p.maxUp = Math.max(p.maxUp, M.up);
+        if (M.air && p.maxUp >= C.jumpH) this.bonk(p);
+      } else if (z < -win) {
+        p.judged = true;
+        p.ok = false;
+      }
+      return;
+    }
+    if (p.k === 'fruit' && p.gold) {
+      // la dorada: alta, en el centro: se coge saltando cuando pasa
+      if (Math.abs(z) < FRUIT_WIN && M.air && M.up >= C.jumpH) {
+        p.judged = true;
+        p.ok = true;
+        this.passed++;
+        this.ev.push({ t: 'pass', p });
+        this.goldGot(p);
+      } else if (z < -FRUIT_WIN) {
+        p.judged = true;
+        p.ok = false;
       }
       return;
     }
@@ -657,6 +688,8 @@ export class Runner {
   /** Se abre el cofre (como en la Travesía clásica): una llave (con tres, el tesoro del tramo) y una gema para tu colección,
    * con su aviso grande de lo que has conseguido y lo que falta para el premio siguiente. */
   private openChest(): void {
+    // (las doradas del tramo que acaba: cuántas has cogido)
+    const t = this.chest?.tramo ?? 0, of = this.goldsOf(t), gd = of ? ` · Doradas: ${this.golds[t] ?? 0} de ${of}` : '';
     this.keys++;
     this.score(CHEST_PTS);
     const gems = ((this.env.store(PLAT_GEMS) as number) || 0) + 1;
@@ -665,8 +698,8 @@ export class Runner {
     if (this.keys >= TREASURE_KEYS) {
       this.keys = 0;
       this.score(TREASURE_PTS);
-      this.ev.push({ t: 'trophy', title: '¡TESORO DEL TRAMO!', sub: `Tres llaves: +${TREASURE_PTS} puntos (y +${CHEST_PTS} del cofre). Gema nº ${gems} para tu colección` });
-    } else this.ev.push({ t: 'trophy', title: '¡COFRE ABIERTO!', sub: `+${CHEST_PTS} puntos y la llave ${this.keys} de ${TREASURE_KEYS}: ${TREASURE_KEYS - this.keys === 1 ? 'una más' : 'dos más'} y abres el tesoro del tramo (+${TREASURE_PTS}). Gema nº ${gems}` });
+      this.ev.push({ t: 'trophy', title: '¡TESORO DEL TRAMO!', sub: `Tres llaves: +${TREASURE_PTS} puntos (y +${CHEST_PTS} del cofre). Gema nº ${gems} para tu colección${gd}` });
+    } else this.ev.push({ t: 'trophy', title: '¡COFRE ABIERTO!', sub: `+${CHEST_PTS} puntos y la llave ${this.keys} de ${TREASURE_KEYS}: ${TREASURE_KEYS - this.keys === 1 ? 'una más' : 'dos más'} y abres el tesoro del tramo (+${TREASURE_PTS}). Gema nº ${gems}${gd}` });
   }
 
   /** Subes a la plataforma: con el supersalto (`won`: el mundo baja su altura mientras estás en el aire) o a trompicones
@@ -686,6 +719,7 @@ export class Runner {
       this.score(burpee ? 400 : 250);
       this.snd('step', null, true);
       this.cheer(burpee ? '¡BURPEE!' : '¡Supersalto!', COL_OK, 1.1);
+      if (p.gold) this.goldGot(p); // (la dorada de encima: la coges al subir de un supersalto)
       return;
     }
     this.levTo = { from: this.lev, to: p.h, t: 0, dur: CLIMB_T + LEV_PER_M * p.h };
@@ -711,14 +745,51 @@ export class Runner {
     this.score(p.special ? 300 : 100);
     this.snd('perfect', this.pos(p, 0, this.env.calibRef));
     this.ev.push({ t: 'haptic', k: 0.4, ms: 50 });
-    this.energy = p.special ? 1 : Math.min(1, this.energy + FRUIT_E);
-    if (this.energy >= 1) {
-      this.energy = 0;
-      this.superT = SUPER_T;
-      this.cheer('¡SUPERVELOCIDAD!', '#c8ff3a', 1.8);
-      this.snd('combo', null);
-      this.ev.push({ t: 'haptic', k: 0.8, ms: 200 });
-    } else this.cheer(p.special ? '¡Fruta especial!' : '¡Fruta!', COL_OK, 0.8);
+    if (!this.addEnergy(p.special ? 1 : FRUIT_E)) this.cheer(p.special ? '¡Fruta especial!' : '¡Fruta!', COL_OK, 0.8);
+  }
+
+  /** Suma energía; llena, la supervelocidad (devuelve si se ha llenado). */
+  private addEnergy(e: number): boolean {
+    this.energy = Math.min(1, this.energy + e);
+    if (this.energy < 1) return false;
+    this.energy = 0;
+    this.superT = SUPER_T;
+    this.cheer('¡SUPERVELOCIDAD!', '#c8ff3a', 1.8);
+    this.snd('combo', null);
+    this.ev.push({ t: 'haptic', k: 0.8, ms: 200 });
+    return true;
+  }
+
+  /** Rompes el barril sorpresa de un cabezazo: dentro, fruta (energía) y puntos; uno de cada cuatro, un racimo que la llena. */
+  private bonk(p: Piece): void {
+    p.judged = true;
+    p.ok = true;
+    this.passed++;
+    this.boxes++;
+    this.ev.push({ t: 'pass', p });
+    const big = this.boxes % 4 === 0;
+    this.score(big ? 300 : 150);
+    this.snd('metalHit', this.pos(p, 0, this.env.calibRef + HEAD_TOP + BOX_CLEAR), true);
+    this.ev.push({ t: 'haptic', k: 0.6, ms: 70 });
+    if (!this.addEnergy(big ? 1 : FRUIT_E)) this.cheer(big ? '¡Barril sorpresa: un racimo!' : '¡Barril sorpresa: fruta!', COL_OK, 1.0);
+  }
+
+  /** Coges una fruta dorada (de las GOLD_N del tramo): puntos y la cuenta del tramo. */
+  private goldGot(p: Piece): void {
+    const t = p.tramo, n = (this.golds[t] = (this.golds[t] ?? 0) + 1), of = this.goldsOf(t);
+    if (p.k === 'step') p.got = 1; // (la de encima de la plataforma: ya no se pinta)
+    this.score(500);
+    this.snd('combo', null);
+    this.ev.push({ t: 'haptic', k: 0.7, ms: 120 });
+    this.ev.push({ t: 'gold', p, n, of });
+    this.cheer(`¡Fruta dorada! ${n} de ${of}`, '#ffd166', 1.4);
+  }
+
+  /** Cuántas doradas tiene el tramo t. */
+  goldsOf(t: number): number {
+    let n = 0;
+    for (const q of this.pieces) if (q.tramo === t && q.gold) n++;
+    return n;
   }
 
   /** El suelo que sube o baja bajo los pies (suave). */
@@ -818,6 +889,19 @@ export class Runner {
     const k = Math.min(1, H.t / H.dur);
     this.tk.dist = H.s0 + (H.s1 - H.s0) * k;
     this.dip = H.lift ? -H.lift * arc(k) : 0;
+    // las frutas en arco sobre el hueco: saltando, te las vas comiendo según las pasas (siguen la curva del salto)
+    const p0 = H.p;
+    if (H.won && p0.k === 'gap' && p0.n > 0) {
+      const head = this.tk.dist - this.env.head.z;
+      while (p0.got < p0.n && head >= p0.at + ((p0.got + 0.5) / p0.n) * p0.len) {
+        this.ev.push({ t: 'pick', p: p0, i: p0.got });
+        p0.got++;
+        this.fruits++;
+        this.score(50);
+        this.snd('perfect', null);
+        this.addEnergy(FRUIT_E / 2);
+      }
+    }
     if (k < 1) return;
     this.hop = null;
     this.dip = 0;
@@ -852,6 +936,8 @@ export class Runner {
     if (p.k === 'gap') this.say('¡Un hueco! Salta al llegar al borde', COL_ASK, 1.6, false);
     else if (p.k === 'step') this.say(p.burpee ? '¡Arriba y salta a la plataforma!' : '¡Plataforma alta! Sentadilla honda y salta', COL_ASK, 1.8, false);
     else if (p.k === 'crawl') this.say('¡Túnel! Al suelo, en plancha', COL_ASK, 2.6, false);
+    else if (p.k === 'box') this.say('¡Un barril sorpresa! Salta debajo y dale con la cabeza', COL_ASK, 1.6, false);
+    else if (p.k === 'fruit' && p.gold) this.say('¡Una fruta dorada! Salta para cogerla', COL_ASK, 1.6, false);
     else if (p.k === 'fruit') this.say(`¡${p.special ? 'Fruta especial' : 'Fruta'} a la ${p.side < 0 ? 'izquierda' : 'derecha'}!`, COL_ASK, 1.2, false);
     else if (p.k === 'log') this.say('¡Salta!', COL_ASK, 1.2, false);
     else if (p.k === 'low') this.say('¡Agáchate!', COL_ASK, 1.2, false);

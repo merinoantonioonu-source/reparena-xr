@@ -25,9 +25,9 @@ import { head } from '../../input/hand-model.js';
 import { groundTexture, kitParts, type Part } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
-import { DOCK_LEN, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
+import { DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
-import { CRAB_U, FRUIT_U, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
+import { CRAB_U, FRUIT_U, GOLD_Y, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
@@ -142,6 +142,8 @@ export class TrekSystem extends createSystem({}) {
   /** Las estelas del turbo. */
   private wind!: InstancedMesh;
   private readonly winds: Wind[] = [];
+  /** Los brillos de las frutas doradas a la vista (hechos al empezar y reutilizados). */
+  private readonly goldGlow: Sprite[] = [];
   /** Los escupitajos (hechos al empezar y reutilizados). */
   private readonly spits: SpitFx[] = [];
   /** El giro del fondo realista que se pidió a IWSDK por última vez (rad). */
@@ -229,6 +231,17 @@ export class TrekSystem extends createSystem({}) {
     }
     warmKeep(new Mesh(blobGeo, blobMat));
     warmKeep(new Sprite(glowMat));
+    // el brillo dorado de las doradas (en el mundo que baja y sube: va con ellas)
+    const goldMat = new SpriteMaterial({ map: gt, color: 0xffd166, transparent: true, opacity: 0.7, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
+    for (let i = 0; i < 4; i++) {
+      const g = new Sprite(goldMat);
+      g.userData.noInk = true;
+      g.scale.setScalar(0.75);
+      g.visible = false;
+      this.root.add(g);
+      this.goldGlow.push(g);
+    }
+    warmKeep(new Sprite(goldMat));
   }
 
   private get on(): boolean {
@@ -320,9 +333,9 @@ export class TrekSystem extends createSystem({}) {
   }
 
   /** Lo que se enseña en el marcador. */
-  hud(): { dist: number; kmh: number; turbo: boolean; left: number; stop: string; tramo: number; energy: number; superT: number; ghost: number | null } {
+  hud(): { dist: number; kmh: number; turbo: boolean; left: number; stop: string; tramo: number; energy: number; superT: number; ghost: number | null; gold: number; goldOf: number } {
     const R = this.runner, i = Math.max(0, GAME.wave - 1);
-    return { dist: R.dist, kmh: R.v * 3.6, turbo: R.tk.turbo, left: R.toChest(i), stop: R.stop?.k ?? '', tramo: i, energy: R.energy, superT: R.superT, ghost: R.ghostDiff() };
+    return { dist: R.dist, kmh: R.v * 3.6, turbo: R.tk.turbo, left: R.toChest(i), stop: R.stop?.k ?? '', tramo: i, energy: R.energy, superT: R.superT, ghost: R.ghostDiff(), gold: R.golds[i] ?? 0, goldOf: R.goldsOf(i) };
   }
 
   /** Para la partida simulada: lo esencial en datos simples. */
@@ -541,6 +554,18 @@ export class TrekSystem extends createSystem({}) {
       case 'trophy':
         HOOKS.trophy(e.title, e.sub);
         break;
+      case 'pick': {
+        // una fruta del arco, comida: chispas de colores donde estaba
+        const P = e.p, u = (e.i + 0.5) / Math.max(1, P.n);
+        HOOKS.sparks(this.world3({ s: P.at + u * P.len, u: 0, y: this.calibRef - 0.05 + 0.45 * 4 * u * (1 - u) }, this.at), 8, [0xff6a8a, 0xffd166, 0x8cff99, 0xff9a3c][e.i % 4]);
+        break;
+      }
+      case 'gold': {
+        // la dorada: una lluvia de chispas doradas
+        const P = e.p, st = P.k === 'step';
+        HOOKS.sparks(this.world3({ s: P.at + (st ? P.len / 2 : 0), u: 0, y: (st ? P.h : GOLD_Y) + this.calibRef }, this.at), 36, 0xffd166);
+        break;
+      }
       case 'store':
         store(e.key, e.val);
         break;
@@ -552,6 +577,13 @@ export class TrekSystem extends createSystem({}) {
           // la fruta cogida: chispas de su color y se encoge (se la come)
           this.gone.set(e.p.id, { t: 0, dir: 0 });
           HOOKS.sparks(this.world3({ s: e.p.at, u: e.p.side * FRUIT_U, y: this.calibRef }, this.at), e.p.special ? 30 : 14, e.p.special ? 0xc8ff3a : 0xffd166);
+        }
+        // el barril sorpresa, roto de un cabezazo: astillas y fruta, y se deshace
+        if (e.t === 'pass' && e.p.k === 'box') {
+          this.gone.set(e.p.id, { t: 0, dir: 0 });
+          const at = this.world3({ s: e.p.at, u: 0, y: this.calibRef + 0.35 }, this.at);
+          HOOKS.sparks(at, 18, 0xb07a44);
+          HOOKS.sparks(at, 12, 0xffd166);
         }
         // la seta pisada se chafa; el cangrejo esquivado muerde el aire
         if (e.t === 'pass') this.rigAct(e.p, e.p.k === 'foe' ? 'die' : 'miss');
@@ -643,14 +675,29 @@ export class TrekSystem extends createSystem({}) {
         for (const u of L) this.put(u, u.ds, 0, 1);
       }
     // las piezas del recorrido
+    let gi = 0;
     for (const p of R.live) {
       const L = this.looks.get(p.id);
       if (!L) continue;
       const kn = this.knock.get(p.id), gn = this.gone.get(p.id), off = kn ? kn.dir * 0.9 * kn.t : 0, k = gn ? Math.max(0.01, 1 - gn.t) : 1;
-      // (las frutas giran y flotan, cada una a su compás)
-      const spin = p.k === 'fruit' ? this.clock * 1.8 + p.id : 0, bob = p.k === 'fruit' ? 0.04 * Math.sin(this.clock * 2.6 + p.id) : 0;
-      for (const u of L) this.put(u, p.at + u.ds, off, k, kn ? kn.t : 0, p, spin, bob);
+      // (las frutas y el barril sorpresa giran y flotan, cada uno a su compás; el resto de la pieza, quieto)
+      const spin = this.clock * (p.k === 'box' ? 1.1 : 1.8) + p.id, bob = 0.04 * Math.sin(this.clock * 2.6 + p.id), turn = p.k === 'fruit' || p.k === 'box';
+      for (const u of L) {
+        // (las frutas del arco que ya te has comido y la dorada de la plataforma ya cogida, no)
+        if (u.tag !== undefined && (u.tag === GOLD_TAG ? p.got > 0 : u.tag < p.got)) continue;
+        const f = turn || u.kit === 'food';
+        this.put(u, p.at + u.ds, off, k, kn ? kn.t : 0, p, f ? spin : 0, f ? bob : 0);
+      }
+      // el brillo de la dorada (la que flota alta en el centro o la de encima de una plataforma)
+      if (p.gold && gi < this.goldGlow.length && !(p.k === 'fruit' && p.judged) && !(p.k === 'step' && p.got > 0) && !lite) {
+        const g = this.goldGlow[gi++], st = p.k === 'step';
+        this.runner.tk.bend(p.at + (st ? p.len / 2 : 0), 0, this.bp);
+        g.position.set(this.bp.x, (st ? p.h : GOLD_Y) + this.calibRef + bob, this.bp.z);
+        g.material.opacity = 0.55 + 0.25 * Math.sin(this.clock * 5 + p.id);
+        g.visible = true;
+      }
     }
+    for (let i = gi; i < this.goldGlow.length; i++) this.goldGlow[i].visible = false;
     for (const b of this.batches.values())
       for (const im of b.ims) {
         im.count = b.n;
