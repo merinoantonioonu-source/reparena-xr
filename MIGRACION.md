@@ -409,6 +409,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **El plano gris** (vídeo del usuario, en la Travesía): era el fundido entre oleadas o tramos (`GameSystem.veil`), un plano de
+  14 × 9 m colocado «delante de donde mirabas al empezar» (`VIEW_FRAME.fix`). Al recalibrar (al calibrar o con «Recalibrar»
+  en la pausa), el mundo se recoloca (`recenter`/`stepGlide`) pero ese «delante» se quedaba en el sitio viejo: el plano salía
+  a un lado como una pared, y los avisos fijos (el panel de la oleada, los logros) mal girados. Ahora, mientras el mundo se
+  recoloca, `VIEW_FRAME.fix` se vuelve a tomar, y el fundido es una esfera alrededor de la cabeza (`VEIL_R`, sin bordes, antes
+  que el panel de la oleada). Cualquier panel nuevo que se quede «fijo en la partida», con `VIEW_FRAME.hudLocal`/`hudQ`.
+
 - Curl con barra, fase 1 → la 2 (`docs/PLAN-CURL-BARRA.md`): **la caja negra** (`src/core/blackbox.ts`) graba, en partida y
   con un ejercicio con pesas, cada fotograma de lo que entra en `StandingDetector` y lo que decide (la llama
   `GameSystem.blackBox` justo después de `st.update`; `st.reset` va por `stReset`, que lo apunta; los ajustes, al empezar cada

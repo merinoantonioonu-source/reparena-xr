@@ -131,6 +131,9 @@ const WARN_SECS = 4;
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
 
+/** El radio del fundido entre oleadas (m): por detrás del panel de la oleada (a 1,6 m), alrededor de tu cabeza. */
+const VEIL_R = 1.75;
+
 /** El marcador de los ejercicios de suelo (la batalla diminuta): lo que se levanta del suelo, como un atril (rad). */
 const BOARD_TILT = Math.PI / 4;
 
@@ -305,7 +308,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.chargeP = this.infoPanel(1.1, 0.3, 768, 33);
     this.waveP = this.infoPanel(1.2, 0.5, 1024, 19);
     this.trophyP = this.infoPanel(1.25, 0.42, 1024, 55, 1.5);
-    this.veil = new Mesh(new PlaneGeometry(14, 9), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false }));
+    // (una esfera alrededor de tu cabeza, por detrás del panel: oscurece todo lo de más allá sin bordes. Antes era un plano de
+    // 14 × 9 m que, al girar la cabeza o tras recalibrar, se veía como una pared gris a un lado: lo grabó el usuario)
+    this.veil = new Mesh(new SphereGeometry(VEIL_R, 24, 12), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false, side: BackSide, toneMapped: false, fog: false }));
+    this.veil.frustumCulled = false;
+    this.veil.renderOrder = 10; // (antes que el panel de la oleada, que se pinta a 19: él no se oscurece)
     this.veil.userData.noInk = true;
     // el negro del final (RepArena: OUT.veil y OUT.black). Mientras funde, un velo pegado a los ojos que tapa todo (sin prueba
     // de profundidad), menos el aviso del centro («¡VICTORIA!», «DERROTA»: se pinta después, a 50). Ya en negro, una esfera
@@ -742,6 +749,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     P.rotation.y = G.ry0 + w * k;
     P.position.x = G.x0 + (G.x1 - G.x0) * k;
     P.position.z = G.z0 + (G.z1 - G.z0) * k;
+    // mientras el mundo se recoloca (al calibrar o con «Recalibrar»), los avisos fijos de la partida vuelven a tomar dónde estás
+    // y adónde miras (si no, se quedaban donde mirabas antes: a un lado y mal girados, lo grabó el usuario)
+    VIEW_FRAME.fix.on = false;
     if (G.t >= 1) G.t = 0;
   }
 
@@ -875,8 +885,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const V = VIEW_FRAME, ly = lyingEx();
     V.hudLocal(this.tmpA.set(0, 0.02, -1.6), o.position, head, ly);
     o.quaternion.copy(V.hudQ(head, ly));
-    V.hudLocal(this.tmpA.set(0, 0, -1.75), this.veil.position, head, ly);
-    this.veil.quaternion.copy(o.quaternion);
+    this.veil.position.copy(head.p);
     this.introT = 0;
   }
 
@@ -887,6 +896,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const t = this.introT, a = t < 0.35 ? (t / 0.35) * (t / 0.35) * (3 - 2 * (t / 0.35)) : Math.max(0, Math.min(1, (WAVE_INTRO - t) / 0.5));
     (this.veil.material as MeshBasicMaterial).opacity = 0.45 * a;
     this.veil.visible = a > 0.01;
+    this.veil.position.copy(head.p); // (contigo: el fundido no tiene bordes que se vean)
     o.visible = a > 0.05;
     o.scale.setScalar(1 + 0.08 * Math.max(0, 1 - t / 0.5));
     if (t >= WAVE_INTRO) this.hideIntro();
