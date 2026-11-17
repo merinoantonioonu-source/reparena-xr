@@ -583,7 +583,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         const h = this.trek()?.hud();
         if (h) {
           lines[0] = `${Math.floor(h.dist)} m · ${h.kmh.toFixed(1).replace('.', ',')} km/h${h.turbo ? ' · TURBO' : ''}`;
-          lines[1] = (h.stop === 'chest' ? `Tramo ${h.tramo + 1}: ¡cofre!` : `Tramo ${h.tramo + 1}: faltan ${Math.ceil(h.left)} m`) + (h.goldOf ? ` · ★ ${h.gold}/${h.goldOf}` : '');
+          lines[1] = (h.stop === 'chest' ? `Tramo ${h.tramo + 1}: ¡cofre!` : h.boss ? `Tramo ${h.tramo + 1}: ¡jefe! Le quedan ${h.boss}` : `Tramo ${h.tramo + 1}: faltan ${Math.ceil(h.left)} m`) + (h.goldOf ? ` · ★ ${h.gold}/${h.goldOf}` : '');
           // la energía de las frutas (llena: supervelocidad) y lo que llevas de más o de menos que en tu mejor Travesía (el fantasma)
           const gd = h.ghost == null ? '' : ` · tu mejor ${h.ghost >= 0 ? '+' : '-'}${Math.abs(Math.round(h.ghost))} m`;
           lines[2] = (h.superT > 0 ? `¡SUPERVELOCIDAD! ${Math.ceil(h.superT)} s` : `Energía ${Math.round(h.energy * 100)} %`) + gd;
