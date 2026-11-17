@@ -489,9 +489,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   mira con ellas el ritmo de las posturas (marca 4), las congeladas, `emulatedPosition` (marca 8) y si la mano pasa a mando.
 
 - Tras el PR E (pedidos del usuario al probar en las gafas): **cortinillas** (`src/ui/cortinilla.ts`, imágenes en
-  `public/cortinillas/<modo>-<ejercicio>.jpg`, una por cada ejercicio de `MODE_EX`: lo comprueba `cortinilla.test.ts`): en el
-  panel de la caricatura (`ViewSystem.stepDemo`, y en la página, `demoPage`), quietas (se pintan una vez y otra si cambia la
-  franja, `cortInfo`); la caricatura de `demo-art.ts` solo sale mientras carga la imagen. **Pompas** de Barras con la película
+  `public/cortinillas/<modo>-<ejercicio>.jpg`, una por cada ejercicio de `MODE_EX`: lo comprueba `cortinilla.test.ts`): en la
+  carátula del duelo (`ViewSystem.duelDrawPlates`: si la imagen está cargada, la pinta con su franja, `cortInfo`, en vez de la
+  ilustración; también en la Travesía, que no tenía duelo); la caricatura (`stepDemo`, `demoPage`) sigue como estaba
+  (corregido por el usuario: al principio se puso la cortinilla en su sitio, y no era eso). **Pompas** de Barras con la película
   de jabón de RepArena (`createBubble(big)`, `bars.scene-asset.ts`: `uTime`/`uOpacity` cada fotograma, el ojo de la grande
   mira a la cabeza). **Luciérnagas**: 180, con `aTint` (algunas de color) y `uHype` (destello), que sigue a `SPECIAL.on`
   (`src/core/state.ts`: lo pone la partida con la fiebre, el relámpago, el turbo o la supervelocidad). **La maza** de Arcos

@@ -277,9 +277,10 @@ No las cambies sin preguntarle.
 - Ningún panel puede tapar lo que viene hacia el jugador. Los avisos tampoco tapan el marcador ni los menús (pedido del
   usuario): se apartan de ellos como de lo que llega.
 - **Cortinillas** (elegidas por el usuario: «Modelo 2», estilo HUD holográfico, una imagen por modo y ejercicio en
-  `public/cortinillas/`): explican cada ejercicio junto al menú principal, antes de calibrar y en la página; quietas, con la
-  franja de abajo diciendo las oleadas (o tramos) y las vidas que tienes puestas. Sustituyen a la caricatura animada (que
-  solo sale mientras carga la imagen).
+  `public/cortinillas/`): son la pantalla grande de antes de cada ronda (en lugar de la ilustración de la carátula del duelo;
+  también en la Travesía), quietas, con la franja de abajo diciendo las oleadas (o tramos) y las vidas que tienes puestas.
+  **La caricatura animada se queda** junto al menú principal, antes de calibrar y en la página (corregido por el usuario:
+  las cortinillas no la sustituyen).
 - Cuentas de vida (opción A elegida; `LIFE`, `src/70_game.js`): encima de cada enemigo, desde que sale, una fila de bolitas
   doradas de cara al jugador, una por disparo normal; las que pierde **desaparecen** (no se quedan huecas) y las demás se
   juntan; los que aguantan más de 8, bolitas grandes de 5. Sustituyen a la barra de vida. Un solo dibujo (puntos).
@@ -302,7 +303,7 @@ No las cambies sin preguntarle.
   - Tumbado y en plancha: en el suelo bajo la cara o en el techo, de cara a los ojos, con lo de arriba del texto hacia la
     cabeza y fijos (ladearla no los gira). Igual para todos los avisos de la vista.
 - Los avisos de lo que se hace mal salen grandes, impresos en el suelo, durante unos 4 s.
-- Al empezar cada ronda, la **carátula del duelo** (`src/64_intro.js`, modelo 3 de los propuestos): 7 s, grande, a 2,5 m,
+- Al empezar cada ronda, la **carátula del duelo** (`src/64_intro.js`, modelo 3 de los propuestos; en RepArena XR, con la cortinilla del ejercicio): 7 s, grande, a 2,5 m,
   con todo lo demás en negro; tú (rango y récord) contra el jefe de la ronda, sin la caricatura (sale después, hasta
   calibrar). Se salta con cualquier botón del mando o con el pulgar arriba.
 - Al perder todas las vidas: fundido en negro, aviso claro de derrota y resumen automático con «Otra ronda» y «Menú
