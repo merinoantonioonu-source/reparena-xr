@@ -44,10 +44,10 @@ describe('el recorrido de la Travesía de plataformas', () => {
 
   it('cada clase de pieza entra en su tramo: fruta, plataforma y seta desde el 1; túnel, burpee y cangrejo desde el 2', () => {
     expect(courseKinds(0)).toEqual(['log', 'low', 'gap', 'box']);
-    expect(courseKinds(1)).toEqual(['log', 'low', 'gap', 'box', 'fruit', 'step', 'foe']);
-    for (const t of [2, 3, 6]) expect(courseKinds(t)).toEqual(['log', 'low', 'gap', 'box', 'fruit', 'step', 'foe', 'crawl', 'burpee', 'side']);
+    expect(courseKinds(1)).toEqual(['log', 'low', 'gap', 'box', 'fruit', 'step', 'foe', 'glide']);
+    for (const t of [2, 3, 6]) expect(courseKinds(t)).toEqual(['log', 'low', 'gap', 'box', 'fruit', 'step', 'foe', 'glide', 'crawl', 'burpee', 'side']);
     for (let n = 0; n < 200; n++) {
-      for (const [t, ausentes] of [[0, ['fruit', 'step', 'foe', 'crawl', 'burpee', 'side']], [1, ['crawl', 'burpee', 'side']]] as const) {
+      for (const [t, ausentes] of [[0, ['fruit', 'step', 'foe', 'glide', 'crawl', 'burpee', 'side']], [1, ['crawl', 'burpee', 'side']]] as const) {
         const ps = buildCourse(env(n + 1, 3, 250), t, 2, 0, 0).pieces;
         for (const k of ausentes) expect(hay(ps, k), `tramo ${t}: ${k}`).toBe(false);
         expect(ps.some((p) => p.burpee)).toBe(false);
@@ -109,7 +109,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
       });
       const kinds = courseKinds(tramo);
       for (const p of c.pieces) if (p.k !== 'chest' && !(p.k === 'fruit' && p.gold)) expect(kinds, tag).toContain(p.k);
-      if (len >= 150 && vmax <= 3.2) for (const k of kinds) expect(hay(c.pieces, k), `${tag}: falta ${k}`).toBe(true);
+      if (len >= 150 && vmax <= 3.2) for (const k of retos(tramo)) expect(hay(c.pieces, k), `${tag}: falta ${k}`).toBe(true);
       // Las medidas (courseRules ya las comprueba; aquí, además, a mano).
       for (const p of c.pieces) {
         expect(p.k, tag).not.toBe('burpee');

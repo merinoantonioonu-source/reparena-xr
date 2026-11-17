@@ -410,6 +410,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- Travesía, **2 planear** (hecho): el barranco es la pieza `glide` (en `JUMPS`; `GLIDE_*` en types.ts; desde el tramo 2). Los
+  brazos en cruz, `Runner.armsOpen` (`armsStep`: con las muñecas de `PlatEnv.hands`, que pone `TrekSystem` sin las
+  calculadas): al llegar al borde, `glideStart` (como el salto del hueco, con `Hop.glide`: el mundo baja `GLIDE_LIFT` con
+  `glideArc`; brazos bajados más de `GLIDE_DROP` s, `Hop.bad`: aterrizas frenando). Sus frutas, en `glideU` (a un lado u
+  otro) y `Piece.mask` (las comidas: con la cabeza a menos de `GLIDE_CATCH`). El suelo deja el hueco como en `gap`.
 - Travesía, ideas elegidas por el usuario (un PR cada una, en este orden): **1 premios** (hecho), 2 planear con los brazos en
   cruz sobre los huecos largos, 3 trampolín y bifurcaciones, 4 jefe al final de cada mundo, 5 enemigos nuevos (abeja o
   murciélago en picado: agacharse; calavera que bota: saltar; cíclope con su onda: saltar; demonio con bola de fuego en

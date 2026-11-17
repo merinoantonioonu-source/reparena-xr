@@ -10,7 +10,7 @@
 // - el paso a un lado se puede repetir hacia el otro lado (el centro no se pierde).
 import { describe, expect, it } from 'vitest';
 import { BEHIND, BOUNCE_LIFT, CHEST_PTS, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, STOMP_PTS, SUPER_K, TREASURE_PTS } from '../../src/modes/trek/plat/runner.js';
-import { BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
+import { glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece as mk, Sim } from './plat-sim.js';
 import type { Piece } from '../../src/modes/trek/plat/types.js';
 
@@ -851,5 +851,68 @@ describe('la Travesía de plataformas: los premios (barril sorpresa, doradas y f
     t.load(course([g2, mk(2, 'chest', 120, 0)]));
     expect(t.blow(g2)).toBe(true);
     expect(g2.got).toBe(0);
+  });
+});
+
+describe('la Travesía de plataformas: planear sobre el barranco con los brazos en cruz', () => {
+  /** Las muñecas: en cruz (a cada lado, a la altura de los hombros) o abajo (junto al cuerpo). */
+  const arms = (s: Sim, open: boolean, lostOne = false): void => {
+    const H = s.env.head, y = open ? H.y - 0.25 : H.y - 0.7, x = open ? 0.7 : 0.18;
+    Object.assign(s.env.hands.l, { ok: !lostOne, x: H.x - x, y, z: H.z });
+    Object.assign(s.env.hands.r, { ok: true, x: H.x + x, y, z: H.z });
+  };
+
+  it('con los brazos en cruz al llegar al borde, planeas: lo cruzas sin frenar, el mundo baja y, con la cabeza ladeada, coges sus frutas', () => {
+    const s = new Sim();
+    const g = mk(1, 'glide', 40, 1, { len: 8, n: 5 });
+    s.load(course([g, mk(2, 'chest', 140, 1)]));
+    expect(s.squatsTo(g, 6)).toBe(true);
+    arms(s, true);
+    const v0 = s.r.v;
+    let low = 0;
+    for (let i = 0; i < 72 * 12 && !g.judged; i++) {
+      // (la cabeza, hacia la fruta que viene)
+      const next = Math.min(g.n - 1, g.got);
+      s.head.x = glideU(g, next) * 0.9;
+      arms(s, true);
+      s.frame();
+      low = Math.min(low, s.r.dip);
+    }
+    expect(g.ok).toBe(true);
+    expect(low).toBeLessThan(-0.5); // (el vuelo: el mundo baja)
+    expect(s.r.v).toBeGreaterThan(Math.min(v0, 2) * 0.8 - 0.1);
+    expect(s.of('hit')).toHaveLength(0);
+    expect(s.of('pick').filter((e) => e.p === g).length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('con una mano perdida pero la otra en cruz, también planeas', () => {
+    const s = new Sim();
+    const g = mk(1, 'glide', 40, 1, { len: 7, n: 4 });
+    s.load(course([g, mk(2, 'chest', 140, 1)]));
+    expect(s.squatsTo(g, 6)).toBe(true);
+    arms(s, true, true);
+    expect(s.until(() => g.judged, 72 * 12)).toBe(true);
+    expect(g.ok).toBe(true);
+  });
+
+  it('sin abrir los brazos, a trompicones; y bajándolos en pleno vuelo, aterrizas frenando (nunca se cae)', () => {
+    const s = new Sim();
+    const g = mk(1, 'glide', 40, 1, { len: 8, n: 4 });
+    s.load(course([g, mk(2, 'chest', 140, 1)]));
+    expect(s.blow(g)).toBe(true);
+    expect(g.ok).toBe(false);
+    expect(s.of('say').some((e) => e.warn && /brazos en cruz/.test(e.text))).toBe(true);
+    expect(s.until(() => !s.r.hop, 72 * 12)).toBe(true); // (te lleva al otro lado: nunca se cae)
+    expect(s.r.dist).toBeGreaterThan(g.at + g.len);
+    const t = new Sim();
+    const g2 = mk(1, 'glide', 40, 1, { len: 9, n: 4 });
+    t.load(course([g2, mk(2, 'chest', 140, 1)]));
+    expect(t.squatsTo(g2, 6)).toBe(true);
+    arms(t, true);
+    expect(t.until(() => !!t.r.hop, 72 * 6)).toBe(true);
+    arms(t, false);
+    expect(t.until(() => g2.judged, 72 * 12)).toBe(true);
+    expect(g2.ok).toBe(false);
+    expect(t.ofPiece('hit', g2)).toHaveLength(1);
   });
 });
