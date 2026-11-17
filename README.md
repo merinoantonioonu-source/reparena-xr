@@ -233,6 +233,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/ui/ra/` | Los menús de RepArena enteros (opción B del usuario): `kit.ts` (los paneles pintados y sus dibujos; el de cada tecla, solo si se pinta en él), `btn.ts` (las teclas planas y el deslizador, que se mueve sin repintarse), `poke.ts` (pulsar con el dedo: sólidas, pegadas, con imán), `menu-core.ts` (openMenu, los fondos que se reutilizan, el teclado de números, la «?», el atril, la muñeca y su botón MENÚ), `menus.ts` (el principal, Opciones, la pausa, el resumen y las cartas), `career-draw.ts` y `summary-draw.ts` (los dibujos de la carrera y del resumen) y `menu-system.ts` (cada fotograma, el rayo de IWSDK y la nitidez) |
 | `src/ui/fields.ts` | Lo que enseñan los menús de cada ajuste y lo que hace tocarlo, las pestañas y la ficha de la ronda, sin IWSDK |
 | `src/input/hand-system.ts` | Las manos y los mandos en cada fotograma (leídos como en RepArena, en `hands` y `head`), el cuerpo para las manos perdidas, la vibración y «Mandos como manos» |
+| `src/core/blackbox.ts`, `src/input/hand-probe.ts` | La caja negra de los ejercicios con pesas: los últimos 25 s del detector, fotograma a fotograma (lo que entra, lo que dicen las gafas de cada mano y lo que decide), guardada con el diagnóstico |
 | `src/input/hand-filter.ts` | La lectura de las manos de RepArena: el suavizado para pintarlas, los saltos imposibles, la mano perdida (su gesto o el cuerpo) y el filtro `HF` de las dos manos en la pesa |
 | `src/input/hand-model.ts` | Lo que el juego sabe de cada mano (muñeca, articulaciones, pellizco, gatillo, agarre, rayo) y el puño |
 | `src/input/throw.ts` | La sacudida que lanza el rayo y el gatillo con mandos como manos (los de RepArena), sin IWSDK |
@@ -250,4 +251,5 @@ Build and deployment → Source: **GitHub Actions**.
 | `public/input-profiles/` | Las manos y los mandos (MIT) |
 | `tests/unit/` | Pruebas de la lógica (Vitest) |
 | `tests/e2e/run.mjs` | La partida simulada (Playwright), sobre la versión construida servida en una subcarpeta |
+| `tests/replay/` | El reproductor de la caja negra: pasa una captura de las gafas por el detector (`CAPTURA=archivo npm run replay`); las capturas del usuario, en `capturas/` |
 | `tests/compare/` | Comparaciones con el código original de RepArena (`RA_DIR=… npm run test:compare`) |

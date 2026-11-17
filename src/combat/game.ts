@@ -52,6 +52,8 @@ import { comicOn, makePanel, type RaPanel } from '../ui/ra/kit.js';
 import { drawCharge, drawTrophy, drawWarn, drawWave } from '../ui/info-draw.js';
 import { BOARD_PX, drawBoard, type BoardView } from '../ui/board-draw.js';
 import { diagEvent } from '../core/diag.js';
+import { BB } from '../core/blackbox.js';
+import { PROBE, probeSide } from '../input/hand-probe.js';
 import { floorOrigin, recenterPose } from './recenter.js';
 import { lyingEx, VIEW_FRAME } from '../ui/view-panels.js';
 import { HIST_KEY, kcalOf, runRecord, summaryOf, type RunStats } from '../core/run.js';
@@ -381,7 +383,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         GAME.between = true;
         this.message(PLACE[settings.exercise] ?? 'Colócate', 4);
       } else {
-        this.st.reset(head.p.y);
+        this.stReset(head.p.y);
         this.recenter();
         this.message('¡Listo!', 1.5);
       }
@@ -776,7 +778,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (settings.mode === 'trek') this.trek()?.begin(); else this.trek()?.clear();
     this.roundId++;
     this.dayRefresh();
-    this.st.reset(head.p.y); // (de pie: la referencia de la sentadilla; al calibrar, la de tu postura)
+    this.stReset(head.p.y); // (de pie: la referencia de la sentadilla; al calibrar, la de tu postura)
     this.chargePow = 0;
     throwReset();
     gazeLockReset();
@@ -802,6 +804,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // (RepArena: 'calib')
     GAME.between = true;
     this.stCfg = this.readCfg(0);
+    BB.markCfg(this.clock, this.stCfg);
     this.flCfg = this.readFloorCfg(0);
     this.supNext.t = 0;
     if (FLOOR_EX.includes(settings.exercise)) {
@@ -843,6 +846,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.maxAlive = Math.max(1, Math.round(dv('maxAlive', this.rampLvl)));
     GAME.foeSpeed = Math.min(2.2, Math.max(0.4, SQUAT_SPAWN_DIST / Math.max(1, dv('walkTime', this.rampLvl))));
     this.stCfg = this.readCfg(this.rampLvl);
+    BB.markCfg(this.clock, this.stCfg);
     this.flCfg = this.readFloorCfg(this.rampLvl);
     this.taken0 = GAME.taken;
     this.waveDone = 0;
@@ -969,7 +973,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.touch()?.calibrated(y);
     if (stand) {
       // de pie: tu postura, y el mundo se desliza hasta quedar delante de ti (RepArena: calibrate, arenaGlideToHead)
-      this.st.reset(y);
+      this.stReset(y);
       this.recenter();
       this.placeBoard();
       this.restT = 3;
@@ -1326,7 +1330,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         W.flash = Math.max(0, W.flash - dt * 1.5);
         hs?.inchVisual(W.phase, W.g, W.flash, t);
       }
-    } else this.st.update(t, dt, this.stIn, this.stCfg, ev);
+    } else {
+      this.st.update(t, dt, this.stIn, this.stCfg, ev);
+      if (holdsWeights()) this.blackBox(t, dt, ev); // (la caja negra de los ejercicios con pesas: src/core/blackbox.ts)
+    }
     const trek = settings.mode === 'trek'; // (en la Travesía no hay bola ni disparo: cada repetición empuja)
     for (const e of ev) {
       if (trek && (e.type === 'charge' || e.type === 'power')) continue;
@@ -1342,6 +1349,24 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         this.message(e.msg, 1.4, e.color, true);
         if (e.color === WARN_COL) this.floorWarn(e.msg, e.color);
       }
+    }
+  }
+
+  // el detector de pie empieza de cero (y la caja negra lo apunta, para poder reproducirlo)
+  private stReset(y: number): void {
+    this.st.reset(y);
+    BB.markReset(y);
+  }
+
+  // Un fotograma en la caja negra: lo que entró en el detector, lo que dicen las gafas de cada mano (postura nueva o
+  // repetida, calculada, mano o mando) y lo que decidió. Solo mira: no cambia nada
+  private blackBox(t: number, dt: number, ev: readonly StandEvent[]): void {
+    try {
+      const xrm = this.world.renderer.xr, frame = xrm.isPresenting ? xrm.getFrame() : null, ref = frame ? xrm.getReferenceSpace() : null;
+      for (const s of SIDES) probeSide(PROBE[s], frame as never, ref, frame ? this.input.xr.getPrimaryInputSource(s) : null);
+      BB.rec(t, dt, hands, head, this.stIn.play, this.st, this.stCfg.ex, ev, frame ? PROBE : null);
+    } catch {
+      /* (la caja negra nunca para la partida) */
     }
   }
 

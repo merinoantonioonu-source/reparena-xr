@@ -3,10 +3,13 @@
  * del dedo de cada mano (los punteros de IWSDK), si la mano se ve, si pellizca, qué menú hay y si la imagen se ha parado; lo
  * que cambia es un suceso, y cada 0,1 s se apunta una línea. Se guarda al dejar de verse la VR (salir o abrir el menú de Meta)
  * y con «Guardar diagnóstico» de la pausa (`HOOKS.diagSave`). La página lo enseña (#diagStatus) con «Copiar» y «Descargar».
+ * A la vez se guarda la caja negra de los ejercicios con pesas (src/core/blackbox.ts: los últimos 25 s, fotograma a
+ * fotograma, del detector), con sus propios botones.
  */
 import { createSystem, VisibilityState } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
 import { texUploads } from '../style/tex-upload.js';
+import { BB_KEY, bbSave, type BBCapture } from '../core/blackbox.js';
 import { DIAG, DIAG_KEY, DIAG_STEP, diagEvent, diagLine, diagSave, type DiagCapture } from '../core/diag.js';
 import { GAME, HOOKS } from '../core/state.js';
 import { store } from '../core/settings.js';
@@ -141,21 +144,20 @@ export class DiagSystem extends createSystem({}, {}) {
 
   private save(reason: string): void {
     diagEvent(`(se guarda: ${reason})`);
-    diagSave(reason, this.hdr || this.header(), Date.now(), () => store<DiagCapture[]>(DIAG_KEY), (v) => store(DIAG_KEY, v));
+    const hdr = this.hdr || this.header(), now = Date.now();
+    diagSave(reason, hdr, now, () => store<DiagCapture[]>(DIAG_KEY), (v) => store(DIAG_KEY, v));
+    bbSave(reason, hdr, now, () => store<BBCapture[]>(BB_KEY), (v) => store(BB_KEY, v));
     this.page();
   }
 
-  /** En la página: cuántos hay y los botones de copiar, descargar y borrar el último. */
+  /** En la página: cuántos hay y los botones de copiar, descargar y borrar (el diagnóstico y la caja negra). */
   private page(): void {
     const el = document.getElementById('diagStatus');
     if (!el) return;
-    const list = store<DiagCapture[]>(DIAG_KEY) ?? [];
     el.textContent = '';
-    if (!list.length) return;
-    const last = list[list.length - 1];
-    const mins = Math.max(0, Math.round((Date.now() - last.at) / 60000));
-    el.append(`Diagnóstico guardado (${list.length}; el último, ${last.reason}, hace ${mins} min): `);
-    const b0 = document.createElement('span');
+    const list = store<DiagCapture[]>(DIAG_KEY) ?? [], bb = store<BBCapture[]>(BB_KEY) ?? [];
+    const ago = (at: number): number => Math.max(0, Math.round((Date.now() - at) / 60000));
+    const note = document.createElement('span');
     const btn = (label: string, fn: () => void): void => {
       const b = document.createElement('button');
       b.className = 'btn';
@@ -163,22 +165,36 @@ export class DiagSystem extends createSystem({}, {}) {
       b.addEventListener('click', fn);
       el.append(b, ' ');
     };
-    btn('Copiar el último', () => {
-      void navigator.clipboard?.writeText(last.text).then(
-        () => (b0.textContent = 'Copiado: pégalo en tu mensaje'),
-        () => (b0.textContent = 'No se pudo copiar: usa «Descargar»'),
+    const copy = (text: string): void => {
+      void navigator.clipboard?.writeText(text).then(
+        () => (note.textContent = 'Copiado: pégalo en tu mensaje'),
+        () => (note.textContent = 'No se pudo copiar: usa «Descargar»'),
       );
-    });
-    btn('Descargar todos', () => {
+    };
+    const download = (texts: string[], name: string, at: number): void => {
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([list.map((c) => c.text).join('\n\n==========\n\n')], { type: 'text/plain' }));
-      a.download = `reparena-diagnostico-${new Date(last.at).toISOString().slice(0, 16).replace(/[:T]/g, '-')}.txt`;
+      a.href = URL.createObjectURL(new Blob([texts.join('\n\n==========\n\n')], { type: 'text/plain' }));
+      a.download = `reparena-${name}-${new Date(at).toISOString().slice(0, 16).replace(/[:T]/g, '-')}.txt`;
       a.click();
-    });
-    btn('Borrar', () => {
-      store(DIAG_KEY, []);
-      this.page();
-    });
-    el.append(b0);
+    };
+    if (list.length) {
+      const last = list[list.length - 1];
+      el.append(`Diagnóstico guardado (${list.length}; el último, ${last.reason}, hace ${ago(last.at)} min): `);
+      btn('Copiar el último', () => copy(last.text));
+      btn('Descargar todos', () => download(list.map((c) => c.text), 'diagnostico', last.at));
+      btn('Borrar', () => {
+        store(DIAG_KEY, []);
+        store(BB_KEY, []);
+        this.page();
+      });
+    }
+    if (bb.length) {
+      // la caja negra del ejercicio (fotograma a fotograma): mejor descargarla, que es larga
+      const last = bb[bb.length - 1];
+      el.append(document.createElement('br'), `Caja negra del ejercicio (${bb.length}; la última, de ${last.ex}, hace ${ago(last.at)} min): `);
+      btn('Descargar la caja negra', () => download(bb.map((c) => c.text), 'caja-negra', last.at));
+      btn('Copiar la última', () => copy(last.text));
+    }
+    el.append(note);
   }
 }
