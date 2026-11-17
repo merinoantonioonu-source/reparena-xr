@@ -12,7 +12,7 @@
  * vista (de 20 m detrás a 88 m delante), sin crear objetos. La partida (GameSystem) lo engancha como Arcos: `begin`,
  * `startWave`, `waveLeft`, `rep`, `hud`, `end` y `clear`.
  */
-import { AdditiveBlending, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DataTexture, DomeTexture, Euler, Group, InstancedMesh, LinearFilter, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, RGBAFormat, SphereGeometry, Sprite, SpriteMaterial, UnsignedByteType, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DataTexture, DomeTexture, Euler, Group, InstancedMesh, LinearFilter, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, RGBAFormat, Sprite, SpriteMaterial, UnsignedByteType, Vector3 } from '@iwsdk/core';
 import type { AnimationAction, DirectionalLight, FogExp2, HemisphereLight, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { diagEvent } from '../../core/diag.js';
@@ -24,6 +24,7 @@ import { haptic } from '../../input/hand-system.js';
 import { hands, head, type Hand } from '../../input/hand-model.js';
 import { groundTexture, kitParts, type Part } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
+import { LOOK_BOSS, LOOK_FIRE, LOOK_SPIT, Missile, type MissileLook } from '../../style/missile-fx.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
 import { DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
@@ -78,9 +79,8 @@ interface FoeRig {
 }
 
 /** El jefe del mundo: lo alto que se ve (m: más que tú), lo que dura su salto hacia atrás tras tu supersalto (s) y lo alto
- * que sube en él (m), lo que tarda en esfumarse derrotado (s) y lo que mide lo que lanza (m: la piedra; la baja, rodando,
- * más grande). */
-const BOSS_H = 2, LEAP_T = 0.75, LEAP_UP = 1.4, BOSS_FADE = 2.2, ROCK_D = 0.32, ROLL_D = 0.45;
+ * que sube en él (m), lo que tarda en esfumarse derrotado (s) y lo alto que rueda la baja (m). */
+const BOSS_H = 2, LEAP_T = 0.75, LEAP_UP = 1.4, BOSS_FADE = 2.2, ROLL_D = 0.45;
 /** Un jefe hecho (uno de cada, reutilizado): su modelo y lo que hace. */
 interface BossRig {
   root: Group;
@@ -116,7 +116,9 @@ const PANO_FOLLOW = 0.25, PANO_STEP = 0.002;
 const SPIT_POOL = 3, SPIT_COL = 0x9dff3a;
 /** Un escupitajo que se ve: su cangrejo, desde dónde y hacia dónde vuela (en la arena), lo que lleva y lo que dura. */
 interface SpitFx {
-  g: Group;
+  /** Cómo se ve (estela, humo y fogonazo: src/style/missile-fx.ts) y dónde va ahora. */
+  m: Missile;
+  pos: Vector3;
   /** Lo alto de su arco (m): el escupitajo, casi recto; la bola de fuego, en arco. */
   arc: number;
   p: Piece | null;
@@ -213,7 +215,9 @@ export class TrekSystem extends createSystem({}) {
   /** Los escupitajos y las bolas de fuego (hechos al empezar y reutilizados) y las ondas del cíclope. */
   private readonly spits: SpitFx[] = [];
   private readonly fires: SpitFx[] = [];
-  private readonly waves: { m: Mesh; p: Piece | null; dustT: number }[] = [];
+  private bossFx!: Missile;
+  private slamFx!: Missile;
+  private readonly waves: { m: Mesh; p: Piece | null; dustT: number; on: boolean }[] = [];
   /** El giro del fondo realista que se pidió a IWSDK por última vez (rad). */
   private panoYaw = 0;
   /** Lo que se guardó al acabar la última ronda (la medalla y el fantasma). */
@@ -283,49 +287,48 @@ export class TrekSystem extends createSystem({}) {
     for (let i = 0; i < WIND_N; i++) this.winds.push({ x: (Math.random() < 0.5 ? 1 : -1) * (0.7 + 2.5 * Math.random()), y: 0.15 + 2.45 * Math.random(), z: -14 + 18 * Math.random(), l: 0.8 + 1.4 * Math.random(), k: 0.7 + 0.6 * Math.random() });
     this.world.createTransformEntity(this.wind);
     warmKeep(new InstancedMesh(this.wind.geometry, this.wind.material, 1)); // (instanciada como la de verdad: el mismo sombreador)
-    // los escupitajos: una bolita de baba verde con su brillo redondo (fuera del mundo que baja y sube: vuelan en la arena)
+    // el brillo redondo (de las doradas)
     const n = 32, d = new Uint8Array(n * n * 4);
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) d.set([255, 255, 255, Math.round(255 * Math.pow(Math.max(0, 1 - Math.hypot((x + 0.5) / n - 0.5, (y + 0.5) / n - 0.5) * 2), 2))], (y * n + x) * 4);
     const gt = new DataTexture(d, n, n, RGBAFormat, UnsignedByteType);
     gt.magFilter = gt.minFilter = LinearFilter;
     gt.needsUpdate = true;
-    const blobMat = new MeshBasicMaterial({ color: SPIT_COL, toneMapped: false }), glowMat = new SpriteMaterial({ map: gt, color: SPIT_COL, transparent: true, opacity: 0.85, depthWrite: false, blending: AdditiveBlending, toneMapped: false }), blobGeo = new SphereGeometry(0.05, 12, 8);
-    for (let i = 0; i < SPIT_POOL; i++) {
-      const g = new Group(), blob = new Mesh(blobGeo, blobMat), glow = new Sprite(glowMat);
-      blob.userData.noInk = glow.userData.noInk = true;
-      glow.scale.setScalar(0.32);
-      g.add(blob, glow);
-      g.visible = false;
-      this.world.createTransformEntity(g);
-      this.spits.push({ g, p: null, arc: SPIT_ARC, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
-    }
-    // las bolas de fuego del demonio: como los escupitajos, más grandes y naranjas
-    const fireMat = new MeshBasicMaterial({ color: 0xffc04a, toneMapped: false }), fireGlow = new SpriteMaterial({ map: gt, color: FIRE_COL, transparent: true, opacity: 0.95, depthWrite: false, blending: AdditiveBlending, toneMapped: false }), fireGeo = new SphereGeometry(0.1, 12, 8);
-    for (let i = 0; i < FIRE_POOL; i++) {
-      const g = new Group(), blob = new Mesh(fireGeo, fireMat), glow = new Sprite(fireGlow);
-      blob.userData.noInk = glow.userData.noInk = true;
-      glow.scale.setScalar(0.7);
-      g.add(blob, glow);
-      g.visible = false;
-      this.world.createTransformEntity(g);
-      this.fires.push({ g, p: null, arc: FIRE_ARC, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
-    }
-    warmKeep(new Mesh(fireGeo, fireMat));
-    warmKeep(new Sprite(fireGlow));
+    // los escupitajos del cangrejo, las bolas de fuego del demonio y lo que lanza el jefe: con su luz, su estela y su humo
+    // (fuera del mundo que baja y sube: vuelan en la arena)
+    const missile = (look: MissileLook): Missile => {
+      const m = new Missile(look);
+      this.world.createTransformEntity(m.group);
+      return m;
+    };
+    for (let i = 0; i < SPIT_POOL; i++) this.spits.push({ m: missile(LOOK_SPIT), pos: new Vector3(), p: null, arc: SPIT_ARC, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
+    for (let i = 0; i < FIRE_POOL; i++) this.fires.push({ m: missile(LOOK_FIRE), pos: new Vector3(), p: null, arc: FIRE_ARC, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
+    this.bossFx = missile(LOOK_BOSS[0]);
+    // el puñetazo del cíclope contra el suelo: un fogonazo de polvo y fuego
+    this.slamFx = missile({ core: 0xffe0a0, glow: 0xffa040, trail: 0xff7a1a, smoke: 0x8a7a60, size: 0.2 });
     // la onda del cíclope: un muro bajo de luz naranja (35 cm, lo que hay que saltar) que corre por la pasarela (en el mundo
     // que baja y sube)
-    const waveMat = new MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.8, depthWrite: false, blending: AdditiveBlending, toneMapped: false, side: 2 }), waveGeo = new PlaneGeometry(2.6, 0.35);
-    waveGeo.translate(0, 0.175, 0);
+    // (con un degradado: brilla abajo, en el suelo, y se desvanece hacia arriba como una llamarada; dentro, otra más baja
+    // y amarilla, el filo)
+    const gn = 64, gd = new Uint8Array(4 * gn * 4);
+    for (let y = 0; y < gn; y++) for (let x = 0; x < 4; x++) gd.set([255, 255, 255, Math.round(255 * Math.pow(1 - y / (gn - 1), 1.6))], (y * 4 + x) * 4);
+    const grad = new DataTexture(gd, 4, gn, RGBAFormat, UnsignedByteType);
+    grad.magFilter = grad.minFilter = LinearFilter;
+    grad.needsUpdate = true;
+    const waveMat = new MeshBasicMaterial({ color: 0xff8a2a, map: grad, transparent: true, opacity: 0.95, depthWrite: false, blending: AdditiveBlending, toneMapped: false, side: 2 }), waveGeo = new PlaneGeometry(2.8, 0.6);
+    waveGeo.translate(0, 0.3, 0);
+    const edgeMat = new MeshBasicMaterial({ color: 0xffe28a, map: grad, transparent: true, opacity: 1, depthWrite: false, blending: AdditiveBlending, toneMapped: false, side: 2 }), edgeGeo = new PlaneGeometry(2.6, 0.3);
+    edgeGeo.translate(0, 0.15, 0);
     for (let i = 0; i < WAVE_POOL; i++) {
-      const m = new Mesh(waveGeo, waveMat);
-      m.userData.noInk = true;
+      const m = new Mesh(waveGeo, waveMat), edge = new Mesh(edgeGeo, edgeMat);
+      m.userData.noInk = edge.userData.noInk = true;
+      m.add(edge);
+      edge.position.z = 0.02;
       m.visible = false;
       this.root.add(m);
-      this.waves.push({ m, p: null, dustT: 0 });
+      this.waves.push({ m, p: null, dustT: 0, on: false });
     }
     warmKeep(new Mesh(waveGeo, waveMat));
-    warmKeep(new Mesh(blobGeo, blobMat));
-    warmKeep(new Sprite(glowMat));
+    warmKeep(new Mesh(edgeGeo, edgeMat));
     // el brillo dorado de las doradas (en el mundo que baja y sube: va con ellas)
     const goldMat = new SpriteMaterial({ map: gt, color: 0xffd166, transparent: true, opacity: 0.7, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
     for (let i = 0; i < 4; i++) {
@@ -463,16 +466,20 @@ export class TrekSystem extends createSystem({}) {
     for (const r of this.rigs) this.freeRig(r);
     this.rigOf.clear();
     for (const b of this.bossRigs) this.freeBoss(b);
+    for (const S of this.spits) {
+      S.p = null;
+      S.m.stop();
+    }
     for (const S of this.fires) {
       S.p = null;
-      S.g.visible = false;
+      S.m.stop();
     }
+    this.bossFx?.stop();
     for (const w of this.waves) {
       w.p = null;
       w.m.visible = false;
     }
     this.shotFx.on = false;
-    if (this.rock) this.rock.visible = false;
   }
 
   // ---------------------------------------------------------------- cada fotograma
@@ -636,6 +643,8 @@ export class TrekSystem extends createSystem({}) {
         F.dur = e.dur;
         F.to.set(e.aim.x, e.aim.y, e.aim.z);
         this.world3({ s: e.p.at + BOSS_Z - 0.5, u: low ? 0 : 0.35, y: low ? ROLL_D / 2 : BOSS_H * 0.8 }, F.from);
+        // (cada jefe, lo suyo: el Yeti, nieve; el Demonio verde, fuego verde; el Alien alto, plasma)
+        this.bossFx.setLook(LOOK_BOSS[e.p.n % LOOK_BOSS.length]);
         const b = this.bossRigs.find((x) => x.p === e.p);
         if (b) this.bossClip(b, 'Bite_Front', true);
         SND.hiss(F.from, 1.1, BOSSES[e.p.n % BOSSES.length].voice);
@@ -643,14 +652,16 @@ export class TrekSystem extends createSystem({}) {
       }
       case 'bdodge': {
         const F = this.shotFx;
-        if (F.on && this.rock) {
-          // te da: polvo de piedra delante de la cara (a medio metro: nada pegado a los ojos); esquivada, sigue de largo y se
-          // deshace detrás
-          const at = e.ok ? this.rock.position : this.v.copy(F.from).sub(F.to).setLength(0.55).add(F.to);
-          HOOKS.sparks(at, e.ok ? 6 : 20, 0xb8a890);
+        if (F.on) {
+          // te da: estalla delante de la cara (a medio metro: nada pegado a los ojos); esquivada, sigue de largo y se apaga
+          if (e.ok) this.bossFx.coast(0.4);
+          else {
+            const at = this.v.copy(F.from).sub(F.to).setLength(0.55).add(F.to);
+            this.bossFx.hit(at, true);
+            HOOKS.sparks(at, 20, LOOK_BOSS[e.p.n % LOOK_BOSS.length].glow ?? 0xffffff);
+          }
         }
         F.on = false;
-        if (this.rock) this.rock.visible = false;
         break;
       }
       case 'wake': {
@@ -667,6 +678,7 @@ export class TrekSystem extends createSystem({}) {
         if (w) {
           w.p = e.p;
           w.dustT = 0;
+          w.on = false;
         }
         break;
       }
@@ -681,9 +693,8 @@ export class TrekSystem extends createSystem({}) {
           S.dur = e.dur;
           S.to.set(e.aim.x, e.aim.y, e.aim.z);
           this.spitFrom(e.p, S.from);
-          S.g.position.copy(S.from);
-          S.g.scale.setScalar(0.01);
-          S.g.visible = true;
+          S.pos.copy(S.from);
+          S.m.charge(S.pos, 0.05);
         }
         this.rigAct(e.p, 'spit');
         SND.hiss(this.world3({ s: e.p.at + e.p.walk, u: e.p.side * (fire ? ASIDE_U : CRAB_U), y: 0.3 }, this.at), 1.2, FOE_LOOK[fire ? 'fire' : 'side'].voice);
@@ -695,10 +706,13 @@ export class TrekSystem extends createSystem({}) {
         if (S) {
           // te da: salpica de baba (o de fuego) delante de la cara (a medio metro: las chispas no se pintan pegadas a los ojos);
           // esquivado, se deshace a tu lado
-          const at = e.ok ? S.g.position : this.v.copy(S.from).sub(S.to).setLength(0.55).add(S.to);
-          HOOKS.sparks(at, fire ? (e.ok ? 16 : 26) : e.ok ? 6 : 18, fire ? FIRE_COL : SPIT_COL);
+          if (e.ok) S.m.coast(0.35);
+          else {
+            const at = this.v.copy(S.from).sub(S.to).setLength(0.55).add(S.to);
+            S.m.hit(at, fire);
+            HOOKS.sparks(at, fire ? 26 : 18, fire ? FIRE_COL : SPIT_COL);
+          }
           S.p = null;
-          S.g.visible = false;
         }
         break;
       }
@@ -1055,24 +1069,6 @@ export class TrekSystem extends createSystem({}) {
       for (const c of gltf.animations) acts.set(c.name, mixer.clipAction(c));
       this.bossRigs.push({ root, mixer, acts, cur: '', p: null, from: 0, to: 0, leapT: -1, dizzy: false, dieT: -1, starT: 0 });
     }
-    // la piedra: una roca del Pirate Kit, pequeña (vuela en la arena, fuera del mundo que baja y sube)
-    const parts = isl.Rock_2 ?? isl.Rock_1;
-    if (parts) {
-      const g = new Group();
-      let r = 0.5;
-      for (const P of parts) {
-        P.geo.computeBoundingSphere();
-        r = Math.max(0.05, P.geo.boundingSphere?.radius ?? r);
-        const m = new Mesh(P.geo, P.mat);
-        m.castShadow = true;
-        g.add(m);
-        warmKeep(new Mesh(P.geo, P.mat)); // (sin instancias: otro sombreador, compilado en el menú)
-      }
-      g.userData.r = r;
-      g.visible = false;
-      this.world.createTransformEntity(g);
-      this.rock = g;
-    }
     for (const p of this.runner.live) if (p.k === 'boss') this.takeBoss(p);
     return true;
   }
@@ -1186,29 +1182,27 @@ export class TrekSystem extends createSystem({}) {
       b.root.quaternion.setFromAxisAngle(this.up, ry);
       if (!lite) b.mixer.update(dt);
     }
-    // la piedra: crece en su mano mientras echa el brazo atrás y vuela hasta donde estaba tu cabeza (la baja, rodando)
-    const F = this.shotFx, R = this.rock;
-    if (!R) return;
-    if (!F.on || GAME.phase !== 'playing' || GAME.between) {
+    // lo que lanza: crece en su mano mientras echa el brazo atrás y vuela hasta donde estaba tu cabeza (la baja, rodando por
+    // el suelo), con su estela
+    const F = this.shotFx, M = this.bossFx;
+    if (!M) return;
+    if (!GAME.paused) M.update(dt);
+    if (!F.on) return;
+    if (GAME.phase !== 'playing' || GAME.between) {
       F.on = false;
-      R.visible = false;
+      M.stop();
       return;
     }
     if (GAME.paused) return;
     F.t += dt;
-    const low = F.shot === 'low', d = low ? ROLL_D : ROCK_D, sc = d / 2 / (R.userData.r as number);
-    R.visible = true;
     if (F.t < F.wind) {
-      R.position.copy(F.from);
-      R.scale.setScalar(sc * Math.max(0.05, F.t / F.wind));
+      M.charge(F.from, F.t / F.wind);
       return;
     }
     const k = Math.min(1.3, (F.t - F.wind) / Math.max(0.05, F.dur));
-    R.position.lerpVectors(F.from, F.to, k);
-    if (!low) R.position.y += 0.3 * Math.sin(Math.PI * Math.min(1, k));
-    R.scale.setScalar(sc);
-    R.rotation.x -= dt * (low ? 9 : 5);
-    R.rotation.z += dt * 3;
+    this.at.lerpVectors(F.from, F.to, k);
+    if (F.shot !== 'low') this.at.y += 0.3 * Math.sin(Math.PI * Math.min(1, k));
+    M.fly(this.at, dt, head.p);
   }
 
   // ---------------------------------------------------------------- los escupitajos
@@ -1232,6 +1226,7 @@ export class TrekSystem extends createSystem({}) {
    * pasada (o fuera de la ronda), se apaga. */
   private stepWaves(dt: number): void {
     const R = this.runner;
+    if (!GAME.paused) this.slamFx.update(dt);
     for (const w of this.waves) {
       const p = w.p;
       const s = p ? p.at - Math.max(0, p.fx) : 0;
@@ -1244,39 +1239,50 @@ export class TrekSystem extends createSystem({}) {
         w.m.visible = false;
         continue;
       }
+      if (!w.on) {
+        // el puño llega al suelo: fogonazo de fuego y polvo, piedras que saltan y la onda echa a correr
+        w.on = true;
+        const at = this.world3({ s: p.at, u: p.side * (ASIDE_U - 0.7), y: 0.15 }, this.at);
+        this.slamFx.hit(at, true);
+        HOOKS.sparks(at, 26, 0x8a7258);
+        HOOKS.sparks(at, 16, 0xffa040);
+        haptic('left', 0.5, 120);
+        haptic('right', 0.5, 120);
+      }
       const ry = R.tk.bend(s, p.lane * FORK_U - R.uShift, this.bp);
       w.m.position.set(this.bp.x, 0, this.bp.z);
       w.m.rotation.set(0, ry, 0);
-      w.m.scale.set(1, 1 + 0.25 * Math.sin(this.clock * 24), 1); // (vibra)
+      w.m.scale.set(1, 1 + 0.25 * Math.sin(this.clock * 24) + 0.1 * Math.sin(this.clock * 41), 1); // (vibra, como una llamarada)
       w.m.visible = !LITE.on;
       if (GAME.paused) continue;
+      // a su paso, el suelo salta: polvo y piedrecitas, y alguna chispa
       w.dustT += dt;
-      if (w.dustT > 0.12) {
+      if (w.dustT > 0.06) {
         w.dustT = 0;
-        HOOKS.sparks(this.world3({ s, u: (Math.random() - 0.5) * 2, y: 0.1 }, this.at), 3, 0xd8b890);
+        HOOKS.sparks(this.world3({ s, u: (Math.random() - 0.5) * 2.4, y: 0.08 }, this.at), 3, Math.random() < 0.6 ? 0x8a7258 : 0xffb050);
       }
     }
   }
 
   private stepSpit(S: SpitFx, dt: number): void {
+    if (!GAME.paused) S.m.update(dt); // (la estela, el humo y el fogonazo, también después de dar)
     if (!S.p) return;
     if (GAME.phase !== 'playing' || GAME.between) {
       S.p = null;
-      S.g.visible = false;
+      S.m.stop();
       return;
     }
     if (GAME.paused) return;
     S.t += dt;
     if (S.t < S.wind) {
       this.spitFrom(S.p, S.from);
-      S.g.position.copy(S.from);
-      S.g.scale.setScalar(Math.max(0.01, S.t / S.wind));
+      S.m.charge(S.from, S.t / S.wind);
       return;
     }
     const k = Math.min(1.15, (S.t - S.wind) / Math.max(0.05, S.dur));
-    S.g.position.lerpVectors(S.from, S.to, k);
-    S.g.position.y += S.arc * Math.sin(Math.PI * Math.min(1, k)); // (en arco: el escupitajo, casi recto; la bola de fuego, alto)
-    S.g.scale.setScalar(1);
+    S.pos.lerpVectors(S.from, S.to, k);
+    S.pos.y += S.arc * Math.sin(Math.PI * Math.min(1, k)); // (en arco: el escupitajo, casi recto; la bola de fuego, alto)
+    S.m.fly(S.pos, dt, head.p);
   }
 
 
