@@ -36,7 +36,7 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -193,6 +193,11 @@ export class Runner {
   /** Los brazos en cruz (para planear): se abren al ver las dos muñecas a un lado y otro, a la altura de los hombros (o una, si
    * la otra no se ve: con los brazos tan abiertos, las gafas a veces la pierden) y se cierran al ver una cerca de la cabeza. */
   armsOpen = false;
+  /** La bifurcación por la que vas (o null), la rama elegida (−1, 1; 0 fuera de ellas) y lo que se desplaza el mundo a un
+   * lado para que tu rama quede bajo tus pies (m: el sistema lo resta a todo lo que pinta). */
+  fork: Piece | null = null;
+  lane: -1 | 0 | 1 = 0;
+  uShift = 0;
   /** Los escupitajos en el aire. */
   spits: Spit[] = [];
   /** El paso de la seta y el cangrejo (m/s: «Paso de los enemigos», de la tabla de dificultad; se lee en cada fotograma). */
@@ -264,6 +269,9 @@ export class Runner {
     this.passed = this.hits = this.fruits = this.keys = this.boxes = 0;
     this.golds = [];
     this.spits.length = 0;
+    this.fork = null;
+    this.lane = 0;
+    this.uShift = 0;
     this.id = 1;
     const B = this.env.store(PLAT_GHOST) as PlatGhost | null;
     this.best = B && Array.isArray(B.tl) ? B : null;
@@ -394,7 +402,17 @@ export class Runner {
       this.walk(dt);
       this.spit(dt);
       if (this.moves.takeoff && !this.hop && !this.stop) this.takeoff(H.z);
-      for (const p of this.live) if (!p.judged && FLUID.includes(p.k) && p !== this.hop?.p) this.judge(p, p.at + p.walk - tk.dist + H.z);
+      this.forkStep();
+      for (const p of this.live) {
+        if (p.judged || !FLUID.includes(p.k) || p === this.hop?.p) continue;
+        const z = p.at + p.walk - tk.dist + H.z;
+        // (lo de la otra rama de una bifurcación no te toca: pasa de largo)
+        if (p.lane && p.lane !== this.lane) {
+          if (z < -1) p.judged = true;
+          continue;
+        }
+        this.judge(p, z);
+      }
       // el fantasma: dónde vas, cada GHOST_DT s
       this.tlT += dt;
       if (this.tlT >= GHOST_DT) {
@@ -476,6 +494,22 @@ export class Runner {
     return !this.hop && !this.stop;
   }
 
+  /** La bifurcación: el mundo se desplaza a un lado (suave, en sus rampas) para que tu rama quede bajo tus pies; al acabarla,
+   * vuelves a la pasarela de siempre. */
+  private forkStep(): void {
+    const F = this.fork;
+    if (!F) return;
+    const d = this.tk.dist - this.env.head.z;
+    if (d > F.at + F.len) {
+      this.fork = null;
+      this.lane = 0;
+      this.uShift = 0;
+      return;
+    }
+    const kin = smooth(Math.min(1, Math.max(0, (d - F.at) / FORK_RAMP))), kout = smooth(Math.min(1, Math.max(0, (F.at + F.len - d) / FORK_RAMP)));
+    this.uShift = this.lane * FORK_U * Math.min(kin, kout);
+  }
+
   /** Los brazos en cruz (ver `armsOpen`). */
   private armsStep(): void {
     const H = this.env.head, A = this.env.hands, sh = H.y - ARMS_SH;
@@ -489,7 +523,7 @@ export class Runner {
   /** ¿Se acerca un obstáculo a un lado (o está pasando)? Entonces el centro no sigue a la cabeza. */
   private sideAhead(): boolean {
     const look = Math.max(SIDE_WARN_AT, SIDE_HOLD_S * Math.max(this.tk.v, 0.5));
-    for (const p of this.live) if ((p.k === 'side' || p.k === 'fruit') && !p.judged && p.at - this.tk.dist < look) return true;
+    for (const p of this.live) if ((p.k === 'side' || p.k === 'fruit' || p.k === 'fork') && !p.judged && p.at - this.tk.dist < look) return true;
     return false;
   }
 
@@ -534,7 +568,7 @@ export class Runner {
   /** El juicio de una fluida; `z`, lo que le falta para llegar a tu cabeza (m). */
   private judge(p: Piece, z: number): void {
     const M = this.moves, C = this.cfg, v = this.tk.v;
-    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box';
+    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box' || p.k === 'spring' || p.k === 'fork';
     // (el túnel, con más tiempo: hay que echarse al suelo)
     const warnAt = p.k === 'crawl' || p.k === 'glide' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
     if (!p.warned && z < warnAt) {
@@ -543,6 +577,30 @@ export class Runner {
     }
     if (p.k === 'gap') {
       if (z <= 0 && !this.hop) this.go(p, false); // (llegas al borde sin haber saltado: tropiezas al cruzarlo)
+      return;
+    }
+    if (p.k === 'spring') {
+      // el trampolín: pisado con una sentadilla honda (hecha hace poco), te lanza; si no, lo pisas sin más (es un premio)
+      if (z <= 0 && !this.hop) {
+        if (this.moves.deepT < SPRING_DEEP) this.springLaunch(p);
+        else {
+          p.judged = true;
+          p.ok = false;
+        }
+      }
+      return;
+    }
+    if (p.k === 'fork') {
+      // la bifurcación: al llegar, por la rama hacia la que tengas apartada la cabeza (sin apartarla, la tranquila)
+      if (z <= 0) {
+        const dx = this.moves.dx;
+        this.lane = dx >= FORK_PICK ? 1 : -1;
+        this.fork = p;
+        p.judged = true;
+        p.ok = true;
+        this.ev.push({ t: 'pass', p });
+        this.cheer(this.lane > 0 ? '¡Por el camino difícil!' : 'Por el camino tranquilo', COL_OK, 1.2);
+      }
       return;
     }
     if (p.k === 'glide') {
@@ -902,6 +960,17 @@ export class Runner {
     this.say('¡Salta el hueco!', COL_WARN, 1.6, true);
   }
 
+  /** El trampolín te lanza: lejos (su largo) y alto (el mundo baja SPRING_LIFT), comiéndote las frutas del arco del vuelo. */
+  private springLaunch(p: Piece): void {
+    const tk = this.tk, s0 = tk.dist, s1 = Math.max(p.at + p.len, s0 + 1), v0 = tk.v;
+    const dur = Math.min(2.8, Math.max(1.6, (s1 - s0) / Math.max(v0, SPRING_V)));
+    this.hop = { p, s0, s1, t: 0, dur, won: true, v1: v0, lift: SPRING_LIFT, score: 250, cheer: '¡Trampolín!' };
+    this.airT = -1;
+    this.ev.push({ t: 'go', p, dur });
+    this.snd('step', null, true);
+    this.ev.push({ t: 'haptic', k: 0.8, ms: 120 });
+  }
+
   /** Empieza el cruce del barranco: planeando (`won`), a tu velocidad o como poco GLIDE_V, subiendo deprisa y bajando
    * despacio (el mundo baja `GLIDE_LIFT`); sin los brazos en cruz, a trompicones (frenas y se rompe la racha). */
   private glideStart(p: Piece, won: boolean): void {
@@ -935,7 +1004,7 @@ export class Runner {
     if (H.glide && H.won) this.glideStep(H, dt);
     // las frutas en arco sobre el hueco: saltando, te las vas comiendo según las pasas (siguen la curva del salto)
     const p0 = H.p;
-    if (H.won && p0.k === 'gap' && p0.n > 0) {
+    if (H.won && (p0.k === 'gap' || p0.k === 'spring') && p0.n > 0) {
       const head = this.tk.dist - this.env.head.z;
       while (p0.got < p0.n && head >= p0.at + ((p0.got + 0.5) / p0.n) * p0.len) {
         this.ev.push({ t: 'pick', p: p0, i: p0.got });
@@ -1010,6 +1079,8 @@ export class Runner {
     if (p.k === 'gap') this.say('¡Un hueco! Salta al llegar al borde', COL_ASK, 1.6, false);
     else if (p.k === 'step') this.say(p.burpee ? '¡Arriba y salta a la plataforma!' : '¡Plataforma alta! Sentadilla honda y salta', COL_ASK, 1.8, false);
     else if (p.k === 'crawl') this.say('¡Túnel! Al suelo, en plancha', COL_ASK, 2.6, false);
+    else if (p.k === 'spring') this.say('¡Un trampolín! Písalo con una sentadilla honda', COL_ASK, 1.8, false);
+    else if (p.k === 'fork') this.say('¡El camino se divide! Paso a la derecha: más difícil y más premios', COL_ASK, 2.4, false);
     else if (p.k === 'glide') this.say('¡Un barranco! Abre los brazos en cruz para planear', COL_ASK, 2.4, false);
     else if (p.k === 'box') this.say('¡Un barril sorpresa! Salta debajo y dale con la cabeza', COL_ASK, 1.6, false);
     else if (p.k === 'fruit' && p.gold) this.say('¡Una fruta dorada! Salta para cogerla', COL_ASK, 1.6, false);
@@ -1067,7 +1138,7 @@ export class Runner {
   /* ---------- sucesos ---------- */
 
   private pos(p: Piece, ds: number, y: number): PlatPos {
-    return { s: p.at + ds, u: p.side * (p.k === 'side' ? CRAB_U : 0.45), y };
+    return { s: p.at + ds, u: p.side * (p.k === 'side' ? CRAB_U : 0.45) + p.lane * FORK_U, y };
   }
   private say(text: string, col: string, dur: number, warn: boolean): void {
     this.ev.push({ t: 'say', text, col, dur, warn });

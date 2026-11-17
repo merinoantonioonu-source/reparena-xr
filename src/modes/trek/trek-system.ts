@@ -27,7 +27,7 @@ import { warmKeep } from '../../style/warm.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
 import { DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
-import { CRAB_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
+import { CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
@@ -646,7 +646,7 @@ export class TrekSystem extends createSystem({}) {
 
   /** Un punto del recorrido, en la arena. */
   private world3(at: PlatPos, out: Vector3): Vector3 {
-    this.runner.tk.bend(at.s, at.u, this.bp);
+    this.runner.tk.bend(at.s, at.u - this.runner.uShift, this.bp);
     return out.set(this.bp.x, at.y + this.runner.dip, this.bp.z);
   }
 
@@ -676,7 +676,7 @@ export class TrekSystem extends createSystem({}) {
       this.floorS0 = s0;
       this.floorN = R.pieces.length;
       this.holes.length = 0;
-      for (const p of R.pieces) if ((p.k === 'gap' || p.k === 'glide') && p.at + p.len > s0 && p.at < s0 + BACK + AHEAD + DOCK_LEN) this.holes.push([p.at, p.at + p.len]);
+      for (const p of R.pieces) if ((p.k === 'gap' || p.k === 'glide' || p.k === 'fork') && p.at + p.len > s0 && p.at < s0 + BACK + AHEAD + DOCK_LEN) this.holes.push([p.at, p.at + p.len]);
       this.floor.length = 0;
       floorPuts(s0, s0 + BACK + AHEAD + DOCK_LEN, this.holes, this.floor);
     }
@@ -705,12 +705,12 @@ export class TrekSystem extends createSystem({}) {
         // (las frutas del arco que ya te has comido y la dorada de la plataforma ya cogida, no)
         if (u.tag !== undefined && (u.tag === GOLD_TAG ? p.got > 0 : p.k === 'glide' ? ((p.mask >> u.tag) & 1) === 1 : u.tag < p.got)) continue;
         const f = turn || u.kit === 'food';
-        this.put(u, p.at + u.ds, off, k, kn ? kn.t : 0, p, f ? spin : 0, f ? bob : 0);
+        this.put(u, p.at + u.ds, off + p.lane * FORK_U, k, kn ? kn.t : 0, p, f ? spin : 0, f ? bob : 0);
       }
       // el brillo de la dorada (la que flota alta en el centro o la de encima de una plataforma)
       if (p.gold && gi < this.goldGlow.length && !(p.k === 'fruit' && p.judged) && !(p.k === 'step' && p.got > 0) && !lite) {
         const g = this.goldGlow[gi++], st = p.k === 'step';
-        this.runner.tk.bend(p.at + (st ? p.len / 2 : 0), 0, this.bp);
+        this.runner.tk.bend(p.at + (st ? p.len / 2 : 0), p.lane * FORK_U - this.runner.uShift, this.bp);
         g.position.set(this.bp.x, (st ? p.h : GOLD_Y) + this.calibRef + bob, this.bp.z);
         g.material.opacity = 0.55 + 0.25 * Math.sin(this.clock * 5 + p.id);
         g.visible = true;
@@ -725,6 +725,7 @@ export class TrekSystem extends createSystem({}) {
     // el césped: centrado en ti, con su dibujo donde le toca en el sendero (gira y corre con el mundo)
     const F = tk.tf;
     this.ground.rotation.y = F.th;
+    this.ground.position.x = -R.uShift; // (en una bifurcación, el césped también se desplaza: no patina bajo lo apoyado)
     this.groundTex.offset.set(F.x / GROUND_CELL, -F.z / GROUND_CELL);
     this.turnPano(PANO_FOLLOW * F.th);
   }
@@ -746,7 +747,8 @@ export class TrekSystem extends createSystem({}) {
     const b = this.batches.get(`${u.kit}:${u.n}`);
     if (!b || b.n >= b.cap) return;
     // (el giro propio del modelo, en el orden de pieces.ts, y encima el del sendero en ese punto)
-    const ry = this.runner.tk.bend(s, u.u + du, this.bp);
+    // (en una bifurcación, todo se desplaza a un lado para que tu rama quede bajo tus pies)
+    const ry = this.runner.tk.bend(s, u.u + du - this.runner.uShift, this.bp);
     this.e.set(u.rx, u.ry + spin, u.rz + roll * (p && p.side ? -p.side : 1) * 1.4);
     this.q.setFromEuler(this.e).premultiply(this.qy.setFromAxisAngle(this.up, ry));
     this.m4.compose(this.v.set(this.bp.x, u.y + bob, this.bp.z), this.q, this.sc.set(u.sx * k, u.sy * k, u.sz * k));
@@ -866,7 +868,7 @@ export class TrekSystem extends createSystem({}) {
         if (k < 1) r.root.scale.multiplyScalar(k);
       }
       r.root.visible = !lite;
-      const u = (p.k === 'side' ? p.side * CRAB_U : 0) + r.dir * r.off;
+      const u = (p.k === 'side' ? p.side * CRAB_U : 0) + r.dir * r.off + p.lane * FORK_U - this.runner.uShift;
       const ry = this.runner.tk.bend(p.at + p.walk, u, this.bp);
       r.root.position.set(this.bp.x, 0, this.bp.z);
       r.root.quaternion.setFromAxisAngle(this.up, ry);

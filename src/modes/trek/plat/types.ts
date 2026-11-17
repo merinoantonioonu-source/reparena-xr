@@ -23,6 +23,8 @@ export type PieceKind =
   | 'fruit' // fruta flotando a la altura de la cabeza, a un lado: se coge apartando la cabeza (fluido; da energía)
   | 'foe' // la seta, que llega andando por el centro: se pisa saltando encima (fluido; PR D)
   | 'gems' // (sin usar: las gemas del plan son las frutas)
+  | 'spring' // el trampolín: una seta gigante; pisada con una sentadilla honda, te lanza lejos y alto (fluido; un premio)
+  | 'fork' // la bifurcación: la pasarela se abre en dos ramas; se elige con un paso a un lado al llegar (fluido)
   | 'glide' // el barranco: ancho, con piedras abajo; se cruza planeando con los brazos en cruz (fluido)
   | 'box' // el barril sorpresa, flotando sobre la pasarela: se rompe de un cabezazo, saltando debajo (fluido; da fruta)
   | 'chest'; // fin del tramo (paso)
@@ -30,11 +32,11 @@ export type PieceKind =
 /** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
  * si fallas, chocas o tropiezas (frenas y pierdes la racha, sin perder vidas, y sigues). El hueco también: si no saltas a
  * tiempo, tropiezas al cruzarlo (nunca se cae). */
-export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide'];
+export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork'];
 /** Los pasos: el mundo frena suave y te para a `STOP_AT` (solo el cofre, al acabar el tramo). */
 export const HALT: readonly PieceKind[] = ['chest'];
 /** Los que se cruzan saltando (entre dos seguidos, al menos `JUMP_GAP_S` a velocidad máxima). */
-export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'box', 'glide'];
+export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'box', 'glide', 'spring'];
 /** ¿Se cruza saltando? (las de `JUMPS` y la fruta dorada, que flota alta en el centro) */
 export const isJump = (p: Piece): boolean => JUMPS.includes(p.k) || (p.k === 'fruit' && p.gold);
 /** Los de suelo (tras ellos, `FLOOR_UP_S` para levantarse antes de otra cosa; salvo la plataforma de un burpee, que llega
@@ -55,6 +57,12 @@ export const BOX_CLEAR = 0.22, GOLD_Y = 0.32, GOLD_N = 3, ARC_MIN = 3, ARC_MAX =
  * perder el vuelo (s). Brazos en cruz: cada muñeca a `ARMS_OUT` m de la cabeza a un lado y a menos de `ARMS_DY` m de la
  * altura de los hombros (`ARMS_SH` bajo los ojos); se cierran al ver una a menos de `ARMS_IN`. */
 export const GLIDE_MIN = 6, GLIDE_MAX = 10, GLIDE_NMIN = 4, GLIDE_NMAX = 6, GLIDE_U = 0.45, GLIDE_CATCH = 0.3, GLIDE_LIFT = 0.6, GLIDE_V = 2.4, GLIDE_DROP = 0.8;
+/** El trampolín: lo que te lleva por el aire (m: libre de piezas), lo que sube (m: el mundo baja), su velocidad como poco
+ * (m/s), cuánto antes de pisarlo vale la sentadilla honda (s) y sus frutas en el arco del vuelo. */
+export const SPRING_MIN = 8, SPRING_MAX = 11, SPRING_LIFT = 1.1, SPRING_V = 3.2, SPRING_DEEP = 1.2, SPRING_N = 5;
+/** La bifurcación: lo que se separa cada rama del centro (m), lo que tardan en separarse y juntarse (m, a lo largo) y lo
+ * que tienes que apartar la cabeza al llegar para ir por la derecha o la izquierda (m; sin apartarla, la izquierda). */
+export const FORK_U = 1.5, FORK_RAMP = 4, FORK_PICK = 0.18;
 export const ARMS_OUT = 0.42, ARMS_DY = 0.45, ARMS_SH = 0.25, ARMS_IN = 0.25;
 /** Dónde flota la fruta i del barranco p, a su derecha (m): siempre la misma para la misma pieza. */
 export const glideU = (p: Piece, i: number): number => GLIDE_U * (2 * (((i * 0.618 + p.id * 0.377) % 1 + 1) % 1) - 1);
@@ -148,11 +156,14 @@ export interface Piece {
   /** Las frutas en arco del hueco que ya te has comido (en el barranco, las que ya han pasado) y cuáles te has comido (por bits). */
   got: number;
   mask: number;
+  /** En una bifurcación, la rama de la pieza (−1 izquierda —la tranquila—, 1 derecha —la difícil, con más premios—; 0, la
+   * pasarela de siempre): solo se juzga si vas por ella. */
+  lane: -1 | 0 | 1;
 }
 
 /** Una pieza nueva, con su estado a cero. */
 export function piece(id: number, k: PieceKind, at: number, tramo: number, o: Partial<Pick<Piece, 'len' | 'side' | 'h' | 'n'>> = {}): Piece {
-  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: k === 'foe' || k === 'side' ? FOE_WALK : 0, woke: false, spat: false, gold: false, got: 0, mask: 0 };
+  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: k === 'foe' || k === 'side' ? FOE_WALK : 0, woke: false, spat: false, gold: false, got: 0, mask: 0, lane: 0 };
 }
 
 /** Lo que manda la tabla de dificultad (por rango, PR E; los ajustes `plat*`): el sitio de más entre retos (×, 1 = el de

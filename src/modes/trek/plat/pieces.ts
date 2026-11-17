@@ -23,7 +23,7 @@
  */
 import { trekRng, TREK_CH } from '../path.js';
 import { HEAD_TOP } from '../env.js';
-import { BOX_CLEAR, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, type Piece } from './types.js';
+import { BOX_CLEAR, FORK_RAMP, FORK_U, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, SPRING_LIFT, type Piece } from './types.js';
 
 export type Kit = 'island' | 'nature' | 'food';
 
@@ -79,6 +79,7 @@ export const KIT_MODELS: Record<Kit, string[]> = {
     'CommonTree_3', 'CommonTree_4', 'CommonTree_5', 'Pine_2', 'Pine_4', 'Pine_5', 'DeadTree_1', 'DeadTree_2',
     'Bush_Common', 'Bush_Common_Flowers', 'Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3',
     'Grass_Common_Short', 'Grass_Common_Tall', 'Grass_Wispy_Short', 'Grass_Wispy_Tall', 'Flower_3_Group', 'Fern_1', 'Plant_1_Big', 'Plant_7_Big', 'Clover_1',
+    'Mushroom_Common',
   ],
   food: ['Apple', 'Banana', 'Cherries', 'Orange', 'Pear', 'Strawberry', 'Pineapple', 'Watermelon', 'Lemon', 'Grapes'],
 };
@@ -96,6 +97,18 @@ function dockPut(a: number, b: number, top: number, sy: number): Put {
   // (el −z del modelo es «delante»: el centro de sus tablas está en −zc a lo largo)
   const zc = (DK.z0 + DK.z1) / 2;
   return put('island', 'Dock', (a + b) / 2 + zc * sz, -((DK.x0 + DK.x1) / 2) * sx, top - DK.top * sy, { sx, sy, sz });
+}
+
+/** Un tramo de muelle del suelo que va de (ds0, u0) a (ds1, u1): recto o en diagonal (las ramas de una bifurcación). */
+function dockLine(ds0: number, u0: number, ds1: number, u1: number, out: Put[]): void {
+  const L = Math.hypot(ds1 - ds0, u1 - u0), m = Math.max(1, Math.round(L / DOCK_LEN)), ry = Math.atan2(-(u1 - u0), ds1 - ds0);
+  for (let i = 0; i < m; i++) {
+    const a = (i + 0.5) / m, P = dockPut(0, L / m, 0, -GROUND_Y / (DK.top - DK.bottom));
+    P.ds = ds0 + (ds1 - ds0) * a;
+    P.u = u0 + (u1 - u0) * a;
+    P.ry = ry;
+    out.push(P);
+  }
 }
 
 /** Un tramo de muelle del suelo: de `a` a `b`, con la cara de arriba en y = 0 y los postes hasta `GROUND_Y`. */
@@ -238,6 +251,29 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
     case 'chest':
       chestPuts(false, out);
       break;
+    case 'spring': {
+      // el trampolín: la seta del bosque, grande y chata, sobre las tablas (de 0,56 × 0,46 m a ~1,3 m de ancho y 0,6 de alto);
+      // y las frutas del arco del vuelo, altas (con el vuelo, el mundo baja y te las encuentras a la altura de la cara)
+      out.push(put('nature', 'Mushroom_Common', 0.3, 0, 0.017 * 1.3, { sx: 2.4, sy: 1.3, sz: 2.4 }));
+      for (let i = 0; i < p.n; i++) {
+        const u = (i + 0.5) / p.n, f = fruitPut(ARC_FRUITS[(p.id + i) % ARC_FRUITS.length], 0.22, 0, ref - 0.05 + SPRING_LIFT * 4 * u * (1 - u));
+        f.ds += u * p.len;
+        f.tag = i;
+        out.push(f);
+      }
+      break;
+    }
+    case 'fork': {
+      // la bifurcación: el sistema quita la pasarela de en medio; aquí, las dos ramas (tablas que se separan, corren a FORK_U a
+      // cada lado y se vuelven a juntar) y un poste en la punta de cada separación
+      for (const side of [-1, 1]) {
+        dockLine(0, 0, FORK_RAMP, side * FORK_U, out);
+        dockLine(FORK_RAMP, side * FORK_U, p.len - FORK_RAMP, side * FORK_U, out);
+        dockLine(p.len - FORK_RAMP, side * FORK_U, p.len, 0, out);
+      }
+      out.push(standPole(FORK_RAMP * 0.6, 0, -0.1, 0.9, 0.7));
+      break;
+    }
     case 'glide': {
       // el barranco: sin tablas (el sistema deja el hueco), con postes en sus bordes, el muelle roto colgando del cercano y un
       // pedregal abajo; y sus frutas en el aire, por donde pasará tu cabeza planeando (el mundo baja con el vuelo)

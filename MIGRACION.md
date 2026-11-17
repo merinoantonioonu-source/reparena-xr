@@ -410,6 +410,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- Travesía, **3 trampolín y bifurcaciones** (hecho): el trampolín es la pieza `spring` (en `JUMPS`; `SPRING_*` en types.ts;
+  desde el tramo 1, como premio en la cola de `buildCourse`): con `BodyMoves.deepT` a menos de `SPRING_DEEP` s al pisarla,
+  `Runner.springLaunch` (un `Hop` largo: el mundo baja `SPRING_LIFT`, velocidad como poco `SPRING_V`, y sus `Piece.n` frutas en
+  el arco, como las del hueco); sin sentadilla, `ok=false` sin choque. La bifurcación es `fork` (desde el tramo 2): sus ramas
+  son piezas con `Piece.lane` (−1 izquierda, 1 derecha), puestas por `buildCourse` dentro de `fork.len`; al llegar, la cabeza a
+  `FORK_PICK` a la derecha elige la derecha (`Runner.fork`), y `forkStep` lleva `Runner.uShift` (lo que te apartas del centro:
+  `FORK_U`, en `FORK_RAMP` m) que `TrekSystem` resta a todo lo que pinta. Las piezas de la otra rama no se juzgan.
+  `courseRules` mira la separación por rama (`lastLane`).
 - Travesía, **2 planear** (hecho): el barranco es la pieza `glide` (en `JUMPS`; `GLIDE_*` en types.ts; desde el tramo 2). Los
   brazos en cruz, `Runner.armsOpen` (`armsStep`: con las muñecas de `PlatEnv.hands`, que pone `TrekSystem` sin las
   calculadas): al llegar al borde, `glideStart` (como el salto del hueco, con `Hop.glide`: el mundo baja `GLIDE_LIFT` con
