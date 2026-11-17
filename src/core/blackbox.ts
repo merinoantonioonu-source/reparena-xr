@@ -50,7 +50,7 @@ interface DetCols {
 }
 const DET: Record<string, DetCols> = {
   curl2: { names: 'estado y bottom max lost hvI hvD juntas aire(filtro nuevo) separación(filtro nuevo)', units: 'mmmsvvnnm' },
-  curl: { names: 'estadoID bottomI bottomD maxI maxD lostI lostD', units: 'mmmmss' },
+  curl: { names: 'estadoID bottomI bottomD maxI maxD lostI lostD aireI(filtro nuevo) aireD(filtro nuevo)', units: 'mmmmssnn' },
   fraise: { names: 'estado bottom max lost fwd holdT pow', units: 'mmmsmsn' },
   twist: { names: 'n acc lo hi dir lostT pow', units: 'nnnnnsn' },
   vert: { names: 'estado(cabeza) ref peak pow pendiente armado vistoI vistoD', units: 'mmnnnnn' },
@@ -72,7 +72,7 @@ class BlackBox {
   readonly w = new Float32Array(BB_CAP * 12);
   readonly hf = new Uint16Array(BB_CAP * 2);
   /** Marcas del fotograma: 1 jugando (en plena oleada), 2 el detector empezó de cero (a la altura `ry`), 4 se quitó la pausa
-   * (con «Manos: filtro nuevo», el curl con barra empieza de cero: barResume). */
+   * (con «Manos: filtro nuevo», los curls empiezan de cero: resume). */
   readonly ff = new Uint8Array(BB_CAP);
   readonly ry = new Float32Array(BB_CAP);
   readonly st = new Uint8Array(BB_CAP * 2);
@@ -96,7 +96,7 @@ class BlackBox {
   markReset(y: number): void {
     this.resetY = y;
   }
-  /** Se quitó la pausa y el detector del curl con barra empezó de cero (barResume): se apunta en el fotograma siguiente. */
+  /** Se quitó la pausa y los curls empezaron de cero (resume): se apunta en el fotograma siguiente. */
   markResume(): void {
     this.resumed = true;
   }
@@ -199,6 +199,8 @@ class BlackBox {
       d[o + 3] = R.max;
       d[o + 4] = L.lost;
       d[o + 5] = R.lost;
+      d[o + 6] = L.air ? 1 : 0;
+      d[o + 7] = R.air ? 1 : 0;
     } else if (ex === 'fraise') {
       const F = det.fr;
       this.st[s] = ST(F.state);
@@ -292,7 +294,7 @@ export const BB_LEGEND = [
   '    · 10 las gafas dieron postura · 20 vale para la pesa (HF) · 40/80 inventada por el juego (gesto/cuerpo) · 100 hay fuente · 200 nudillo · 400 reaparece',
   '  | detector: su estado (d abajo, r subiendo, h arriba aguantando, t arriba; u/d de la cabeza) y sus valores (m en décimas de mm, s en ms, v en mm/s)',
   '  | sucesos: c carga, p2 carga ×2, r repetición (R perfecta, f rápida, ×n carga, I/D brazo), m a medias, t arriba, s aviso',
-  '  | reset y: el detector empezó de cero con la cabeza a esa altura · sigue: se quitó la pausa (con el filtro nuevo, el curl con barra empieza de cero)',
+  '  | reset y: el detector empezó de cero con la cabeza a esa altura · sigue: se quitó la pausa (con el filtro nuevo, los curls empiezan de cero)',
 ];
 
 /** La caja negra de la partida (una sola). */

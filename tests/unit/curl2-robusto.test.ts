@@ -138,7 +138,7 @@ describe('curl2 con el filtro nuevo · la pausa', () => {
     g.move(KL, KR, up(KL, SUBE), up(KR, SUBE), 0.8);
     g.hold(up(KL, SUBE), up(KR, SUBE), 0.3);
     expect(g.types).toEqual(['charge', 'top']);
-    g.det.barResume(); // (al quitar la pausa)
+    g.det.resume(); // (al quitar la pausa)
     // la izquierda con la pesa abajo; la derecha, a 80 cm, vuelve del botón de la pausa hasta la pesa
     const far: P = [0.6, -0.25, -0.35];
     g.move(KL, far, KL, far, 0.1);

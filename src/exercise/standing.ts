@@ -126,7 +126,8 @@ interface HandQ {
 }
 const mkQ = (): HandQ => ({ has: false, p: new Vector3(), stable: 0, conf: false });
 
-const mkArm = () => ({ state: 'down' as 'down' | 'rising' | 'hold' | 'top', bottom: -0.78, max: 0, t0: 0, lost: 0, holdT: 0, pow: 1, ev: null as RepOpts | null });
+// (air y low: los del camino nuevo del curl a un brazo, `armRobust`: subida «en el aire» y lo más bajo desde que bajó)
+const mkArm = () => ({ state: 'down' as 'down' | 'rising' | 'hold' | 'top', bottom: -0.78, max: 0, t0: 0, lost: 0, holdT: 0, pow: 1, ev: null as RepOpts | null, air: false, low: NaN });
 const wrapAng = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 
 export class StandingDetector {
@@ -211,8 +212,14 @@ export class StandingDetector {
       }
     } else if (ex === 'curl') {
       // cada brazo por su cuenta: carga al llegar al hombro y dispara al empezar a bajar
-      this.armStep('left', dt);
-      this.armStep('right', dt);
+      if (c.robust) {
+        this.rbHands(dt);
+        this.armRobust('left', dt);
+        this.armRobust('right', dt);
+      } else {
+        this.armStep('left', dt);
+        this.armStep('right', dt);
+      }
     } else if (ex === 'curl2') {
       if (c.robust) this.barRobust(dt);
       else this.barStep(dt);
@@ -395,6 +402,82 @@ export class StandingDetector {
     } else if (r < d.bottom + 0.08) d.state = 'down';
   }
 
+  // El curl a un brazo con «Manos: filtro nuevo» (lo mismo que armStep, con lo que enseñaron las cajas negras de las gafas):
+  // la mano solo vale estable RB.settle s tras reaparecer o tras un salto imposible (la mancuerna: la mano reaparecía arriba
+  // y, a la imagen siguiente, saltaba 25-50 cm hacia abajo un instante; eso disparaba al llegar arriba y hundía lo más bajo
+  // del recorrido); perdida subiendo, la subida queda en el aire (opción A del usuario, como en el curl con barra); y lo más
+  // bajo, por tiempo y solo con la mano de confianza
+  private armRobust(side: Side, dt: number): void {
+    const h = this.I.hands[side], d = this.curl[side], c = this.c, pt = c.perfectTime, range = c.curlRange / 100, t = this.t;
+    if (!this.rb.q[side].conf) {
+      d.lost += dt;
+      if (d.state === 'hold' && d.lost > 0.25) {
+        d.state = 'top';
+        this.rep({ ...d.ev!, pow: d.pow }, side);
+      } else if (d.state === 'rising' && d.max - d.bottom >= range * 0.4) {
+        // perdida subiendo: en el aire hasta verla otra vez
+        d.air = true;
+        if (d.lost > RB.airMax) {
+          d.state = 'top';
+          d.air = false;
+          this.charge();
+          this.rep({ perfect: false, fast: false }, side);
+        }
+      } else if (d.state === 'rising' && d.lost > 0.5) d.state = 'down';
+      return;
+    }
+    const r = h.wrist.y - this.I.head.p.y, back = d.lost;
+    d.lost = 0;
+    const k = dt * 72; // (lo de armStep, por segundo y no por imagen)
+    d.bottom += (r - d.bottom) * (r < d.bottom ? 1 - Math.pow(0.5, k) : 0.0012 * k); // lo más bajo del recorrido
+    if (d.air) {
+      d.air = false;
+      if (back >= RB.airLow && r - d.bottom < range * 0.5) {
+        // no se vio en un buen rato y ha vuelto abajo: la subida se acabó sin verla; cuenta
+        d.state = 'down';
+        d.low = r;
+        this.charge();
+        this.rep({ perfect: false, fast: false }, side);
+        return;
+      }
+    }
+    if (d.state === 'hold') {
+      if (r >= d.bottom + range * 0.75) {
+        d.holdT += dt;
+        const p = powLevel(d.holdT, c.powHold, c.powHoldInc);
+        if (p > d.pow) {
+          d.pow = p;
+          this.power(p);
+        }
+        return;
+      }
+      d.state = 'top';
+      this.rep({ ...d.ev!, pow: d.pow }, side);
+      return;
+    }
+    if (d.state === 'down') {
+      if (!(r >= d.low)) d.low = r;
+      if (r > d.bottom + Math.min(0.12, range * 0.45) && !(r <= d.low + RB.hyst)) Object.assign(d, { state: 'rising', max: r, t0: t });
+    } else if (d.state === 'rising') {
+      d.max = Math.max(d.max, r);
+      if (r - d.bottom >= range) {
+        const dur = t - d.t0;
+        Object.assign(d, { state: 'hold', holdT: 0, pow: 1, ev: { perfect: dur >= pt * 0.5 && dur < 5 && r - d.bottom >= range + 0.03, fast: pt > 0 && dur < pt * 0.25 } });
+        this.charge();
+        this.top(side);
+        return;
+      }
+      if (r < d.bottom + 0.07) {
+        d.state = 'down';
+        d.low = r;
+        if (d.max - d.bottom > range * 0.55) this.partial('Sube hasta el hombro');
+      }
+    } else if (r < d.bottom + 0.08) {
+      d.state = 'down';
+      d.low = r;
+    }
+  }
+
   // Curl con barra o con la kettlebell (agarrada por el asa con los puños juntos y la bola colgando): las dos manos se
   // siguen como una sola pesa, con la altura de las muñecas respecto a los ojos:
   //  · con las dos a la vista y juntas (a menos de 25 cm: en la pesa), vale su media; con una a la vista basta; con las dos
@@ -493,7 +576,7 @@ export class StandingDetector {
   //    vuelve de pulsar la pausa), la que sigue a la última altura de confianza; si no hay con qué comparar, ninguna;
   //  · perdidas subiendo (opción A del usuario): no dispara; si reaparecen arriba, cuenta y dispara al bajar, como siempre;
   //    si reaparecen abajo antes de RB.airLow s, no cuenta; si no reaparecen en RB.airMax s, cuenta;
-  //  · al quitar la pausa empieza de cero (barResume); lo más bajo del recorrido se adapta con el tiempo, no por imagen.
+  //  · al quitar la pausa empieza de cero (resume); lo más bajo del recorrido se adapta con el tiempo, no por imagen.
   private barRobust(dt: number): void {
     const B = this.bar, R = this.rb, c = this.c, range = c.curlRange / 100, pt = c.perfectTime, t = this.t;
     this.rbHands(dt);
@@ -646,12 +729,11 @@ export class StandingDetector {
     Object.assign(R, { lastY: NaN, lastT: -9, vy: 0, air: false, low: NaN });
   }
 
-  /** Al quitar la pausa (con «Manos: filtro nuevo»): la pesa empieza de cero, como arriba (hay que bajarla antes de la
-   * siguiente) y sin la carga de antes. Durante la pausa la pesa se baja o se suelta, y la mano vuelve del botón: al seguir,
-   * eso no es un curl. */
-  barResume(): void {
-    const B = this.bar;
-    Object.assign(B, { state: 'top', lost: 0, ev: null, holdT: 0, pow: 1 });
+  /** Al quitar la pausa (con «Manos: filtro nuevo»): el curl con barra y el de un brazo empiezan de cero, como arriba (hay
+   * que bajar la pesa antes de la siguiente) y sin la carga de antes. Durante la pausa la pesa se baja o se suelta, y la mano
+   * vuelve del botón: al seguir, eso no es un curl. */
+  resume(): void {
+    for (const a of [this.bar, this.curl.left, this.curl.right]) Object.assign(a, { state: 'top', lost: 0, ev: null, holdT: 0, pow: 1, air: false, low: NaN });
     this.rbClear();
     this.charged = false;
   }

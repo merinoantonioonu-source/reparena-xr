@@ -106,7 +106,14 @@ arreglarlo, cambia de signo). Lo medido allí:
    tiempo real) no se usa hasta confirmarse durante un tiempo (no un número de fotogramas); `clasp` también con manos de
    confianza. Pruebas: las de D1-D6 pasan a «no dispara» o «dispara a tiempo» y los curls limpios de referencia siguen igual
    (kettlebell y barra ancha, lentos y rápidos, 72 y 90 fps).
-3. **Calidad de la mano** (con las capturas, lo de «postura repetida o congelada» no hace falta en las gafas del usuario: la
+3. **Los demás ejercicios con pesas** — empezada: **el curl a un brazo** (`armRobust`), con la caja negra de la mancuerna
+   (`tests/replay/capturas/curl-mancuerna-rayo-al-llegar-arriba.txt`): en dos partidas, un rayo al llegar arriba; la mano,
+   tras un rato perdida, reaparecía arriba y a la imagen siguiente saltaba 25-50 cm hacia abajo (1-3 imágenes), y esos saltos
+   hundían lo más bajo del recorrido hasta 20 cm (D1 de verdad): con la mano casi abajo el juego la creía arriba (cargas y un
+   rayo al perderla). Con el filtro: la mano solo vale estable, lo más bajo solo con ella, la opción A al perderla subiendo y
+   de cero al quitar la pausa; en la caja negra, sin ningún rayo al llegar arriba y cada curl con su rayo al bajar. Aparte:
+   en esas partidas la imagen iba a ratos a 25-30 por segundo. Faltan la elevación frontal y los de dos tiempos (con su caja
+   negra). El plan original de esta fase (capa común, con las capturas, lo de «postura repetida o congelada» no hace falta en las gafas del usuario: la
    capa común sería sobre todo llevar lo de `rbHands`/`rbRead` a `armStep`, `fraiseStep` y `chainStep`) (capa común de lógica pura, p. ej. `src/input/hand-quality.ts`): por mano y fotograma, postura
    nueva o repetida, tiempo desde la última nueva (congelada pasado un umbral sacado de las capturas, orientativo 100-150 ms),
    velocidad entre posturas nuevas con su tiempo real (arregla D6 sin «procesar solo posturas nuevas»: los fotogramas

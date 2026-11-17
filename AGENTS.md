@@ -158,8 +158,8 @@ tabla de `README.md` dice qué hace cada archivo.
   antes de arreglar nada; lo nuevo que convenga seguir, con `diagEvent`. Con él se guarda la **caja negra** de los ejercicios
   con pesas (`src/core/blackbox.ts`: los últimos 25 s del detector, fotograma a fotograma; la reproduce `tests/replay`, ver
   `docs/PLAN-CURL-BARRA.md`): un cambio en el detector de pie, probado también con las capturas de `tests/replay/capturas`.
-  El curl con barra tiene un camino nuevo en pruebas, «Manos: filtro nuevo» (`handsNew` → `StandCfg.robust` → `barRobust`):
-  lo de siempre (`barStep`) no se toca mientras el usuario no lo dé por bueno.
+  El curl con barra y el de un brazo tienen un camino nuevo en pruebas, «Manos: filtro nuevo» (`handsNew` → `StandCfg.robust`
+  → `barRobust`, `armRobust`): lo de siempre (`barStep`, `armStep`) no se toca mientras el usuario no lo dé por bueno.
 - Los modelos de las manos y los mandos se sirven desde el juego (`public/input-profiles`, `src/input/input-models.ts`).
 - **Entornos** (`src/env/`): `EnvSystem` pone el fondo realista como `DomeTexture` de IWSDK en la raíz del nivel (`ajustes pano`) y las luciérnagas (`motes`); `Scenery` pinta el bosque o la isla (`scenery`) con instancias; dónde va cada modelo, `placement.ts`. El fondo realista y el entorno de día esconden el valle, las nubes y el suelo de cómic; Barras colgado (de noche, `nightForest`) los aparta.
 - **Estilo Cómic** (el de serie): `ComicSystem` (`src/style/`) prepara todo lo que aparece con material estándar: su

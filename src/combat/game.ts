@@ -1658,12 +1658,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     pulse().step(dt); // (el pulso que pasa el móvil, si lo escuchas desde las gafas)
     if (this.wasPaused && !GAME.paused) {
       BEAT.relock(); // (al seguir tras la pausa, el pulso se vuelve a enganchar a la música)
-      // «Manos: filtro nuevo» se puede cambiar en la pausa (para comparar) y vale al seguir; con él, el curl con barra empieza de
-      // cero: lo que hiciste en la pausa no es un curl
+      // «Manos: filtro nuevo» se puede cambiar en la pausa (para comparar) y vale al seguir; con él, los curls empiezan de cero:
+      // lo que hiciste en la pausa no es un curl
       this.stCfg.robust = on('handsNew');
       BB.markCfg(time, this.stCfg);
-      if (this.stCfg.robust && this.stCfg.ex === 'curl2') {
-        this.st.barResume();
+      if (this.stCfg.robust && (this.stCfg.ex === 'curl2' || this.stCfg.ex === 'curl')) {
+        this.st.resume();
         BB.markResume();
         this.chargePow = 0;
       }

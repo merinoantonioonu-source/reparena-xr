@@ -115,12 +115,14 @@ describe('caja negra → texto → reproductor', () => {
 // las capturas de las gafas: reproducidas, los mismos sucesos que se grabaron (si no, la caja negra no basta para buscar
 // el fallo). Se guardan aquí con un nombre que diga qué pasó (ver LEEME.md)
 const DIR = join(__dirname, 'capturas');
+// (capturas grabadas con «Manos: filtro nuevo» encendido cuando aún no valía para estos ejercicios: se reproducen sin él)
+const BEFORE: Record<string, string[]> = { 'curl-mancuerna-rayo-al-llegar-arriba.txt': ['curl'] };
 const files = readdirSync(DIR).filter((f) => f.endsWith('.txt'));
 describe.runIf(files.length)('capturas de las gafas', () => {
   for (const f of files)
     splitCaptures(readFileSync(join(DIR, f), 'utf8')).forEach((text, k) => {
       it(`${f} (${k + 1}): reproducida, los mismos sucesos`, () => {
-        const m = mismatches(replay(text));
+        const old = BEFORE[f]?.includes(bbParse(text).ex), m = mismatches(replay(text, old ? { cfg: (c) => ({ ...c, robust: false }) } : {}));
         expect(m.recorded).toEqual([]);
         expect(m.replayed).toEqual([]);
       });

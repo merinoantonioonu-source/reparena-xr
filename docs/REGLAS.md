@@ -165,6 +165,9 @@ No las cambies sin preguntarle.
   la pesa; **si se pierden las dos subiendo (opción A)**, el rayo no sale al perderlas: si reaparecen arriba, cuenta y sale al
   bajar; si reaparecen abajo antes de 1 s, no cuenta; si no reaparecen en 1,5 s, cuenta; y **al quitar la pausa** la pesa
   empieza de cero (no dispara lo que llevaba antes de pausar). Apagado, como arriba.
+- **Curl a un brazo (mancuerna) con «Manos: filtro nuevo»** (lo mismo, con su caja negra: un rayo al llegar arriba en dos
+  partidas): la mano que reaparece o da un salto imposible no cuenta hasta verse estable un instante (ni para el rayo ni
+  para lo más bajo del recorrido); perdida subiendo, la opción A, como en el curl con barra; y al quitar la pausa, de cero.
 - El press de hombro, el press con barra y la flexión en pica se quitaron (no se detectaban bien en las gafas); el leñador,
   porque no aportaba nada.
 - Cargas ×2/×3/×4 aguantando la postura más dura, como en la sentadilla: fondos (abajo, codos a 90°), elevación frontal
