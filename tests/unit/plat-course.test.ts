@@ -7,7 +7,7 @@
 // cofre, para echarse al suelo ante un túnel y para levantarse; y la dificultad sube de un tramo a otro, no dentro de él.
 import { describe, expect, it } from 'vitest';
 import { buildCourse, courseKinds, courseRules, minGap } from '../../src/modes/trek/plat/course.js';
-import { ARC_MAX, ARC_MIN, bossTramo, GOLD_N, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece, type PlatTune, platTune, TUNE_DEF } from '../../src/modes/trek/plat/types.js';
+import { ARC_MAX, ARC_MIN, bossTramo, WALKERS, GOLD_N, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece, type PlatTune, platTune, TUNE_DEF } from '../../src/modes/trek/plat/types.js';
 
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
 /** La tabla de dificultad más fácil (la del recluta salvo la separación: lo mínimo de cada medida) y una difícil. */
@@ -44,10 +44,10 @@ describe('el recorrido de la Travesía de plataformas', () => {
 
   it('cada clase de pieza entra en su tramo: fruta, plataforma y seta desde el 1; túnel, burpee y cangrejo desde el 2', () => {
     expect(courseKinds(0)).toEqual(['log', 'low', 'gap', 'box', 'spring']);
-    expect(courseKinds(1)).toEqual(['log', 'low', 'gap', 'box', 'spring', 'fruit', 'step', 'foe', 'glide', 'fork']);
-    for (const t of [2, 3, 6]) expect(courseKinds(t)).toEqual(['log', 'low', 'gap', 'box', 'spring', 'fruit', 'step', 'foe', 'glide', 'fork', 'crawl', 'burpee', 'side']);
+    expect(courseKinds(1)).toEqual(['log', 'low', 'gap', 'box', 'spring', 'fruit', 'step', 'foe', 'glide', 'fork', 'dive', 'skull']);
+    for (const t of [2, 3, 6]) expect(courseKinds(t)).toEqual(['log', 'low', 'gap', 'box', 'spring', 'fruit', 'step', 'foe', 'glide', 'fork', 'dive', 'skull', 'crawl', 'burpee', 'side', 'quake', 'fire']);
     for (let n = 0; n < 200; n++) {
-      for (const [t, ausentes] of [[0, ['fruit', 'step', 'foe', 'glide', 'fork', 'crawl', 'burpee', 'side']], [1, ['crawl', 'burpee', 'side']]] as const) {
+      for (const [t, ausentes] of [[0, ['fruit', 'step', 'foe', 'glide', 'fork', 'dive', 'skull', 'crawl', 'burpee', 'side', 'quake', 'fire']], [1, ['crawl', 'burpee', 'side', 'quake', 'fire']]] as const) {
         const ps = buildCourse(env(n + 1, 3, 250), t, 2, 0, 0).pieces;
         for (const k of ausentes) expect(hay(ps, k), `tramo ${t}: ${k}`).toBe(false);
         expect(ps.some((p) => p.burpee)).toBe(false);
@@ -55,12 +55,12 @@ describe('el recorrido de la Travesía de plataformas', () => {
     }
   });
 
-  it('desde el tramo 2, en los tramos largos (200 m o más) y a velocidad normal, sale siempre al menos un burpee (túnel y su plataforma)', () => {
+  it('desde el tramo 2, en los tramos largos (260 m o más) y a velocidad normal, sale siempre al menos un burpee (túnel y su plataforma)', () => {
     const r = rng(4242);
     for (let n = 0; n < 1000; n++) {
       const tramo = 2 + Math.floor(r() * 5);
       const vmax = 1.2 + 2 * r();
-      const len = 200 + 150 * r();
+      const len = 260 + 150 * r();
       const ps = buildCourse(env(n + 1, vmax, len), tramo, Math.floor(r() * 7), 0, 0).pieces;
       expect(hay(ps, 'burpee'), `#${n} tramo ${tramo} vmax ${vmax.toFixed(2)} len ${len.toFixed(0)}`).toBe(true);
     }
@@ -116,7 +116,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
       });
       const kinds = courseKinds(tramo);
       for (const p of c.pieces) if (p.k !== 'chest' && p.k !== 'boss' && !(p.k === 'fruit' && p.gold)) expect(kinds, tag).toContain(p.k);
-      if (len >= 200 && vmax <= 3.2) for (const k of retos(tramo)) expect(hay(c.pieces, k), `${tag}: falta ${k}`).toBe(true);
+      if (len >= 300 && vmax <= 3.2) for (const k of retos(tramo)) expect(hay(c.pieces, k), `${tag}: falta ${k}`).toBe(true);
       // Las medidas (courseRules ya las comprueba; aquí, además, a mano).
       for (const p of c.pieces) {
         expect(p.k, tag).not.toBe('burpee');
@@ -133,7 +133,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
           expect([-1, 1], tag).toContain(p.side);
         }
         // los enemigos salen más allá de su sitio, andando hacia ti; los demás, quietos
-        expect(p.walk, tag).toBe(p.k === 'foe' || p.k === 'side' ? FOE_WALK : 0);
+        expect(p.walk, tag).toBe(WALKERS.includes(p.k) ? FOE_WALK : 0);
       }
       expect(c.pieces.filter((p) => p.special).length, tag).toBeLessThanOrEqual(1);
     }
@@ -260,7 +260,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
     let conEspecial = 0;
     const lados = new Set<string>();
     for (let n = 0; n < 600; n++) {
-      const ps = buildCourse(env(n + 1, 2.5, 300), 3, 1, 0, 0).pieces;
+      const ps = buildCourse(env(n + 1, 2.5, 400), 2, 1, 0, 0).pieces;
       const esp = ps.filter((p) => p.special);
       expect(esp.length).toBeLessThanOrEqual(1);
       tramos++;

@@ -102,6 +102,12 @@ No las cambies sin preguntarle.
   con un **supersalto** (sentadilla honda y salto) le caes encima, pasando por arriba, y él salta hacia atrás para quedarse
   delante (nunca detrás); **a la tercera, derrotado**. Si te da una piedra, se rompe la racha, sin vidas; si no saltas mientras
   está mareado, se recupera y vuelve a lanzar (tras dos veces, vale un salto sin más: la pelea siempre se acaba).
+- Travesía de plataformas, **enemigos nuevos** (elegidos por el usuario, de los monstruitos de Quaternius): **la abeja o el
+  murciélago en picado** bajan hacia tu cabeza mientras llegan (agacharse, como bajo una viga); **la calavera** llega botando
+  por la pasarela (saltarla); **el cíclope**, a un lado, golpea el suelo al acercarte y su onda (un muro bajo de luz) corre por
+  la pasarela hacia ti (saltarla cuando llega); **el demonio**, a un lado, lanza una bola de fuego en arco hacia ti (un paso a
+  un lado). Si no, te dan: frenas a la mitad y se rompe la racha, sin vidas. Picado y calavera desde el segundo tramo;
+  cíclope y demonio, desde el tercero.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.

@@ -410,6 +410,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- Travesía, **5 enemigos nuevos** (hecho; con esto, las cinco ideas elegidas): `dive` (abeja o murciélago por `n`; se juzga como
+  la viga, con `h`), `skull` (como el tronco, andando), `quake` (el cíclope a un lado, `ASIDE_U`: al estar a `QUAKE_AT` m
+  golpea, `slam`, y su onda corre por `Piece.fx`; se juzga en el aire cuando pasa) y `fire` (el demonio: a `FIRE_AT` m lanza
+  su bola, que va por `Runner.spits` como el escupitajo y se juzga en `burn`). Los que llegan andando, `WALKERS` (salen
+  `FOE_WALK` más allá). `minGap` deja libre `QUAKE_AT`/`FIRE_AT` antes de ellos. `TrekSystem`: `FOE_LOOK` (un puñado de cada
+  uno, `pool`), `lookOf`, la onda (`waves`) y las bolas de fuego (`fires`, como los escupitajos con más arco).
 - Travesía, **4 jefe del mundo** (hecho): la pieza `boss` (en `HALT`, antes del cofre de los tramos con `bossTramo`: cada
   `BOSS_EVERY`; `Piece.n`, cuál de `BOSSES`; `Piece.got`, los golpes; `BOSS_*` en types.ts). `buildCourse` la pone antes del
   cofre (alarga el tramo corto lo que pida). La pelea es `Runner.fight` (`bossHalt`, `bossStep`: lanza `BOSS_THROWS` con

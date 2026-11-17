@@ -10,7 +10,7 @@
 // - el paso a un lado se puede repetir hacia el otro lado (el centro no se pierde).
 import { describe, expect, it } from 'vitest';
 import { BEHIND, BOUNCE_LIFT, CHEST_PTS, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, STOMP_PTS, SUPER_K, TREASURE_PTS } from '../../src/modes/trek/plat/runner.js';
-import { BOSS_HP, BOSS_LEN, BOSS_STEP, BOSS_THROWS, BOSS_WIND, glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
+import { FIRE_AT, QUAKE_AT, BOSS_HP, BOSS_LEN, BOSS_STEP, BOSS_THROWS, BOSS_WIND, glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece as mk, Sim } from './plat-sim.js';
 import type { Piece } from '../../src/modes/trek/plat/types.js';
 
@@ -1048,5 +1048,69 @@ describe('la Travesía de plataformas: el jefe del mundo', () => {
     expect(s.until(() => s.r.fight!.phase === 'throw', 72 * 10)).toBe(true);
     expect(s.r.fight!.misses).toBe(1);
     expect(lifeEv(s)).toBe(false);
+  });
+});
+
+describe('la Travesía de plataformas: los enemigos nuevos (picado, calavera, cíclope y demonio)', () => {
+  it('la abeja en picado: agachado cuando llega, la esquivas; de pie, te pica (frenas y se rompe la racha)', () => {
+    for (const bien of [true, false]) {
+      const s = new Sim();
+      const d = mk(1, 'dive', 40, 1, { h: 0.25 });
+      s.load(course([d, mk(2, 'chest', 140, 1)]));
+      expect(s.squatsTo(d, 2.5)).toBe(true);
+      if (bien) s.duck(0.3, () => d.judged);
+      else s.until(() => d.judged, 72 * 10);
+      expect(d.ok).toBe(bien);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+      expect(lifeEv(s)).toBe(false);
+    }
+  });
+
+  it('la calavera que bota: saltándola cuando pasa, bien; sin saltar, te da', () => {
+    for (const bien of [true, false]) {
+      const s = new Sim();
+      const k = mk(1, 'skull', 40, 1);
+      s.load(course([k, mk(2, 'chest', 140, 1)]));
+      expect(s.squatsTo(k, 0.5)).toBe(true);
+      if (bien) s.jump();
+      expect(s.until(() => k.judged, 72 * 10)).toBe(true);
+      expect(k.ok).toBe(bien);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+    }
+  });
+
+  it('el cíclope golpea el suelo al acercarte y su onda corre hacia ti: saltándola cuando llega, bien; sin saltar, te da', () => {
+    for (const bien of [true, false]) {
+      const s = new Sim();
+      const q = mk(1, 'quake', 40, 2, { side: 1 });
+      s.load(course([q, mk(2, 'chest', 140, 2)]));
+      expect(s.squatsTo(q, QUAKE_AT + 0.5)).toBe(true);
+      expect(s.until(() => q.spat, 72 * 10)).toBe(true);
+      expect(s.of('slam')).toHaveLength(1);
+      // (la onda, a tus pies: lo que le falta)
+      const zw = (): number => q.at - Math.max(0, q.fx) - s.r.dist;
+      expect(s.until(() => zw() < 0.6, 72 * 10)).toBe(true);
+      if (bien) s.jump();
+      expect(s.until(() => q.judged, 72 * 10)).toBe(true);
+      expect(q.ok).toBe(bien);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+    }
+  });
+
+  it('el demonio lanza su bola de fuego en arco al acercarte: con un paso a un lado la esquivas; quieto, te quemas', () => {
+    for (const bien of [true, false]) {
+      const s = new Sim();
+      const f = mk(1, 'fire', 40, 2, { side: -1 });
+      s.load(course([f, mk(2, 'chest', 140, 2)]));
+      expect(s.squatsTo(f, FIRE_AT + 0.5)).toBe(true);
+      expect(s.until(() => f.spat, 72 * 10)).toBe(true);
+      expect(s.of('spit').filter((e) => e.p === f)).toHaveLength(1);
+      if (bien) s.side(0.4, () => f.judged);
+      else s.until(() => f.judged, 72 * 10);
+      expect(f.ok).toBe(bien);
+      expect(s.of('spat').filter((e) => e.p === f).map((e) => e.ok)).toEqual([bien]);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+      expect(lifeEv(s)).toBe(false);
+    }
   });
 });

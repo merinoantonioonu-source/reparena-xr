@@ -27,7 +27,7 @@ import { warmKeep } from '../../style/warm.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
 import { DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
-import { BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
+import { ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
@@ -40,16 +40,29 @@ const GROUND_SIZE = 260, GROUND_CELL = 4;
 /** Los enemigos: su modelo del catálogo, lo que mide su modelo (m, a escala 1), lo alto que se ven (m: la seta, por la
  * rodilla, para pisarla; el cangrejo, bajo y ancho, a un lado) y su voz. Cuántos de cada uno se preparan. */
 const FOE_LOOK = {
-  foe: { asset: 'foe-mushroom', nat: 2.07, h: 0.6, voice: 'mushroom' },
-  side: { asset: 'foe-crab', nat: 1.57, h: 0.42, voice: 'crab' },
+  foe: { asset: 'foe-mushroom', nat: 2.07, h: 0.6, voice: 'mushroom', pool: 5 },
+  side: { asset: 'foe-crab', nat: 1.57, h: 0.42, voice: 'crab', pool: 5 },
+  // (los nuevos: la abeja y el murciélago en picado, la calavera que bota, el cíclope y el demonio, a un lado)
+  bee: { asset: 'foe-bee', nat: 1.9, h: 0.6, voice: 'bee', pool: 3 },
+  bat: { asset: 'foe-bat', nat: 1.75, h: 0.6, voice: 'bat', pool: 3 },
+  skull: { asset: 'foe-skull', nat: 1.55, h: 0.5, voice: 'skull', pool: 3 },
+  quake: { asset: 'foe-cyclops', nat: 1.67, h: 1.6, voice: 'cyclops', pool: 2 },
+  fire: { asset: 'foe-demon', nat: 1.62, h: 1.4, voice: 'demon', pool: 2 },
 } as const;
-const FOE_POOL = 5;
+type Look = keyof typeof FOE_LOOK;
+const LOOKS = Object.keys(FOE_LOOK) as Look[];
+/** El aspecto de una pieza que es un enemigo (o null): la abeja o el murciélago, según su `n`. */
+const lookOf = (p: Piece): Look | null => (p.k === 'dive' ? (p.n % 2 ? 'bat' : 'bee') : p.k === 'foe' || p.k === 'side' || p.k === 'skull' || p.k === 'quake' || p.k === 'fire' ? p.k : null);
+/** Los que vuelan (sin andar: aletean). */
+const FLY: readonly Look[] = ['bee', 'bat'];
+/** La onda del cíclope (una franja de luz que corre por la pasarela) y la bola de fuego del demonio (su color y su arco, m). */
+const WAVE_POOL = 2, FIRE_POOL = 2, FIRE_COL = 0xff7a1a, FIRE_ARC = 1.3, SPIT_ARC = 0.25;
 /** Lo que dura cada gesto que no se repite (s): morder, chafarse (y lo que tarda en esfumarse la seta pisada). */
 const BITE_T = 0.9, SQUASH_T = 0.18, DIE_T = 1.3;
 
 /** Un enemigo hecho (se reutiliza): su modelo con sus animaciones, la pieza que es ahora y lo que está haciendo. */
 interface FoeRig {
-  kind: 'foe' | 'side';
+  kind: Look;
   root: Group;
   model: Object3D;
   mixer: AnimationMixer;
@@ -104,6 +117,8 @@ const SPIT_POOL = 3, SPIT_COL = 0x9dff3a;
 /** Un escupitajo que se ve: su cangrejo, desde dónde y hacia dónde vuela (en la arena), lo que lleva y lo que dura. */
 interface SpitFx {
   g: Group;
+  /** Lo alto de su arco (m): el escupitajo, casi recto; la bola de fuego, en arco. */
+  arc: number;
   p: Piece | null;
   from: Vector3;
   to: Vector3;
@@ -195,8 +210,10 @@ export class TrekSystem extends createSystem({}) {
   private readonly winds: Wind[] = [];
   /** Los brillos de las frutas doradas a la vista (hechos al empezar y reutilizados). */
   private readonly goldGlow: Sprite[] = [];
-  /** Los escupitajos (hechos al empezar y reutilizados). */
+  /** Los escupitajos y las bolas de fuego (hechos al empezar y reutilizados) y las ondas del cíclope. */
   private readonly spits: SpitFx[] = [];
+  private readonly fires: SpitFx[] = [];
+  private readonly waves: { m: Mesh; p: Piece | null; dustT: number }[] = [];
   /** El giro del fondo realista que se pidió a IWSDK por última vez (rad). */
   private panoYaw = 0;
   /** Lo que se guardó al acabar la última ronda (la medalla y el fantasma). */
@@ -280,8 +297,33 @@ export class TrekSystem extends createSystem({}) {
       g.add(blob, glow);
       g.visible = false;
       this.world.createTransformEntity(g);
-      this.spits.push({ g, p: null, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
+      this.spits.push({ g, p: null, arc: SPIT_ARC, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
     }
+    // las bolas de fuego del demonio: como los escupitajos, más grandes y naranjas
+    const fireMat = new MeshBasicMaterial({ color: 0xffc04a, toneMapped: false }), fireGlow = new SpriteMaterial({ map: gt, color: FIRE_COL, transparent: true, opacity: 0.95, depthWrite: false, blending: AdditiveBlending, toneMapped: false }), fireGeo = new SphereGeometry(0.1, 12, 8);
+    for (let i = 0; i < FIRE_POOL; i++) {
+      const g = new Group(), blob = new Mesh(fireGeo, fireMat), glow = new Sprite(fireGlow);
+      blob.userData.noInk = glow.userData.noInk = true;
+      glow.scale.setScalar(0.7);
+      g.add(blob, glow);
+      g.visible = false;
+      this.world.createTransformEntity(g);
+      this.fires.push({ g, p: null, arc: FIRE_ARC, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
+    }
+    warmKeep(new Mesh(fireGeo, fireMat));
+    warmKeep(new Sprite(fireGlow));
+    // la onda del cíclope: un muro bajo de luz naranja (35 cm, lo que hay que saltar) que corre por la pasarela (en el mundo
+    // que baja y sube)
+    const waveMat = new MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.8, depthWrite: false, blending: AdditiveBlending, toneMapped: false, side: 2 }), waveGeo = new PlaneGeometry(2.6, 0.35);
+    waveGeo.translate(0, 0.175, 0);
+    for (let i = 0; i < WAVE_POOL; i++) {
+      const m = new Mesh(waveGeo, waveMat);
+      m.userData.noInk = true;
+      m.visible = false;
+      this.root.add(m);
+      this.waves.push({ m, p: null, dustT: 0 });
+    }
+    warmKeep(new Mesh(waveGeo, waveMat));
     warmKeep(new Mesh(blobGeo, blobMat));
     warmKeep(new Sprite(glowMat));
     // el brillo dorado de las doradas (en el mundo que baja y sube: va con ellas)
@@ -421,6 +463,14 @@ export class TrekSystem extends createSystem({}) {
     for (const r of this.rigs) this.freeRig(r);
     this.rigOf.clear();
     for (const b of this.bossRigs) this.freeBoss(b);
+    for (const S of this.fires) {
+      S.p = null;
+      S.g.visible = false;
+    }
+    for (const w of this.waves) {
+      w.p = null;
+      w.m.visible = false;
+    }
     this.shotFx.on = false;
     if (this.rock) this.rock.visible = false;
   }
@@ -559,7 +609,7 @@ export class TrekSystem extends createSystem({}) {
         break;
       case 'show':
         if (e.p.k === 'boss') this.takeBoss(e.p);
-        else if (e.p.k === 'foe' || e.p.k === 'side') this.takeRig(e.p);
+        else if (lookOf(e.p)) this.takeRig(e.p);
         else this.looks.set(e.p.id, piecePuts(e.p, this.calibRef, []));
         break;
       case 'hide': {
@@ -568,6 +618,7 @@ export class TrekSystem extends createSystem({}) {
         this.gone.delete(e.p.id);
         const r = this.rigOf.get(e.p.id);
         if (r) this.freeRig(r);
+        for (const w of this.waves) if (w.p === e.p) w.p = null;
         const b = this.bossRigs.find((x) => x.p === e.p);
         if (b) this.freeBoss(b);
         break;
@@ -603,14 +654,26 @@ export class TrekSystem extends createSystem({}) {
         break;
       }
       case 'wake': {
-        // la seta o el cangrejo echan a andar hacia ti: su voz
-        const L = FOE_LOOK[e.p.k === 'side' ? 'side' : 'foe'];
+        // la seta, el cangrejo, la calavera o el picado echan a andar (o a volar) hacia ti: su voz
+        const L = FOE_LOOK[lookOf(e.p) ?? 'foe'];
         SND.hiss(this.world3({ s: e.p.at + e.p.walk, u: e.p.k === 'side' ? e.p.side * CRAB_U : 0, y: 0.3 }, this.at), 1, L.voice);
         break;
       }
+      case 'slam': {
+        // el cíclope golpea el suelo (salta y cae): su voz y, al caer, la onda
+        this.rigAct(e.p, 'spit');
+        SND.hiss(this.world3({ s: e.p.at, u: e.p.side * ASIDE_U, y: 1 }, this.at), 1.4, FOE_LOOK.quake.voice);
+        const w = this.waves.find((x) => !x.p);
+        if (w) {
+          w.p = e.p;
+          w.dustT = 0;
+        }
+        break;
+      }
       case 'spit': {
-        // el cangrejo se encabrita (el aviso) y escupe hacia donde estaba tu cabeza
-        const S = this.spits.find((x) => !x.p);
+        // el cangrejo se encabrita (el aviso) y escupe hacia donde estaba tu cabeza; el demonio lanza su bola de fuego en arco
+        const fire = e.p.k === 'fire';
+        const S = (fire ? this.fires : this.spits).find((x) => !x.p);
         if (S) {
           S.p = e.p;
           S.t = 0;
@@ -623,16 +686,17 @@ export class TrekSystem extends createSystem({}) {
           S.g.visible = true;
         }
         this.rigAct(e.p, 'spit');
-        SND.hiss(this.world3({ s: e.p.at + e.p.walk, u: e.p.side * CRAB_U, y: 0.3 }, this.at), 1.2, FOE_LOOK.side.voice);
+        SND.hiss(this.world3({ s: e.p.at + e.p.walk, u: e.p.side * (fire ? ASIDE_U : CRAB_U), y: 0.3 }, this.at), 1.2, FOE_LOOK[fire ? 'fire' : 'side'].voice);
         break;
       }
       case 'spat': {
-        const S = this.spits.find((x) => x.p === e.p);
+        const fire = e.p.k === 'fire';
+        const S = (fire ? this.fires : this.spits).find((x) => x.p === e.p);
         if (S) {
-          // te da: salpica de baba delante de la cara (a medio metro: las chispas no se pintan pegadas a los ojos); esquivado,
-          // se deshace a tu lado
+          // te da: salpica de baba (o de fuego) delante de la cara (a medio metro: las chispas no se pintan pegadas a los ojos);
+          // esquivado, se deshace a tu lado
           const at = e.ok ? S.g.position : this.v.copy(S.from).sub(S.to).setLength(0.55).add(S.to);
-          HOOKS.sparks(at, e.ok ? 6 : 18, SPIT_COL);
+          HOOKS.sparks(at, fire ? (e.ok ? 16 : 26) : e.ok ? 6 : 18, fire ? FIRE_COL : SPIT_COL);
           S.p = null;
           S.g.visible = false;
         }
@@ -677,15 +741,16 @@ export class TrekSystem extends createSystem({}) {
           HOOKS.sparks(at, 18, 0xb07a44);
           HOOKS.sparks(at, 12, 0xffd166);
         }
-        // la seta pisada se chafa; el cangrejo esquivado muerde el aire
-        if (e.t === 'pass') this.rigAct(e.p, e.p.k === 'foe' ? 'die' : 'miss');
+        // la seta pisada se chafa; el cangrejo y la calavera esquivados muerden el aire; el picado esquivado sigue de largo
+        if (e.t === 'pass' && (e.p.k === 'foe' || e.p.k === 'side' || e.p.k === 'skull' || e.p.k === 'dive')) this.rigAct(e.p, e.p.k === 'foe' ? 'die' : 'miss');
         break;
       case 'hit':
         this.diag('hit', e.p);
-        if (e.p.k === 'foe' || e.p.k === 'side') {
+        const lk = lookOf(e.p);
+        if (lk) {
           // te muerde (y se aparta a un lado: nunca se atraviesa)
-          this.rigAct(e.p, 'bite');
-          SND.hiss(this.world3({ s: e.p.at + e.p.walk, u: e.p.k === 'side' ? e.p.side * CRAB_U : 0, y: 0.3 }, this.at), 1, FOE_LOOK[e.p.k].voice);
+          if (e.p.k !== 'quake' && e.p.k !== 'fire') this.rigAct(e.p, 'bite');
+          SND.hiss(this.world3({ s: e.p.at + e.p.walk, u: e.p.k === 'side' ? e.p.side * CRAB_U : 0, y: 0.3 }, this.at), 1, FOE_LOOK[lk].voice);
         }
         break;
       case 'vanish':
@@ -831,17 +896,17 @@ export class TrekSystem extends createSystem({}) {
 
   // ---------------------------------------------------------------- los enemigos
 
-  /** Los enemigos, en cuanto sus modelos estén cargados: FOE_POOL de cada uno, escondidos hasta que salga su pieza (y
+  /** Los enemigos, en cuanto sus modelos estén cargados: los suyos de cada uno (`pool`), escondidos hasta que salga su pieza (y
    * precompilados en el menú: sin tirón al salir el primero). */
   private buildFoes(): boolean {
     // (¿ya están? sin copiarlos: getGLTF copia el modelo entero si no se le pide el compartido)
-    for (const kind of ['foe', 'side'] as const) if (!AssetManager.getGLTF(FOE_LOOK[kind].asset, { shared: true })) return false;
-    for (const kind of ['foe', 'side'] as const) {
+    for (const kind of LOOKS) if (!AssetManager.getGLTF(FOE_LOOK[kind].asset, { shared: true })) return false;
+    for (const kind of LOOKS) {
       const L = FOE_LOOK[kind];
-      // FOE_POOL para el juego y uno más, escondido, para precompilarlo igual que ellos (con su sombra) en el menú
-      for (let i = 0; i <= FOE_POOL; i++) {
+      // los suyos para el juego y uno más, escondido, para precompilarlo igual que ellos (con su sombra) en el menú
+      for (let i = 0; i <= L.pool; i++) {
         const gltf = AssetManager.getGLTF(L.asset)!, model = gltf.scene, root = new Group();
-        root.name = `travesia-${kind === 'foe' ? 'seta' : 'cangrejo'}-${i}`;
+        root.name = `travesia-${kind}-${i}`;
         model.scale.setScalar(L.h / L.nat);
         model.traverse((o) => {
           const m = o as Mesh;
@@ -849,7 +914,7 @@ export class TrekSystem extends createSystem({}) {
           m.castShadow = true;
           if ((o as SkinnedMesh).isSkinnedMesh) m.frustumCulled = false; // (animado, se sale de su caja de reposo)
         });
-        if (i === FOE_POOL) {
+        if (i === L.pool) {
           warmKeep(model);
           break;
         }
@@ -862,14 +927,14 @@ export class TrekSystem extends createSystem({}) {
       }
     }
     // (las piezas que salieron antes de tener los modelos)
-    for (const p of this.runner.live) if ((p.k === 'foe' || p.k === 'side') && !this.rigOf.has(p.id)) this.takeRig(p);
+    for (const p of this.runner.live) if (lookOf(p) && !this.rigOf.has(p.id)) this.takeRig(p);
     return true;
   }
 
-  /** Un enemigo libre para la pieza p (si no hay, no se ve: con FOE_POOL de cada uno no pasa). */
+  /** Un enemigo libre para la pieza p (si no hay, no se ve: con los de cada uno no pasa). */
   private takeRig(p: Piece): void {
     if (this.rigOf.has(p.id)) return;
-    const kind = p.k === 'side' ? 'side' : 'foe';
+    const kind = lookOf(p);
     const r = this.rigs.find((x) => x.kind === kind && !x.p);
     if (!r) return;
     r.p = p;
@@ -879,7 +944,7 @@ export class TrekSystem extends createSystem({}) {
     r.root.visible = true;
     r.root.scale.set(1, 1, 1);
     this.rigOf.set(p.id, r);
-    this.clip(r, 'Idle');
+    this.clip(r, FLY.includes(r.kind) ? 'Flying' : 'Idle');
   }
 
   private freeRig(r: FoeRig): void {
@@ -896,7 +961,8 @@ export class TrekSystem extends createSystem({}) {
     if (!r) return;
     r.act = act;
     r.t = 0;
-    this.clip(r, act === 'die' ? 'Death' : act === 'spit' ? 'Jump' : 'Bite_Front', true);
+    // (escupir: el cangrejo se encabrita y el cíclope salta para golpear el suelo; el demonio echa el brazo y lanza)
+    this.clip(r, act === 'die' ? 'Death' : act === 'spit' ? (r.kind === 'fire' ? 'Bite_Front' : 'Jump') : 'Bite_Front', true);
   }
 
   /** Su animación (con un fundido corto); `once`, sin repetir y quieta al acabar. */
@@ -921,14 +987,29 @@ export class TrekSystem extends createSystem({}) {
       if (!p) continue;
       r.t += dt;
       // (andan solo en pleno tramo: entre tramos, el recorrido está quieto y ellos también)
-      if (r.act === 'live') this.clip(r, p.woke && p.walk > 0 && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 'Walk' : 'Idle');
-      else if ((r.act === 'bite' || r.act === 'miss' || r.act === 'spit') && r.t > BITE_T) {
+      const fly = FLY.includes(r.kind);
+      if (r.act === 'live') this.clip(r, fly ? 'Flying' : p.woke && p.walk > 0 && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 'Walk' : 'Idle');
+      else if ((r.act === 'bite' || r.act === 'miss' || r.act === 'spit') && r.t > BITE_T && !(fly && p.judged)) {
         r.act = 'live';
-        this.clip(r, 'Idle');
+        this.clip(r, fly ? 'Flying' : 'Idle');
       }
-      // tras morderte se aparta a un lado (fuera de la pasarela: nunca lo atraviesas)
-      if (r.act === 'bite' || (r.act === 'live' && p.ok === false)) r.off = Math.min(0.9, r.off + dt * 2);
-      let k = 1;
+      // tras morderte se aparta a un lado (fuera de la pasarela: nunca lo atraviesas); el cíclope y el demonio ya están a un lado
+      if ((r.act === 'bite' || (r.act === 'live' && p.ok === false)) && r.kind !== 'quake' && r.kind !== 'fire') r.off = Math.min(0.9, r.off + dt * 2);
+      let k = 1, y = 0;
+      if (fly) {
+        // en picado: baja desde lo alto mientras se acerca, hasta la altura de tu cabeza al llegar; pasado (o tras picarte),
+        // sigue de largo hacia arriba y se esfuma
+        y = this.calibRef - 0.35 + 1.6 * Math.min(1, p.walk / FOE_WALK);
+        if (p.judged) {
+          y += 2.2 * r.t;
+          k = Math.max(0, 1 - r.t / 0.6);
+          if (k <= 0) {
+            this.freeRig(r);
+            continue;
+          }
+          r.root.scale.setScalar(k);
+        }
+      } else if (r.kind === 'skull' && p.woke && !p.judged) y = 0.28 * Math.abs(Math.sin(this.clock * 6 + p.id)); // (botando)
       if (r.act === 'die') {
         // la seta pisada: se chafa y, al rato, se esfuma
         const sq = Math.min(1, r.t / SQUASH_T);
@@ -941,9 +1022,9 @@ export class TrekSystem extends createSystem({}) {
         if (k < 1) r.root.scale.multiplyScalar(k);
       }
       r.root.visible = !lite;
-      const u = (p.k === 'side' ? p.side * CRAB_U : 0) + r.dir * r.off + p.lane * FORK_U - this.runner.uShift;
+      const u = (p.k === 'side' ? p.side * CRAB_U : p.k === 'quake' || p.k === 'fire' ? p.side * ASIDE_U : 0) + r.dir * r.off + p.lane * FORK_U - this.runner.uShift;
       const ry = this.runner.tk.bend(p.at + p.walk, u, this.bp);
-      r.root.position.set(this.bp.x, 0, this.bp.z);
+      r.root.position.set(this.bp.x, y, this.bp.z);
       r.root.quaternion.setFromAxisAngle(this.up, ry);
       if (!lite) r.mixer.update(dt);
     }
@@ -1134,33 +1215,70 @@ export class TrekSystem extends createSystem({}) {
 
   /** De dónde sale el escupitajo: la boca del cangrejo (en la arena). */
   private spitFrom(p: Piece, out: Vector3): Vector3 {
+    // (la bola de fuego, de la mano en alto del demonio, a un lado de la pasarela)
+    if (p.k === 'fire') return this.world3({ s: p.at - 0.2, u: p.side * (ASIDE_U - 0.3), y: 1.5 }, out);
     return this.world3({ s: p.at + p.walk - 0.15, u: p.side * CRAB_U, y: 0.3 }, out);
   }
 
   /** El escupitajo: mientras el cangrejo se encabrita, crece en su boca (y va con él); luego vuela recto, un poco en arco,
    * hasta donde estaba tu cabeza. Si la ronda se para (descanso, pausa), se quita. */
   private stepSpits(dt: number): void {
-    for (const S of this.spits) {
-      if (!S.p) continue;
-      if (GAME.phase !== 'playing' || GAME.between) {
-        S.p = null;
-        S.g.visible = false;
+    this.stepWaves(dt);
+    for (const S of this.spits) this.stepSpit(S, dt);
+    for (const S of this.fires) this.stepSpit(S, dt);
+  }
+
+  /** La onda del cíclope: corre por la pasarela hacia ti desde su lado (donde la lleva la lógica, `p.fx`), levantando polvo;
+   * pasada (o fuera de la ronda), se apaga. */
+  private stepWaves(dt: number): void {
+    const R = this.runner;
+    for (const w of this.waves) {
+      const p = w.p;
+      const s = p ? p.at - Math.max(0, p.fx) : 0;
+      if (!p || GAME.phase !== 'playing' || GAME.between || s < R.dist - head.p.z - 3 || (p.judged && s < R.dist - head.p.z + 0.5)) {
+        w.p = null;
+        w.m.visible = false;
         continue;
       }
+      if (p.fx < 0) {
+        w.m.visible = false;
+        continue;
+      }
+      const ry = R.tk.bend(s, p.lane * FORK_U - R.uShift, this.bp);
+      w.m.position.set(this.bp.x, 0, this.bp.z);
+      w.m.rotation.set(0, ry, 0);
+      w.m.scale.set(1, 1 + 0.25 * Math.sin(this.clock * 24), 1); // (vibra)
+      w.m.visible = !LITE.on;
       if (GAME.paused) continue;
-      S.t += dt;
-      if (S.t < S.wind) {
-        this.spitFrom(S.p, S.from);
-        S.g.position.copy(S.from);
-        S.g.scale.setScalar(Math.max(0.01, S.t / S.wind));
-        continue;
+      w.dustT += dt;
+      if (w.dustT > 0.12) {
+        w.dustT = 0;
+        HOOKS.sparks(this.world3({ s, u: (Math.random() - 0.5) * 2, y: 0.1 }, this.at), 3, 0xd8b890);
       }
-      const k = Math.min(1.15, (S.t - S.wind) / Math.max(0.05, S.dur));
-      S.g.position.lerpVectors(S.from, S.to, k);
-      S.g.position.y += 0.25 * Math.sin(Math.PI * Math.min(1, k)); // (un poco en arco)
-      S.g.scale.setScalar(1);
     }
   }
+
+  private stepSpit(S: SpitFx, dt: number): void {
+    if (!S.p) return;
+    if (GAME.phase !== 'playing' || GAME.between) {
+      S.p = null;
+      S.g.visible = false;
+      return;
+    }
+    if (GAME.paused) return;
+    S.t += dt;
+    if (S.t < S.wind) {
+      this.spitFrom(S.p, S.from);
+      S.g.position.copy(S.from);
+      S.g.scale.setScalar(Math.max(0.01, S.t / S.wind));
+      return;
+    }
+    const k = Math.min(1.15, (S.t - S.wind) / Math.max(0.05, S.dur));
+    S.g.position.lerpVectors(S.from, S.to, k);
+    S.g.position.y += S.arc * Math.sin(Math.PI * Math.min(1, k)); // (en arco: el escupitajo, casi recto; la bola de fuego, alto)
+    S.g.scale.setScalar(1);
+  }
+
 
   // ---------------------------------------------------------------- el turbo
 

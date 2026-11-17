@@ -27,17 +27,21 @@ export type PieceKind =
   | 'fork' // la bifurcación: la pasarela se abre en dos ramas; se elige con un paso a un lado al llegar (fluido)
   | 'glide' // el barranco: ancho, con piedras abajo; se cruza planeando con los brazos en cruz (fluido)
   | 'box' // el barril sorpresa, flotando sobre la pasarela: se rompe de un cabezazo, saltando debajo (fluido; da fruta)
+  | 'dive' // la abeja o el murciélago (por turno, `n`), en picado hacia tu cabeza: agacharse (fluido)
+  | 'skull' // la calavera que llega botando por la pasarela: saltarla (fluido)
+  | 'quake' // el cíclope, a un lado: golpea el suelo y su onda corre por la pasarela hacia ti: saltarla (fluido)
+  | 'fire' // el demonio, a un lado: lanza una bola de fuego en arco hacia ti: un paso a un lado (fluido)
   | 'boss' // el jefe del mundo, al final de cada BOSS_EVERY tramos y antes del cofre (paso): esquivar y supersalto encima
   | 'chest'; // fin del tramo (paso)
 
 /** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
  * si fallas, chocas o tropiezas (frenas y pierdes la racha, sin perder vidas, y sigues). El hueco también: si no saltas a
  * tiempo, tropiezas al cruzarlo (nunca se cae). */
-export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork'];
+export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork', 'dive', 'skull', 'quake', 'fire'];
 /** Los pasos: el mundo frena suave y te para a `STOP_AT` (solo el cofre, al acabar el tramo). */
 export const HALT: readonly PieceKind[] = ['chest', 'boss'];
 /** Los que se cruzan saltando (entre dos seguidos, al menos `JUMP_GAP_S` a velocidad máxima). */
-export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'box', 'glide', 'spring'];
+export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'box', 'glide', 'spring', 'skull', 'quake'];
 /** ¿Se cruza saltando? (las de `JUMPS` y la fruta dorada, que flota alta en el centro) */
 export const isJump = (p: Piece): boolean => JUMPS.includes(p.k) || (p.k === 'fruit' && p.gold);
 /** Los de suelo (tras ellos, `FLOOR_UP_S` para levantarse antes de otra cosa; salvo la plataforma de un burpee, que llega
@@ -93,6 +97,13 @@ export const glideArc = (k: number): number => (k < 0.2 ? (k / 0.2) * (k / 0.2) 
 export const FOE_WALK = 4, FOE_WAKE = 24, FOE_V = 0.9;
 /** El cangrejo corretea a esta distancia del centro (m, a su lado): hay que apartarse al otro. */
 export const CRAB_U = 0.5;
+/** Los que llegan andando (o volando) hacia ti, desde FOE_WALK m más allá de su sitio: la seta, el cangrejo, la abeja o el
+ * murciélago en picado y la calavera. */
+export const WALKERS: readonly PieceKind[] = ['foe', 'side', 'dive', 'skull'];
+/** El cíclope y el demonio: a qué lado de la pasarela están (m), cuándo golpea el suelo (m de tu cabeza), lo que tarda en
+ * salir su onda (s), lo deprisa que corre (m/s) y su ventana (m); cuándo lanza el demonio (m), lo que tarda en soltarla y en
+ * llegar (s) y lo que hay que apartar la cabeza de donde estaba (m). */
+export const ASIDE_U = 1.7, QUAKE_AT = 8, QUAKE_WIND = 0.5, QUAKE_V = 5, QUAKE_WIN = 0.5, FIRE_AT = 11, FIRE_WIND = 0.5, FIRE_DUR = 1.3, FIRE_R = 0.3;
 /** El escupitajo del cangrejo (pedido del usuario): lo lanza una vez, solo desde lejos (cuando te queda entre `SPIT_NEAR` y
  * `SPIT_FAR` m) y si no hay otro reto cerca de ti (`SPIT_FREE` m: nada pide dos movimientos a la vez); se encabrita
  * `SPIT_WIND` s (el aviso) y vuela deprisa, a `SPIT_V` m/s (más lo que avanzas), hacia donde estaba tu cabeza. Se esquiva
@@ -180,11 +191,13 @@ export interface Piece {
   /** En una bifurcación, la rama de la pieza (−1 izquierda —la tranquila—, 1 derecha —la difícil, con más premios—; 0, la
    * pasarela de siempre): solo se juzga si vas por ella. */
   lane: -1 | 0 | 1;
+  /** El ataque del cíclope: lo que ha corrido su onda desde él (m; negativo, aún no ha salido). −1 en los demás. */
+  fx: number;
 }
 
 /** Una pieza nueva, con su estado a cero. */
 export function piece(id: number, k: PieceKind, at: number, tramo: number, o: Partial<Pick<Piece, 'len' | 'side' | 'h' | 'n'>> = {}): Piece {
-  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: k === 'foe' || k === 'side' ? FOE_WALK : 0, woke: false, spat: false, gold: false, got: 0, mask: 0, lane: 0 };
+  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: WALKERS.includes(k) ? FOE_WALK : 0, woke: false, spat: false, gold: false, got: 0, mask: 0, lane: 0, fx: -1 };
 }
 
 /** Lo que manda la tabla de dificultad (por rango, PR E; los ajustes `plat*`): el sitio de más entre retos (×, 1 = el de
@@ -313,7 +326,9 @@ export type PlatEv =
    * se marea, recibe un supersalto (y salta hacia atrás de `from` a `to`, o muere al final del salto) o se recupera. */
   | { t: 'boss'; p: Piece; act: 'start' | 'dizzy' | 'wake' | 'hurt' | 'die'; from?: number; to?: number }
   | { t: 'bthrow'; p: Piece; shot: BossShot; wind: number; dur: number; aim: { x: number; y: number; z: number } }
-  | { t: 'bdodge'; p: Piece; ok: boolean };
+  | { t: 'bdodge'; p: Piece; ok: boolean }
+  /** El cíclope golpea el suelo (su onda sale en `wind` s). */
+  | { t: 'slam'; p: Piece; wind: number };
 
 /** Los colores de los avisos (los de la Travesía): pedir algo, lo que se ha hecho mal y lo conseguido. */
 export const COL_ASK = '#ffd166';
