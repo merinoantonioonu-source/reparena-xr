@@ -18,7 +18,7 @@
  *
  * Lógica pura, sin IWSDK.
  */
-import { ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
+import { FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
 
 /** Las clases de la lista de cada tramo: la primera, lo básico (el tronco, la viga y el hueco); desde el segundo, también
  * la fruta, la plataforma alta y la seta (que se pisa); desde el tercero, el túnel, el burpee y el cangrejo (que se esquiva
@@ -26,9 +26,9 @@ import { ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N,
  * segmento de dos (un túnel y, `BURPEE_GAP_S` después, una plataforma con `burpee`): en el recorrido no hay piezas de esa
  * clase. (Las gemas del plan son las frutas.) */
 export function courseKinds(tramo: number): PieceKind[] {
-  // (el barril sorpresa, desde el principio: es un premio, no un obstáculo)
-  const k: PieceKind[] = ['log', 'low', 'gap', 'box'];
-  if (tramo >= 1) k.push('fruit', 'step', 'foe', 'glide');
+  // (el barril sorpresa y el trampolín, desde el principio: son premios, no obstáculos)
+  const k: PieceKind[] = ['log', 'low', 'gap', 'box', 'spring'];
+  if (tramo >= 1) k.push('fruit', 'step', 'foe', 'glide', 'fork');
   if (tramo >= 2) k.push('crawl', 'burpee', 'side');
   return k;
 }
@@ -93,10 +93,12 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
   }
   // los premios (el barril sorpresa y las GOLD_N frutas doradas: altas en el centro, o una encima de una plataforma), detrás
   // de los retos en la cola (se sacan por el final: primero salen los retos; en un tramo corto, los premios que quepan)
-  const bonus: (PieceKind | 'gold')[] = ['box'];
+  const bonus: (PieceKind | 'gold')[] = ['box', 'spring'];
   for (let i = 0; i < GOLD_N; i++) bonus.splice(Math.floor(env.rnd() * (bonus.length + 1)), 0, 'gold');
-  const bi = queue.indexOf('box');
-  if (bi >= 0) queue.splice(bi, 1);
+  for (const b of ['box', 'spring'] as const) {
+    const bi = queue.indexOf(b);
+    if (bi >= 0) queue.splice(bi, 1);
+  }
   queue.unshift(...(bonus as PieceKind[]));
   const pieces: Piece[] = [];
   let special = false; // (ya salió la fruta especial de este tramo)
@@ -110,7 +112,9 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     // (las de la cola, las que aún no han salido en el tramo, van más juntas: así caben todas aunque el tramo sea corto)
     const intro = queue.length > 0;
     const k = (queue.pop() ?? kinds[Math.floor(env.rnd() * kinds.length)]!) as PieceKind | 'gold';
-    const prev = pieces[pieces.length - 1];
+    // (la de antes en la pasarela: tras una bifurcación, la bifurcación, no lo de sus ramas)
+    let prev: Piece | undefined;
+    for (let i = pieces.length - 1; i >= 0 && !prev; i--) if (pieces[i]!.lane === 0) prev = pieces[i];
     const id = id0 + pieces.length;
     // Lo que sale ahora: una pieza o, el burpee, dos (el túnel y su plataforma).
     const seg: Piece[] = [];
@@ -127,6 +131,28 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     } else if (k === 'low') {
       const h = clamp(T.duck + 0.015 * tramo + rand(0, 0.04), T.duck, T.duck + TUNE_UP.duck);
       seg.push(piece(id, k, 0, tramo, { h }));
+    } else if (k === 'spring') {
+      // el trampolín: lo que vuelas, libre (su largo), con sus frutas en el arco
+      seg.push(piece(id, k, 0, tramo, { len: rand(SPRING_MIN, SPRING_MAX), n: SPRING_N }));
+    } else if (k === 'fork') {
+      // la bifurcación: a la derecha (la difícil) un tronco, un barril sorpresa y, si queda alguna, una dorada; a la izquierda
+      // (la tranquila), dos frutas; cada rama con sus separaciones; su largo, lo que pidan y las rampas de separarse y juntarse
+      const f = piece(id, k, 0, tramo), j = Math.max(MIN_GAP, JUMP_GAP_S * env.vmax), o = FORK_RAMP + 1;
+      const R: Piece[] = [piece(id + 1, 'log', o, tramo), piece(id + 2, 'box', o + j, tramo)];
+      const gi = queue.indexOf('gold' as PieceKind);
+      if (gi >= 0) {
+        queue.splice(gi, 1);
+        const g = piece(id + 3, 'fruit', o + 2 * j, tramo);
+        g.gold = true;
+        R.push(g);
+      }
+      const Lf = [piece(id + R.length + 1, 'fruit', o + 1, tramo, { side: -1 }), piece(id + R.length + 2, 'fruit', o + 1 + Math.max(MIN_GAP, SIDE_BACK_S * env.vmax), tramo, { side: 1 })];
+      for (const p of R) p.lane = 1;
+      for (const p of Lf) p.lane = -1;
+      const last = Math.max(...R.map((p) => p.at + p.len), ...Lf.map((p) => p.at + p.len));
+      f.len = last + 1 + FORK_RAMP;
+      seg.push(f, ...[...R, ...Lf].sort((a, b) => a.at - b.at));
+      seg.forEach((p, i) => (p.id = id + i)); // (los id, seguidos en el orden del recorrido)
     } else if (k === 'glide') {
       // el barranco: más ancho con el tramo, con sus frutas en el aire
       const len = clamp(GLIDE_MIN + 0.5 * tp + rand(0, 2), GLIDE_MIN, GLIDE_MAX);
@@ -170,10 +196,11 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
       // (hasta 3 m de más, no 4: con el sitio de frenada ante el cofre, el peor azar del tramo de 40 m a vmax 4,8 ya no cabía)
       first.at = start + RUN_UP + rand(0, 3);
     }
-    // La plataforma del burpee, al hueco fijo tras el túnel (sin azar).
-    for (let i = 1; i < seg.length; i++) seg[i]!.at = seg[i - 1]!.at + seg[i - 1]!.len + minGap(seg[i - 1]!, seg[i]!, env.vmax);
+    // La plataforma del burpee, al hueco fijo tras el túnel (sin azar); lo de las ramas de una bifurcación, en su sitio dentro de ella.
+    if (k === 'fork') for (let i = 1; i < seg.length; i++) seg[i]!.at += first.at;
+    else for (let i = 1; i < seg.length; i++) seg[i]!.at = seg[i - 1]!.at + seg[i - 1]!.len + minGap(seg[i - 1]!, seg[i]!, env.vmax);
     // Si tras la última no cabe el sitio que pide el cofre, el tramo ya está lleno.
-    const tail = seg[seg.length - 1]!;
+    const tail = k === 'fork' ? first : seg[seg.length - 1]!;
     if (tail.at + tail.len + minGap(tail, probe, env.vmax) > end) break;
     pieces.push(...seg);
   }
@@ -190,9 +217,23 @@ export function courseRules(pieces: Piece[], vmax: number, tune: PlatTune = TUNE
   const last = pieces[pieces.length - 1];
   if (!last || last.k !== 'chest') out.push(last ? `La última pieza (id ${last.id}) es «${last.k}»: debería ser el cofre` : 'No hay piezas: falta el cofre al final');
   const especiales = new Map<number, number>();
+  const lastLane = new Map<number, Piece>();
+  let lastMain: Piece | undefined, fork: Piece | undefined;
   for (let i = 0; i < pieces.length; i++) {
     const p = pieces[i]!;
-    const prev = pieces[i - 1];
+    // (la de antes por el mismo sitio: en una rama, la de antes en esa rama; en la pasarela, la de antes en la pasarela, que
+    // tras una bifurcación es la bifurcación entera)
+    const prev = p.lane ? lastLane.get(p.lane) : lastMain;
+    if (p.lane) {
+      if (!fork || p.at < fork.at + FORK_RAMP - eps || p.at + p.len > fork.at + fork.len - FORK_RAMP + eps) out.push(`La pieza ${p.id} (${p.k}) va en la rama ${p.lane} fuera de su bifurcación`);
+      lastLane.set(p.lane, p);
+    } else {
+      if (p.k === 'fork') {
+        fork = p;
+        lastLane.clear();
+      }
+      lastMain = p;
+    }
     if (p.k === 'burpee') out.push(`La pieza ${p.id} es de clase «burpee»: el burpee es un túnel y una plataforma, no una pieza`);
     if (p.k === 'side' && p.side !== -1 && p.side !== 1) out.push(`El cangrejo ${p.id} no tiene lado (side ${p.side}): debería ser −1 o 1`);
     if (p.k === 'side' && p.tramo < 2) out.push(`El cangrejo ${p.id} sale en el tramo ${p.tramo}: no antes del tercero`);

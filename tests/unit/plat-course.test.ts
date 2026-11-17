@@ -17,7 +17,7 @@ const env = (seed: number, vmax: number, len: number, tune: PlatTune = T0): Cour
 /** ¿Hay en el recorrido la clase `k`? El burpee no es una pieza: es un túnel con, justo detrás, una plataforma de burpee. */
 const hay = (ps: Piece[], k: string): boolean => (k === 'burpee' ? ps.some((p) => p.k === 'step' && p.burpee) : k === 'fruit' ? ps.some((p) => p.k === 'fruit' && !p.gold) : ps.some((p) => p.k === k));
 /** Las clases que son retos (el barril sorpresa es un premio: en un tramo corto, si cabe). */
-const retos = (t: number): string[] => courseKinds(t).filter((k) => k !== 'box');
+const retos = (t: number): string[] => courseKinds(t).filter((k) => k !== 'box' && k !== 'spring');
 
 describe('el recorrido de la Travesía de plataformas', () => {
   it('el primer tramo, aun con lo más corto (40 m), trae siempre el tronco, la viga y el hueco', () => {
@@ -43,11 +43,11 @@ describe('el recorrido de la Travesía de plataformas', () => {
   });
 
   it('cada clase de pieza entra en su tramo: fruta, plataforma y seta desde el 1; túnel, burpee y cangrejo desde el 2', () => {
-    expect(courseKinds(0)).toEqual(['log', 'low', 'gap', 'box']);
-    expect(courseKinds(1)).toEqual(['log', 'low', 'gap', 'box', 'fruit', 'step', 'foe', 'glide']);
-    for (const t of [2, 3, 6]) expect(courseKinds(t)).toEqual(['log', 'low', 'gap', 'box', 'fruit', 'step', 'foe', 'glide', 'crawl', 'burpee', 'side']);
+    expect(courseKinds(0)).toEqual(['log', 'low', 'gap', 'box', 'spring']);
+    expect(courseKinds(1)).toEqual(['log', 'low', 'gap', 'box', 'spring', 'fruit', 'step', 'foe', 'glide', 'fork']);
+    for (const t of [2, 3, 6]) expect(courseKinds(t)).toEqual(['log', 'low', 'gap', 'box', 'spring', 'fruit', 'step', 'foe', 'glide', 'fork', 'crawl', 'burpee', 'side']);
     for (let n = 0; n < 200; n++) {
-      for (const [t, ausentes] of [[0, ['fruit', 'step', 'foe', 'glide', 'crawl', 'burpee', 'side']], [1, ['crawl', 'burpee', 'side']]] as const) {
+      for (const [t, ausentes] of [[0, ['fruit', 'step', 'foe', 'glide', 'fork', 'crawl', 'burpee', 'side']], [1, ['crawl', 'burpee', 'side']]] as const) {
         const ps = buildCourse(env(n + 1, 3, 250), t, 2, 0, 0).pieces;
         for (const k of ausentes) expect(hay(ps, k), `tramo ${t}: ${k}`).toBe(false);
         expect(ps.some((p) => p.burpee)).toBe(false);
@@ -55,12 +55,12 @@ describe('el recorrido de la Travesía de plataformas', () => {
     }
   });
 
-  it('desde el tramo 2, en los tramos largos y a velocidad normal, sale siempre al menos un burpee (túnel y su plataforma)', () => {
+  it('desde el tramo 2, en los tramos largos (200 m o más) y a velocidad normal, sale siempre al menos un burpee (túnel y su plataforma)', () => {
     const r = rng(4242);
     for (let n = 0; n < 1000; n++) {
       const tramo = 2 + Math.floor(r() * 5);
       const vmax = 1.2 + 2 * r();
-      const len = 150 + 150 * r();
+      const len = 200 + 150 * r();
       const ps = buildCourse(env(n + 1, vmax, len), tramo, Math.floor(r() * 7), 0, 0).pieces;
       expect(hay(ps, 'burpee'), `#${n} tramo ${tramo} vmax ${vmax.toFixed(2)} len ${len.toFixed(0)}`).toBe(true);
     }
@@ -109,7 +109,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
       });
       const kinds = courseKinds(tramo);
       for (const p of c.pieces) if (p.k !== 'chest' && !(p.k === 'fruit' && p.gold)) expect(kinds, tag).toContain(p.k);
-      if (len >= 150 && vmax <= 3.2) for (const k of retos(tramo)) expect(hay(c.pieces, k), `${tag}: falta ${k}`).toBe(true);
+      if (len >= 200 && vmax <= 3.2) for (const k of retos(tramo)) expect(hay(c.pieces, k), `${tag}: falta ${k}`).toBe(true);
       // Las medidas (courseRules ya las comprueba; aquí, además, a mano).
       for (const p of c.pieces) {
         expect(p.k, tag).not.toBe('burpee');

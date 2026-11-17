@@ -91,6 +91,11 @@ No las cambies sin preguntarle.
   baja despacio, con estelas de viento) y, ladeando la cabeza, coges las frutas del aire. Bajar los brazos en pleno vuelo:
   aterrizas frenando y sin racha; sin abrirlos, a trompicones. Nunca se cae. Una mano que las gafas pierden estando abierta
   cuenta como abierta.
+- Travesía de plataformas, **trampolín y bifurcaciones** (elegidos por el usuario): el **trampolín** es una seta gigante en la
+  pasarela; si haces una **sentadilla honda** justo antes de pisarla, te lanza lejos y alto (un vuelo de 8–11 m con frutas en
+  el arco); sin ella, se pasa de un salto normal (no frena: es un premio). En la **bifurcación** la pasarela se abre en dos
+  ramas: con un **paso a la derecha** al llegar, la difícil (más retos y más premios: un tronco, un barril y a veces una
+  dorada); si no, la izquierda, la tranquila (frutas a los lados). Luego las dos se juntan.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.

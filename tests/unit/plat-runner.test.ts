@@ -916,3 +916,56 @@ describe('la Travesía de plataformas: planear sobre el barranco con los brazos 
     expect(t.ofPiece('hit', g2)).toHaveLength(1);
   });
 });
+
+describe('la Travesía de plataformas: el trampolín y las bifurcaciones', () => {
+  it('pisando el trampolín con una sentadilla honda, te lanza lejos y alto comiéndote las frutas del vuelo; sin ella, lo pisas sin más', () => {
+    const s = new Sim();
+    const sp = mk(1, 'spring', 40, 0, { len: 9, n: 5 });
+    s.load(course([sp, mk(2, 'chest', 140, 0)]));
+    expect(s.squatsTo(sp, 1.5)).toBe(true);
+    s.squat(0.32, 0.8); // (la sentadilla honda, justo antes de pisarlo)
+    let low = 0;
+    for (let i = 0; i < 72 * 6 && !sp.judged; i++) {
+      s.frame();
+      low = Math.min(low, s.r.dip);
+    }
+    expect(sp.ok).toBe(true);
+    expect(low).toBeLessThan(-0.9);
+    expect(s.r.dist).toBeGreaterThan(sp.at + sp.len - 0.5);
+    expect(sp.got).toBe(5);
+    const t = new Sim();
+    const sp2 = mk(1, 'spring', 40, 0, { len: 9, n: 5 });
+    t.load(course([sp2, mk(2, 'chest', 140, 0)]));
+    expect(t.squatsTo(sp2, 1.5)).toBe(true);
+    t.r.moves.deepT = 9;
+    expect(t.until(() => sp2.judged, 72 * 6)).toBe(true);
+    expect(sp2.ok).toBe(false);
+    expect(t.of('hit')).toHaveLength(0);
+  });
+
+  it('en la bifurcación, la cabeza apartada a la derecha elige la rama difícil (sus piezas se juzgan; las de la otra, no) y el mundo se desplaza para que quede bajo tus pies', () => {
+    for (const lado of [1, -1] as const) {
+      const s = new Sim();
+      const f = mk(1, 'fork', 30, 1, { len: 24 });
+      const log = mk(2, 'log', 36, 1);
+      log.lane = 1;
+      const fr = mk(3, 'fruit', 37, 1, { side: 1 });
+      fr.lane = -1;
+      s.load(course([f, log, fr, mk(4, 'chest', 140, 1)]));
+      expect(s.squatsTo(f, 3)).toBe(true);
+      s.side(lado * 0.3, () => f.judged, 0.3);
+      expect(f.judged).toBe(true);
+      expect(s.r.lane).toBe(lado > 0 ? 1 : -1);
+      s.head.x = 0;
+      expect(s.walk(() => f.at + f.len / 2 - s.r.dist, 0)).toBe(true);
+      expect(Math.abs(s.r.uShift)).toBeCloseTo(1.5, 1);
+      expect(Math.sign(s.r.uShift)).toBe(lado);
+      expect(s.walk(() => f.at + f.len + 3 - s.r.dist, 0)).toBe(true);
+      // la pieza de la otra rama pasó de largo sin juzgarse (ni choque ni premio)
+      const otra = lado > 0 ? fr : log;
+      expect(otra.ok).toBeNull();
+      expect(s.r.uShift).toBe(0);
+      expect(s.r.lane).toBe(0);
+    }
+  });
+});
