@@ -27,6 +27,7 @@ export type PieceKind =
   | 'fork' // la bifurcación: la pasarela se abre en dos ramas; se elige con un paso a un lado al llegar (fluido)
   | 'glide' // el barranco: ancho, con piedras abajo; se cruza planeando con los brazos en cruz (fluido)
   | 'box' // el barril sorpresa, flotando sobre la pasarela: se rompe de un cabezazo, saltando debajo (fluido; da fruta)
+  | 'boss' // el jefe del mundo, al final de cada BOSS_EVERY tramos y antes del cofre (paso): esquivar y supersalto encima
   | 'chest'; // fin del tramo (paso)
 
 /** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
@@ -34,7 +35,7 @@ export type PieceKind =
  * tiempo, tropiezas al cruzarlo (nunca se cae). */
 export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork'];
 /** Los pasos: el mundo frena suave y te para a `STOP_AT` (solo el cofre, al acabar el tramo). */
-export const HALT: readonly PieceKind[] = ['chest'];
+export const HALT: readonly PieceKind[] = ['chest', 'boss'];
 /** Los que se cruzan saltando (entre dos seguidos, al menos `JUMP_GAP_S` a velocidad máxima). */
 export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'box', 'glide', 'spring'];
 /** ¿Se cruza saltando? (las de `JUMPS` y la fruta dorada, que flota alta en el centro) */
@@ -63,6 +64,24 @@ export const SPRING_MIN = 8, SPRING_MAX = 11, SPRING_LIFT = 1.1, SPRING_V = 3.2,
 /** La bifurcación: lo que se separa cada rama del centro (m), lo que tardan en separarse y juntarse (m, a lo largo) y lo
  * que tienes que apartar la cabeza al llegar para ir por la derecha o la izquierda (m; sin apartarla, la izquierda). */
 export const FORK_U = 1.5, FORK_RAMP = 4, FORK_PICK = 0.18;
+/** El jefe del mundo (elegido por el usuario: al final de cada cuatro tramos). Cada cuántos tramos sale, los golpes que
+ * aguanta (supersaltos encima), dónde está (m por delante de donde te paras), lo que sube el supersalto que le cae encima
+ * (m: el mundo baja), lo que dura (s), sus lanzamientos antes de marearse, lo que tardan en salir y llegar (s), lo que dura
+ * mareado (s) y sus puntos. Lo que te mueve cada supersalto: `BOSS_STEP` (pasas por encima y él salta hacia atrás). */
+export const BOSS_EVERY = 4, BOSS_HP = 3, BOSS_Z = 3, BOSS_LIFT = 1.7, BOSS_HOP_T = 1.6, BOSS_THROWS = 3, BOSS_WIND = 1.1, BOSS_FLY = 0.55, BOSS_GAP = 0.7, BOSS_DIZZY = 5, BOSS_PTS = 1500;
+/** Para esquivar lo que lanza: la alta, la coronilla bajada (m); la que va al cuerpo, la cabeza apartada de donde estaba (m). */
+export const BOSS_DUCK = 0.2, BOSS_AWAY = 0.3;
+/** Los jefes (uno por mundo, por turno): el modelo, su nombre y su voz. */
+export const BOSSES = [
+  { asset: 'foe-yeti', name: 'el Yeti', voice: 'yeti', nat: 1.67 },
+  { asset: 'foe-greendemon', name: 'el Demonio verde', voice: 'greendemon', nat: 1.62 },
+  { asset: 'foe-alientall', name: 'el Alien alto', voice: 'alientall', nat: 2.11 },
+] as const;
+/** ¿Acaba el tramo `t` (desde 0) con el jefe del mundo? Y cuál es (índice de BOSSES). */
+export const bossTramo = (t: number): boolean => (t + 1) % BOSS_EVERY === 0;
+export const bossOf = (t: number): number => (Math.floor((t + 1) / BOSS_EVERY) - 1 + BOSSES.length * 100) % BOSSES.length;
+/** Lo que lanza el jefe: alta (agáchate), baja (salta) o al cuerpo (apártate). */
+export type BossShot = 'high' | 'low' | 'body';
 export const ARMS_OUT = 0.42, ARMS_DY = 0.45, ARMS_SH = 0.25, ARMS_IN = 0.25;
 /** Dónde flota la fruta i del barranco p, a su derecha (m): siempre la misma para la misma pieza. */
 export const glideU = (p: Piece, i: number): number => GLIDE_U * (2 * (((i * 0.618 + p.id * 0.377) % 1 + 1) % 1) - 1);
@@ -88,6 +107,8 @@ export const PLAT_GHOST = 'reparenaxr-trekghost', PLAT_GEMS = 'reparena3-gems';
 /** Dónde te paras ante un paso (m antes de su borde cercano) y dónde aterrizas como poco tras el hueco (m pasado su borde
  * lejano). */
 export const STOP_AT = 1;
+/** El jefe: lo que te mueve cada supersalto encima de él (pasas por encima y él salta hacia atrás) y lo que mide su pieza. */
+export const BOSS_STEP = 2 * (STOP_AT + BOSS_Z), BOSS_LEN = BOSS_HP * BOSS_STEP + BOSS_Z + 1;
 export const LAND_PAST = 0.6;
 /** Ante un paso, el mundo no te para de golpe: frenas con esta deceleración (m/s²) hasta quedarte a `STOP_AT`. */
 export const HALT_BRAKE = 2.5;
@@ -287,7 +308,12 @@ export type PlatEv =
   | { t: 'spit'; p: Piece; wind: number; dur: number; aim: { x: number; y: number; z: number } }
   | { t: 'spat'; p: Piece; ok: boolean }
   | { t: 'trophy'; title: string; sub: string }
-  | { t: 'store'; key: string; val: unknown };
+  | { t: 'store'; key: string; val: unknown }
+  /** El jefe: empieza la pelea, lanza (`shot`: tarda `wind` en soltarla y `dur` en llegar a `aim`), lo esquivas o te da,
+   * se marea, recibe un supersalto (y salta hacia atrás de `from` a `to`, o muere al final del salto) o se recupera. */
+  | { t: 'boss'; p: Piece; act: 'start' | 'dizzy' | 'wake' | 'hurt' | 'die'; from?: number; to?: number }
+  | { t: 'bthrow'; p: Piece; shot: BossShot; wind: number; dur: number; aim: { x: number; y: number; z: number } }
+  | { t: 'bdodge'; p: Piece; ok: boolean };
 
 /** Los colores de los avisos (los de la Travesía): pedir algo, lo que se ha hecho mal y lo conseguido. */
 export const COL_ASK = '#ffd166';

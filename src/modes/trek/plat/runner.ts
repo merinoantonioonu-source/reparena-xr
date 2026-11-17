@@ -36,7 +36,7 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -133,8 +133,27 @@ interface Hop {
   done?: boolean;
   /** El vuelo sobre un barranco (con los brazos en cruz): lo que llevas con los brazos bajados y si ya se ha perdido. */
   glide?: boolean;
+  /** El supersalto encima del jefe. */
+  boss?: boolean;
   dropT?: number;
   bad?: boolean;
+}
+
+/** La pelea con el jefe: en qué va (lanzando, mareado o con tu supersalto encima), lo que lleva en ello (s; negativo, la
+ * espera antes del primero), cuántos ha lanzado, lo que vuela ahora (o null), dónde estaba tu cabeza al lanzarlo, si te
+ * has visto en el aire mientras llegaba la baja, las veces que se ha recuperado sin tu supersalto y si el de ahora ya le ha
+ * dado. */
+export interface BossFight {
+  p: Piece;
+  phase: 'throw' | 'dizzy' | 'hop';
+  t: number;
+  shots: number;
+  shot: BossShot | null;
+  last: BossShot | null;
+  aim: { x: number; y: number };
+  air: boolean;
+  misses: number;
+  hit: boolean;
 }
 
 /** El suelo sube o baja (la plataforma): de dónde a dónde y en cuánto. */
@@ -200,6 +219,10 @@ export class Runner {
   uShift = 0;
   /** Los escupitajos en el aire. */
   spits: Spit[] = [];
+  /** La pelea con el jefe del mundo (o null). */
+  fight: BossFight | null = null;
+  /** Los jefes derrotados en la ronda. */
+  bosses = 0;
   /** El paso de la seta y el cangrejo (m/s: «Paso de los enemigos», de la tabla de dificultad; se lee en cada fotograma). */
   foeV = FOE_V;
   /** Los ajustes, hecha una vez (sin crear una función en cada fotograma). */
@@ -269,6 +292,8 @@ export class Runner {
     this.passed = this.hits = this.fruits = this.keys = this.boxes = 0;
     this.golds = [];
     this.spits.length = 0;
+    this.fight = null;
+    this.bosses = 0;
     this.fork = null;
     this.lane = 0;
     this.uShift = 0;
@@ -330,7 +355,7 @@ export class Runner {
   rep(perfect: boolean): boolean {
     if (this.env.state !== 'play' || this.moves.plank) return false; // (echado, no empujas: llevas la inercia)
     if (this.stop || this.hop) {
-      if (this.stop) this.ask(this.stop, false);
+      if (this.stop && this.stop.k !== 'boss') this.ask(this.stop, false);
       return false;
     }
     this.tk.rep(perfect);
@@ -399,6 +424,7 @@ export class Runner {
     tk.frame();
     this.reveal();
     if (st === 'play') {
+      this.bossStep(dt);
       this.walk(dt);
       this.spit(dt);
       if (this.moves.takeoff && !this.hop && !this.stop) this.takeoff(H.z);
@@ -757,6 +783,10 @@ export class Runner {
     this.stopT = 0;
     this.nagT = 0;
     this.ev.push({ t: 'halt', p });
+    if (p.k === 'boss') {
+      this.bossHalt(p);
+      return;
+    }
     if (p.k === 'chest') {
       this.chest = p;
       this.ev.push({ t: 'chest', p });
@@ -1002,6 +1032,7 @@ export class Runner {
     this.tk.dist = H.s0 + (H.s1 - H.s0) * k;
     this.dip = H.lift ? -H.lift * (H.glide ? glideArc(k) : arc(k)) : 0;
     if (H.glide && H.won) this.glideStep(H, dt);
+    if (H.boss && k >= 0.5) this.bossHurt(H);
     // las frutas en arco sobre el hueco: saltando, te las vas comiendo según las pasas (siguen la curva del salto)
     const p0 = H.p;
     if (H.won && (p0.k === 'gap' || p0.k === 'spring') && p0.n > 0) {
@@ -1082,13 +1113,147 @@ export class Runner {
     else if (p.k === 'spring') this.say('¡Un trampolín! Písalo con una sentadilla honda', COL_ASK, 1.8, false);
     else if (p.k === 'fork') this.say('¡El camino se divide! Paso a la derecha: más difícil y más premios', COL_ASK, 2.4, false);
     else if (p.k === 'glide') this.say('¡Un barranco! Abre los brazos en cruz para planear', COL_ASK, 2.4, false);
-    else if (p.k === 'box') this.say('¡Un barril sorpresa! Salta debajo y dale con la cabeza', COL_ASK, 1.6, false);
+    else if (p.k === 'boss') {
+      if (this.fight?.phase === 'dizzy') this.say('¡Está mareado! Sentadilla honda y salta encima', COL_ASK, 1.6, false);
+    } else if (p.k === 'box') this.say('¡Un barril sorpresa! Salta debajo y dale con la cabeza', COL_ASK, 1.6, false);
     else if (p.k === 'fruit' && p.gold) this.say('¡Una fruta dorada! Salta para cogerla', COL_ASK, 1.6, false);
     else if (p.k === 'fruit') this.say(`¡${p.special ? 'Fruta especial' : 'Fruta'} a la ${p.side < 0 ? 'izquierda' : 'derecha'}!`, COL_ASK, 1.2, false);
     else if (p.k === 'log') this.say('¡Salta!', COL_ASK, 1.2, false);
     else if (p.k === 'low') this.say('¡Agáchate!', COL_ASK, 1.2, false);
     else if (p.k === 'side') this.say(`¡Un cangrejo a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}`, COL_ASK, 1.6, false);
     else if (p.k === 'foe') this.say('¡Una seta! Sáltale encima cuando llegue', COL_ASK, 1.6, false);
+  }
+
+  /* ---------- el jefe del mundo ---------- */
+
+  /** Te paras ante el jefe: la pelea empieza (o sigue, tras tu supersalto: él ha saltado hacia atrás y tú has aterrizado). */
+  private bossHalt(p: Piece): void {
+    const F = this.fight;
+    if (F && F.p === p) {
+      F.phase = 'throw';
+      F.t = -0.9;
+      F.shots = 0;
+      F.shot = null;
+      return;
+    }
+    this.fight = { p, phase: 'throw', t: -2.2, shots: 0, shot: null, last: null, aim: { x: 0, y: 0 }, air: false, misses: 0, hit: false };
+    this.ev.push({ t: 'boss', p, act: 'start' });
+    const B = BOSSES[p.n % BOSSES.length];
+    this.say(`¡${B.name[0].toUpperCase()}${B.name.slice(1)} te corta el paso! Esquiva lo que te lanza`, COL_ASK, 2.2, false);
+  }
+
+  /** La pelea, cada fotograma (en pleno juego y sin tu supersalto en el aire): lanza BOSS_THROWS (alta, baja o al cuerpo, con
+   * su aviso), se marea BOSS_DIZZY s (un supersalto le cae encima; sin él, se recupera y vuelve a lanzar). */
+  private bossStep(dt: number): void {
+    const F = this.fight;
+    if (!F || F.phase === 'hop' || this.hop) return;
+    const M = this.moves, H = this.env.head;
+    F.t += dt;
+    if (F.phase === 'dizzy') {
+      if (M.takeoff) {
+        // (tras dos mareos sin supersalto, vale un salto sin más: que la pelea siempre se pueda acabar)
+        if (M.deepT < DEEP_WIN || F.misses >= 2) this.bossHop(F);
+        else this.say('¡Más hondo! Sentadilla honda y salta', COL_WARN, 1.4, true);
+        return;
+      }
+      if (F.t < BOSS_DIZZY) return;
+      F.misses++;
+      F.phase = 'throw';
+      F.t = -1;
+      F.shots = 0;
+      this.ev.push({ t: 'boss', p: F.p, act: 'wake' });
+      this.say(F.misses >= 2 ? 'Se ha recuperado. Cuando se maree, ¡salta encima!' : 'Se ha recuperado. Cuando se maree: sentadilla honda y salta', COL_ASK, 1.8, false);
+      return;
+    }
+    // lanzando
+    if (!F.shot) {
+      if (F.t < 0) return;
+      if (F.shots >= BOSS_THROWS) {
+        F.phase = 'dizzy';
+        F.t = 0;
+        this.ev.push({ t: 'boss', p: F.p, act: 'dizzy' });
+        this.say(F.misses >= 2 ? '¡Está mareado! ¡Salta encima!' : '¡Está mareado! Sentadilla honda y salta encima', COL_ASK, 2, false);
+        return;
+      }
+      // (nunca tres iguales seguidos: la que toca, al azar entre las otras si repite)
+      const all: BossShot[] = ['high', 'low', 'body'];
+      let s = all[Math.floor(this.env.rnd() * 3) % 3];
+      if (s === F.last && this.env.rnd() < 0.6) s = all[(all.indexOf(s) + 1 + Math.floor(this.env.rnd() * 2)) % 3];
+      F.shot = F.last = s;
+      F.t = 0;
+      F.air = false;
+      F.aim.x = H.x;
+      F.aim.y = H.y;
+      this.ev.push({ t: 'bthrow', p: F.p, shot: s, wind: BOSS_WIND, dur: BOSS_FLY, aim: { x: H.x, y: s === 'low' ? 0.25 : s === 'high' ? this.env.calibRef + 0.05 : H.y - 0.35, z: H.z } });
+      this.say(s === 'high' ? '¡Alta! Agáchate' : s === 'low' ? '¡Baja! Salta' : '¡Al cuerpo! Apártate', COL_ASK, 1.1, false);
+      return;
+    }
+    // la baja: vale si te ves en el aire mientras llega (desde un poco antes de soltarla)
+    if (F.shot === 'low' && F.t > BOSS_WIND - 0.25 && M.air) F.air = true;
+    if (F.t < BOSS_WIND + BOSS_FLY) return;
+    const s = F.shot, ok = s === 'high' ? M.down >= BOSS_DUCK : s === 'low' ? F.air : Math.abs(H.x - F.aim.x) >= BOSS_AWAY;
+    F.shot = null;
+    F.shots++;
+    F.t = -BOSS_GAP;
+    this.ev.push({ t: 'bdodge', p: F.p, ok });
+    if (ok) {
+      this.passed++;
+      this.score(150);
+      this.snd('whoosh', null, 'arc');
+      this.cheer('¡Esquivada!', COL_OK, 0.8);
+      return;
+    }
+    // te da: se rompe la racha (parado ante él, sin más; nunca vidas)
+    this.hits++;
+    this.ev.push({ t: 'combo0' });
+    this.tk.turboSet(false);
+    this.snd('metalHit', null, false);
+    this.ev.push({ t: 'haptic', k: 0.8, ms: 140 });
+    this.say(s === 'high' ? '¡Te ha dado! La alta: agáchate' : s === 'low' ? '¡Te ha dado! La baja: salta' : '¡Te ha dado! Al cuerpo: apártate a un lado', COL_WARN, 1.6, true);
+  }
+
+  /** Tu supersalto encima del jefe: el mundo te lleva por encima de él (BOSS_STEP m, subiendo BOSS_LIFT) y, en lo más alto, le
+   * cae encima (`bossHurt`). */
+  private bossHop(F: BossFight): void {
+    F.phase = 'hop';
+    F.hit = false;
+    const s0 = this.tk.dist;
+    this.stop = null;
+    this.hop = { p: F.p, s0, s1: s0 + BOSS_STEP, t: 0, dur: BOSS_HOP_T, won: true, v1: 0, lift: BOSS_LIFT, score: 0, cheer: '', done: true, boss: true };
+    this.airT = -1;
+    this.ev.push({ t: 'go', p: F.p, dur: BOSS_HOP_T });
+    this.snd('whoosh', this.pos(F.p, BOSS_Z, 1), 'arc');
+    this.ev.push({ t: 'haptic', k: 0.5, ms: 60 });
+  }
+
+  /** Le caes encima: un golpe (con BOSS_HP, derrotado) y salta hacia atrás, para quedar otra vez delante de donde aterrizas. */
+  private bossHurt(H: Hop): void {
+    const F = this.fight;
+    if (!F || F.hit) return;
+    F.hit = true;
+    const p = F.p, from = p.at + BOSS_Z;
+    p.got++;
+    p.at += BOSS_STEP;
+    p.len = Math.max(0, p.len - BOSS_STEP);
+    const to = p.at + BOSS_Z, dead = p.got >= BOSS_HP;
+    this.ev.push({ t: 'boss', p, act: dead ? 'die' : 'hurt', from, to });
+    this.ev.push({ t: 'haptic', k: 1, ms: 160 });
+    this.snd('squish', null);
+    this.score(300);
+    if (!dead) {
+      this.cheer(`¡Toma! ${p.got} de ${BOSS_HP}`, COL_OK, 1.2);
+      return;
+    }
+    p.judged = true;
+    p.ok = true;
+    this.passed++;
+    this.bosses++;
+    this.fight = null;
+    H.done = true;
+    this.score(BOSS_PTS);
+    this.snd('victory', null);
+    const B = BOSSES[p.n % BOSSES.length];
+    this.ev.push({ t: 'trophy', title: '¡JEFE DERROTADO!', sub: `Has vencido a ${B.name}: +${BOSS_PTS} puntos. Sigue hasta el cofre` });
   }
 
   /* ---------- lo de la marcha ---------- */

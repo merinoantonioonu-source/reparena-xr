@@ -10,7 +10,7 @@
 // - el paso a un lado se puede repetir hacia el otro lado (el centro no se pierde).
 import { describe, expect, it } from 'vitest';
 import { BEHIND, BOUNCE_LIFT, CHEST_PTS, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, STOMP_PTS, SUPER_K, TREASURE_PTS } from '../../src/modes/trek/plat/runner.js';
-import { glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
+import { BOSS_HP, BOSS_LEN, BOSS_STEP, BOSS_THROWS, BOSS_WIND, glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece as mk, Sim } from './plat-sim.js';
 import type { Piece } from '../../src/modes/trek/plat/types.js';
 
@@ -967,5 +967,86 @@ describe('la Travesía de plataformas: el trampolín y las bifurcaciones', () =>
       expect(s.r.uShift).toBe(0);
       expect(s.r.lane).toBe(0);
     }
+  });
+});
+
+describe('la Travesía de plataformas: el jefe del mundo', () => {
+  /** Hace lo que pide cada lanzamiento (o nada, con `mal`) hasta que el jefe se marea. */
+  const dodge = (s: Sim, mal = false): void => {
+    const F = s.r.fight!;
+    for (let i = 0; i < 72 * 30 && F.phase === 'throw'; i++) {
+      const sh = F.shot;
+      if (!sh || F.t < BOSS_WIND - 0.35 || mal) {
+        s.frame();
+        continue;
+      }
+      if (sh === 'high') s.duck(0.3, () => !F.shot, 0.2);
+      else if (sh === 'low') {
+        s.jump(0.15, 0.15);
+        s.until(() => !F.shot, 72 * 2);
+      } else s.side(0.4, () => !F.shot, 0.2);
+    }
+  };
+
+  it('te para delante; esquivando lo que lanza (alta, baja, al cuerpo) se marea y tres supersaltos encima lo derrotan; luego sigues al cofre', () => {
+    const s = new Sim();
+    const b = mk(1, 'boss', 40, 3, { len: BOSS_LEN, n: 0 });
+    const c = mk(2, 'chest', 40 + BOSS_LEN + 10, 3);
+    s.load(course([b, c]));
+    expect(s.squatsTo(b, STOP_AT + 0.05)).toBe(true);
+    expect(s.until(() => s.r.stop === b, 72 * 10)).toBe(true);
+    expect(s.r.dist).toBeCloseTo(b.at - STOP_AT, 1);
+    expect(s.of('boss').map((e) => e.act)).toEqual(['start']);
+    const tipos = new Set<string>();
+    for (let golpe = 1; golpe <= BOSS_HP; golpe++) {
+      const n0 = s.log.length, d0 = s.r.dist;
+      dodge(s);
+      for (const e of s.of('bthrow', n0)) tipos.add(e.shot);
+      expect(s.of('bdodge', n0).every((e) => e.ok)).toBe(true);
+      expect(s.of('bdodge', n0)).toHaveLength(BOSS_THROWS);
+      expect(s.r.fight!.phase).toBe('dizzy');
+      // las sentadillas no le hacen nada ni te mueven (parado ante él)
+      s.squat(0.32, 0.8);
+      s.jump(0.15, 0.15);
+      let low = 0;
+      for (let i = 0; i < 72 * 3 && s.r.hop; i++) {
+        s.frame();
+        low = Math.min(low, s.r.dip);
+      }
+      expect(low).toBeLessThan(-1.2);
+      expect(b.got).toBe(golpe);
+      expect(s.r.dist).toBeCloseTo(d0 + BOSS_STEP, 1);
+    }
+    expect(b.judged).toBe(true);
+    expect(b.ok).toBe(true);
+    expect(s.r.bosses).toBe(1);
+    expect(s.of('boss').map((e) => e.act)).toEqual(['start', 'dizzy', 'hurt', 'dizzy', 'hurt', 'dizzy', 'die']);
+    expect(s.of('trophy').some((e) => e.title === '¡JEFE DERROTADO!')).toBe(true);
+    expect(tipos.size).toBeGreaterThan(1);
+    expect(s.of('hit')).toHaveLength(0);
+    expect(s.r.hits).toBe(0);
+    // el jefe salta hacia atrás tras cada golpe: siempre delante de ti, nunca detrás
+    for (const e of s.of('boss')) if (e.to !== undefined) expect(e.to!).toBeGreaterThan(e.from!);
+    expect(s.pass(c)).toBe(true);
+    expect(lifeEv(s)).toBe(false);
+  });
+
+  it('si no esquivas, te da (se rompe la racha, sin vidas); mareado, un salto sin sentadilla honda no vale y, si no saltas, se recupera', () => {
+    const s = new Sim();
+    const b = mk(1, 'boss', 40, 3, { len: BOSS_LEN, n: 1 });
+    s.load(course([b, mk(2, 'chest', 40 + BOSS_LEN + 10, 3)]));
+    expect(s.squatsTo(b, STOP_AT + 0.05)).toBe(true);
+    expect(s.until(() => s.r.stop === b, 72 * 10)).toBe(true);
+    dodge(s, true);
+    expect(s.of('bdodge').filter((e) => !e.ok)).toHaveLength(BOSS_THROWS);
+    expect(s.r.hits).toBe(BOSS_THROWS);
+    expect(s.of('combo0').length).toBeGreaterThanOrEqual(BOSS_THROWS);
+    s.r.moves.deepT = 9;
+    s.jump(0.15, 0.15);
+    expect(s.r.hop).toBeNull();
+    expect(b.got).toBe(0);
+    expect(s.until(() => s.r.fight!.phase === 'throw', 72 * 10)).toBe(true);
+    expect(s.r.fight!.misses).toBe(1);
+    expect(lifeEv(s)).toBe(false);
   });
 });

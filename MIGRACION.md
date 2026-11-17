@@ -410,6 +410,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- Travesía, **4 jefe del mundo** (hecho): la pieza `boss` (en `HALT`, antes del cofre de los tramos con `bossTramo`: cada
+  `BOSS_EVERY`; `Piece.n`, cuál de `BOSSES`; `Piece.got`, los golpes; `BOSS_*` en types.ts). `buildCourse` la pone antes del
+  cofre (alarga el tramo corto lo que pida). La pelea es `Runner.fight` (`bossHalt`, `bossStep`: lanza `BOSS_THROWS` con
+  `bthrow`/`bdodge`, se marea `BOSS_DIZZY` s; con `M.takeoff` y sentadilla honda, `bossHop`: un `Hop` con `boss` que en lo
+  alto llama a `bossHurt`, que adelanta la pieza `BOSS_STEP` —el jefe salta hacia atrás— y, al tercero, lo derrota).
+  `TrekSystem` pinta un jefe de cada (`bossRigs`, `buildBoss`) y la piedra (`shotFx`); el marcador, «¡jefe! Le quedan n».
 - Travesía, **3 trampolín y bifurcaciones** (hecho): el trampolín es la pieza `spring` (en `JUMPS`; `SPRING_*` en types.ts;
   desde el tramo 1, como premio en la cola de `buildCourse`): con `BodyMoves.deepT` a menos de `SPRING_DEEP` s al pisarla,
   `Runner.springLaunch` (un `Hop` largo: el mundo baja `SPRING_LIFT`, velocidad como poco `SPRING_V`, y sus `Piece.n` frutas en

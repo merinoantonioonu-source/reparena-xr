@@ -96,6 +96,12 @@ No las cambies sin preguntarle.
   el arco); sin ella, se pasa de un salto normal (no frena: es un premio). En la **bifurcación** la pasarela se abre en dos
   ramas: con un **paso a la derecha** al llegar, la difícil (más retos y más premios: un tronco, un barril y a veces una
   dorada); si no, la izquierda, la tranquila (frutas a los lados). Luego las dos se juntan.
+- Travesía de plataformas, **el jefe del mundo** (elegido por el usuario): cada cuatro tramos, antes del cofre, un jefe grande
+  te corta el paso (por turno: el Yeti, el Demonio verde y el Alien alto, de Quaternius) y te para delante. Lanza piedras con
+  aviso: **la alta, agacharse; la baja, rodando, saltar; la que va al cuerpo, apartarse**. Tras tres, se marea (estrellas):
+  con un **supersalto** (sentadilla honda y salto) le caes encima, pasando por arriba, y él salta hacia atrás para quedarse
+  delante (nunca detrás); **a la tercera, derrotado**. Si te da una piedra, se rompe la racha, sin vidas; si no saltas mientras
+  está mareado, se recupera y vuelve a lanzar (tras dos veces, vale un salto sin más: la pelea siempre se acaba).
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.

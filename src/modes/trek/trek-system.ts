@@ -27,7 +27,7 @@ import { warmKeep } from '../../style/warm.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
 import { DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
-import { CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
+import { BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
@@ -62,6 +62,36 @@ interface FoeRig {
   /** Apartado a un lado tras morder (m) y hacia dónde. */
   off: number;
   dir: number;
+}
+
+/** El jefe del mundo: lo alto que se ve (m: más que tú), lo que dura su salto hacia atrás tras tu supersalto (s) y lo alto
+ * que sube en él (m), lo que tarda en esfumarse derrotado (s) y lo que mide lo que lanza (m: la piedra; la baja, rodando,
+ * más grande). */
+const BOSS_H = 2, LEAP_T = 0.75, LEAP_UP = 1.4, BOSS_FADE = 2.2, ROCK_D = 0.32, ROLL_D = 0.45;
+/** Un jefe hecho (uno de cada, reutilizado): su modelo y lo que hace. */
+interface BossRig {
+  root: Group;
+  mixer: AnimationMixer;
+  acts: Map<string, AnimationAction>;
+  cur: string;
+  p: Piece | null;
+  /** Su salto hacia atrás (de dónde a dónde del sendero, y cuánto lleva: −1 sin salto), mareado, derrotado (s desde). */
+  from: number;
+  to: number;
+  leapT: number;
+  dizzy: boolean;
+  dieT: number;
+  starT: number;
+}
+/** Lo que lanza el jefe, en el aire: qué es, de dónde a dónde (en la arena), lo que lleva, lo que tarda en soltarlo y en llegar. */
+interface BossShotFx {
+  on: boolean;
+  shot: BossShot;
+  from: Vector3;
+  to: Vector3;
+  t: number;
+  wind: number;
+  dur: number;
 }
 
 /** El fondo realista gira un poco con las curvas del sendero (pedido del usuario: quieto del todo con la pasarela, parecía
@@ -155,6 +185,11 @@ export class TrekSystem extends createSystem({}) {
   private readonly rigs: FoeRig[] = [];
   private readonly rigOf = new Map<number, FoeRig>();
   private foesReady = false;
+  /** Los jefes (uno de cada) y lo que lanzan (una piedra hecha al cargar los kits, reutilizada). */
+  private readonly bossRigs: BossRig[] = [];
+  private bossReady = false;
+  private rock: Group | null = null;
+  private readonly shotFx: BossShotFx = { on: false, shot: 'high', from: new Vector3(), to: new Vector3(), t: 0, wind: 1, dur: 1 };
   /** Las estelas del turbo. */
   private wind!: InstancedMesh;
   private readonly winds: Wind[] = [];
@@ -351,15 +386,15 @@ export class TrekSystem extends createSystem({}) {
   }
 
   /** Lo que se enseña en el marcador. */
-  hud(): { dist: number; kmh: number; turbo: boolean; left: number; stop: string; tramo: number; energy: number; superT: number; ghost: number | null; gold: number; goldOf: number } {
+  hud(): { dist: number; kmh: number; turbo: boolean; left: number; stop: string; tramo: number; energy: number; superT: number; ghost: number | null; gold: number; goldOf: number; boss: number } {
     const R = this.runner, i = Math.max(0, GAME.wave - 1);
-    return { dist: R.dist, kmh: R.v * 3.6, turbo: R.tk.turbo, left: R.toChest(i), stop: R.stop?.k ?? '', tramo: i, energy: R.energy, superT: R.superT, ghost: R.ghostDiff(), gold: R.golds[i] ?? 0, goldOf: R.goldsOf(i) };
+    return { dist: R.dist, kmh: R.v * 3.6, turbo: R.tk.turbo, left: R.toChest(i), stop: R.stop?.k ?? '', tramo: i, energy: R.energy, superT: R.superT, ghost: R.ghostDiff(), gold: R.golds[i] ?? 0, goldOf: R.goldsOf(i), boss: R.fight ? BOSS_HP - R.fight.p.got : 0 };
   }
 
   /** Para la partida simulada: lo esencial en datos simples. */
   snapshot(): Record<string, unknown> {
     const R = this.runner, nx = R.live.find((p) => !p.judged);
-    return { next: nx ? { k: nx.k, rel: +(nx.at + nx.walk - R.dist).toFixed(2), side: nx.side } : null, dist: +R.dist.toFixed(2), v: +R.v.toFixed(2), turbo: R.tk.turbo, stop: R.stop?.k ?? '', energy: +R.energy.toFixed(2), superT: +R.superT.toFixed(1), plank: R.moves.plank, lev: +R.lev.toFixed(2), hop: !!R.hop, chest: R.chest?.tramo ?? -1, passed: R.passed, hits: R.hits, live: R.live.map((p) => p.k), ends: R.ends.map((e) => Math.round(e)), keys: R.keys, fruits: R.fruits, biome: this.biome, pano: this.pano, foes: this.rigs.filter((r) => r.p && r.root.visible).map((r) => `${r.kind}:${r.cur}`), wind: this.wind.visible, ghost: R.ghostDiff(), last: this.last && { medal: this.last.medal?.[0] ?? null, dist: this.last.dist } };
+    return { next: nx ? { k: nx.k, rel: +(nx.at + nx.walk - R.dist).toFixed(2), side: nx.side } : null, dist: +R.dist.toFixed(2), v: +R.v.toFixed(2), turbo: R.tk.turbo, stop: R.stop?.k ?? '', energy: +R.energy.toFixed(2), superT: +R.superT.toFixed(1), plank: R.moves.plank, lev: +R.lev.toFixed(2), hop: !!R.hop, chest: R.chest?.tramo ?? -1, passed: R.passed, hits: R.hits, live: R.live.map((p) => p.k), ends: R.ends.map((e) => Math.round(e)), keys: R.keys, fruits: R.fruits, biome: this.biome, pano: this.pano, foes: this.rigs.filter((r) => r.p && r.root.visible).map((r) => `${r.kind}:${r.cur}`), wind: this.wind.visible, ghost: R.ghostDiff(), last: this.last && { medal: this.last.medal?.[0] ?? null, dist: this.last.dist }, boss: R.fight ? { phase: R.fight.phase, shot: R.fight.shot, got: R.fight.p.got } : null, bosses: R.bosses };
   }
 
   /** Al acabar la ronda (`score`, tus puntos): la medalla, los metros, las frutas y, si llegaste más lejos que nunca (y no es
@@ -385,6 +420,9 @@ export class TrekSystem extends createSystem({}) {
     this.floorS0 = NaN;
     for (const r of this.rigs) this.freeRig(r);
     this.rigOf.clear();
+    for (const b of this.bossRigs) this.freeBoss(b);
+    this.shotFx.on = false;
+    if (this.rock) this.rock.visible = false;
   }
 
   // ---------------------------------------------------------------- cada fotograma
@@ -398,6 +436,7 @@ export class TrekSystem extends createSystem({}) {
     if (!this.active) this.activate();
     if (!this.ready) this.ready = this.build();
     if (!this.foesReady) this.foesReady = this.buildFoes();
+    if (!this.bossReady) this.bossReady = this.buildBoss();
     if (GAME.paused) return;
     if (GAME.phase === 'playing') this.runner.step(dt);
     // echado (en plancha, bajo un túnel): los avisos, en el suelo bajo la cara (de pie, delante, no se leerían)
@@ -406,6 +445,7 @@ export class TrekSystem extends createSystem({}) {
     this.stepAnims(dt);
     this.draw();
     this.drawFoes(dt);
+    this.drawBoss(dt);
     this.stepSpits(dt);
     this.stepWind(dt);
   }
@@ -518,7 +558,8 @@ export class TrekSystem extends createSystem({}) {
         GAME.ptsK = e.on ? 2 : 1; // (en el turbo, los puntos de cada repetición valen el doble)
         break;
       case 'show':
-        if (e.p.k === 'foe' || e.p.k === 'side') this.takeRig(e.p);
+        if (e.p.k === 'boss') this.takeBoss(e.p);
+        else if (e.p.k === 'foe' || e.p.k === 'side') this.takeRig(e.p);
         else this.looks.set(e.p.id, piecePuts(e.p, this.calibRef, []));
         break;
       case 'hide': {
@@ -527,6 +568,38 @@ export class TrekSystem extends createSystem({}) {
         this.gone.delete(e.p.id);
         const r = this.rigOf.get(e.p.id);
         if (r) this.freeRig(r);
+        const b = this.bossRigs.find((x) => x.p === e.p);
+        if (b) this.freeBoss(b);
+        break;
+      }
+      case 'boss':
+        this.bossEv(e.p, e.act, e.from, e.to);
+        break;
+      case 'bthrow': {
+        // el jefe echa el brazo atrás (el aviso) y lanza: la alta y la del cuerpo, desde arriba; la baja, rodando por el suelo
+        const F = this.shotFx, low = e.shot === 'low';
+        F.on = true;
+        F.shot = e.shot;
+        F.t = 0;
+        F.wind = e.wind;
+        F.dur = e.dur;
+        F.to.set(e.aim.x, e.aim.y, e.aim.z);
+        this.world3({ s: e.p.at + BOSS_Z - 0.5, u: low ? 0 : 0.35, y: low ? ROLL_D / 2 : BOSS_H * 0.8 }, F.from);
+        const b = this.bossRigs.find((x) => x.p === e.p);
+        if (b) this.bossClip(b, 'Bite_Front', true);
+        SND.hiss(F.from, 1.1, BOSSES[e.p.n % BOSSES.length].voice);
+        break;
+      }
+      case 'bdodge': {
+        const F = this.shotFx;
+        if (F.on && this.rock) {
+          // te da: polvo de piedra delante de la cara (a medio metro: nada pegado a los ojos); esquivada, sigue de largo y se
+          // deshace detrás
+          const at = e.ok ? this.rock.position : this.v.copy(F.from).sub(F.to).setLength(0.55).add(F.to);
+          HOOKS.sparks(at, e.ok ? 6 : 20, 0xb8a890);
+        }
+        F.on = false;
+        if (this.rock) this.rock.visible = false;
         break;
       }
       case 'wake': {
@@ -874,6 +947,187 @@ export class TrekSystem extends createSystem({}) {
       r.root.quaternion.setFromAxisAngle(this.up, ry);
       if (!lite) r.mixer.update(dt);
     }
+  }
+
+  // ---------------------------------------------------------------- el jefe del mundo
+
+  /** Los jefes (uno de cada, en cuanto estén cargados; precompilados en el menú) y la piedra que lanzan. */
+  private buildBoss(): boolean {
+    const isl = kitParts('island');
+    if (!isl) return false;
+    for (const B of BOSSES) if (!AssetManager.getGLTF(B.asset, { shared: true })) return false;
+    for (const B of BOSSES) {
+      const gltf = AssetManager.getGLTF(B.asset)!, model = gltf.scene, root = new Group();
+      root.name = `travesia-jefe-${B.voice}`;
+      model.scale.setScalar(BOSS_H / B.nat);
+      model.traverse((o) => {
+        const m = o as Mesh;
+        if (!m.isMesh) return;
+        m.castShadow = true;
+        if ((o as SkinnedMesh).isSkinnedMesh) m.frustumCulled = false;
+      });
+      root.add(model);
+      root.visible = false;
+      this.root.add(root);
+      warmKeep(AssetManager.getGLTF(B.asset)!.scene);
+      const mixer = new AnimationMixer(model), acts = new Map<string, AnimationAction>();
+      for (const c of gltf.animations) acts.set(c.name, mixer.clipAction(c));
+      this.bossRigs.push({ root, mixer, acts, cur: '', p: null, from: 0, to: 0, leapT: -1, dizzy: false, dieT: -1, starT: 0 });
+    }
+    // la piedra: una roca del Pirate Kit, pequeña (vuela en la arena, fuera del mundo que baja y sube)
+    const parts = isl.Rock_2 ?? isl.Rock_1;
+    if (parts) {
+      const g = new Group();
+      let r = 0.5;
+      for (const P of parts) {
+        P.geo.computeBoundingSphere();
+        r = Math.max(0.05, P.geo.boundingSphere?.radius ?? r);
+        const m = new Mesh(P.geo, P.mat);
+        m.castShadow = true;
+        g.add(m);
+        warmKeep(new Mesh(P.geo, P.mat)); // (sin instancias: otro sombreador, compilado en el menú)
+      }
+      g.userData.r = r;
+      g.visible = false;
+      this.world.createTransformEntity(g);
+      this.rock = g;
+    }
+    for (const p of this.runner.live) if (p.k === 'boss') this.takeBoss(p);
+    return true;
+  }
+
+  private takeBoss(p: Piece): void {
+    const b = this.bossRigs[p.n % BOSSES.length];
+    if (!b || b.p === p) return;
+    b.p = p;
+    b.leapT = b.dieT = -1;
+    b.dizzy = false;
+    b.root.scale.set(1, 1, 1);
+    b.root.visible = true;
+    this.bossClip(b, 'Idle');
+  }
+
+  private freeBoss(b: BossRig): void {
+    b.p = null;
+    b.root.visible = false;
+    b.mixer.stopAllAction();
+    b.cur = '';
+  }
+
+  /** Su animación (como la de los enemigos): `once`, sin repetir y quieta al acabar. */
+  private bossClip(b: BossRig, name: string, once = false): void {
+    const a = b.acts.get(name);
+    if (!a || (b.cur === name && !once)) return;
+    const prev = b.cur && b.cur !== name ? b.acts.get(b.cur) : null;
+    a.reset();
+    a.setLoop(once ? LoopOnce : LoopRepeat, once ? 1 : Infinity);
+    a.clampWhenFinished = once;
+    a.fadeIn(0.15).play();
+    prev?.fadeOut(0.15);
+    b.cur = name;
+  }
+
+  /** Lo que hace el jefe: ruge al empezar, se marea (tambaleándose, con estrellas), se recupera, recibe tu supersalto (y
+   * salta hacia atrás) o cae derrotado (salta, muere y se esfuma). */
+  private bossEv(p: Piece, act: string, from?: number, to?: number): void {
+    const b = this.bossRigs.find((x) => x.p === p);
+    const at = this.world3({ s: p.at + BOSS_Z, u: 0, y: BOSS_H }, this.at);
+    const voice = BOSSES[p.n % BOSSES.length].voice;
+    if (act === 'start' || act === 'wake') {
+      SND.hiss(at, 1.4, voice);
+      if (b) {
+        b.dizzy = false;
+        this.bossClip(b, 'Jump', true);
+      }
+      return;
+    }
+    if (act === 'dizzy') {
+      if (b) {
+        b.dizzy = true;
+        this.bossClip(b, 'HitRecieve');
+      }
+      HOOKS.sparks(at, 14, 0xffe14a);
+      return;
+    }
+    // tu supersalto le cae encima: polvo, chispas y salta hacia atrás (o, derrotado, salta y muere)
+    HOOKS.sparks(at, 26, 0xffd166);
+    SND.hiss(at, 1.5, voice);
+    if (!b || from === undefined || to === undefined) return;
+    b.dizzy = false;
+    b.from = from;
+    b.to = to;
+    b.leapT = 0;
+    if (act === 'die') b.dieT = 0;
+    this.bossClip(b, 'HitRecieve', true);
+  }
+
+  /** Cada fotograma: el jefe en su sitio (o en su salto hacia atrás), de cara a ti; y lo que lanza. */
+  private drawBoss(dt: number): void {
+    const lite = LITE.on;
+    for (const b of this.bossRigs) {
+      const p = b.p;
+      if (!p) continue;
+      let s = p.at + BOSS_Z, y = 0;
+      if (b.leapT >= 0) {
+        b.leapT += dt / LEAP_T;
+        const k = Math.min(1, b.leapT);
+        s = b.from + (b.to - b.from) * k * k * (3 - 2 * k);
+        y = LEAP_UP * 4 * k * (1 - k);
+        if (k >= 1) {
+          b.leapT = -1;
+          if (b.dieT < 0) this.bossClip(b, 'Idle');
+          else this.bossClip(b, 'Death', true);
+        }
+      } else if (b.dieT >= 0) s = b.to;
+      if (b.dieT >= 0) {
+        b.dieT += dt;
+        const k = Math.max(0, 1 - Math.max(0, b.dieT - BOSS_FADE) / 0.6);
+        b.root.scale.setScalar(Math.max(0.01, k));
+        if (k <= 0) {
+          HOOKS.sparks(this.world3({ s, u: 0, y: 0.8 }, this.at), 24, 0xe8e4dc);
+          this.freeBoss(b);
+          continue;
+        }
+      }
+      // mareado: estrellas que le giran sobre la cabeza
+      if (b.dizzy && !lite) {
+        b.starT += dt;
+        if (b.starT > 0.45) {
+          b.starT = 0;
+          const a = this.clock * 4;
+          this.runner.tk.bend(s, 0.35 * Math.cos(a) - this.runner.uShift, this.bp);
+          HOOKS.sparks(this.at.set(this.bp.x, BOSS_H + 0.25 + this.runner.dip, this.bp.z + 0.35 * Math.sin(a)), 4, 0xffe14a);
+        }
+      }
+      b.root.visible = !lite;
+      const ry = this.runner.tk.bend(s, -this.runner.uShift, this.bp);
+      b.root.position.set(this.bp.x, y, this.bp.z);
+      b.root.quaternion.setFromAxisAngle(this.up, ry);
+      if (!lite) b.mixer.update(dt);
+    }
+    // la piedra: crece en su mano mientras echa el brazo atrás y vuela hasta donde estaba tu cabeza (la baja, rodando)
+    const F = this.shotFx, R = this.rock;
+    if (!R) return;
+    if (!F.on || GAME.phase !== 'playing' || GAME.between) {
+      F.on = false;
+      R.visible = false;
+      return;
+    }
+    if (GAME.paused) return;
+    F.t += dt;
+    const low = F.shot === 'low', d = low ? ROLL_D : ROCK_D, sc = d / 2 / (R.userData.r as number);
+    R.visible = true;
+    if (F.t < F.wind) {
+      R.position.copy(F.from);
+      R.scale.setScalar(sc * Math.max(0.05, F.t / F.wind));
+      return;
+    }
+    const k = Math.min(1.3, (F.t - F.wind) / Math.max(0.05, F.dur));
+    R.position.lerpVectors(F.from, F.to, k);
+    if (!low) R.position.y += 0.3 * Math.sin(Math.PI * Math.min(1, k));
+    R.scale.setScalar(sc);
+    R.rotation.x -= dt * (low ? 9 : 5);
+    R.rotation.z += dt * 3;
   }
 
   // ---------------------------------------------------------------- los escupitajos

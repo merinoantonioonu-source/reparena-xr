@@ -7,7 +7,7 @@
 // cofre, para echarse al suelo ante un túnel y para levantarse; y la dificultad sube de un tramo a otro, no dentro de él.
 import { describe, expect, it } from 'vitest';
 import { buildCourse, courseKinds, courseRules, minGap } from '../../src/modes/trek/plat/course.js';
-import { ARC_MAX, ARC_MIN, GOLD_N, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece, type PlatTune, platTune, TUNE_DEF } from '../../src/modes/trek/plat/types.js';
+import { ARC_MAX, ARC_MIN, bossTramo, GOLD_N, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece, type PlatTune, platTune, TUNE_DEF } from '../../src/modes/trek/plat/types.js';
 
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
 /** La tabla de dificultad más fácil (la del recluta salvo la separación: lo mínimo de cada medida) y una difícil. */
@@ -100,15 +100,22 @@ describe('el recorrido de la Travesía de plataformas', () => {
       expect(courseRules(c.pieces, vmax, T0), tag).toEqual([]);
       const last = c.pieces[c.pieces.length - 1]!;
       expect(last.k, tag).toBe('chest');
-      expect(last.at, tag).toBeCloseTo(start + len, 9);
-      expect(c.end, tag).toBeCloseTo(start + len, 9);
+      // (con el jefe del mundo, el tramo corto se alarga lo que pida; el jefe, justo antes del cofre)
+      const jefe = bossTramo(tramo);
+      if (jefe) {
+        expect(c.pieces[c.pieces.length - 2]!.k, tag).toBe('boss');
+        expect(c.end, tag).toBeGreaterThanOrEqual(start + len - 1e-9);
+        if (len >= 80) expect(c.end, tag).toBeCloseTo(start + len, 9);
+      } else expect(c.end, tag).toBeCloseTo(start + len, 9);
+      expect(last.at, tag).toBeCloseTo(c.end, 9);
+      expect(hay(c.pieces, 'boss'), tag).toBe(jefe);
       expect(c.pieces[0]!.at, tag).toBeGreaterThanOrEqual(start + RUN_UP);
       c.pieces.forEach((p, i) => {
         expect(p.id, tag).toBe(id0 + i);
         expect(p.tramo, tag).toBe(tramo);
       });
       const kinds = courseKinds(tramo);
-      for (const p of c.pieces) if (p.k !== 'chest' && !(p.k === 'fruit' && p.gold)) expect(kinds, tag).toContain(p.k);
+      for (const p of c.pieces) if (p.k !== 'chest' && p.k !== 'boss' && !(p.k === 'fruit' && p.gold)) expect(kinds, tag).toContain(p.k);
       if (len >= 200 && vmax <= 3.2) for (const k of retos(tramo)) expect(hay(c.pieces, k), `${tag}: falta ${k}`).toBe(true);
       // Las medidas (courseRules ya las comprueba; aquí, además, a mano).
       for (const p of c.pieces) {
