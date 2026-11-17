@@ -42,6 +42,14 @@ function setHand(h: Hand, f: BBFrame['hands'][Side]): void {
 function seed(det: StandingDetector, ex: string, f: BBFrame): void {
   det.reset(f.head.y);
   const v = f.det;
+  // (el camino nuevo, «Manos: filtro nuevo»: las manos que valían, ya estables)
+  for (const s of SIDES) {
+    const h = f.hands[s], Q = det.rb.q[s];
+    Q.has = h.ok;
+    if (h.ok) Q.p.set(h.x, h.y, h.z);
+    Q.conf = !!(h.flags & HB.hf);
+    Q.stable = Q.conf ? 1 : 0;
+  }
   for (const s of SIDES) {
     const h = f.hands[s], F = det.HF[s];
     F.has = h.ok;
@@ -60,16 +68,9 @@ function seed(det: StandingDetector, ex: string, f: BBFrame): void {
       B.ev = { perfect: false, fast: false };
       det.charged = true;
     }
-    // (el camino nuevo: si iba en el aire y tu separación; las manos que valían, ya estables)
+    // (el camino nuevo: si iba en el aire y tu separación)
     det.rb.air = v[7] === 1;
     det.rb.sep = v[8] ?? NaN;
-    for (const s of SIDES) {
-      const h = f.hands[s], Q = det.rb.q[s];
-      Q.has = h.ok;
-      if (h.ok) Q.p.set(h.x, h.y, h.z);
-      Q.conf = !!(h.flags & HB.hf);
-      Q.stable = Q.conf ? 1 : 0;
-    }
     if (!Number.isNaN(v[0])) {
       det.rb.lastY = v[0];
       det.rb.lastT = f.t;
@@ -77,7 +78,7 @@ function seed(det: StandingDetector, ex: string, f: BBFrame): void {
   } else if (ex === 'curl') {
     SIDES.forEach((s, k) => {
       const A = det.curl[s];
-      Object.assign(A, { state: ARM[f.st[k]] ?? 'down', bottom: v[k], max: v[2 + k], lost: v[4 + k], t0: f.t });
+      Object.assign(A, { state: ARM[f.st[k]] ?? 'down', bottom: v[k], max: v[2 + k], lost: v[4 + k], t0: f.t, air: v[6 + k] === 1 });
       if (A.state === 'hold') A.ev = { perfect: false, fast: false };
     });
   } else if (ex === 'fraise') {
@@ -112,7 +113,7 @@ export function replay(capture: string | BBParsed, opts: { cfg?: (c: StandCfg) =
     const f = F[i];
     if (f.reset !== null) det.reset(f.reset);
     // (al quitar la pausa, el camino nuevo empieza de cero; en una captura hecha sin él no se apunta, pero se ve: un hueco)
-    if ((f.resume || (i > from && f.t - F[i - 1].t > 1)) && cfgAt(f.t).robust && ex === 'curl2') det.barResume();
+    if ((f.resume || (i > from && f.t - F[i - 1].t > 1)) && cfgAt(f.t).robust && (ex === 'curl2' || ex === 'curl')) det.resume();
     head.p.set(f.head.x, f.head.y, f.head.z);
     head.speed = f.head.speed;
     setHand(hands.left, f.hands.left);

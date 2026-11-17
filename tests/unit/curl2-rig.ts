@@ -19,11 +19,14 @@ export class Rig {
   readonly hf: [boolean, boolean][] = [];
   private out: StandEvent[] = [];
   private I = { hands: this.hands, head: this.head, fwd: new Vector3(0, 0, -1), play: true };
-  /** fps: las imágenes por segundo (72 o 90 en las gafas); robust: con «Manos: filtro nuevo». */
+  /** fps: las imágenes por segundo (72 o 90 en las gafas); robust: con «Manos: filtro nuevo»; ex: el ejercicio (el curl con
+   * barra o el de un brazo, `curl`). */
   constructor(
     readonly fps = 72,
     robust = false,
+    ex = 'curl2',
   ) {
+    this.cfg.ex = ex;
     this.cfg.robust = robust;
     this.det.reset(Y0);
   }

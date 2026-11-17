@@ -165,8 +165,9 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [ ] **PR 37 · Las gafas a 72 imágenes por segundo y el menú del todo plano** (se aplica «Fotogramas por segundo en las gafas», que se había quedado sin portar: iban a 90 y el juego no llegaba; las teclas, a 2 mm de la bandeja)
 - [ ] **Curl con barra: disparos a destiempo** (plan del usuario en cuatro fases, un PR cada una y prueba en las gafas entre ellas: `docs/PLAN-CURL-BARRA.md`)
   - [x] **Fase 1 · Caja negra y reproductor** (sin cambiar el juego: los últimos 25 s del detector de los ejercicios con pesas, fotograma a fotograma, se guardan con el diagnóstico; `tests/replay` los reproduce; los fallos D1-D6, en pruebas) — #52
-  - [ ] **Fase 2 · Arreglos del detector** (tras el ajuste «Manos: filtro nuevo», apagado de serie: una mano solo vale estable, la que no casa con la otra no está en la pesa, perdidas subiendo espera a verlas —opción A del usuario— y al quitar la pausa la pesa empieza de cero; probado con la caja negra del usuario)
-  - [ ] Fase 3 · Calidad de la mano (llevarlo a los demás ejercicios con pesas) · Fase 4 · Cierre
+  - [x] **Fase 2 · Arreglos del detector** (tras el ajuste «Manos: filtro nuevo», apagado de serie: una mano solo vale estable, la que no casa con la otra no está en la pesa, perdidas subiendo espera a verlas —opción A del usuario— y al quitar la pausa la pesa empieza de cero; probado con la caja negra del usuario) — #54
+  - [ ] **Fase 3 · Los demás ejercicios con pesas**: el **curl a un brazo** (mancuerna; su caja negra: un rayo al llegar arriba por un salto falso de la mano al reaparecer) — este PR; faltan la elevación frontal y los de dos tiempos (sentadilla con press, con elevación y swing), cuando haya cajas negras suyas
+  - [ ] Fase 4 · Cierre (encendido de serie cuando el usuario lo dé por bueno)
 
 ## Los PR
 
@@ -409,6 +410,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- Curl con barra, fase 3 (curl a un brazo) → lo siguiente: con «Manos: filtro nuevo», el curl a un brazo va por `armRobust`
+  (`src/exercise/standing.ts`; `armStep`, lo de siempre, sin tocar): usa las mismas manos de confianza que el curl con barra
+  (`rbHands`, `rb.q`: estable `RB.settle` tras reaparecer o un salto imposible), su lo más bajo por tiempo y solo con ellas,
+  la opción A para la mano perdida subiendo (`arm.air`) y la subida nueva con `RB.hyst` (`arm.low`). `resume()` (antes
+  `barResume`) pone de cero los dos curls al quitar la pausa. La caja negra apunta `aireI`/`aireD`. Su captura,
+  `tests/replay/capturas/curl-mancuerna-rayo-al-llegar-arriba.txt` (grabada con el filtro encendido cuando aún no valía para el
+  curl a un brazo: `BEFORE` en `replay.test.ts` la reproduce sin él), y sus pruebas, `tests/replay/curl-robusto.test.ts` y
+  `tests/unit/curl-robusto.test.ts`. Lo siguiente: la elevación frontal (`fraiseStep`) y los de dos tiempos (`chainStep`),
+  con una caja negra de cada uno; y, cuando el usuario lo dé por bueno, encenderlo de serie (fase 4).
 
 - Travesía, **5 enemigos nuevos** (hecho; con esto, las cinco ideas elegidas): `dive` (abeja o murciélago por `n`; se juzga como
   la viga, con `h`), `skull` (como el tronco, andando), `quake` (el cíclope a un lado, `ASIDE_U`: al estar a `QUAKE_AT` m
