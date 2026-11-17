@@ -132,6 +132,12 @@ No las cambies sin preguntarle.
   frontal, swing, sentadilla con press y con elevación) descarta los saltos imposibles de una mano (`HF`). En el
   curl y el press con barra, dos manos juntas se confirman entre sí, y si se ven separadas vale la que se mueve (las gafas
   dejan quieta la que pierden).
+- **Curl con barra o kettlebell con «Manos: filtro nuevo»** (en pruebas, RepArena XR; decidido por el usuario con su caja
+  negra de las gafas, `docs/PLAN-CURL-BARRA.md`): una mano que reaparece no cuenta hasta verse estable un instante; una mano
+  que no casa con la otra (otra altura o mucho más separada que de costumbre: la que vuelve de pulsar la pausa) no está en
+  la pesa; **si se pierden las dos subiendo (opción A)**, el rayo no sale al perderlas: si reaparecen arriba, cuenta y sale al
+  bajar; si reaparecen abajo antes de 1 s, no cuenta; si no reaparecen en 1,5 s, cuenta; y **al quitar la pausa** la pesa
+  empieza de cero (no dispara lo que llevaba antes de pausar). Apagado, como arriba.
 - El press de hombro, el press con barra y la flexión en pica se quitaron (no se detectaban bien en las gafas); el leñador,
   porque no aportaba nada.
 - Cargas ×2/×3/×4 aguantando la postura más dura, como en la sentadilla: fondos (abajo, codos a 90°), elevación frontal

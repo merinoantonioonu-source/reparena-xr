@@ -251,5 +251,5 @@ Build and deployment → Source: **GitHub Actions**.
 | `public/input-profiles/` | Las manos y los mandos (MIT) |
 | `tests/unit/` | Pruebas de la lógica (Vitest) |
 | `tests/e2e/run.mjs` | La partida simulada (Playwright), sobre la versión construida servida en una subcarpeta |
-| `tests/replay/` | El reproductor de la caja negra: pasa una captura de las gafas por el detector (`CAPTURA=archivo npm run replay`); las capturas del usuario, en `capturas/` |
+| `tests/replay/` | El reproductor de la caja negra: pasa una captura de las gafas por el detector (`CAPTURA=archivo npm run replay`; con `ROBUSTO=1`, con «Manos: filtro nuevo»); las capturas del usuario, en `capturas/`, con sus pruebas |
 | `tests/compare/` | Comparaciones con el código original de RepArena (`RA_DIR=… npm run test:compare`) |

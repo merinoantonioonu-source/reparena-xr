@@ -47,6 +47,9 @@ export interface StandCfg {
   deepDrop: number;
   /** ¿Carga aguantando? (con pistolas o espadas, no: RepArena, `!pistolOn() && !swordActive()`) */
   power: boolean;
+  /** «Manos: filtro nuevo» (solo RepArena XR, en pruebas): el curl con barra o kettlebell decide con el camino nuevo
+   * (`barRobust`). Sin él, exactamente como en RepArena. */
+  robust?: boolean;
 }
 
 /** Los de serie de RepArena (src/00_core.js: SCHEMA). */
@@ -103,6 +106,26 @@ export const CHAIN: Record<string, ChainDef> = {
 };
 const CH_WIN = 2.5; // (segundos para el gesto, ya de pie)
 
+/** Los números del camino nuevo del curl con barra («Manos: filtro nuevo», `barRobust`), sacados de las cajas negras de las
+ * gafas (docs/PLAN-CURL-BARRA.md):
+ *  - settle: lo que tiene que verse estable una mano que reaparece o que ha dado un salto antes de contar (s);
+ *  - vmax: lo más deprisa que se mueve la muñeca en el curl (m/s): más, entre una imagen y la siguiente, es un salto;
+ *  - sepK, sepMul: cuánto más de lo normal en ti pueden separarse las manos y seguir en la misma pesa (m, veces);
+ *  - sepLearn: en cuánto se aprende esa separación (s);
+ *  - pred, fit: hasta cuándo vale la última altura de confianza para elegir mano (s) y cuánto se puede apartar de ella
+ *    (m, más fitV por segundo pasado);
+ *  - airLow, airMax: perdidas subiendo (opción A del usuario): si reaparecen abajo antes de airLow s, no cuenta; si no
+ *    reaparecen en airMax s, cuenta;
+ *  - hyst: lo que hay que subir desde lo más bajo para empezar otra subida (m; sin ello, el temblor al bajar parecía otra). */
+export const RB = { settle: 0.1, vmax: 3.2, sepK: 0.15, sepMul: 1.4, sepLearn: 3, pred: 0.3, fit: 0.1, fitV: 1.5, airLow: 1, airMax: 1.5, hyst: 0.05 };
+interface HandQ {
+  has: boolean;
+  p: Vector3;
+  stable: number;
+  conf: boolean;
+}
+const mkQ = (): HandQ => ({ has: false, p: new Vector3(), stable: 0, conf: false });
+
 const mkArm = () => ({ state: 'down' as 'down' | 'rising' | 'hold' | 'top', bottom: -0.78, max: 0, t0: 0, lost: 0, holdT: 0, pow: 1, ev: null as RepOpts | null });
 const wrapAng = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 
@@ -120,6 +143,10 @@ export class StandingDetector {
   /** y, clasp: la altura de la pesa usada en el último fotograma y si iba con las manos juntas (solo para la caja negra:
    * src/core/blackbox.ts; no deciden nada). */
   readonly bar = { ...mkArm(), hv: { left: 0, right: 0 }, hy: { left: NaN, right: NaN }, y: NaN, clasp: false };
+  /** El camino nuevo del curl con barra (`barRobust`): cada mano (si vale), la separación normal de tus manos, la última
+   * altura de confianza (y cuándo, y a qué velocidad iba), si hay una subida «en el aire» (perdidas subiendo) y lo más bajo
+   * desde que bajó. */
+  readonly rb = { q: { left: mkQ(), right: mkQ() }, sep: NaN, lastY: NaN, lastT: -9, vy: 0, air: false, low: NaN };
   readonly fr = { state: 'down' as 'down' | 'rising' | 'top', bottom: -0.85, max: 0, t0: 0, lost: 0, fwd: 0, o: null as RepOpts | null, holdT: 0, pow: 1 };
   readonly tw = { last: NaN, acc: 0, lo: 0, hi: 0, dir: 0, n: 0, t0: 0, lostT: 0, warnT: 0, ext: 0, holdT: 0, pow: 1, first: false };
   /** ¿Hay un disparo cargado? (RepArena: `charged`, que se pone al cargar y se quita al disparar o al perderlo) */
@@ -156,6 +183,8 @@ export class StandingDetector {
     this.bar.hy.left = this.bar.hy.right = NaN;
     this.bar.y = NaN;
     this.bar.clasp = false;
+    this.rbClear();
+    this.rb.sep = NaN;
     Object.assign(this.fr, { state: 'down', bottom: -0.85, max: 0, t0: 0, lost: 0, fwd: 0, o: null, holdT: 0, pow: 1 });
     Object.assign(this.tw, { last: NaN, acc: 0, lo: 0, hi: 0, dir: 0, n: 0, t0: 0, lostT: 0, warnT: 0, ext: 0, holdT: 0, pow: 1, first: false });
     this.charged = false;
@@ -184,7 +213,10 @@ export class StandingDetector {
       // cada brazo por su cuenta: carga al llegar al hombro y dispara al empezar a bajar
       this.armStep('left', dt);
       this.armStep('right', dt);
-    } else if (ex === 'curl2') this.barStep(dt);
+    } else if (ex === 'curl2') {
+      if (c.robust) this.barRobust(dt);
+      else this.barStep(dt);
+    }
     else if (ex === 'twist') this.twistStep(dt);
     else if (CHAIN[ex]) this.chainStep(CHAIN[ex], dt);
     else if (ex === 'fraise') this.fraiseStep(dt);
@@ -450,6 +482,178 @@ export class StandingDetector {
         if (B.max - B.bottom > range * 0.55) this.partial('Sube hasta el hombro');
       }
     } else if (y < B.bottom + 0.08) B.state = 'down';
+  }
+
+  // ---------------------------------------------------------------- el curl con barra, camino nuevo («Manos: filtro nuevo»)
+
+  // Lo mismo que barStep, con lo que enseñaron las cajas negras de las gafas (docs/PLAN-CURL-BARRA.md):
+  //  · una mano solo vale si está a tu alcance y lleva RB.settle s estable (al reaparecer o tras un salto imposible, no
+  //    enseguida): una mano que reaparecía con un salto falso hacía creer que la pesa bajaba;
+  //  · las dos juntas (a la misma altura y a tu separación de siempre), su media; si no casan (una no está en la pesa: la que
+  //    vuelve de pulsar la pausa), la que sigue a la última altura de confianza; si no hay con qué comparar, ninguna;
+  //  · perdidas subiendo (opción A del usuario): no dispara; si reaparecen arriba, cuenta y dispara al bajar, como siempre;
+  //    si reaparecen abajo antes de RB.airLow s, no cuenta; si no reaparecen en RB.airMax s, cuenta;
+  //  · al quitar la pausa empieza de cero (barResume); lo más bajo del recorrido se adapta con el tiempo, no por imagen.
+  private barRobust(dt: number): void {
+    const B = this.bar, R = this.rb, c = this.c, range = c.curlRange / 100, pt = c.perfectTime, t = this.t;
+    this.rbHands(dt);
+    const y = this.rbRead(t);
+    B.y = y;
+    if (Number.isNaN(y)) {
+      B.lost += dt;
+      if (B.state === 'hold' && B.lost > 0.25) {
+        B.state = 'top';
+        this.rep({ ...B.ev!, pow: B.pow });
+      } else if (B.state === 'rising' && B.max - B.bottom >= range * 0.4) {
+        // perdidas subiendo: la repetición se queda en el aire hasta verlas otra vez
+        R.air = true;
+        if (B.lost > RB.airMax) {
+          B.state = 'top';
+          R.air = false;
+          this.charge();
+          this.rep({ perfect: false, fast: false });
+        }
+      }
+      return;
+    }
+    const back = B.lost;
+    B.lost = 0;
+    const k = dt * 72; // (lo de barStep, por segundo y no por imagen)
+    B.bottom += (y - B.bottom) * (y < B.bottom ? 1 - Math.pow(0.5, k) : 0.0012 * k); // lo más bajo del recorrido
+    const top = (ev: RepOpts): void => {
+      Object.assign(B, { state: 'hold', holdT: 0, pow: 1, ev });
+      R.air = false;
+      this.charge();
+      this.top(null);
+    };
+    // reaparecen ya arriba tras perderlas un rato (subiendo, o en el aire): esa subida cuenta y dispara al bajar
+    if (back > 0.1 && back < 2 && (B.state === 'down' || B.state === 'rising') && y - B.bottom >= range * 0.85) {
+      top({ perfect: false, fast: false });
+      return;
+    }
+    if (R.air) {
+      R.air = false;
+      if (back >= RB.airLow && y - B.bottom < range * 0.5) {
+        // no se vieron en un buen rato y han vuelto abajo: la subida se acabó sin verla; cuenta
+        B.state = 'down';
+        R.low = y;
+        this.charge();
+        this.rep({ perfect: false, fast: false });
+        return;
+      }
+    }
+    if (B.state === 'hold') {
+      if (y >= B.bottom + range * 0.75) {
+        B.holdT += dt;
+        const p = powLevel(B.holdT, c.powHold, c.powHoldInc);
+        if (p > B.pow) {
+          B.pow = p;
+          this.power(p);
+        }
+        return;
+      }
+      B.state = 'top';
+      this.rep({ ...B.ev!, pow: B.pow });
+      return;
+    }
+    if (B.state === 'down') {
+      if (!(y >= R.low)) R.low = y;
+      if (y > B.bottom + Math.min(0.12, range * 0.45) && !(y <= R.low + RB.hyst)) Object.assign(B, { state: 'rising', max: y, t0: t });
+    } else if (B.state === 'rising') {
+      B.max = Math.max(B.max, y);
+      if (y - B.bottom >= range) {
+        const dur = t - B.t0;
+        top({ perfect: dur >= pt * 0.5 && dur < 5 && y - B.bottom >= range + 0.03, fast: pt > 0 && dur < pt * 0.25 });
+        return;
+      }
+      if (y < B.bottom + 0.07) {
+        B.state = 'down';
+        R.low = y;
+        if (B.max - B.bottom > range * 0.55) this.partial('Sube hasta el hombro');
+      }
+    } else if (y < B.bottom + 0.08) {
+      B.state = 'down';
+      R.low = y;
+    }
+  }
+
+  // cada mano: ¿vale para la pesa? (a tu alcance y estable RB.settle s; una mano calculada por el juego, nunca)
+  private rbHands(dt: number): void {
+    const hp = this.I.head.p;
+    for (const s of ['left', 'right'] as const) {
+      const h = this.I.hands[s], Q = this.rb.q[s];
+      if (!h.ok || h.est) {
+        Q.has = Q.conf = false;
+        Q.stable = 0;
+      } else {
+        const d = h.wrist.y - hp.y, reach = d < 0.05 && d > -1.15 && Math.hypot(h.wrist.x - hp.x, h.wrist.z - hp.z) < 0.9;
+        const jump = Q.has && Q.p.distanceTo(h.wrist) > Math.max(0.03, RB.vmax * dt);
+        Q.stable = !Q.has || jump || !reach ? 0 : Q.stable + dt;
+        Q.p.copy(h.wrist);
+        Q.has = true;
+        Q.conf = reach && Q.stable >= RB.settle - 1e-6;
+      }
+      this.HF[s].ok = Q.conf; // (lo que enseña la caja negra: la mano que vale para la pesa)
+    }
+  }
+
+  // la altura de la pesa respecto a los ojos (NaN: ninguna de confianza)
+  private rbRead(t: number): number {
+    const R = this.rb, B = this.bar, hp = this.I.head.p, L = this.I.hands.left, Rh = this.I.hands.right, qL = R.q.left.conf, qR = R.q.right.conf;
+    const a = L.wrist.y - hp.y, b = Rh.wrist.y - hp.y;
+    let y = NaN;
+    B.clasp = false;
+    if (qL && qR) {
+      const sep = L.wrist.distanceTo(Rh.wrist);
+      // tu separación de siempre (las dos a la misma altura): kettlebell, juntas; barra, más abiertas
+      if (Math.abs(a - b) < 0.08 && sep < 0.9) R.sep = Number.isNaN(R.sep) ? sep : R.sep + (sep - R.sep) * Math.min(1, this.dt / RB.sepLearn);
+      const lim = Number.isNaN(R.sep) ? 0.9 : Math.max(R.sep + RB.sepK, R.sep * RB.sepMul);
+      if (Math.abs(a - b) <= 0.15 && sep <= lim) {
+        y = (a + b) / 2;
+        B.clasp = true;
+      } else {
+        // no casan: la que sigue a la última altura de confianza (si no la hay, ninguna)
+        const p = this.rbPred(t);
+        if (!Number.isNaN(p)) {
+          const v = Math.abs(a - p) <= Math.abs(b - p) ? a : b;
+          if (this.rbFits(v, p, t)) y = v;
+        }
+      }
+    } else if (qL || qR) {
+      const v = qL ? a : b, p = this.rbPred(t);
+      if (Number.isNaN(p) || this.rbFits(v, p, t)) y = v;
+    }
+    if (!Number.isNaN(y)) {
+      const gap = t - R.lastT;
+      R.vy = gap > 0 && gap < 0.1 ? R.vy * 0.6 + ((y - R.lastY) / gap) * 0.4 : 0;
+      R.lastY = y;
+      R.lastT = t;
+    }
+    return y;
+  }
+  // dónde debería estar la pesa ahora, por la última altura de confianza y su velocidad (NaN si hace demasiado)
+  private rbPred(t: number): number {
+    const R = this.rb, gap = t - R.lastT;
+    if (!(gap <= RB.pred)) return NaN;
+    return R.lastY + Math.max(-2, Math.min(2, R.vy)) * gap;
+  }
+  private rbFits(v: number, p: number, t: number): boolean {
+    return Math.abs(v - p) <= RB.fit + RB.fitV * Math.max(0, t - this.rb.lastT);
+  }
+  private rbClear(): void {
+    const R = this.rb;
+    for (const s of ['left', 'right'] as const) Object.assign(R.q[s], { has: false, stable: 0, conf: false });
+    Object.assign(R, { lastY: NaN, lastT: -9, vy: 0, air: false, low: NaN });
+  }
+
+  /** Al quitar la pausa (con «Manos: filtro nuevo»): la pesa empieza de cero, como arriba (hay que bajarla antes de la
+   * siguiente) y sin la carga de antes. Durante la pausa la pesa se baja o se suelta, y la mano vuelve del botón: al seguir,
+   * eso no es un curl. */
+  barResume(): void {
+    const B = this.bar;
+    Object.assign(B, { state: 'top', lost: 0, ev: null, holdT: 0, pow: 1 });
+    this.rbClear();
+    this.charged = false;
   }
 
   // Elevación frontal con una sola pesa sujeta con las dos manos: las manos, juntas, suben desde los muslos con los brazos

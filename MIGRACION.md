@@ -164,8 +164,9 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 36 · Menú plano y paneles como en RepArena** (menú modelo A sin relieve; rehacerlo al pulsar no pinta ni sube nada; con un menú abierto, sin bosque ni enemigos; los siete paneles informativos, en lienzos como en RepArena, con su letra y sin que el texto se salga) — #43
 - [ ] **PR 37 · Las gafas a 72 imágenes por segundo y el menú del todo plano** (se aplica «Fotogramas por segundo en las gafas», que se había quedado sin portar: iban a 90 y el juego no llegaba; las teclas, a 2 mm de la bandeja)
 - [ ] **Curl con barra: disparos a destiempo** (plan del usuario en cuatro fases, un PR cada una y prueba en las gafas entre ellas: `docs/PLAN-CURL-BARRA.md`)
-  - [ ] **Fase 1 · Caja negra y reproductor** (sin cambiar el juego: los últimos 25 s del detector de los ejercicios con pesas, fotograma a fotograma, se guardan con el diagnóstico; `tests/replay` los reproduce; los fallos D1-D6, en pruebas)
-  - [ ] Fase 2 · Arreglos del detector (tras el ajuste «Manos: filtro nuevo») · Fase 3 · Calidad de la mano · Fase 4 · Cierre
+  - [x] **Fase 1 · Caja negra y reproductor** (sin cambiar el juego: los últimos 25 s del detector de los ejercicios con pesas, fotograma a fotograma, se guardan con el diagnóstico; `tests/replay` los reproduce; los fallos D1-D6, en pruebas) — #52
+  - [ ] **Fase 2 · Arreglos del detector** (tras el ajuste «Manos: filtro nuevo», apagado de serie: una mano solo vale estable, la que no casa con la otra no está en la pesa, perdidas subiendo espera a verlas —opción A del usuario— y al quitar la pausa la pesa empieza de cero; probado con la caja negra del usuario)
+  - [ ] Fase 3 · Calidad de la mano (llevarlo a los demás ejercicios con pesas) · Fase 4 · Cierre
 
 ## Los PR
 
@@ -408,6 +409,17 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- Curl con barra, fase 2 → la 3 (`docs/PLAN-CURL-BARRA.md`): **«Manos: filtro nuevo»** (`handsNew`, `xr: true`, grupo
+  ejercicio, solo con `curl2`; también una fila en la pausa, `pauseMenu`) pone `StandCfg.robust` (`readCfg`, y otra vez al
+  quitar la pausa) y el detector va por `barRobust` en vez de `barStep` (que sigue igual: lo comparan `tests/compare`). Lo nuevo
+  usa `det.rb` (cada mano, `rb.q`; tu separación, `rb.sep`; la última altura de confianza; `rb.air`) y escribe en `HF[s].ok`
+  si la mano vale (solo para la caja negra). Al quitar la pausa, `GameSystem` llama a `st.barResume()` y `BB.markResume()`;
+  el reproductor lo hace también con un hueco de más de 1 s si la captura es de antes. La caja negra apunta del curl con
+  barra también `aire` y `separación`. **Lo que dijeron las capturas** (en el plan): las gafas del usuario no repiten
+  posturas ni las dan «calculadas» ni cambian a mando: la fase 3 es sobre todo llevar `rbHands`/`rbRead` a los demás
+  ejercicios con pesas. **Antes**, el usuario lo prueba en las gafas (encendido y apagado, con la caja negra); una captura
+  nueva, a `tests/replay/capturas` con su prueba.
 
 - **El plano gris** (vídeo del usuario, en la Travesía): era el fundido entre oleadas o tramos (`GameSystem.veil`), un plano de
   14 × 9 m colocado «delante de donde mirabas al empezar» (`VIEW_FRAME.fix`). Al recalibrar (al calibrar o con «Recalibrar»

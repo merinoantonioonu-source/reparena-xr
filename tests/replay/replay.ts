@@ -60,6 +60,20 @@ function seed(det: StandingDetector, ex: string, f: BBFrame): void {
       B.ev = { perfect: false, fast: false };
       det.charged = true;
     }
+    // (el camino nuevo: si iba en el aire y tu separación; las manos que valían, ya estables)
+    det.rb.air = v[7] === 1;
+    det.rb.sep = v[8] ?? NaN;
+    for (const s of SIDES) {
+      const h = f.hands[s], Q = det.rb.q[s];
+      Q.has = h.ok;
+      if (h.ok) Q.p.set(h.x, h.y, h.z);
+      Q.conf = !!(h.flags & HB.hf);
+      Q.stable = Q.conf ? 1 : 0;
+    }
+    if (!Number.isNaN(v[0])) {
+      det.rb.lastY = v[0];
+      det.rb.lastT = f.t;
+    }
   } else if (ex === 'curl') {
     SIDES.forEach((s, k) => {
       const A = det.curl[s];
@@ -97,6 +111,8 @@ export function replay(capture: string | BBParsed, opts: { cfg?: (c: StandCfg) =
   for (let i = from; i < F.length; i++) {
     const f = F[i];
     if (f.reset !== null) det.reset(f.reset);
+    // (al quitar la pausa, el camino nuevo empieza de cero; en una captura hecha sin él no se apunta, pero se ve: un hueco)
+    if ((f.resume || (i > from && f.t - F[i - 1].t > 1)) && cfgAt(f.t).robust && ex === 'curl2') det.barResume();
     head.p.set(f.head.x, f.head.y, f.head.z);
     head.speed = f.head.speed;
     setHand(hands.left, f.hands.left);
@@ -109,11 +125,14 @@ export function replay(capture: string | BBParsed, opts: { cfg?: (c: StandCfg) =
   return { ex, from, frames: F, recorded: recorded.filter((e) => e.i >= from), replayed, det };
 }
 
-/** ¿Coinciden lo grabado y lo reproducido? Cada suceso, el mismo y como mucho a `tol` fotogramas. Devuelve lo que no casa. */
+/** ¿Coinciden lo grabado y lo reproducido? Cada suceso, el mismo y como mucho a `tol` fotogramas. Devuelve lo que no casa.
+ * (Si la captura empieza a mitad, en sus primeros 2 s no se sabe cuándo empezó la subida de antes: de esas repeticiones no
+ * se comparan «perfecta» ni «rápida».) */
 export function mismatches(r: ReplayResult, tol = 2): { recorded: ReplayEvent[]; replayed: ReplayEvent[] } {
-  const a = [...r.recorded], b = [...r.replayed], used = new Set<number>(), miss: ReplayEvent[] = [];
+  const a = [...r.recorded], b = [...r.replayed], used = new Set<number>(), miss: ReplayEvent[] = [], t0 = r.frames[0]?.t ?? 0;
+  const tok = (e: ReplayEvent): string => (r.from && e.t - t0 < 2 ? e.tok.replace(/^[rR]f?/, 'r') : e.tok);
   for (const e of a) {
-    const k = b.findIndex((x, j) => !used.has(j) && x.tok === e.tok && Math.abs(x.i - e.i) <= tol);
+    const k = b.findIndex((x, j) => !used.has(j) && tok(x) === tok(e) && Math.abs(x.i - e.i) <= tol);
     if (k < 0) miss.push(e);
     else used.add(k);
   }
