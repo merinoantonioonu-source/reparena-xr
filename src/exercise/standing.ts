@@ -115,7 +115,8 @@ const CH_WIN = 2.5; // (segundos para el gesto, ya de pie)
  *  - pred, fit: hasta cuándo vale la última altura de confianza para elegir mano (s) y cuánto se puede apartar de ella
  *    (m, más fitV por segundo pasado);
  *  - airLow, airMax: perdidas subiendo (opción A del usuario): si reaparecen abajo antes de airLow s, no cuenta; si no
- *    reaparecen en airMax s, cuenta;
+ *    reaparecen en airMax s, cuenta (sale la bola; el rayo, al verlas bajar: con las manos escondidas nunca dispara,
+ *    opción 1 del usuario);
  *  - hyst: lo que hay que subir desde lo más bajo para empezar otra subida (m; sin ello, el temblor al bajar parecía otra). */
 //  - confirm: llegar arriba (carga) y empezar a bajar (rayo) tienen que verse en dos imágenes seguidas y durante este tiempo
 //    (s): una sola imagen falsa, con la imagen a 20 por segundo (el filtro de saltos deja entonces pasar más), cargaba y
@@ -149,7 +150,7 @@ interface HandQ {
 const mkQ = (): HandQ => ({ has: false, p: new Vector3(), stable: 0, conf: false });
 
 // (air y low: los del camino nuevo del curl a un brazo, `armRobust`: subida «en el aire» y lo más bajo desde que bajó)
-const mkArm = () => ({ state: 'down' as 'down' | 'rising' | 'hold' | 'top', bottom: -0.78, max: 0, t0: 0, lost: 0, holdT: 0, pow: 1, ev: null as RepOpts | null, air: false, low: NaN, cfN: 0, cfT: 0 });
+const mkArm = () => ({ state: 'down' as 'down' | 'rising' | 'hold' | 'top', bottom: -0.78, max: 0, t0: 0, lost: 0, holdT: 0, pow: 1, ev: null as RepOpts | null, air: false, low: NaN, cfN: 0, cfT: 0, hid: false });
 const wrapAng = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 
 export class StandingDetector {
@@ -169,7 +170,7 @@ export class StandingDetector {
   /** El camino nuevo del curl con barra (`barRobust`): cada mano (si vale), la separación normal de tus manos, la última
    * altura de confianza (y cuándo, y a qué velocidad iba), si hay una subida «en el aire» (perdidas subiendo) y lo más bajo
    * desde que bajó. */
-  readonly rb = { q: { left: mkQ(), right: mkQ() }, sep: NaN, lastY: NaN, lastT: -9, vy: 0, air: false, low: NaN, cfN: 0, cfT: 0 };
+  readonly rb = { q: { left: mkQ(), right: mkQ() }, sep: NaN, lastY: NaN, lastT: -9, vy: 0, air: false, low: NaN, cfN: 0, cfT: 0, hid: false };
   readonly fr = { state: 'down' as 'down' | 'rising' | 'top', bottom: -0.85, max: 0, t0: 0, lost: 0, fwd: 0, o: null as RepOpts | null, holdT: 0, pow: 1 };
   readonly tw = { last: NaN, acc: 0, lo: 0, hi: 0, dir: 0, n: 0, t0: 0, lostT: 0, warnT: 0, ext: 0, holdT: 0, pow: 1, first: false };
   /** ¿Hay un disparo cargado? (RepArena: `charged`, que se pone al cargar y se quita al disparar o al perderlo) */
@@ -433,17 +434,17 @@ export class StandingDetector {
     const h = this.I.hands[side], d = this.curl[side], c = this.c, pt = c.perfectTime, range = c.curlRange / 100, t = this.t;
     if (!this.rb.q[side].conf) {
       d.lost += dt;
-      if (d.state === 'hold' && d.lost > 0.25) {
-        d.state = 'top';
-        this.rep({ ...d.ev!, pow: d.pow }, side);
-      } else if (d.state === 'rising' && d.max - d.bottom >= range * 0.4) {
-        // perdida subiendo: en el aire hasta verla otra vez
+      if (d.state === 'hold') d.hid = true;
+      // (con la mano escondida nunca dispara, opción 1 del usuario: arriba aguantando, la carga se guarda y el rayo sale al
+      // verla bajar o ya abajo)
+      if (d.state === 'rising' && d.max - d.bottom >= range * 0.4) {
+        // perdida subiendo: en el aire hasta verla otra vez; sin verla RB.airMax s, cuenta (sale la bola) y el rayo, al verla
+        // bajar
         d.air = true;
         if (d.lost > RB.airMax) {
-          d.state = 'top';
-          d.air = false;
+          Object.assign(d, { state: 'hold', holdT: 0, pow: 1, ev: { perfect: false, fast: false }, air: false });
           this.charge();
-          this.rep({ perfect: false, fast: false }, side);
+          this.top(side);
         }
       } else if (d.state !== 'hold' && !d.air && d.lost > 0.5) {
         // perdida un rato (como armStep): vuelve a empezar desde abajo (si no, al volver a media altura se quedaba «arriba»
@@ -480,7 +481,10 @@ export class StandingDetector {
         }
         return;
       }
-      d.state = 'top';
+      // (si se escondió aguantando, ha bajado sin verla: el curl siguiente puede empezar desde aquí)
+      d.state = d.hid ? 'down' : 'top';
+      if (d.hid) d.low = r;
+      d.hid = false;
       this.rep({ ...d.ev!, pow: d.pow }, side);
       return;
     }
@@ -614,17 +618,18 @@ export class StandingDetector {
     B.y = y;
     if (Number.isNaN(y)) {
       B.lost += dt;
-      if (B.state === 'hold' && B.lost > 0.25) {
-        B.state = 'top';
-        this.rep({ ...B.ev!, pow: B.pow });
-      } else if (B.state === 'rising' && B.max - B.bottom >= range * 0.4) {
-        // perdidas subiendo: la repetición se queda en el aire hasta verlas otra vez
+      if (B.state === 'hold') R.hid = true;
+      // (con las manos escondidas nunca dispara, opción 1 del usuario: arriba aguantando, la carga se guarda y el rayo sale al
+      // verlas bajar o ya abajo)
+      if (B.state === 'rising' && B.max - B.bottom >= range * 0.4) {
+        // perdidas subiendo: la repetición se queda en el aire hasta verlas otra vez; sin verlas RB.airMax s, cuenta (sale la
+        // bola) y el rayo, al verlas bajar
         R.air = true;
         if (B.lost > RB.airMax) {
-          B.state = 'top';
+          Object.assign(B, { state: 'hold', holdT: 0, pow: 1, ev: { perfect: false, fast: false } });
           R.air = false;
           this.charge();
-          this.rep({ perfect: false, fast: false });
+          this.top(null);
         }
       }
       return;
@@ -667,7 +672,10 @@ export class StandingDetector {
         }
         return;
       }
-      B.state = 'top';
+      // (si se escondieron aguantando, han bajado sin verlas: el curl siguiente puede empezar desde aquí)
+      B.state = R.hid ? 'down' : 'top';
+      if (R.hid) R.low = y;
+      R.hid = false;
       this.rep({ ...B.ev!, pow: B.pow });
       return;
     }
@@ -759,14 +767,14 @@ export class StandingDetector {
   private rbClear(): void {
     const R = this.rb;
     for (const s of ['left', 'right'] as const) Object.assign(R.q[s], { has: false, stable: 0, conf: false });
-    Object.assign(R, { lastY: NaN, lastT: -9, vy: 0, air: false, low: NaN, cfN: 0, cfT: 0 });
+    Object.assign(R, { lastY: NaN, lastT: -9, vy: 0, air: false, low: NaN, cfN: 0, cfT: 0, hid: false });
   }
 
   /** Al quitar la pausa (con «Manos: filtro nuevo»): el curl con barra y el de un brazo empiezan de cero, como arriba (hay
    * que bajar la pesa antes de la siguiente) y sin la carga de antes. Durante la pausa la pesa se baja o se suelta, y la mano
    * vuelve del botón: al seguir, eso no es un curl. */
   resume(): void {
-    for (const a of [this.bar, this.curl.left, this.curl.right]) Object.assign(a, { state: 'top', lost: 0, ev: null, holdT: 0, pow: 1, air: false, low: NaN, cfN: 0, cfT: 0 });
+    for (const a of [this.bar, this.curl.left, this.curl.right]) Object.assign(a, { state: 'top', lost: 0, ev: null, holdT: 0, pow: 1, air: false, low: NaN, cfN: 0, cfT: 0, hid: false });
     this.rbClear();
     this.charged = false;
   }

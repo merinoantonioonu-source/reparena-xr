@@ -119,9 +119,11 @@ arreglarlo, cambia de signo). Lo medido allí:
    perdida abajo, al volver a media altura se quedaba «arriba» sin cargar nunca más (ahora, como en RepArena, perdida más
    de 0,5 s vuelve a empezar desde abajo); (3) con la imagen a 20 por segundo, una sola imagen falsa cargaba y la siguiente
    disparaba (ahora llegar arriba y empezar a bajar se tienen que ver en dos imágenes seguidas, `RB.confirm`; también en el
-   curl con barra). **Pendiente de que el usuario elija**: los rayos con la mano escondida (la regla de RepArena «perdida
-   arriba, dispara» y la de la opción A «sin verla 1,5 s subiendo, cuenta», que disparaban sin verla bajar; en la tercera
-   partida, un curl dio dos rayos por eso). Faltan la elevación frontal y los de dos tiempos (con su caja
+   curl con barra). Y **con la mano escondida nunca dispara** (opción 1 del usuario, en los dos curls): «perdida arriba,
+   dispara» (de RepArena) y «sin verla 1,5 s subiendo, cuenta» (de la opción A) disparaban sin verla bajar (en la tercera
+   partida, un curl dio dos rayos por eso); ahora, perdida aguantando, la carga se guarda (`hid`) y el rayo sale al verla
+   bajar o ya abajo (y el curl siguiente puede empezar desde ahí), y sin verla 1,5 s subiendo, sale la bola (a «arriba») y
+   el rayo, igual, al verla bajar. En las tres partidas: ningún rayo con la mano escondida ni ningún rato arriba sin bola. Faltan la elevación frontal y los de dos tiempos (con su caja
    negra). El plan original de esta fase (capa común, con las capturas, lo de «postura repetida o congelada» no hace falta en las gafas del usuario: la
    capa común sería sobre todo llevar lo de `rbHands`/`rbRead` a `armStep`, `fraiseStep` y `chainStep`) (capa común de lógica pura, p. ej. `src/input/hand-quality.ts`): por mano y fotograma, postura
    nueva o repetida, tiempo desde la última nueva (congelada pasado un umbral sacado de las capturas, orientativo 100-150 ms),

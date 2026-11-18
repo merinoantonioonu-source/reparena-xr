@@ -72,6 +72,16 @@ describe('la caja negra de la mancuerna con el filtro, otra vez', () => {
     const r = runN(0);
     expect(tops(r, 'I').filter((t) => t > 19.7)).not.toEqual([]);
   });
+  it('con la mano escondida nunca dispara (opción 1): perdida arriba, el rayo al volver a verla abajo', () => {
+    const r = runN(0);
+    expect(shots(r, 'I').filter((t) => t > 16 && t < 19.6)).toEqual([]);
+    expect(shots(r, 'I').filter((t) => t > 19.6 && t < 20.2)).toHaveLength(1);
+  });
+  it('perdida subiendo más de 1,5 s: sale la bola, y un solo rayo para ese curl, al verla bajar (antes, dos)', () => {
+    const r = runN(2);
+    expect(shots(r, 'I').filter((t) => t > 14 && t < 17)).toHaveLength(1);
+    expect(shots(r, 'I').filter((t) => t > 14 && t < 17)[0]).toBeGreaterThan(16.4);
+  });
   it('un respingo de una sola imagen no carga ni dispara', () => {
     const r = runN(0);
     expect(shots(r, 'I').filter((t) => t > 20.7 && t < 21.3)).toEqual([]);

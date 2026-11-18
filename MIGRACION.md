@@ -166,7 +166,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [ ] **Curl con barra: disparos a destiempo** (plan del usuario en cuatro fases, un PR cada una y prueba en las gafas entre ellas: `docs/PLAN-CURL-BARRA.md`)
   - [x] **Fase 1 · Caja negra y reproductor** (sin cambiar el juego: los últimos 25 s del detector de los ejercicios con pesas, fotograma a fotograma, se guardan con el diagnóstico; `tests/replay` los reproduce; los fallos D1-D6, en pruebas) — #52
   - [x] **Fase 2 · Arreglos del detector** (tras el ajuste «Manos: filtro nuevo», apagado de serie: una mano solo vale estable, la que no casa con la otra no está en la pesa, perdidas subiendo espera a verlas —opción A del usuario— y al quitar la pausa la pesa empieza de cero; probado con la caja negra del usuario) — #54
-  - [ ] **Fase 3 · Los demás ejercicios con pesas**: el **curl a un brazo** (mancuerna; su caja negra: un rayo al llegar arriba por un salto falso de la mano al reaparecer) — #60; con su segunda caja negra, la mano que reaparece arriba carga, tras perderla abajo vuelve a cargar y una imagen suelta no carga ni dispara — este PR; faltan la elevación frontal y los de dos tiempos (sentadilla con press, con elevación y swing), cuando haya cajas negras suyas
+  - [ ] **Fase 3 · Los demás ejercicios con pesas**: el **curl a un brazo** (mancuerna; su caja negra: un rayo al llegar arriba por un salto falso de la mano al reaparecer) — #60; con su segunda caja negra, la mano que reaparece arriba carga, tras perderla abajo vuelve a cargar, una imagen suelta no carga ni dispara y con la mano escondida nunca dispara (opción 1 del usuario, también en el curl con barra) — #63; faltan la elevación frontal y los de dos tiempos (sentadilla con press, con elevación y swing), cuando haya cajas negras suyas
   - [ ] Fase 4 · Cierre (encendido de serie cuando el usuario lo dé por bueno)
 
 ## Los PR
@@ -415,8 +415,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   puede subir y cargar desde donde reaparece; la comprobación de subir va antes de actualizar `low`), en `armRobust` una
   mano perdida más de 0,5 s fuera de «arriba aguantando» o «en el aire» vuelve a «abajo» (como `armStep`), y llegar arriba y
   empezar a bajar pasan por `confirmed` (dos imágenes seguidas y `RB.confirm` s). La captura, en `tests/replay/capturas`
-  marcada `'antes'` en `BEFORE` (se grabó con el filtro anterior: no se compara con lo grabado). **Pendiente de que el
-  usuario elija** (ver el plan): qué hacer con la mano escondida (perdida arriba aguantando, o subiendo más de 1,5 s).
+  marcada `'antes'` en `BEFORE` (se grabó con el filtro anterior: no se compara con lo grabado). **Con la mano escondida nunca
+  dispara** (opción 1 del usuario): sin la regla «perdida aguantando arriba > 0,25 s, dispara»; `hid` apunta que se escondió
+  aguantando y, al dispararse al verla más abajo, se pasa a «abajo» desde ahí (si no, con lo más bajo sin ver, se quedaba
+  «arriba»); sin verla `RB.airMax` s subiendo, a «arriba aguantando» con su bola (`charge` + `top`), no `rep`.
 
 - Curl con barra, fase 3 (curl a un brazo) → lo siguiente: con «Manos: filtro nuevo», el curl a un brazo va por `armRobust`
   (`src/exercise/standing.ts`; `armStep`, lo de siempre, sin tocar): usa las mismas manos de confianza que el curl con barra

@@ -67,14 +67,25 @@ describe('curl2 con el filtro nuevo · los fallos de hoy ya no disparan', () => 
     expect(g.types).toEqual(['charge', 'top', 'rep']);
     expect(g.at('rep')!).toBeGreaterThan(down);
   });
-  it('D2 · perdidas subiendo más de 1,5 s: cuenta (la pesa las tapaba)', () => {
+  it('D2 · perdidas subiendo más de 1,5 s: cuenta (sale la bola) y el rayo, al verlas bajar (opción 1)', () => {
     const g = new Rig(72, true);
     g.hold(KL, KR, 0.5);
     g.move(KL, KR, up(KL, 0.15), up(KR, 0.15), 0.3);
     g.hold(null, null, 1.4);
     expect(shots(g)).toBe(0);
     g.hold(null, null, 0.3);
-    expect(g.types).toEqual(['charge', 'rep']);
+    expect(g.types).toEqual(['charge', 'top']);
+    g.hold(KL, KR, 0.4);
+    expect(g.types).toEqual(['charge', 'top', 'rep']);
+  });
+  it('aguantando arriba se pierden las dos manos: ningún rayo mientras no se ven; sale al verlas bajar (opción 1)', () => {
+    const g = new Rig(72, true);
+    g.hold(KL, KR, 0.5);
+    g.move(KL, KR, up(KL, SUBE), up(KR, SUBE), 0.8);
+    g.hold(null, null, 1.5);
+    expect(g.types).toEqual(['charge', 'top']);
+    g.hold(KL, KR, 0.4);
+    expect(g.types).toEqual(['charge', 'top', 'rep']);
   });
   it('D2 · perdidas subiendo y reaparecen abajo pasado 1 s: la subida se hizo sin verla; cuenta', () => {
     const g = new Rig(72, true);
