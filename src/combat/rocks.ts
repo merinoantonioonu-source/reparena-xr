@@ -100,7 +100,8 @@ export class Rocks {
           r.vel.multiplyScalar(-0.45).add(this.prev.set(Math.random() * 2 - 1, 2.2, 0));
           SND.metalHit(p, false);
           HOOKS.sparks(p, 16, 0xffcc80);
-          r.fx.hit(p);
+          // (el estallido, algo por delante de la mano: pegado a los ojos llenaría la vista)
+          r.fx.hit(this.p.copy(p).sub(GAME.head).setLength(Math.max(0.9, p.distanceTo(GAME.head))).add(GAME.head));
           haptic(side, 0.8, 50);
           HOOKS.say('¡Parada!', '#3cf0c6', 0.8);
           HOOKS.score(100, true); // (RepArena: +100 y suma al combo)
@@ -110,7 +111,7 @@ export class Rocks {
           // llega: ¿sigues ahí?
           if (play && p.distanceTo(GAME.head) < ROCK_HIT) {
             HOOKS.sparks(p, 12, 0xccb399);
-            r.fx.hit(p);
+            r.fx.hit(this.p.copy(r.from).sub(GAME.head).setLength(1.1).add(GAME.head)); // (a 1,1 m, hacia de donde vino)
             SND.metalHit(p, false);
             HOOKS.say('¡Pedrada!', '#ff3b5c', 1.0);
             HOOKS.playerHit(1);

@@ -272,11 +272,16 @@ No las cambies sin preguntarle.
 - Los contornos de tinta: finos de lejos (grosor fijo en el mundo pasados 2,5 m) y solo en el borde de verdad (sin
   parpadeos al mover la cabeza).
 - Los personajes geométricos hechos a mano gustaron poco: para enemigos nuevos, mejor modelos de Quaternius.
-- **Lo que lanzan los enemigos, tipo videojuego** (pedido del usuario: «lo que se veía era muy básico»): un núcleo que brilla
-  con su halo que parpadea, una estela de luz detrás, humo y, al dar, un fogonazo con una onda de chispas; al prepararlo,
-  crece en su mano con luz que gira. Las piedras del lanzador (Combate), en llamas; el escupitajo del cangrejo, baba verde
-  luminosa; el demonio, bola de fuego con humo; cada jefe, lo suyo (el Yeti, nieve; el Demonio verde, fuego verde; el Alien
-  alto, plasma violeta); la onda del cíclope, una llamarada baja que levanta polvo, y su puñetazo, un fogonazo de fuego.
+- **Lo que lanzan los enemigos y sus ondas, realistas** (pedido del usuario: primero «muy básico», luego «tosco: mucho más
+  realista»): partículas con textura de humo que giran, crecen y cambian de color con la edad (el fuego, de blanco a
+  amarillo, naranja y rojo; el humo, de oscuro a gris claro), no puntos de luz. Las piedras del lanzador (Combate), meteoros
+  en llamas con humo; el escupitajo del cangrejo, una bola de baba brillante que gotea y salpica; el demonio, una bola de
+  fuego que estalla (llamas, humo y pavesas); cada jefe, lo suyo (el Yeti, una bola de nieve que se deshace en polvo y
+  copos; el Demonio verde, fuego verde; el Alien alto, plasma violeta). La onda del cíclope es polvo de verdad: su puñetazo
+  levanta un anillo de polvo y piedras, y la onda corre por la pasarela como un muro bajo de polvo que salta del suelo; el
+  jefe, al caer tras cada salto, también. Lo que estalla al darte, a más de un metro (pegado, llenaba la vista).
+- **Alas al planear** (pedido del usuario): planeando con los brazos en cruz, un abanico de plumas de luz sale de cada
+  hombro, sigue el brazo hasta pasada la mano y cuelga hacia abajo, ondeando; aparece y se apaga suave.
 - Los voladores baten las alas siempre rápido, a su ritmo, sin depender de lo deprisa que avancen.
 - Cada enemigo tiene resistencia, fuerza y dureza en la tabla del desarrollador; los nuevos entran solos en ella.
 - En el menú, cada enemigo es una ficha con su retrato (de su modelo), su nombre, su resistencia y su fuerza. Un enemigo

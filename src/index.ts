@@ -13,6 +13,7 @@ import { EnvSystem } from './env/env-system.js';
 import { BarsSystem } from './modes/bars/bars-system.js';
 import { TouchSystem } from './modes/touch/touch-system.js';
 import { TrekSystem } from './modes/trek/trek-system.js';
+import { VfxSystem } from './style/vfx-system.js';
 import { GameSystem } from './combat/game.js';
 import { GateSystem } from './combat/gates.js';
 import { HandSystem } from './input/hand-system.js';
@@ -51,6 +52,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(TrekSystem, { priority: 5 });
   world.registerSystem(EnvSystem, { priority: 7 });
   world.registerSystem(GameSystem, { priority: 6 });
+  world.registerSystem(VfxSystem, { priority: 7 }); // (las partículas: llamas, humo, polvo… src/style/vfx.ts)
   world.registerSystem(RaMenuSystem, { priority: 6 }); // (los menús de RepArena: opción B del usuario, PR 31)
   world.registerSystem(ViewSystem, { priority: 6 });
   world.registerSystem(GoalsSystem, { priority: 6 });
