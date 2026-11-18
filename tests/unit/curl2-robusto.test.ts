@@ -131,6 +131,17 @@ describe('curl2 con el filtro nuevo · los fallos de hoy ya no disparan', () => 
   });
 });
 
+describe('curl2 con el filtro nuevo · lo que enseñó la caja negra de la mancuerna', () => {
+  it('con la imagen a 20 por segundo, un respingo de una sola imagen de las dos manos no carga ni dispara', () => {
+    const g = new Rig(20, true);
+    g.hold(KL, KR, 0.5);
+    g.move(KL, KR, up(KL, 0.15), up(KR, 0.15), 0.6);
+    g.step(up(KL, 0.27), up(KR, 0.27));
+    g.hold(up(KL, 0.15), up(KR, 0.15), 0.5);
+    expect(g.ev).toEqual([]);
+  });
+});
+
 describe('curl2 con el filtro nuevo · la pausa', () => {
   it('pausa arriba, cargado; en la pausa se baja la pesa y una mano va al botón: al seguir, ningún rayo', () => {
     const g = new Rig(72, true);

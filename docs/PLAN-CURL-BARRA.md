@@ -112,7 +112,16 @@ arreglarlo, cambia de signo). Lo medido allí:
    hundían lo más bajo del recorrido hasta 20 cm (D1 de verdad): con la mano casi abajo el juego la creía arriba (cargas y un
    rayo al perderla). Con el filtro: la mano solo vale estable, lo más bajo solo con ella, la opción A al perderla subiendo y
    de cero al quitar la pausa; en la caja negra, sin ningún rayo al llegar arriba y cada curl con su rayo al bajar. Aparte:
-   en esas partidas la imagen iba a ratos a 25-30 por segundo. Faltan la elevación frontal y los de dos tiempos (con su caja
+   en esas partidas la imagen iba a ratos a 25-30 por segundo.
+   **Segunda caja negra de la mancuerna, ya con el filtro** (`tests/replay/capturas/curl-mancuerna-sin-bola-y-rayos-escondida.txt`):
+   tres fallos del filtro, arreglados: (1) la mano que reaparecía ya arriba no cargaba (lo más bajo «desde que bajó» se
+   tomaba de donde reaparecía: ahora, al reaparecer, no se sabe y se puede subir y cargar); (2) tras el rayo, con la mano
+   perdida abajo, al volver a media altura se quedaba «arriba» sin cargar nunca más (ahora, como en RepArena, perdida más
+   de 0,5 s vuelve a empezar desde abajo); (3) con la imagen a 20 por segundo, una sola imagen falsa cargaba y la siguiente
+   disparaba (ahora llegar arriba y empezar a bajar se tienen que ver en dos imágenes seguidas, `RB.confirm`; también en el
+   curl con barra). **Pendiente de que el usuario elija**: los rayos con la mano escondida (la regla de RepArena «perdida
+   arriba, dispara» y la de la opción A «sin verla 1,5 s subiendo, cuenta», que disparaban sin verla bajar; en la tercera
+   partida, un curl dio dos rayos por eso). Faltan la elevación frontal y los de dos tiempos (con su caja
    negra). El plan original de esta fase (capa común, con las capturas, lo de «postura repetida o congelada» no hace falta en las gafas del usuario: la
    capa común sería sobre todo llevar lo de `rbHands`/`rbRead` a `armStep`, `fraiseStep` y `chainStep`) (capa común de lógica pura, p. ej. `src/input/hand-quality.ts`): por mano y fotograma, postura
    nueva o repetida, tiempo desde la última nueva (congelada pasado un umbral sacado de las capturas, orientativo 100-150 ms),
