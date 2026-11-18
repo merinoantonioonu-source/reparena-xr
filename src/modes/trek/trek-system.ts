@@ -21,10 +21,12 @@ import { CAMP } from '../../core/campaign.js';
 import { GAME, HOOKS, LITE, VIEW } from '../../core/state.js';
 import { num, settings } from '../../core/values.js';
 import { haptic } from '../../input/hand-system.js';
-import { hands, head, type Hand } from '../../input/hand-model.js';
+import { hands, head, headFwd, type Hand } from '../../input/hand-model.js';
+import { Wings } from './wings.js';
 import { groundTexture, kitParts, type Part } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import { LOOK_BOSS, LOOK_FIRE, LOOK_SPIT, Missile, type MissileLook } from '../../style/missile-fx.js';
+import { PAL, vfx } from '../../style/vfx.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
 import { DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
@@ -56,8 +58,8 @@ const LOOKS = Object.keys(FOE_LOOK) as Look[];
 const lookOf = (p: Piece): Look | null => (p.k === 'dive' ? (p.n % 2 ? 'bat' : 'bee') : p.k === 'foe' || p.k === 'side' || p.k === 'skull' || p.k === 'quake' || p.k === 'fire' ? p.k : null);
 /** Los que vuelan (sin andar: aletean). */
 const FLY: readonly Look[] = ['bee', 'bat'];
-/** La onda del cíclope (una franja de luz que corre por la pasarela) y la bola de fuego del demonio (su color y su arco, m). */
-const WAVE_POOL = 2, FIRE_POOL = 2, FIRE_COL = 0xff7a1a, FIRE_ARC = 1.3, SPIT_ARC = 0.25;
+/** Las ondas del cíclope a la vez, las bolas de fuego del demonio y lo alto del arco de cada cosa que se lanza (m). */
+const WAVE_POOL = 2, FIRE_POOL = 2, FIRE_ARC = 1.3, SPIT_ARC = 0.25;
 /** Lo que dura cada gesto que no se repite (s): morder, chafarse (y lo que tarda en esfumarse la seta pisada). */
 const BITE_T = 0.9, SQUASH_T = 0.18, DIE_T = 1.3;
 
@@ -112,8 +114,8 @@ interface BossShotFx {
  * cambiar para pedírselo a IWSDK (rad). */
 const PANO_FOLLOW = 0.25, PANO_STEP = 0.002;
 
-/** Los escupitajos del cangrejo: cuántos puede haber a la vez y su color (un verde de baba que brilla). */
-const SPIT_POOL = 3, SPIT_COL = 0x9dff3a;
+/** Los escupitajos del cangrejo: cuántos puede haber a la vez. */
+const SPIT_POOL = 3;
 /** Un escupitajo que se ve: su cangrejo, desde dónde y hacia dónde vuela (en la arena), lo que lleva y lo que dura. */
 interface SpitFx {
   /** Cómo se ve (estela, humo y fogonazo: src/style/missile-fx.ts) y dónde va ahora. */
@@ -207,8 +209,10 @@ export class TrekSystem extends createSystem({}) {
   private bossReady = false;
   private rock: Group | null = null;
   private readonly shotFx: BossShotFx = { on: false, shot: 'high', from: new Vector3(), to: new Vector3(), t: 0, wind: 1, dur: 1 };
-  /** Las estelas del turbo. */
+  /** Las estelas del turbo y las alas de planear. */
   private wind!: InstancedMesh;
+  private wings!: Wings;
+  private readonly fwd = new Vector3();
   private readonly winds: Wind[] = [];
   /** Los brillos de las frutas doradas a la vista (hechos al empezar y reutilizados). */
   private readonly goldGlow: Sprite[] = [];
@@ -216,8 +220,8 @@ export class TrekSystem extends createSystem({}) {
   private readonly spits: SpitFx[] = [];
   private readonly fires: SpitFx[] = [];
   private bossFx!: Missile;
-  private slamFx!: Missile;
-  private readonly waves: { m: Mesh; p: Piece | null; dustT: number; on: boolean }[] = [];
+  private readonly waves: { p: Piece | null; dustT: number; on: boolean }[] = [];
+  private readonly wdir = new Vector3();
   /** El giro del fondo realista que se pidió a IWSDK por última vez (rad). */
   private panoYaw = 0;
   /** Lo que se guardó al acabar la última ronda (la medalla y el fantasma). */
@@ -286,6 +290,9 @@ export class TrekSystem extends createSystem({}) {
     this.wind.userData.noInk = true;
     for (let i = 0; i < WIND_N; i++) this.winds.push({ x: (Math.random() < 0.5 ? 1 : -1) * (0.7 + 2.5 * Math.random()), y: 0.15 + 2.45 * Math.random(), z: -14 + 18 * Math.random(), l: 0.8 + 1.4 * Math.random(), k: 0.7 + 0.6 * Math.random() });
     this.world.createTransformEntity(this.wind);
+    // las alas de luz al planear (en la arena, junto a tus brazos)
+    this.wings = new Wings();
+    this.world.createTransformEntity(this.wings.group);
     warmKeep(new InstancedMesh(this.wind.geometry, this.wind.material, 1)); // (instanciada como la de verdad: el mismo sombreador)
     // el brillo redondo (de las doradas)
     const n = 32, d = new Uint8Array(n * n * 4);
@@ -303,32 +310,8 @@ export class TrekSystem extends createSystem({}) {
     for (let i = 0; i < SPIT_POOL; i++) this.spits.push({ m: missile(LOOK_SPIT), pos: new Vector3(), p: null, arc: SPIT_ARC, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
     for (let i = 0; i < FIRE_POOL; i++) this.fires.push({ m: missile(LOOK_FIRE), pos: new Vector3(), p: null, arc: FIRE_ARC, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
     this.bossFx = missile(LOOK_BOSS[0]);
-    // el puñetazo del cíclope contra el suelo: un fogonazo de polvo y fuego
-    this.slamFx = missile({ core: 0xffe0a0, glow: 0xffa040, trail: 0xff7a1a, smoke: 0x8a7a60, size: 0.2 });
-    // la onda del cíclope: un muro bajo de luz naranja (35 cm, lo que hay que saltar) que corre por la pasarela (en el mundo
-    // que baja y sube)
-    // (con un degradado: brilla abajo, en el suelo, y se desvanece hacia arriba como una llamarada; dentro, otra más baja
-    // y amarilla, el filo)
-    const gn = 64, gd = new Uint8Array(4 * gn * 4);
-    for (let y = 0; y < gn; y++) for (let x = 0; x < 4; x++) gd.set([255, 255, 255, Math.round(255 * Math.pow(1 - y / (gn - 1), 1.6))], (y * 4 + x) * 4);
-    const grad = new DataTexture(gd, 4, gn, RGBAFormat, UnsignedByteType);
-    grad.magFilter = grad.minFilter = LinearFilter;
-    grad.needsUpdate = true;
-    const waveMat = new MeshBasicMaterial({ color: 0xff8a2a, map: grad, transparent: true, opacity: 0.95, depthWrite: false, blending: AdditiveBlending, toneMapped: false, side: 2 }), waveGeo = new PlaneGeometry(2.8, 0.6);
-    waveGeo.translate(0, 0.3, 0);
-    const edgeMat = new MeshBasicMaterial({ color: 0xffe28a, map: grad, transparent: true, opacity: 1, depthWrite: false, blending: AdditiveBlending, toneMapped: false, side: 2 }), edgeGeo = new PlaneGeometry(2.6, 0.3);
-    edgeGeo.translate(0, 0.15, 0);
-    for (let i = 0; i < WAVE_POOL; i++) {
-      const m = new Mesh(waveGeo, waveMat), edge = new Mesh(edgeGeo, edgeMat);
-      m.userData.noInk = edge.userData.noInk = true;
-      m.add(edge);
-      edge.position.z = 0.02;
-      m.visible = false;
-      this.root.add(m);
-      this.waves.push({ m, p: null, dustT: 0, on: false });
-    }
-    warmKeep(new Mesh(waveGeo, waveMat));
-    warmKeep(new Mesh(edgeGeo, edgeMat));
+    // la onda del cíclope: la llevan las partículas (polvo que salta a su paso: src/style/vfx.ts)
+    for (let i = 0; i < WAVE_POOL; i++) this.waves.push({ p: null, dustT: 0, on: false });
     // el brillo dorado de las doradas (en el mundo que baja y sube: va con ellas)
     const goldMat = new SpriteMaterial({ map: gt, color: 0xffd166, transparent: true, opacity: 0.7, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
     for (let i = 0; i < 4; i++) {
@@ -475,10 +458,7 @@ export class TrekSystem extends createSystem({}) {
       S.m.stop();
     }
     this.bossFx?.stop();
-    for (const w of this.waves) {
-      w.p = null;
-      w.m.visible = false;
-    }
+    for (const w of this.waves) w.p = null;
     this.shotFx.on = false;
   }
 
@@ -505,6 +485,9 @@ export class TrekSystem extends createSystem({}) {
     this.drawBoss(dt);
     this.stepSpits(dt);
     this.stepWind(dt);
+    // planeando de verdad (con los brazos en cruz), las alas
+    const H = this.runner.hop, glide = GAME.phase === 'playing' && !GAME.paused && !!H?.glide && H.won && !H.bad;
+    this.wings.update(GAME.paused ? 0 : dt, glide, head.p, headFwd(this.fwd), this.env.hands.l, this.env.hands.r);
   }
 
   /** Al entrar en la Travesía: fuera la arena (compuertas, suelo, valle y nubes) y la niebla del bosque. */
@@ -656,9 +639,9 @@ export class TrekSystem extends createSystem({}) {
           // te da: estalla delante de la cara (a medio metro: nada pegado a los ojos); esquivada, sigue de largo y se apaga
           if (e.ok) this.bossFx.coast(0.4);
           else {
-            const at = this.v.copy(F.from).sub(F.to).setLength(0.55).add(F.to);
-            this.bossFx.hit(at, true);
-            HOOKS.sparks(at, 20, LOOK_BOSS[e.p.n % LOOK_BOSS.length].glow ?? 0xffffff);
+            // (a 1,3 m, delante: más cerca, el fogonazo llenaría la vista)
+            const at = this.v.copy(F.from).sub(F.to).setLength(1.3).add(F.to);
+            this.bossFx.hit(at);
           }
         }
         F.on = false;
@@ -708,9 +691,9 @@ export class TrekSystem extends createSystem({}) {
           // esquivado, se deshace a tu lado
           if (e.ok) S.m.coast(0.35);
           else {
-            const at = this.v.copy(S.from).sub(S.to).setLength(0.55).add(S.to);
-            S.m.hit(at, fire);
-            HOOKS.sparks(at, fire ? 26 : 18, fire ? FIRE_COL : SPIT_COL);
+            // (a 1,2 m, delante: más cerca, el fogonazo llenaría la vista)
+            const at = this.v.copy(S.from).sub(S.to).setLength(1.2).add(S.to);
+            S.m.hit(at);
           }
           S.p = null;
         }
@@ -1126,8 +1109,9 @@ export class TrekSystem extends createSystem({}) {
       HOOKS.sparks(at, 14, 0xffe14a);
       return;
     }
-    // tu supersalto le cae encima: polvo, chispas y salta hacia atrás (o, derrotado, salta y muere)
-    HOOKS.sparks(at, 26, 0xffd166);
+    // tu supersalto le cae encima: un golpe de polvo y chispas sobre su cabeza, y salta hacia atrás (o, derrotado, salta y muere)
+    HOOKS.sparks(at, 20, 0xffd166);
+    vfx().puffs(at, 8, 0.2, 0.9, PAL.dust, 1.2, 0.4, 3, 0.6);
     SND.hiss(at, 1.5, voice);
     if (!b || from === undefined || to === undefined) return;
     b.dizzy = false;
@@ -1152,6 +1136,12 @@ export class TrekSystem extends createSystem({}) {
         y = LEAP_UP * 4 * k * (1 - k);
         if (k >= 1) {
           b.leapT = -1;
+          // al caer, el suelo retumba: un anillo de polvo y piedras (el jefe pesa)
+          if (!lite) {
+            const at = this.world3({ s, u: 0, y: 0.05 }, this.at), V = vfx();
+            V.shockRing(at, 1.2);
+            V.bits(at, 12, 0.06, 3.5, 1, PAL.debris);
+          }
           if (b.dieT < 0) this.bossClip(b, 'Idle');
           else this.bossClip(b, 'Death', true);
         }
@@ -1222,44 +1212,42 @@ export class TrekSystem extends createSystem({}) {
     for (const S of this.fires) this.stepSpit(S, dt);
   }
 
-  /** La onda del cíclope: corre por la pasarela hacia ti desde su lado (donde la lleva la lógica, `p.fx`), levantando polvo;
-   * pasada (o fuera de la ronda), se apaga. */
+  /** La onda del cíclope (realista, pedido del usuario): el puñetazo levanta un anillo de polvo y piedras; la onda corre por la
+   * pasarela hacia ti (donde la lleva la lógica, `p.fx`) como un muro bajo de polvo que salta del suelo a su paso, con
+   * piedrecitas; pasada (o fuera de la ronda), se acaba. */
   private stepWaves(dt: number): void {
-    const R = this.runner;
-    if (!GAME.paused) this.slamFx.update(dt);
+    const R = this.runner, V = vfx();
     for (const w of this.waves) {
       const p = w.p;
       const s = p ? p.at - Math.max(0, p.fx) : 0;
       if (!p || GAME.phase !== 'playing' || GAME.between || s < R.dist - head.p.z - 3 || (p.judged && s < R.dist - head.p.z + 0.5)) {
         w.p = null;
-        w.m.visible = false;
         continue;
       }
-      if (p.fx < 0) {
-        w.m.visible = false;
-        continue;
-      }
+      if (p.fx < 0 || GAME.paused || LITE.on) continue;
       if (!w.on) {
-        // el puño llega al suelo: fogonazo de fuego y polvo, piedras que saltan y la onda echa a correr
+        // el puño llega al suelo: un anillo de polvo que se abre, una nube que sube y piedras que saltan
         w.on = true;
-        const at = this.world3({ s: p.at, u: p.side * (ASIDE_U - 0.7), y: 0.15 }, this.at);
-        this.slamFx.hit(at, true);
-        HOOKS.sparks(at, 26, 0x8a7258);
-        HOOKS.sparks(at, 16, 0xffa040);
+        const at = this.world3({ s: p.at, u: p.side * (ASIDE_U - 0.6), y: 0.08 }, this.at);
+        V.shockRing(at, 1.1);
+        V.puffs(at, 12, 0.28, 1.5, PAL.dust, 0.9, 0.9, 3, 0.7);
+        V.bits(at, 20, 0.06, 4.2, 1.1, PAL.debris);
         haptic('left', 0.5, 120);
         haptic('right', 0.5, 120);
       }
-      const ry = R.tk.bend(s, p.lane * FORK_U - R.uShift, this.bp);
-      w.m.position.set(this.bp.x, 0, this.bp.z);
-      w.m.rotation.set(0, ry, 0);
-      w.m.scale.set(1, 1 + 0.25 * Math.sin(this.clock * 24) + 0.1 * Math.sin(this.clock * 41), 1); // (vibra, como una llamarada)
-      w.m.visible = !LITE.on;
-      if (GAME.paused) continue;
-      // a su paso, el suelo salta: polvo y piedrecitas, y alguna chispa
+      // el frente: de un lado a otro de la pasarela, el polvo salta del suelo (cada 1/60 s, a su ritmo) y se queda en su sitio
+      // del sendero (corre hacia ti con el mundo)
+      this.world3({ s: s - 0.5, u: p.lane * FORK_U, y: 0 }, this.wdir);
+      this.world3({ s, u: p.lane * FORK_U, y: 0 }, this.at);
+      this.wdir.sub(this.at).normalize().multiplyScalar(Math.max(0, R.v));
       w.dustT += dt;
-      if (w.dustT > 0.06) {
-        w.dustT = 0;
-        HOOKS.sparks(this.world3({ s, u: (Math.random() - 0.5) * 2.4, y: 0.08 }, this.at), 3, Math.random() < 0.6 ? 0x8a7258 : 0xffb050);
+      while (w.dustT >= 1 / 60) {
+        w.dustT -= 1 / 60;
+        for (let i = 0; i < 3; i++) {
+          this.world3({ s: s + (Math.random() - 0.5) * 0.3, u: p.lane * FORK_U + (Math.random() - 0.5) * 2.8, y: 0.05 }, this.at);
+          V.matter.emit(this.at.x, this.at.y, this.at.z, this.wdir.x + (Math.random() - 0.5) * 0.4, 0.9 + Math.random() * 1.3, this.wdir.z + (Math.random() - 0.5) * 0.4, 0.15 + Math.random() * 0.08, 3, 0.55 + Math.random() * 0.35, PAL.dust[0], PAL.dust[1], 0.75, 2.2, 1.2);
+        }
+        if (Math.random() < 0.35) V.bits(this.at, 1, 0.04, 2.2, 0.7, PAL.debris);
       }
     }
   }

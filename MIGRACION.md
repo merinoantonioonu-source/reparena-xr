@@ -434,12 +434,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `tests/unit/curl-robusto.test.ts`. Lo siguiente: la elevación frontal (`fraiseStep`) y los de dos tiempos (`chainStep`),
   con una caja negra de cada uno; y, cuando el usuario lo dé por bueno, encenderlo de serie (fase 4).
 
-- **Lo que lanzan los enemigos** (pedido del usuario: más tipo videojuego): `Missile` (`src/style/missile-fx.ts`): dos nubes de
-  puntos (la luz, que suma, y el humo) como las chispas de `fx.ts` (sin pintarse pegadas a los ojos) y, si lleva, una bola;
-  `charge` (en la mano), `fly` (fotograma a fotograma), `coast` (esquivado: sigue de largo), `hit` (fogonazo y onda) y
-  `update` cada fotograma. Cómo es cada uno, `LOOK_*` (de un jefe, `LOOK_BOSS[n]`, con `setLook`). Lo usan las piedras de
-  `Rocks` (Combate) y, en `TrekSystem`, los escupitajos, las bolas de fuego, lo del jefe (`bossFx`) y el puñetazo del cíclope
-  (`slamFx`); la onda del cíclope, con un degradado (`grad`) y su filo.
+- **Lo que lanzan los enemigos** (pedido del usuario: realista): las partículas de todo el juego, `vfx()` (`src/style/vfx.ts`:
+  dos montones, la luz y la materia, con una textura de humo con ruido; `flames`, `puffs`, `bits`, `explode`, `shockRing`, y
+  `PAL` con las paletas), que mueve `VfxSystem`. `Missile` (`src/style/missile-fx.ts`): la bola y lo que suelta según su
+  clase (`MissileKind`: fuego, fuego verde, nieve, baba, plasma, meteoro); `charge`, `fly`, `coast`, `hit` y `update`. Lo
+  usan `Rocks` (Combate) y, en `TrekSystem`, los escupitajos, las bolas de fuego y lo del jefe (`bossFx`, `LOOK_BOSS[n]`);
+  la onda del cíclope y el aterrizaje del jefe, con `vfx()` directamente (`stepWaves`, `drawBoss`). Las **alas** de planear,
+  `Wings` (`src/modes/trek/wings.ts`): plumas de luz cuyos vértices se colocan cada fotograma con las muñecas.
 - Travesía, **5 enemigos nuevos** (hecho; con esto, las cinco ideas elegidas): `dive` (abeja o murciélago por `n`; se juzga como
   la viga, con `h`), `skull` (como el tronco, andando), `quake` (el cíclope a un lado, `ASIDE_U`: al estar a `QUAKE_AT` m
   golpea, `slam`, y su onda corre por `Piece.fx`; se juzga en el aire cuando pasa) y `fire` (el demonio: a `FIRE_AT` m lanza
