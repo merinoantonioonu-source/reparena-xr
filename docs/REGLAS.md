@@ -280,6 +280,11 @@ No las cambies sin preguntarle.
   copos; el Demonio verde, fuego verde; el Alien alto, plasma violeta). La onda del cíclope es polvo de verdad: su puñetazo
   levanta un anillo de polvo y piedras, y la onda corre por la pasarela como un muro bajo de polvo que salta del suelo; el
   jefe, al caer tras cada salto, también. Lo que estalla al darte, a más de un metro (pegado, llenaba la vista).
+  **Las bolas, con relieve, claroscuro y movimiento de verdad** (pedido del usuario: «una bola sin relieve»): la de fuego,
+  roca fundida (costra oscura y rugosa iluminada de un lado, con grietas al rojo que fluyen y laten); la piedra del
+  lanzador, roca con aristas y grietas encendidas; el plasma, un orbe con remolinos, núcleo blanco y dos anillos que giran;
+  la nieve, una bola con grumos, sombras azuladas en los huecos y escarcha que destella; la baba, una gota que tiembla, se
+  estira al volar y brilla húmeda. La roca, la nieve y el fuego van dando vueltas sobre sí mismos en el aire.
 - **Alas al planear** (pedido del usuario): planeando con los brazos en cruz, un abanico de plumas de luz sale de cada
   hombro, sigue el brazo hasta pasada la mano y cuelga hacia abajo, ondeando; aparece y se apaga suave.
 - Los voladores baten las alas siempre rápido, a su ritmo, sin depender de lo deprisa que avancen.

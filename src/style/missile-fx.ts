@@ -10,12 +10,15 @@
  * - **plasma** (el Alien alto): un núcleo blanco con llamas violetas y chispazos;
  * - **meteoro** (las piedras del lanzador, en Combate: la bola es la piedra): fuego y humo detrás; al dar, explosión.
  *
+ * Las bolas tienen relieve, luz y sombra y su textura viva (src/style/missile-look.ts: roca fundida, plasma, nieve y baba)
+ * y se mueven como cosas de verdad: la roca, la nieve y la de fuego van dando vueltas sobre sí mismas (cada una a su aire); la
+ * baba se estira en la dirección en que vuela y tiembla; el plasma gira con sus anillos.
+ *
  * Mientras el enemigo lo prepara, crece en su mano con lo suyo girando hacia él. Hecho al empezar y reutilizado: cada
  * fotograma solo se mueve (nada se crea). La bola, pegada a los ojos, no se pinta.
  */
-import { Color, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, SphereGeometry, Vector3 } from '@iwsdk/core';
-import type { Material } from '@iwsdk/core';
-import { warmKeep } from './warm.js';
+import { Group, Mesh, Quaternion, Vector3 } from '@iwsdk/core';
+import { looks, looksTick } from './missile-look.js';
 import { PAL, vfx } from './vfx.js';
 
 export type MissileKind = 'fire' | 'greenFire' | 'snow' | 'slime' | 'plasma' | 'meteor';
@@ -25,29 +28,19 @@ export interface MissileLook {
   size: number;
 }
 
-const SPHERE = new SphereGeometry(1, 20, 14);
-/** Las bolas de cada clase (una de cada, compartidas: hechas al pedir la primera). */
-let mats: Record<Exclude<MissileKind, 'meteor'>, Material> | null = null;
-function ballMats(): NonNullable<typeof mats> {
-  if (mats) return mats;
-  const glow = (hex: number): MeshBasicMaterial => new MeshBasicMaterial({ color: hex, toneMapped: false });
-  mats = {
-    fire: glow(0xffd27a),
-    greenFire: glow(0xdcff9a),
-    plasma: glow(0xf2c2ff),
-    // (no estándar: el sombreado de cómic las rayaba; la nieve, mate; la baba, brillante)
-    snow: new MeshLambertMaterial({ color: 0xf2f8ff, emissive: new Color(0x3a4450) }),
-    slime: new MeshPhongMaterial({ color: 0x7ad62a, emissive: new Color(0x2a6a0a), shininess: 90, specular: new Color(0xeaffd0), transparent: true, opacity: 0.92 }),
-  };
-  for (const m of Object.values(mats)) warmKeep(new Mesh(SPHERE, m));
-  return mats;
-}
-
 const r = (a: number, b: number): number => a + (b - a) * Math.random();
 
 export class Missile {
   readonly group = new Group();
   private readonly ball: Mesh;
+  /** Los anillos del plasma. */
+  private readonly rings: Mesh[];
+  /** Cómo da vueltas en el aire (un eje y una velocidad al azar en cada lanzamiento) y lo que lleva girado. */
+  private readonly spinAxis = new Vector3(0, 1, 0);
+  private spinRate = 4;
+  private readonly spinQ = new Quaternion();
+  private readonly q = new Quaternion();
+  private readonly fwd = new Vector3(0, 0, 1);
   private look!: MissileLook;
   private readonly p = new Vector3();
   private readonly vel = new Vector3();
@@ -61,9 +54,17 @@ export class Missile {
   private near = false;
 
   constructor(look: MissileLook) {
-    this.ball = new Mesh(SPHERE, ballMats().fire);
+    const Lk = looks();
+    this.ball = new Mesh(Lk.geo.fire, Lk.mat.fire);
     this.ball.userData.noInk = true;
     this.ball.visible = false;
+    this.rings = [0, 1].map(() => {
+      const m = new Mesh(Lk.ring, Lk.ringMat);
+      m.userData.noInk = true;
+      m.visible = false;
+      this.group.add(m);
+      return m;
+    });
     this.group.add(this.ball);
     this.setLook(look);
   }
@@ -71,7 +72,9 @@ export class Missile {
   /** Cambia lo que es (el jefe de cada mundo lanza lo suyo): solo cambia de bola, nada nuevo. */
   setLook(look: MissileLook): void {
     this.look = look;
-    if (look.kind !== 'meteor') this.ball.material = ballMats()[look.kind];
+    const Lk = looks();
+    this.ball.geometry = Lk.geo[look.kind];
+    this.ball.material = Lk.mat[look.kind];
   }
 
   get busy(): boolean {
@@ -80,6 +83,11 @@ export class Missile {
 
   /** En la mano del que lo lanza, creciendo (`k` de 0 a 1). */
   charge(at: Vector3, k: number): void {
+    if (this.mode !== 'charge') {
+      // un giro nuevo para este lanzamiento: cada uno da vueltas a su manera
+      this.spinAxis.set(r(-1, 1), r(-1, 1), r(-1, 1)).normalize();
+      this.spinRate = this.look.kind === 'snow' ? r(5, 9) : this.look.kind === 'plasma' ? r(1, 2) : r(3, 6);
+    }
     this.mode = 'charge';
     this.k = Math.max(0.05, Math.min(1, k));
     this.p.copy(at);
@@ -106,6 +114,7 @@ export class Missile {
   hit(at: Vector3, big = false): void {
     this.mode = 'off';
     this.ball.visible = false;
+    for (const g of this.rings) g.visible = false;
     const V = vfx(), k = (big ? 1.35 : 1) * (this.look.size / 0.1);
     switch (this.look.kind) {
       case 'fire':
@@ -136,6 +145,7 @@ export class Missile {
   stop(): void {
     this.mode = 'off';
     this.ball.visible = false;
+    for (const g of this.rings) g.visible = false;
   }
 
   /** Cada fotograma: la bola y lo que suelta (a su ritmo, por segundos). */
@@ -147,15 +157,35 @@ export class Missile {
       this.coastT -= dt;
       if (this.coastT <= 0) return this.stop();
     }
+    looksTick();
     const L = this.look, sz = L.size * this.k, kind = L.kind, B = this.ball;
-    // la bola: quieta en su forma la de nieve; la de baba, temblando; las de fuego y plasma, latiendo
+    // la bola (la del meteoro la pone quien la lanza: su piedra)
     B.visible = kind !== 'meteor' && !this.near;
+    const speed = this.vel.length();
     if (B.visible) {
       B.position.copy(this.p);
-      const beat = kind === 'slime' ? 0.12 * Math.sin(this.t * 19) : kind === 'snow' ? 0 : 0.08 * Math.sin(this.t * 31);
-      B.scale.set(sz * (1 + beat), sz * (1 - beat), sz * (1 + beat * 0.5));
-      B.rotation.x += dt * 6;
-      B.rotation.y += dt * 4;
+      if (kind === 'slime' && speed > 0.5) {
+        // la baba: estirada en la dirección en que vuela (más cuanto más deprisa), temblando (lo pone su sombreador)
+        this.q.setFromUnitVectors(this.fwd, this.tmp.copy(this.vel).divideScalar(speed));
+        B.quaternion.copy(this.q);
+        const st = Math.min(0.55, speed * 0.05);
+        B.scale.set(sz * (1 - st * 0.35), sz * (1 - st * 0.35), sz * (1 + st));
+      } else {
+        // dando vueltas sobre sí misma, a su aire
+        this.spinQ.setFromAxisAngle(this.spinAxis, this.spinRate * dt);
+        B.quaternion.premultiply(this.spinQ);
+        const beat = kind === 'plasma' ? 0.05 * Math.sin(this.t * 23) : kind === 'slime' ? 0.06 * Math.sin(this.t * 17) : 0;
+        B.scale.setScalar(sz * (1 + beat));
+      }
+    }
+    // los anillos del plasma: giran, cada uno en su plano, alrededor de la bola
+    for (let i = 0; i < this.rings.length; i++) {
+      const g = this.rings[i];
+      g.visible = B.visible && kind === 'plasma';
+      if (!g.visible) continue;
+      g.position.copy(this.p);
+      g.scale.setScalar(sz);
+      g.rotation.set(this.t * (i ? 2.3 : -1.7) + i * 1.1, this.t * (i ? -1.3 : 2.1), i * 0.9);
     }
     // lo que suelta: cada 1/60 s, aunque los fotogramas vayan a otro ritmo
     this.acc += dt;
@@ -171,24 +201,25 @@ export class Missile {
         continue;
       }
       // en vuelo: un poco hacia atrás de la bola (lo que suelta se queda en el aire y la bola sigue)
-      const back = 0.02;
+      const back = 0.025;
       this.tmp.copy(this.p).addScaledVector(this.vel, -back);
       switch (kind) {
         case 'fire':
         case 'meteor':
-          V.flames(this.tmp, 3, sz * (kind === 'meteor' ? 2 : 2.3), 0.38, PAL.fire, 0.3, 0.5);
-          if (Math.random() < 0.3) V.puffs(this.tmp, 1, sz * 1.2, 1, PAL.smoke, 0.15, 0.35, 3, 0.3);
+          // (las llamas, detrás y algo menores que la bola: que se vea la roca al rojo, no solo un resplandor)
+          V.flames(this.tmp, 2, sz * (kind === 'meteor' ? 1.6 : 1.25), 0.3, PAL.fire, 0.25, 0.45, 0.7);
+          if (Math.random() < 0.22) V.puffs(this.tmp, 1, sz, 0.8, PAL.smoke, 0.12, 0.3, 2.2, 0.25);
           break;
         case 'greenFire':
-          V.flames(this.tmp, 3, sz * 2.3, 0.38, PAL.greenFire, 0.3, 0.5);
-          if (Math.random() < 0.3) V.puffs(this.tmp, 1, sz * 1.2, 1, PAL.greenSmoke, 0.15, 0.35, 3, 0.3);
+          V.flames(this.tmp, 2, sz * 1.25, 0.3, PAL.greenFire, 0.25, 0.45, 0.7);
+          if (Math.random() < 0.22) V.puffs(this.tmp, 1, sz, 0.8, PAL.greenSmoke, 0.12, 0.3, 2.2, 0.25);
           break;
         case 'plasma':
-          V.flames(this.tmp, 3, sz * 2, 0.26, PAL.plasma, 0.5, 0.1);
+          V.flames(this.tmp, 2, sz * 1.1, 0.22, PAL.plasma, 0.4, 0.05, 0.6);
           if (Math.random() < 0.3) V.flames(this.p, 1, 0.03, 0.18, PAL.plasma, 4, 0, 1);
           break;
         case 'snow':
-          if (Math.random() < 0.7) V.puffs(this.tmp, 1, sz * 0.9, 0.7, PAL.snow, 0.2, 0.05, 2.6, 0.55);
+          if (Math.random() < 0.5) V.puffs(this.tmp, 1, sz * 0.6, 0.5, PAL.snow, 0.15, 0.05, 2, 0.4);
           if (Math.random() < 0.3) V.bits(this.p, 1, 0.025, 0.6, 0.6, PAL.snow);
           break;
         case 'slime':

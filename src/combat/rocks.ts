@@ -5,13 +5,14 @@
  * (`Missile`, src/style/missile-fx.ts: pedido del usuario, más tipo videojuego). Unas pocas piedras fijas que se reutilizan (sin crear nada
  * en cada fotograma). Como en RepArena (src/70_game.js: throwRock y updateRocks).
  */
-import { DodecahedronGeometry, Group, Mesh, MeshStandardMaterial, Vector3 } from '@iwsdk/core';
+import { Group, Mesh, Vector3 } from '@iwsdk/core';
 import { ROCK_HIT, rockAt, rockFlight, rockParry } from './rock-path.js';
 import { hands } from '../input/hand-model.js';
 import { haptic } from '../input/hand-system.js';
 import { GAME, HOOKS } from '../core/state.js';
 import { SND } from '../audio/sound.js';
 import { LOOK_ROCK, Missile } from '../style/missile-fx.js';
+import { looks, looksTick } from '../style/missile-look.js';
 
 const N = 8;
 
@@ -38,9 +39,12 @@ export class Rocks {
   thrown = 0;
 
   constructor() {
-    const geo = new DodecahedronGeometry(0.085, 0), mat = new MeshStandardMaterial({ color: 0x8c7b66, roughness: 0.92, metalness: 0, flatShading: true });
+    // (roca de verdad: con bultos, iluminada de un lado y con grietas al rojo que laten: src/style/missile-look.ts)
+    const L = looks();
     for (let i = 0; i < N; i++) {
-      const m = new Mesh(geo, mat);
+      const m = new Mesh(L.geo.meteor, L.mat.meteor);
+      m.scale.setScalar(0.085);
+      m.userData.noInk = true;
       m.castShadow = true;
       m.visible = false;
       this.group.add(m);
@@ -80,6 +84,7 @@ export class Rocks {
 
   update(dt: number): void {
     const play = GAME.phase === 'playing';
+    looksTick();
     for (const r of this.list) {
       r.fx.update(dt);
       if (!r.on) continue;
