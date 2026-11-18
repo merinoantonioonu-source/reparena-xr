@@ -411,6 +411,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **`.npmrc` con `onnxruntime-node-install-cuda=skip`** (desde el 18/11/2026): `onnxruntime-node` (lo trae `@iwsdk/reference`, para
+  el ordenador del desarrollador; el juego no lo usa) intentaba descargar al instalarse su versión para tarjetas NVIDIA desde
+  GitHub, que da 404: `npm ci` fallaba en la comprobación y en la publicación. No lo quites mientras siga así.
+
 - Curl a un brazo, segunda caja negra → lo siguiente: en `armRobust` y `barRobust`, al reaparecer `low` vuelve a NaN (se
   puede subir y cargar desde donde reaparece; la comprobación de subir va antes de actualizar `low`), en `armRobust` una
   mano perdida más de 0,5 s fuera de «arriba aguantando» o «en el aire» vuelve a «abajo» (como `armStep`), y llegar arriba y
