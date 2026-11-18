@@ -439,6 +439,8 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `PAL` con las paletas), que mueve `VfxSystem`. `Missile` (`src/style/missile-fx.ts`): la bola y lo que suelta según su
   clase (`MissileKind`: fuego, fuego verde, nieve, baba, plasma, meteoro); `charge`, `fly`, `coast`, `hit` y `update`. Lo
   usan `Rocks` (Combate) y, en `TrekSystem`, los escupitajos, las bolas de fuego y lo del jefe (`bossFx`, `LOOK_BOSS[n]`);
+  las bolas, de `looks()` (`src/style/missile-look.ts`: formas con bultos —`lumpy`— y sus sombreadores con ruido y la luz del
+  sol: roca fundida, plasma, nieve y baba; `looksTick` pone su tiempo), que también usa la piedra de `Rocks`;
   la onda del cíclope y el aterrizaje del jefe, con `vfx()` directamente (`stepWaves`, `drawBoss`). Las **alas** de planear,
   `Wings` (`src/modes/trek/wings.ts`): plumas de luz cuyos vértices se colocan cada fotograma con las muñecas.
 - Travesía, **5 enemigos nuevos** (hecho; con esto, las cinco ideas elegidas): `dive` (abeja o murciélago por `n`; se juzga como
