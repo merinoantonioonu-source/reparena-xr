@@ -168,6 +168,10 @@ No las cambies sin preguntarle.
 - **Curl a un brazo (mancuerna) con «Manos: filtro nuevo»** (lo mismo, con su caja negra: un rayo al llegar arriba en dos
   partidas): la mano que reaparece o da un salto imposible no cuenta hasta verse estable un instante (ni para el rayo ni
   para lo más bajo del recorrido); perdida subiendo, la opción A, como en el curl con barra; y al quitar la pausa, de cero.
+- **Con la mano escondida nunca dispara** (opción 1 del usuario, con la segunda caja negra de la mancuerna; con «Manos: filtro
+  nuevo», en los dos curls): aguantando arriba, si las gafas pierden la mano, la carga se guarda y el rayo sale al volver a
+  verla bajando o ya abajo (sustituye a «arriba, junto a la cara, también sale con la carga que llevaba»); perdida subiendo
+  más de 1,5 s, cuenta —sale la bola— y el rayo, igual, al verla bajar. Así cada curl da un solo rayo y siempre al bajar.
 - El press de hombro, el press con barra y la flexión en pica se quitaron (no se detectaban bien en las gafas); el leñador,
   porque no aportaba nada.
 - Cargas ×2/×3/×4 aguantando la postura más dura, como en la sentadilla: fondos (abajo, codos a 90°), elevación frontal

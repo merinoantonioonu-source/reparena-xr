@@ -50,3 +50,41 @@ describe('la caja negra de la mancuerna con el filtro nuevo', () => {
     expect(shots(r, 'D').map(Math.round)).toEqual([14, 18, 21]);
   });
 });
+
+// La caja negra de la mancuerna ya con el filtro (tests/replay/capturas/curl-mancuerna-sin-bola-y-rayos-escondida.txt): la
+// mano reaparecía arriba y no salía la bola (el filtro pedía verla subir desde donde reaparecía), las manos perdidas abajo
+// se quedaban «arriba» sin volver a cargar, y un respingo de una sola imagen (con la imagen a 20 por segundo) cargaba y
+// disparaba.
+const NEW = splitCaptures(readFileSync(join(__dirname, 'capturas', 'curl-mancuerna-sin-bola-y-rayos-escondida.txt'), 'utf8'));
+const runN = (k: number): ReplayResult => replay(NEW[k], { cfg: (c) => ({ ...c, robust: true }) });
+const tops = (r: ReplayResult, side: 'I' | 'D'): number[] => {
+  const t0 = r.frames[0].t;
+  return r.replayed.filter((e) => e.tok === 't' + side).map((e) => +(e.t - t0).toFixed(3));
+};
+
+describe('la caja negra de la mancuerna con el filtro, otra vez', () => {
+  it('la mano que reaparece arriba carga (sale la bola) y dispara al bajar', () => {
+    const r = runN(1);
+    expect(tops(r, 'I').filter((t) => t > 12 && t < 12.4)).toHaveLength(1);
+    expect(shots(r, 'I').filter((t) => t > 13.9 && t < 14.3)).toHaveLength(1);
+  });
+  it('perdidas abajo, al volver no se quedan «arriba» sin cargar nunca más', () => {
+    const r = runN(0);
+    expect(tops(r, 'I').filter((t) => t > 19.7)).not.toEqual([]);
+  });
+  it('con la mano escondida nunca dispara (opción 1): perdida arriba, el rayo al volver a verla abajo', () => {
+    const r = runN(0);
+    expect(shots(r, 'I').filter((t) => t > 16 && t < 19.6)).toEqual([]);
+    expect(shots(r, 'I').filter((t) => t > 19.6 && t < 20.2)).toHaveLength(1);
+  });
+  it('perdida subiendo más de 1,5 s: sale la bola, y un solo rayo para ese curl, al verla bajar (antes, dos)', () => {
+    const r = runN(2);
+    expect(shots(r, 'I').filter((t) => t > 14 && t < 17)).toHaveLength(1);
+    expect(shots(r, 'I').filter((t) => t > 14 && t < 17)[0]).toBeGreaterThan(16.4);
+  });
+  it('un respingo de una sola imagen no carga ni dispara', () => {
+    const r = runN(0);
+    expect(shots(r, 'I').filter((t) => t > 20.7 && t < 21.3)).toEqual([]);
+    expect(tops(r, 'I').filter((t) => t > 20.7 && t < 21.3)).toEqual([]);
+  });
+});

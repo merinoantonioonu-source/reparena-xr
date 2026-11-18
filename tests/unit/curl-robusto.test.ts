@@ -98,12 +98,16 @@ describe('curl a un brazo con el filtro nuevo · la mano perdida subiendo (opci�
     g.move(up(L0, UP), R0, L0, R0, 0.7);
     expect(kinds(g)).toEqual(['charge', 'topI', 'repI']);
   });
-  it('perdida subiendo más de 1,5 s: cuenta', () => {
+  it('perdida subiendo más de 1,5 s: cuenta (sale la bola) y el rayo, al verla bajar (opción 1: escondida nunca dispara)', () => {
     const g = new Rig(72, true, 'curl');
     g.hold(L0, R0, 0.5);
     g.move(L0, R0, up(L0, 0.15), R0, 0.3);
     g.hold(null, R0, 1.7);
-    expect(kinds(g)).toEqual(['charge', 'repI']);
+    expect(kinds(g)).toEqual(['charge', 'topI']);
+    g.hold(null, R0, 2);
+    expect(g.count('rep')).toBe(0);
+    g.hold(L0, R0, 0.4);
+    expect(kinds(g)).toEqual(['charge', 'topI', 'repI']);
   });
   it('pausa arriba, cargado; al seguir con la pesa abajo, ningún rayo, y el curl siguiente como siempre', () => {
     const g = new Rig(72, true, 'curl');
@@ -115,5 +119,62 @@ describe('curl a un brazo con el filtro nuevo · la mano perdida subiendo (opci�
     expect(kinds(g)).toEqual(['charge', 'topI']);
     curlL(g);
     expect(kinds(g)).toEqual(['charge', 'topI', 'charge', 'topI', 'repI']);
+  });
+});
+
+describe('curl a un brazo con el filtro nuevo · lo que enseñó la segunda caja negra', () => {
+  it('la mano perdida abajo que reaparece ya arriba carga, y el rayo sale al bajar', () => {
+    const g = new Rig(72, true, 'curl');
+    g.hold(L0, R0, 0.5);
+    g.hold(null, R0, 0.6);
+    g.hold(up(L0, UP), R0, 0.5);
+    expect(kinds(g)).toEqual(['charge', 'topI']);
+    g.move(up(L0, UP), R0, L0, R0, 0.7);
+    expect(kinds(g)).toEqual(['charge', 'topI', 'repI']);
+  });
+  it('tras el rayo, perdida abajo un rato y vuelta a media altura: el curl siguiente vuelve a cargar', () => {
+    const g = new Rig(72, true, 'curl');
+    g.hold(L0, R0, 0.5);
+    curlL(g, 0.8, 0.2, 0.4);
+    g.hold(null, R0, 1);
+    const mid = up(L0, 0.15);
+    g.hold(mid, R0, 0.5);
+    g.move(mid, R0, up(L0, UP), R0, 0.5);
+    g.hold(up(L0, UP), R0, 0.2);
+    expect(kinds(g)).toEqual(['charge', 'topI', 'repI', 'charge', 'topI']);
+  });
+  it('con la imagen a 20 por segundo, un respingo de una sola imagen no carga ni dispara', () => {
+    const g = new Rig(20, true, 'curl'), mid = up(L0, 0.2);
+    g.hold(L0, R0, 0.5);
+    g.move(L0, R0, mid, R0, 0.6);
+    g.step(up(L0, 0.31), R0); // (una imagen 11 cm más arriba)
+    g.hold(mid, R0, 0.5);
+    expect(g.ev).toEqual([]);
+  });
+});
+
+describe('curl a un brazo con el filtro nuevo · con la mano escondida nunca dispara (opción 1 del usuario)', () => {
+  it('aguantando arriba, se pierde la mano: ningún rayo mientras no se ve; sale al verla bajar', () => {
+    const g = new Rig(72, true, 'curl');
+    g.hold(L0, R0, 0.5);
+    g.move(L0, R0, up(L0, UP), R0, 0.8);
+    g.hold(up(L0, UP), R0, 0.2);
+    g.hold(null, R0, 1.5);
+    expect(kinds(g)).toEqual(['charge', 'topI']);
+    g.hold(up(L0, UP), R0, 0.3); // (vuelve a verse arriba: sigue cargada)
+    expect(g.count('rep')).toBe(0);
+    g.move(up(L0, UP), R0, L0, R0, 0.7);
+    expect(kinds(g)).toEqual(['charge', 'topI', 'repI']);
+  });
+  it('aguantando arriba, se pierde y reaparece ya a media altura: el rayo al verla, y el curl siguiente vuelve a cargar', () => {
+    const g = new Rig(72, true, 'curl'), mid = up(L0, 0.12);
+    g.hold(L0, R0, 0.5);
+    g.move(L0, R0, up(L0, UP), R0, 0.8);
+    g.hold(null, R0, 1);
+    g.hold(mid, R0, 0.4);
+    expect(kinds(g)).toEqual(['charge', 'topI', 'repI']);
+    g.move(mid, R0, up(L0, UP), R0, 0.6);
+    g.hold(up(L0, UP), R0, 0.2);
+    expect(kinds(g)).toEqual(['charge', 'topI', 'repI', 'charge', 'topI']);
   });
 });

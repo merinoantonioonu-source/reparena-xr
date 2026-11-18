@@ -115,14 +115,18 @@ describe('caja negra → texto → reproductor', () => {
 // las capturas de las gafas: reproducidas, los mismos sucesos que se grabaron (si no, la caja negra no basta para buscar
 // el fallo). Se guardan aquí con un nombre que diga qué pasó (ver LEEME.md)
 const DIR = join(__dirname, 'capturas');
-// (capturas grabadas con «Manos: filtro nuevo» encendido cuando aún no valía para estos ejercicios: se reproducen sin él)
-const BEFORE: Record<string, string[]> = { 'curl-mancuerna-rayo-al-llegar-arriba.txt': ['curl'] };
+// (capturas grabadas con «Manos: filtro nuevo» encendido cuando aún no valía para estos ejercicios: se reproducen sin él;
+// 'antes': grabadas con una versión anterior del filtro, que ya no se puede reproducir igual: solo se comprueba que se leen
+// y se reproducen; lo que hace el filtro de ahora con ellas lo prueban curl-robusto.test.ts y curl2-robusto.test.ts)
+const BEFORE: Record<string, string[] | 'antes'> = { 'curl-mancuerna-rayo-al-llegar-arriba.txt': ['curl'], 'curl-mancuerna-sin-bola-y-rayos-escondida.txt': 'antes' };
 const files = readdirSync(DIR).filter((f) => f.endsWith('.txt'));
 describe.runIf(files.length)('capturas de las gafas', () => {
   for (const f of files)
     splitCaptures(readFileSync(join(DIR, f), 'utf8')).forEach((text, k) => {
       it(`${f} (${k + 1}): reproducida, los mismos sucesos`, () => {
-        const old = BEFORE[f]?.includes(bbParse(text).ex), m = mismatches(replay(text, old ? { cfg: (c) => ({ ...c, robust: false }) } : {}));
+        const b = BEFORE[f], old = Array.isArray(b) && b.includes(bbParse(text).ex), r = replay(text, old ? { cfg: (c) => ({ ...c, robust: false }) } : {});
+        if (b === 'antes') return void expect(r.frames.length).toBeGreaterThan(100);
+        const m = mismatches(r);
         expect(m.recorded).toEqual([]);
         expect(m.replayed).toEqual([]);
       });
