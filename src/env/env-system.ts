@@ -22,8 +22,9 @@ import { head } from '../input/hand-model.js';
 const TAU = Math.PI * 2;
 // (el doble que en RepArena, pedido del usuario: con 90 se veían pocas; las 90 primeras, en los mismos sitios de siempre)
 const MOTE_N = 180, MOTE_SPAN = 15;
-/** Algunas, de otros colores (pedido del usuario): rosa, turquesa, violeta, menta y naranja, en una de cada `MOTE_TINT_P`. */
-const MOTE_TINTS = [0xff7ad9, 0x6ae8ff, 0xb48cff, 0x7dffb0, 0xffa35a], MOTE_TINT_P = 0.3;
+/** De colores (pedido del usuario, dos veces: con una de cada tres y el centro blanco, ni se notaba): rosa, turquesa, violeta,
+ * verde, naranja, azul y amarillo, vivos, en `MOTE_TINT_P` de ellas; las demás, del amarillo de siempre. */
+const MOTE_TINTS = [0xff3fb4, 0x1fe0ff, 0x9a5cff, 0x3dff7a, 0xff8a1f, 0x3f7bff, 0xffe23a], MOTE_TINT_P = 0.75;
 const FONDOS = ['aldea', 'bosque', 'montana', 'cumbre', 'lago', 'atardecer', 'ocaso'];
 const fondoUrl = (k: string): string => `${import.meta.env.BASE_URL}fondos/${k}.jpg`;
 
@@ -49,7 +50,7 @@ function makeMotes(): Points {
     // su color propio (y cuánto lo lleva: 0, el de todas)
     const on = RT() < MOTE_TINT_P;
     c.setHex(MOTE_TINTS[Math.floor(RT() * MOTE_TINTS.length)]);
-    tint.set([c.r, c.g, c.b, on ? 0.85 : 0], i * 4);
+    tint.set([c.r, c.g, c.b, on ? 1 : 0], i * 4);
   }
   g.setAttribute('position', new BufferAttribute(base, 3));
   g.setAttribute('aSeed', new BufferAttribute(seed, 4));
@@ -81,13 +82,16 @@ function makeMotes(): Points {
         vA = tw2 * smoothstep(16.0, 7.0, -mv.z) * smoothstep(0.35, 0.9, -mv.z);
         // (y las de color, más de su color; en el momento especial, todas algo de color)
         vTint = vec4(aTint.rgb, max(aTint.a, uHype * 0.6));
-        gl_PointSize = clamp(0.1 * (0.75 + 0.5 * aSeed.w) * (1.0 + 0.35 * uHype) * projectionMatrix[1][1] * uVH * 0.5 / -mv.z, 1.5, 48.0); // (unos 10 cm con el halo; el punto, un par de centímetros)
+        // en el momento especial, además, se hinchan y deshinchan (cada una a su ritmo; pedido del usuario)
+        float swell = 1.0 + uHype * (0.35 + 0.3 * sin(t * (3.0 + 2.0 * aSeed.z) + aSeed.w * 6.2832));
+        gl_PointSize = clamp(0.1 * (0.75 + 0.5 * aSeed.w) * swell * projectionMatrix[1][1] * uVH * 0.5 / -mv.z, 1.5, 64.0); // (unos 10 cm con el halo; el punto, un par de centímetros)
       }`,
     fragmentShader: `uniform vec3 uColor; uniform float uGain; varying float vA; varying vec4 vTint;
       void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float d2 = dot(q, q); if (d2 > 1.0) discard;
         float core = exp(-d2 * 14.0), halo = exp(-d2 * 3.5) * 0.4, a = min(1.0, (core * 1.4 + halo) * vA * uGain);
         vec3 col = mix(uColor, vTint.rgb, vTint.a);
-        gl_FragColor = vec4(mix(col, vec3(1.0), core * 0.6), a); }`,
+        // (el centro, apenas más claro: blanco del todo, todas parecían iguales)
+        gl_FragColor = vec4(mix(col, vec3(1.0), core * mix(0.6, 0.18, vTint.a)), a); }`,
     transparent: true,
     depthWrite: false,
     blending: AdditiveBlending,

@@ -1,8 +1,9 @@
 /**
  * Las alas de planear (pedido del usuario: al abrir los brazos sobre un barranco, que se vean unas alas a los lados, donde
  * están las manos, para sentir el planeo): un abanico de plumas de luz que sale de cada hombro, sigue el brazo hasta pasada
- * la mano y cuelga hacia abajo y algo atrás; ondean un poco con el aire y aparecen y se apagan suaves. No son un modelo (no hay de alas):
- * son luz, como las estelas del turbo, con una pluma dibujada una vez en una textura.
+ * la mano y se tiende hacia atrás, casi paralelo al suelo (como un ave que planea; colgando, parecía que frenaban); ondean
+ * un poco con el aire y aparecen y se apagan suaves. No son un modelo (no hay de alas): son luz, como las estelas del turbo,
+ * con una pluma dibujada una vez en una textura.
  *
  * Siguen a las muñecas que se ven; una que las gafas pierden con los brazos abiertos se pone en cruz a la altura del hombro.
  * Todo hecho al empezar: cada fotograma solo se mueven los vértices (sin crear nada).
@@ -68,7 +69,7 @@ class Wing {
     this.mesh.userData.noInk = true;
   }
 
-  /** Coloca las plumas: del hombro `sh` por el brazo hasta pasada la muñeca; cuelgan hacia `back` (abajo y algo atrás). */
+  /** Coloca las plumas: del hombro `sh` por el brazo hasta pasada la muñeca, tendidas hacia `back` (atrás, casi horizontales). */
   set(sh: Vector3, h: WingHand, right: Vector3, back: Vector3, t: number, tmp: Vector3[]): void {
     const [arm, , base, dir, side] = tmp;
     // la muñeca (o, perdida, el brazo en cruz)
@@ -78,14 +79,16 @@ class Wing {
     const L = Math.max(0.3, arm.length());
     arm.normalize();
     const total = L + PAST_HAND;
-    side.crossVectors(arm, back).normalize(); // (el ancho de cada pluma: a lo largo del brazo)
+    // (el ancho de cada pluma, a lo largo del brazo; su largo, hacia atrás: el ala queda tendida, casi paralela al suelo, como
+    // la de un ave que planea, no de canto contra el aire)
+    side.copy(arm);
     for (let i = 0; i < N; i++) {
       const k = ROOT + (1 - ROOT) * (i / (N - 1)), len = LEN0 + (LEN1 - LEN0) * Math.pow(k, 0.8);
       base.copy(sh).addScaledVector(arm, total * k);
       // cada pluma, hacia atrás; las de la punta se abren hacia fuera (el abanico) y todas ondean un poco con el aire
       const wave = 0.07 * Math.sin(t * 5.5 + i * 0.7);
-      dir.copy(back).addScaledVector(arm, 0.9 * k * k).normalize();
-      dir.y += wave - 0.05 * k;
+      dir.copy(back).addScaledVector(arm, 0.9 * k * k);
+      dir.y = -0.12 + wave - 0.04 * k; // (casi horizontal: un poco caída hacia atrás y ondeando)
       dir.normalize();
       const w = 0.045 + 0.03 * k, o = i * 12, P = this.pos;
       // (las cuatro esquinas: la raíz, a lo ancho; la punta, a lo ancho)
@@ -138,10 +141,8 @@ export class Wings {
     if (this.fwd.lengthSq() < 1e-4) this.fwd.set(0, 0, -1);
     this.fwd.normalize();
     this.right.set(-this.fwd.z, 0, this.fwd.x);
-    // (las plumas cuelgan sobre todo hacia abajo y algo hacia atrás: hacia atrás del todo, ni se verían al mirarte los brazos)
-    this.back.copy(this.fwd).multiplyScalar(-0.45);
-    this.back.y = -0.9;
-    this.back.normalize();
+    // (las plumas, hacia atrás y tendidas, casi paralelas al suelo: corregido por el usuario, colgando parecían frenar)
+    this.back.copy(this.fwd).multiplyScalar(-1);
     // (al abrirse, crecen desde los hombros)
     const grow = 0.4 + 0.6 * this.a;
     for (const w of this.wings) {
