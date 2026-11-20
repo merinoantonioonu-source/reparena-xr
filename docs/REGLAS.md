@@ -76,8 +76,8 @@ No las cambies sin preguntarle.
   racha, sin quitar vidas. Lo que hay que esquivar a un lado son **solo enemigos** (nada quieto).
 - Travesía de plataformas, tras probar el PR D (fijado por el usuario): **el supersalto hecho cerca de la plataforma ya te
   sube a ella** (aunque sea antes del borde: el salto te lleva hasta arriba; nada de un salto normal y luego subir solo).
-  **El fondo realista gira un poco con las curvas** del sendero, en el mismo sentido (quieto del todo con la pasarela
-  parecía irreal).
+  **El fondo realista gira con las curvas** del sendero, en el mismo sentido y algo menos que el mundo de cómic (un 60 %:
+  quieto del todo, o con un 25 %, parecía una foto fija alrededor del jugador).
 - Travesía de plataformas (pedido del usuario): **el cangrejo escupe**, una vez y solo desde lejos (entre 10 y 15 m), rápido y
   con aviso (se encabrita y suena), hacia tu cabeza; se esquiva **apartando la cabeza** (a un lado o agachándote; una
   sentadilla en el momento justo también vale). Si te da, frenas a la mitad y se rompe la racha, sin quitar vidas.
@@ -266,8 +266,10 @@ No las cambies sin preguntarle.
 - Pulsómetro (`src/57_pulse.js`): reloj o banda Bluetooth con el servicio estándar de pulso; el pulso, en el marcador. El
   navegador de las Quest no tiene Bluetooth para páginas: el móvil lo pasa a las gafas por la sincronización (cifrado con
   el código, en otro hueco de Firebase con la forma `meta` + `blob`, uno por segundo como mucho; las gafas lo escuchan).
-- Luciérnagas: **el doble que en RepArena** (180), **algunas de colores** (rosa, turquesa, violeta, menta, naranja) y, en los
-  momentos especiales (la fiebre, el relámpago, el turbo, la supervelocidad), **un destello más vivo** (pedido del usuario).
+- Luciérnagas: **el doble que en RepArena** (180), **de colores bien distintos** (tres de cada cuatro: rosa, turquesa,
+  violeta, verde, naranja, azul y amarillo; el centro, apenas más claro, que si no todas parecían iguales) y, en los momentos
+  especiales (la fiebre, el relámpago, el turbo, la supervelocidad), **un destello más vivo y se hinchan y deshinchan**, cada
+  una a su ritmo (pedido del usuario).
 - Pompas de Barras: **de jabón, como en RepArena** (película irisada con brillos, más opaca en el borde; la grande, con un ojo
   dentro): las de color liso no tenían relieve (pedido del usuario).
 - Luciérnagas (`src/56_motes.js`, Entorno → «Luciérnagas»): puntitos de luz con vuelo sereno y sinuoso de insecto (se
@@ -291,7 +293,8 @@ No las cambies sin preguntarle.
   la nieve, una bola con grumos, sombras azuladas en los huecos y escarcha que destella; la baba, una gota que tiembla, se
   estira al volar y brilla húmeda. La roca, la nieve y el fuego van dando vueltas sobre sí mismos en el aire.
 - **Alas al planear** (pedido del usuario): planeando con los brazos en cruz, un abanico de plumas de luz sale de cada
-  hombro, sigue el brazo hasta pasada la mano y cuelga hacia abajo, ondeando; aparece y se apaga suave.
+  hombro, sigue el brazo hasta pasada la mano y se tiende hacia atrás, **casi paralelo al suelo** como un ave que planea
+  (colgando en vertical parecía que frenaban), ondeando; aparece y se apaga suave.
 - Los voladores baten las alas siempre rápido, a su ritmo, sin depender de lo deprisa que avancen.
 - Cada enemigo tiene resistencia, fuerza y dureza en la tabla del desarrollador; los nuevos entran solos en ella.
 - En el menú, cada enemigo es una ficha con su retrato (de su modelo), su nombre, su resistencia y su fuerza. Un enemigo

@@ -113,10 +113,10 @@ interface BossShotFx {
   dur: number;
 }
 
-/** El fondo realista gira un poco con las curvas del sendero (pedido del usuario: quieto del todo con la pasarela, parecía
- * de cartón): esta parte de lo que gira el mundo, en el mismo sentido (1 sería pegado al paisaje). Y lo que tiene que
- * cambiar para pedírselo a IWSDK (rad). */
-const PANO_FOLLOW = 0.25, PANO_STEP = 0.002;
+/** El fondo realista gira con las curvas del sendero (pedido del usuario: quieto del todo con la pasarela, parecía de
+ * cartón; con un 25 %, seguía pareciendo fijo): esta parte de lo que gira el mundo, en el mismo sentido (1 sería pegado al
+ * paisaje; algo menos, que el mundo de cómic se note más cerca). Y lo que tiene que cambiar para pedírselo a IWSDK (rad). */
+const PANO_FOLLOW = 0.6, PANO_STEP = 0.002;
 
 /** Los escupitajos del cangrejo: cuántos puede haber a la vez. */
 const SPIT_POOL = 3;
