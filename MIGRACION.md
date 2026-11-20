@@ -434,6 +434,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `tests/unit/curl-robusto.test.ts`. Lo siguiente: la elevación frontal (`fraiseStep`) y los de dos tiempos (`chainStep`),
   con una caja negra de cada uno; y, cuando el usuario lo dé por bueno, encenderlo de serie (fase 4).
 
+- **Avisos sin solaparse** (pedido del usuario): `VIEW.trophy` y `VIEW.intro` (`src/core/state.ts`) dicen dónde están el aviso
+  dorado y el panel entre oleadas; `ViewSystem.collectThreats` los suma (con el marcador y el menú, también fuera de la ronda)
+  para que el del centro y el breve se aparten, y el breve se aparta además del del centro. El dorado (`stepTrophy`), a
+  `TROPHY_Y` sobre la vista; con un menú abierto, encima de él (`UI.menu`). La cresta de la onda del cíclope, rocas de
+  `looks().geo.meteor` en `stepWaves` (`WAVE_ROCKS` por fila).
 - **Lo que lanzan los enemigos** (pedido del usuario: realista): las partículas de todo el juego, `vfx()` (`src/style/vfx.ts`:
   dos montones, la luz y la materia, con una textura de humo con ruido; `flames`, `puffs`, `bits`, `explode`, `shockRing`, y
   `PAL` con las paletas), que mueve `VfxSystem`. `Missile` (`src/style/missile-fx.ts`): la bola y lo que suelta según su

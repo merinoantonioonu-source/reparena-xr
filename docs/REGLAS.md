@@ -107,7 +107,9 @@ No las cambies sin preguntarle.
   por la pasarela (saltarla); **el cíclope**, a un lado, golpea el suelo al acercarte y su onda (un muro bajo de luz) corre por
   la pasarela hacia ti (saltarla cuando llega); **el demonio**, a un lado, lanza una bola de fuego en arco hacia ti (un paso a
   un lado). Si no, te dan: frenas a la mitad y se rompe la racha, sin vidas. Picado y calavera desde el segundo tramo;
-  cíclope y demonio, desde el tercero.
+  cíclope y demonio, desde el tercero. **La onda del cíclope se ve** (pedido del usuario: solo con humo no se sabía cuándo
+  saltar): una cresta de rocas al rojo que revientan las tablas y corre por la pasarela hacia ti, con polvo detrás; se salta
+  cuando llega a tus pies.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.
@@ -295,6 +297,10 @@ No las cambies sin preguntarle.
 **Paneles y avisos en las gafas**
 - Ningún panel puede tapar lo que viene hacia el jugador. Los avisos tampoco tapan el marcador ni los menús (pedido del
   usuario): se apartan de ellos como de lo que llega.
+- **Los avisos nunca se solapan** (pedido del usuario: el cofre, las metas del día y el resumen del final se pisaban): los
+  logros dorados salen de uno en uno, arriba, y el panel entre oleadas (o tramos), justo debajo sin tocarse; con un menú
+  abierto (el resumen, la pausa…), el logro sale encima del menú, de cara como él. El del centro y el breve se apartan de los
+  logros, del panel entre oleadas, del menú y del marcador, y el breve, también del del centro.
 - **Cortinillas** (elegidas por el usuario: «Modelo 2», estilo HUD holográfico, una imagen por modo y ejercicio en
   `public/cortinillas/`): son la pantalla grande de antes de cada ronda (en lugar de la ilustración de la carátula del duelo;
   también en la Travesía), quietas, con la franja de abajo diciendo las oleadas (o tramos) y las vidas que tienes puestas.
