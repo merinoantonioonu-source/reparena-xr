@@ -26,6 +26,7 @@ import { Wings } from './wings.js';
 import { groundTexture, kitParts, type Part } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import { LOOK_BOSS, LOOK_FIRE, LOOK_SPIT, Missile, type MissileLook } from '../../style/missile-fx.js';
+import { looks, looksTick } from '../../style/missile-look.js';
 import { PAL, vfx } from '../../style/vfx.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
 import { DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
@@ -60,6 +61,9 @@ const lookOf = (p: Piece): Look | null => (p.k === 'dive' ? (p.n % 2 ? 'bat' : '
 const FLY: readonly Look[] = ['bee', 'bat'];
 /** Las ondas del cíclope a la vez, las bolas de fuego del demonio y lo alto del arco de cada cosa que se lanza (m). */
 const WAVE_POOL = 2, FIRE_POOL = 2, FIRE_ARC = 1.3, SPIT_ARC = 0.25;
+/** La cresta de la onda del cíclope: las rocas de cada fila (dos: la que revienta delante y la que se hunde detrás), lo que
+ * se separan las filas (m) y lo que sube la de delante (m). */
+const WAVE_ROCKS = 7, WAVE_ROW = 0.38, WAVE_UP = 0.24;
 /** Lo que dura cada gesto que no se repite (s): morder, chafarse (y lo que tarda en esfumarse la seta pisada). */
 const BITE_T = 0.9, SQUASH_T = 0.18, DIE_T = 1.3;
 
@@ -220,7 +224,7 @@ export class TrekSystem extends createSystem({}) {
   private readonly spits: SpitFx[] = [];
   private readonly fires: SpitFx[] = [];
   private bossFx!: Missile;
-  private readonly waves: { p: Piece | null; dustT: number; on: boolean }[] = [];
+  private readonly waves: { p: Piece | null; dustT: number; on: boolean; rocks: Mesh[] }[] = [];
   private readonly wdir = new Vector3();
   /** El giro del fondo realista que se pidió a IWSDK por última vez (rad). */
   private panoYaw = 0;
@@ -311,7 +315,21 @@ export class TrekSystem extends createSystem({}) {
     for (let i = 0; i < FIRE_POOL; i++) this.fires.push({ m: missile(LOOK_FIRE), pos: new Vector3(), p: null, arc: FIRE_ARC, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
     this.bossFx = missile(LOOK_BOSS[0]);
     // la onda del cíclope: la llevan las partículas (polvo que salta a su paso: src/style/vfx.ts)
-    for (let i = 0; i < WAVE_POOL; i++) this.waves.push({ p: null, dustT: 0, on: false });
+    // (y una cresta de rocas al rojo que revientan las tablas a su paso: lo que hay que saltar, que se vea bien; pedido del
+    // usuario: solo con el polvo no se sabía cuándo saltar)
+    const L = looks();
+    for (let i = 0; i < WAVE_POOL; i++) {
+      const rocks: Mesh[] = [];
+      for (let j = 0; j < WAVE_ROCKS * 2; j++) {
+        const m = new Mesh(L.geo.meteor, L.mat.meteor);
+        m.userData.noInk = true;
+        m.visible = false;
+        m.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+        this.root.add(m);
+        rocks.push(m);
+      }
+      this.waves.push({ p: null, dustT: 0, on: false, rocks });
+    }
     // el brillo dorado de las doradas (en el mundo que baja y sube: va con ellas)
     const goldMat = new SpriteMaterial({ map: gt, color: 0xffd166, transparent: true, opacity: 0.7, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
     for (let i = 0; i < 4; i++) {
@@ -458,7 +476,10 @@ export class TrekSystem extends createSystem({}) {
       S.m.stop();
     }
     this.bossFx?.stop();
-    for (const w of this.waves) w.p = null;
+    for (const w of this.waves) {
+      w.p = null;
+      for (const m of w.rocks) m.visible = false;
+    }
     this.shotFx.on = false;
   }
 
@@ -1222,9 +1243,31 @@ export class TrekSystem extends createSystem({}) {
       const s = p ? p.at - Math.max(0, p.fx) : 0;
       if (!p || GAME.phase !== 'playing' || GAME.between || s < R.dist - head.p.z - 3 || (p.judged && s < R.dist - head.p.z + 0.5)) {
         w.p = null;
+        for (const m of w.rocks) m.visible = false;
         continue;
       }
-      if (p.fx < 0 || GAME.paused || LITE.on) continue;
+      // (aún sin salir, o con un menú abierto: sin cresta; en pausa, quieta donde estaba)
+      if (p.fx < 0 || LITE.on) {
+        for (const m of w.rocks) m.visible = false;
+        continue;
+      }
+      if (GAME.paused) continue;
+      // la cresta: una fila de rocas al rojo que revienta las tablas en el frente (subiendo y bajando, vibrando) y otra, detrás,
+      // que se hunde; de un lado a otro de la pasarela, en el mundo que baja y sube
+      looksTick();
+      for (let j = 0; j < w.rocks.length; j++) {
+        const m = w.rocks[j], back = j >= WAVE_ROCKS, i = j % WAVE_ROCKS;
+        const u = p.lane * FORK_U - R.uShift + (i - (WAVE_ROCKS - 1) / 2) * 0.4 + 0.06 * Math.sin(i * 7.3 + p.id);
+        const ss = s - (back ? WAVE_ROW : 0) + 0.08 * Math.sin(i * 3.1 + p.id);
+        R.tk.bend(ss, u, this.bp);
+        const jump = back ? 0.03 + 0.02 * Math.sin(this.clock * 9 + i) : WAVE_UP * (0.75 + 0.25 * Math.sin(this.clock * 23 + i * 1.9));
+        const sc = (back ? 0.08 : 0.13) * (0.85 + 0.3 * ((i * 0.618 + p.id * 0.13) % 1));
+        m.position.set(this.bp.x, jump * 0.6, this.bp.z);
+        m.scale.setScalar(sc);
+        m.rotation.x += dt * (4 + i);
+        m.rotation.z += dt * (3 + i * 0.5);
+        m.visible = true;
+      }
       if (!w.on) {
         // el puño llega al suelo: un anillo de polvo que se abre, una nube que sube y piedras que saltan
         w.on = true;

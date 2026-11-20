@@ -69,6 +69,10 @@ export const VIEW = {
   /** Dónde está el marcador (en la arena) y su radio (m): los avisos de la vista se apartan de él (no lo tapan). Lo pone la
    * partida al colocarlo. */
   board: { x: 0, y: 0, z: 0, r: 0, on: false },
+  /** El aviso dorado de los logros y el panel entre oleadas (o tramos), mientras se ven: los demás avisos de la vista se
+   * apartan de ellos (pedido del usuario: los avisos se solapaban). Los pone la partida. */
+  trophy: { x: 0, y: 0, z: 0, r: 0, on: false },
+  intro: { x: 0, y: 0, z: 0, r: 0, on: false },
 };
 
 /** Avisos entre sistemas (los pone el sistema del juego al arrancar). */

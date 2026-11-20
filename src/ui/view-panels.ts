@@ -135,7 +135,16 @@ export class ViewSystem extends createSystem({}) {
     const n = this.collectThreats();
     this.stepDuel(dt);
     this.stepCenter(dt, lying, n);
-    this.stepToast(dt, lying, n);
+    // (el breve se aparta también del del centro: nunca uno encima del otro)
+    const C = this.center.mesh;
+    let nt = n;
+    if (C.visible) {
+      const th = this.threats[nt] ?? (this.threats[nt] = { p: new Vector3(), r: 0 });
+      th.p.copy(C.position);
+      th.r = 0.5;
+      nt++;
+    }
+    this.stepToast(dt, lying, nt);
     this.stepDemo(dt, lying);
     this.duelIdle(dt);
   }
@@ -144,8 +153,9 @@ export class ViewSystem extends createSystem({}) {
   private collectThreats(): number {
     const es = this.world.getSystem(EnemySystem);
     let n = 0;
-    if (GAME.phase !== 'playing' || !es) return 0;
-    for (const t of es.targets) {
+    // (los enemigos, en plena ronda; el marcador, los logros, el panel entre oleadas y el menú, siempre: el aviso de derrota
+    // no debe tapar el resumen)
+    if (GAME.phase === 'playing' && es) for (const t of es.targets) {
       if (!t.alive) continue;
       const th = this.threats[n] ?? (this.threats[n] = { p: new Vector3(), r: 0 });
       t.center(th.p);
@@ -158,6 +168,14 @@ export class ViewSystem extends createSystem({}) {
       const th = this.threats[n] ?? (this.threats[n] = { p: new Vector3(), r: 0 });
       th.p.set(B.x, B.y, B.z);
       th.r = B.r;
+      n++;
+    }
+    // el aviso dorado de los logros y el panel entre oleadas (pedido del usuario: los avisos se solapaban entre sí)
+    for (const S of [VIEW.trophy, VIEW.intro]) {
+      if (!S.on) continue;
+      const th = this.threats[n] ?? (this.threats[n] = { p: new Vector3(), r: 0 });
+      th.p.set(S.x, S.y, S.z);
+      th.r = S.r;
       n++;
     }
     const M = UI.menu;
