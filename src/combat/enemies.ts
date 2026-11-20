@@ -120,6 +120,29 @@ interface FoeRuntime {
 }
 
 const STAGGER = 0.8; // segundos que se queda encajando el golpe
+/** Los caídos (pedido del usuario: el zombi seguía andando en el suelo y quedaba algo elevado): cuántos puede haber a la vez,
+ * lo que tardan en desvanecerse (s) y lo que dura el desvanecerse (s). */
+const CORPSES = 12, CORPSE_T = 3.2, CORPSE_FADE = 0.8;
+
+/** Un caído: su modelo, ya fuera de la física (que lo dejaba a la altura de su cápsula, por encima del suelo), cayendo con
+ * el golpe hasta el suelo. Con animación de morir, la hace; sin ella (el zombi), se queda en la postura en que le dieron y
+ * cae de espaldas, tumbado a ras del suelo. */
+interface Corpse {
+  g: Group;
+  model: Object3D | null;
+  mixer: AnimationMixer | null;
+  /** Hace su animación de morir (si no, quieto). */
+  anim: boolean;
+  vel: Vector3;
+  yaw: number;
+  tilt: number;
+  tiltTo: number;
+  /** Lo que se levanta del suelo tumbado de espaldas (m: lo grueso del cuerpo, para que la espalda toque el suelo). */
+  lift: number;
+  landed: boolean;
+  t: number;
+  fade: Material[] | null;
+}
 // el golpe (RepArena: windup 0,75 s, strike 0,18 s y lo que recoge, 0,5 s; luego retrocede de espaldas)
 const WINDUP = 0.75, STRIKE = 0.18, RECOVER = 0.5, BACK_V = 0.9;
 
@@ -171,6 +194,11 @@ export class EnemySystem extends createSystem(
   flyers: FlyerSystem | null = null;
   /** Los de las trampillas (src/combat/hatch-foes.ts): también se enganchan solos. */
   hatches: HatchSystem | null = null;
+  /** Los caídos (hechos al empezar y reutilizados). */
+  private readonly corpses: Corpse[] = [];
+  private readonly cq = new Quaternion();
+  private readonly cq2 = new Quaternion();
+  private readonly xAxis = new Vector3(1, 0, 0);
 
   init(): void {
     this.physics = this.world.getSystem(PhysicsSystem)!;
@@ -193,6 +221,12 @@ export class EnemySystem extends createSystem(
     this.ballBody = ball;
     this.world.createTransformEntity(this.life.points);
     this.world.createTransformEntity(this.rocks.group);
+    for (let i = 0; i < CORPSES; i++) {
+      const g = new Group();
+      g.name = 'caido';
+      this.world.createTransformEntity(g);
+      this.corpses.push({ g, model: null, mixer: null, anim: false, vel: new Vector3(), yaw: 0, tilt: 0, tiltTo: 0, lift: 0, landed: false, t: 0, fade: null });
+    }
   }
 
   /** Cuántos quedan en pie (también los que vuelan). */
@@ -366,12 +400,14 @@ export class EnemySystem extends createSystem(
     this.flyers?.clear();
     this.hatches?.clear();
     for (const e of [...this.queries.foes.entities]) this.remove(e);
+    for (const C of this.corpses) this.endCorpse(C);
   }
 
-  private remove(e: Entity): void {
+  /** Quita uno; `keep`: su modelo y sus animaciones siguen (ya son de un caído). */
+  private remove(e: Entity, keep = false): void {
     const rt = e.object3D?.userData.rt as FoeRuntime | undefined;
     if (rt) {
-      rt.mixer.stopAllAction();
+      if (!keep) rt.mixer.stopAllAction();
       if (rt.fade) for (const m of rt.fade) m.dispose();
       rt.target.removed = true;
       const i = this.targets.indexOf(rt.target);
@@ -434,26 +470,114 @@ export class EnemySystem extends createSystem(
       return;
     }
     this.freeSlot(rt);
-    // muerto: cuerpo suelto (sin enderezarse), lanzado hacia atrás y hacia arriba, girando
+    // muerto: sale despedido hacia atrás y hacia arriba y cae al suelo (ya sin la física: su cápsula lo dejaba flotando)
     e.setValue(Foe, 'state', FoeState.Dead);
     e.setValue(Foe, 'timer', 0);
-    e.setValue(PhysicsBody, 'angularDamping', 0.6);
-    e.setValue(PhysicsBody, 'linearDamping', 1.0);
-    const kb = (3.2 + 1.4 * power) / Math.sqrt(mass);
-    this.tmp.set(dir.z, 0, -dir.x); // (el eje del vuelco: horizontal, de lado al empujón)
-    const spin = 3.5 + 1.5 * power;
-    this.setVel(e, dir.x * kb, 2.4 + 0.6 * power, dir.z * kb, this.tmp.multiplyScalar(spin));
-    rt.kick = true;
-    // la postura del golpe, congelada: cae como un cuerpo rígido
-    this.anim(rt, 'hit', 0.05, true, 1);
-    const a = rt.actions.get('hit');
-    if (a) {
-      a.time = a.getClip().duration * 0.35;
-      a.paused = true;
-    }
     roar(e.object3D!.position, rt.def.voice, 0.8);
     SND.squish(e.object3D!.position);
     HOOKS.foeDown(rt.kind, !!rt.def.boss, rt.target);
+    this.toCorpse(e, rt, dir, power, mass);
+    this.remove(e, true);
+  }
+
+  /** Pasa el modelo de uno que muere a un caído: con su animación de morir o, sin ella, quieto en la postura del golpe. */
+  private toCorpse(e: Entity, rt: FoeRuntime, dir: Vector3, power: number, mass: number): void {
+    const root = e.object3D!, d = rt.def;
+    let C = this.corpses.find((c) => !c.model);
+    if (!C) {
+      // (todos ocupados: el más viejo se va ya)
+      C = this.corpses.reduce((a, b) => (a.t > b.t ? a : b));
+      this.endCorpse(C);
+    }
+    const v = e.getValue(PhysicsBody, '_engineBody') ? e.getVectorView(PhysicsBody, '_linearVelocity') : null;
+    const kb = (1.5 + 0.55 * power) / Math.sqrt(mass);
+    C.vel.set((v ? v[0] * 0.4 : 0) + dir.x * kb, Math.max(0, v ? v[1] : 0) + 1.3 + 0.3 * power, (v ? v[2] * 0.4 : 0) + dir.z * kb);
+    // los pies, donde estaban; de cara hacia donde miraba (sin ladearse: lo que se vuelque, lo pone él)
+    this.tmp.set(0, 0, 1).applyQuaternion(root.quaternion);
+    C.yaw = Math.atan2(this.tmp.x, this.tmp.z);
+    C.g.position.set(root.position.x, Math.max(0, root.position.y - d.h / 2), root.position.z);
+    C.g.quaternion.setFromAxisAngle(this.up.set(0, 1, 0), C.yaw);
+    C.g.updateMatrixWorld(true);
+    root.updateMatrixWorld(true);
+    C.g.attach(rt.model);
+    C.g.visible = true;
+    C.model = rt.model;
+    C.mixer = rt.mixer;
+    C.t = 0;
+    C.tilt = 0;
+    C.landed = false;
+    C.fade = null;
+    const death = rt.actions.get('death');
+    C.anim = !!death;
+    if (death) {
+      // su animación de morir: se desploma él solo, a ras del suelo
+      const prev = rt.current ? rt.actions.get(rt.current as keyof FoeClips) : undefined;
+      death.reset();
+      death.setLoop(LoopOnce, 1);
+      death.clampWhenFinished = true;
+      death.timeScale = 1.2;
+      death.enabled = true;
+      death.setEffectiveWeight(1);
+      if (prev && prev !== death) death.crossFadeFrom(prev, 0.12, false);
+      death.play();
+      C.tiltTo = 0;
+      C.lift = 0;
+    } else {
+      // sin ella (el zombi): quieto en la postura en que le dieron (nada de seguir andando) y de espaldas al suelo
+      for (const a of rt.actions.values()) a.paused = true;
+      C.tiltTo = -Math.PI / 2;
+      C.lift = d.r * 0.45;
+    }
+  }
+
+  /** Un caído se va del todo (su modelo, fuera; sus animaciones, paradas). */
+  private endCorpse(C: Corpse): void {
+    if (!C.model) return;
+    C.mixer?.stopAllAction();
+    if (C.fade) for (const m of C.fade) m.dispose();
+    C.g.remove(C.model);
+    C.model = null;
+    C.mixer = null;
+    C.fade = null;
+    C.g.visible = false;
+  }
+
+  /** Cada fotograma: los caídos vuelan hasta el suelo, se quedan ahí tumbados, se desvanecen y se van. */
+  private stepCorpses(dt: number): void {
+    for (const C of this.corpses) {
+      if (!C.model) continue;
+      C.t += dt;
+      const g = C.g;
+      if (!C.landed) {
+        C.vel.y -= 9.8 * dt;
+        g.position.addScaledVector(C.vel, dt);
+        if (g.position.y <= 0 && C.vel.y < 0) {
+          g.position.y = 0;
+          C.landed = true;
+          C.vel.y = 0;
+        }
+      } else {
+        // en el suelo: se arrastra un poco y se para
+        const k = Math.max(0, 1 - dt * 7);
+        C.vel.x *= k;
+        C.vel.z *= k;
+        g.position.x += C.vel.x * dt;
+        g.position.z += C.vel.z * dt;
+      }
+      // de espaldas (el que no tiene animación de morir): se vuelca mientras cae; tumbado, la espalda toca el suelo
+      C.tilt += (C.tiltTo - C.tilt) * Math.min(1, dt * 6);
+      const lie = Math.abs(Math.sin(C.tilt));
+      if (C.landed) g.position.y = C.lift * lie;
+      this.cq.setFromAxisAngle(this.up.set(0, 1, 0), C.yaw);
+      g.quaternion.copy(this.cq).multiply(this.cq2.setFromAxisAngle(this.xAxis, C.tilt));
+      if (C.anim) C.mixer?.update(dt);
+      if (C.t > CORPSE_T) {
+        if (!C.fade) C.fade = fadeCopy(C.model); // (sin compilar nada nuevo: precompilado antes de la ronda)
+        const a = Math.max(0, 1 - (C.t - CORPSE_T) / CORPSE_FADE);
+        for (const m of C.fade) m.opacity = a;
+        if (a <= 0) this.endCorpse(C);
+      }
+    }
   }
 
   /**
@@ -559,6 +683,7 @@ export class EnemySystem extends createSystem(
       }
       return;
     }
+    this.stepCorpses(dt);
     // tu cápsula, donde estás (solo si te has movido algo)
     if (this.playerBody?.object3D) {
       const pp = this.playerPose.position;

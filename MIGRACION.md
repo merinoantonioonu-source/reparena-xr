@@ -434,6 +434,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `tests/unit/curl-robusto.test.ts`. Lo siguiente: la elevación frontal (`fraiseStep`) y los de dos tiempos (`chainStep`),
   con una caja negra de cada uno; y, cuando el usuario lo dé por bueno, encenderlo de serie (fase 4).
 
+- **Los caídos** (pedido del usuario): al morir, `EnemySystem.toCorpse` pasa el modelo a un caído (`Corpse`, `CORPSES` hechos
+  al empezar) y quita la entidad con su cuerpo de física (su cápsula lo dejaba a media altura); `stepCorpses` lo lleva hasta
+  el suelo, con la animación `death` si la tiene o, sin ella, quieto y volcado de espaldas, y lo desvanece (`fadeCopy`).
 - **Avisos sin solaparse** (pedido del usuario): `VIEW.trophy` y `VIEW.intro` (`src/core/state.ts`) dicen dónde están el aviso
   dorado y el panel entre oleadas; `ViewSystem.collectThreats` los suma (con el marcador y el menú, también fuera de la ronda)
   para que el del centro y el breve se aparten, y el breve se aparta además del del centro. El dorado (`stepTrophy`), a
