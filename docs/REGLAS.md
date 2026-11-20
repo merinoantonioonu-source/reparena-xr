@@ -252,6 +252,9 @@ No las cambies sin preguntarle.
 - Los enemigos **nunca atraviesan** compuertas, piedras, cajas ni otros sólidos. La bola de energía también es un
   obstáculo: la rodean.
 - Se mueven con naturalidad y agresividad, sin chocar entre ellos.
+- **Los que caen se quedan quietos y en el suelo** (pedido del usuario: el zombi seguía andando tumbado y quedaba algo
+  elevado): al morir salen despedidos y caen a ras del suelo; con su animación de morir, se desploman; sin ella (el zombi),
+  quietos en la postura del golpe y de espaldas. Al rato se desvanecen.
 - Parados esperando su turno, bailan al compás (el marcado o el de la canción de Spotify), también los robots.
 - El lanzador tira algo más deprisa (y más a menudo) cuanto más difícil, poco a poco (como mucho un 40 %).
 - Travesía: la roca del derrumbe se queda quieta del todo al embestirla (el golpe se ve en su cara). Una zancada hacia
