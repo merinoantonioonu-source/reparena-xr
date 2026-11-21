@@ -102,6 +102,61 @@ describe('el modo Toques', () => {
     expect(again.some((e) => e.type === 'hit')).toBe(true);
   });
 
+  // (abdominales y combinado, encendidos a petición del usuario: su prueba con movimientos de persona)
+  it('abdominales boca arriba: cada objetivo se alcanza subiendo el tronco (la cabeza) o con su mano, y luego hay que volver a tumbarse', () => {
+    for (const move of ['crunch', 'knee', 'twist', 'side']) {
+      for (const side of [-1, 1]) {
+        const { tch, head } = setup({ exercise: 'abs', absMoves: move });
+        // tumbado boca arriba: la cabeza, a 20 cm del suelo (la postura de partida que toma la calibración)
+        tch.ref = 0.2;
+        head.set(0, 0.2, 0);
+        hand(tch, 'left', new Vector3(-0.25, 0.15, 0.2));
+        hand(tch, 'right', new Vector3(0.25, 0.15, 0.2));
+        const x = new TouchTarget(tch, move, 1, side);
+        tch.touches.push(x);
+        // (por encima del suelo y por delante del cuerpo: se llega levantando el tronco)
+        expect(x.pos.y, `${move} ${side}`).toBeGreaterThan(0.1);
+        const ev = run(tch, [], 2.5, () => {
+          if (x.mode !== 'wait') return;
+          if (x.part === 'hand') hand(tch, x.hand, x.at);
+          else head.copy(x.at);
+        });
+        expect(ev.some((e) => e.type === 'hit'), `${move} ${side}: ${JSON.stringify(ev.map((e) => e.type))}`).toBe(true);
+        expect(ev.some((e) => e.type === 'miss' && e.hurt)).toBe(false);
+      }
+    }
+  });
+
+  it('el combinado, en sus tres posturas: cada movimiento se hace y cuenta', () => {
+    for (const [base, key, list] of [['stand', 'comboStand', 'squat,lunge,jump,punch'], ['floor', 'comboFloor', 'push,plank,tap'], ['abs', 'comboAbs', 'crunch,twist,knee']] as const) {
+      const { tch, head } = setup({ exercise: 'combo', comboBase: base, [key]: list, comboOrder: 'seq' });
+      const ref = base === 'stand' ? 1.6 : base === 'floor' ? 0.55 : 0.2;
+      tch.ref = ref;
+      head.set(0, ref, 0);
+      hand(tch, 'left', new Vector3(-0.25, ref - 0.4, -0.2));
+      hand(tch, 'right', new Vector3(0.25, ref - 0.4, -0.2));
+      const q = buildTouchWave(tch, 0);
+      expect(q.length).toBeGreaterThan(0);
+      for (const m of new Set(q.map((x) => x.move))) {
+        const x = new TouchTarget(tch, m, tch.clock + 1, 1);
+        tch.touches.push(x);
+        // (la plancha se aguanta «Aguantar la plancha», 5 s)
+        const ev = run(tch, [], 8, () => {
+          if (x.mode !== 'wait' && x.mode !== 'hold') return;
+          if (x.part === 'hand') hand(tch, x.hand, x.at);
+          else head.copy(x.at);
+        });
+        expect(ev.some((e) => e.type === 'hit'), `${base} ${m}: ${JSON.stringify(ev.map((e) => e.type))}`).toBe(true);
+        // de vuelta a la postura de partida
+        head.set(0, ref, 0);
+        hand(tch, 'left', new Vector3(-0.25, ref - 0.4, -0.2));
+        hand(tch, 'right', new Vector3(0.25, ref - 0.4, -0.2));
+        run(tch, [], 0.6);
+        tch.touches.length = 0;
+      }
+    }
+  });
+
   it('cada ejercicio trae sus movimientos', () => {
     const moves = (over: Record<string, number | string>) => {
       const set = new Set<string>();

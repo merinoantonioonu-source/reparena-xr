@@ -270,7 +270,7 @@ describe('inchworm', () => {
 
 describe('todos los que se pueden jugar', () => {
   // los de Toques y Barras se prueban en su modo (touch.test.ts y bars.test.ts)
-  const ELSEWHERE = new Set(['slam', 'jump', 'pushup', 'row', 'pullup', 'hang']);
+  const ELSEWHERE = new Set(['slam', 'jump', 'pushup', 'abs', 'combo', 'row', 'pullup', 'hang']);
   const HERE = new Set([...STAND_EX, 'dips', 'pushup', 'splank', 'superman', 'plank1', 'inchworm']);
   it('tienen aquí (o en su modo) su prueba con movimientos de persona', () => {
     const all = new Set(Object.values(PLAY_MODE_EX).flat());

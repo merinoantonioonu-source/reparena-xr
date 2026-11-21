@@ -959,8 +959,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - PR 17a: **los bichos** (avispas, zánganos, la reina, el portador) **salen con la abeja del catálogo** (los de RepArena eran
   hechos a mano: regla del usuario de no crear enemigos de cero); sin el aguijón que se dobla ni sus amagos pintados. Las
   pompas son una esfera de cristal sencilla (sin la película irisada). Sin el rastro de luz entre la cabeza y el objetivo.
-- PR 16: **Toques sin espadas ni abdominales ni combinado**: hasta el PR 9 no hay espada (los bloques que se cortan salen como
-  diamantes, como en RepArena sin mandos); Slam, Saltos y Flexiones se juegan; Abdominales (boca arriba) y Combinado, no todavía.
+- PR 16: **Toques sin espadas**: hasta el PR 9 no hay espada (los bloques que se cortan salen como diamantes, como en RepArena
+  sin mandos). Abdominales (boca arriba) y Combinado se encendieron después, a petición del usuario: la calibración boca arriba
+  (`calibStep`: la cabeza entre 3 y 60 cm del suelo, como en RepArena) y el combinado calibra según su postura (`comboBase`);
+  sus pruebas con movimientos, en `touch.test.ts`. Hay que revisarlos en las gafas (los avisos encima de la cara, el marcador).
   Los aros no llevan los filamentos eléctricos ni el zumbido que traía RepArena (el aro de neón, sus flechas y su estallido
   de chispas, sí); el icono de la mano sobre el diamante es un dibujo sencillo con la inicial (D o I).
 - PR 16: la realidad mixta (los objetivos a 4 m en vez de 6,5) llega con el PR 21 (`ar: false` en el sistema).

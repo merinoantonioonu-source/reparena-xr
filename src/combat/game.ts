@@ -40,7 +40,7 @@ import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
 import { CALIB_LINES, IDLE, PLACE } from '../exercise/how.js';
 import { FLOOR_EX, FloorDetector, floorDefaults, iwReach, type FloorCfg, type FloorInput } from '../exercise/floor.js';
-import { aimForced, aimManual, deepOn, flyList, foes, groundList, handsFree, holdsWeights, isTiny, oneArm, pistolOn, twoShots } from '../core/rules.js';
+import { aimForced, aimManual, deepOn, flyList, foes, groundList, handsFree, holdsWeights, isFloor, isSupine, isTiny, oneArm, pistolOn, twoShots } from '../core/rules.js';
 import { HatchSystem, hatchFoes } from './hatch-foes.js';
 import { devFoe, flyFoes, FOE_DEF, foeName, gateFoes } from './foes.js';
 import { Rewards } from './rewards.js';
@@ -992,7 +992,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     else if (!playing) VIEW.center = null;
     else if (this.calibT >= 0) {
       const c = this.cCalib, ex = settings.exercise;
-      c.lines = CALIB_LINES[ex] ?? ['Colócate en la postura inicial', 'y quédate quieto 2 s.'];
+      // (el combinado, según su postura: de pie, en plancha o boca arriba)
+      const cx = ex === 'combo' ? ({ stand: 'squat', floor: 'pushup', abs: 'abs' } as Record<string, string>)[settings.comboBase] ?? ex : ex;
+      c.lines = CALIB_LINES[cx] ?? ['Colócate en la postura inicial', 'y quédate quieto 2 s.'];
       // (si se ven las manos, en lo que se hace con ellas; y el cuerpo, si el navegador lo da: RepArena)
       c.note = (holdsWeights() && ex !== 'dlrow') || oneArm() || ex === 'superman' || (aimManual() && settings.aim === 'hands' && handsFree()) || pistolOn() ? (hands.left.ok || hands.right.ok ? (BODY.now ? this.cBody : this.cHands) : this.cNoHands) : null;
       c.bar = Math.min(1, this.calibT / 2);
@@ -1006,9 +1008,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // ¿Quieto en la postura? (RepArena: calib) La cabeza, a su altura: sentado, entre 0,55 y 1,5 m; tumbado o en plancha
   // lateral, por debajo de 1 m. Dos segundos quieto y se toma esa postura
   private calibStep(dt: number): void {
-    const y = head.p.y, ex = settings.exercise, stand = !FLOOR_EX.includes(ex);
-    // (de pie, la cabeza por encima de 1,1 m; los antebrazos, con las dos manos a la vista: RepArena, calib)
-    const ok = stand ? (ex === 'twist' ? y > 0.55 && hands.left.ok && hands.right.ok : y > 1.1) : ex === 'inchworm' ? y > 1.1 : ex === 'dips' ? y > 0.55 && y < 1.5 : y < 1.0 && y > (ex === 'superman' ? 0.04 : 0.15);
+    // (en el suelo: los de Combate y, en Toques, los abdominales y el combinado en plancha o boca arriba)
+    const y = head.p.y, ex = settings.exercise, supine = isSupine(), stand = !FLOOR_EX.includes(ex) && !isFloor();
+    // (de pie, la cabeza por encima de 1,1 m; los antebrazos, con las dos manos a la vista; boca arriba, la cabeza entre 3 y 60
+    // cm del suelo: RepArena, calib)
+    const ok = stand ? (ex === 'twist' ? y > 0.55 && hands.left.ok && hands.right.ok : y > 1.1) : supine ? y < 0.6 && y > 0.03 : ex === 'inchworm' ? y > 1.1 : ex === 'dips' ? y > 0.55 && y < 1.5 : y < 1.0 && y > (ex === 'superman' ? 0.04 : 0.15);
     if (ok && head.speed < 0.07) this.calibT += dt;
     else this.calibT = Math.max(0, this.calibT - dt * 2);
     if (this.calibT < 2) return;
