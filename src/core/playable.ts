@@ -14,7 +14,7 @@ export const PLAY_MODES: string[] = ['combat', 'arcs', 'touch', 'bars', 'trek'];
 export const PLAY_MODE_EX: Record<string, string[]> = {
   combat: COMBAT_PLAY_EX,
   arcs: ['squat'],
-  touch: ['slam', 'jump', 'pushup'],
+  touch: ['slam', 'jump', 'abs', 'pushup', 'combo'], // (abdominales y combinado, encendidos a petición del usuario)
   bars: ['row', 'pullup', 'hang'],
   trek: ['squat'], // (la Travesía de plataformas: se avanza con sentadillas; correr con los brazos, más adelante)
 };
