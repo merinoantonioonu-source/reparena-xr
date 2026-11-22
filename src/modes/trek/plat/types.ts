@@ -261,6 +261,8 @@ export interface CourseEnv {
   worldLen?: number;
   /** Lo que manda la tabla de dificultad (sin él, `TUNE_DEF`). */
   tune?: PlatTune;
+  /** Lo que no sale por el ejercicio (en zancada, el túnel y el burpee: no se pasa echado). */
+  skip?: PieceKind[];
   /** La velocidad más alta que se puede llevar (m/s: la de «Velocidad de avance» con el turbo): las separaciones en
    * segundos se pasan a metros con ella. */
   vmax: number;

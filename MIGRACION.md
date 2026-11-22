@@ -434,6 +434,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   sin tocar `path.ts`). Lo que obliga a bajar la cabeza se rehace a la altura de la flexión al montar el tramo (`addTramo`). En el
   ordenador, con flexiones siempre se está en plancha; la flecha abajo es la flexión, Espacio la explosiva y W el peso adelante.
   La cortinilla `trek-pushup` es la de Combate (`CORT_SAME`, `src/ui/cortinilla.ts`) hasta que el usuario dé la suya.
+- **La Travesía en zancada** (`ex === 'lunge'`): de pie, como la de sentadillas, con tres cambios en la marcha: el lado pide
+  menos (`LUNGE_SIDE_K`), el tronco adelante da el acelerón (`LUNGE_FWD`) y el recorrido sale sin túneles ni burpees
+  (`CourseEnv.skip`). El cambio de pierna lo avisa la marcha (`legRep`/`legStep`/`legSwap`), no el detector de pie (que lo
+  sigue diciendo tras cada zancada en Combate, como RepArena: `StandCfg.legSay`, falso solo en la Travesía).
 
 - **`.npmrc` con `onnxruntime-node-install-cuda=skip`** (desde el 18/11/2026): `onnxruntime-node` (lo trae `@iwsdk/reference`, para
   el ordenador del desarrollador; el juego no lo usa) intentaba descargar al instalarse su versión para tarjetas NVIDIA desde

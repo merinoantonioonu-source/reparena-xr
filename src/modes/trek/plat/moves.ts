@@ -70,6 +70,8 @@ export const CENTER_TAU = 4;
  * tiene que llegar la cabeza (m), lo que dura «en el aire» (s), lo que puede pasar entre dos explosivas para que sean un
  * supersalto (s) y lo que hay que echar la cabeza adelante para el acelerón (m). Lo que hay que escorarse, una fracción del
  * paso a un lado de pie (`PRONE_SIDE_K`; como poco `PRONE_SIDE_MIN` m). */
+/** En zancada: lo que hay que inclinar el tronco a un lado (× el paso a un lado de pie) y echarlo adelante (m). */
+export const LUNGE_SIDE_K = 0.6, LUNGE_FWD = 0.14;
 export const PRONE_VY = 0.5, PRONE_TOP = 0.04, PRONE_AIR = 0.45, PAIR_T = 1.6, PRONE_FWD = 0.09, PRONE_SIDE_K = 0.35, PRONE_SIDE_MIN = 0.08;
 
 export class BodyMoves {
@@ -144,6 +146,7 @@ export class BodyMoves {
       }
     }
     this.lastY = y;
+    this.fwd = this.z0 - head.z; // (delante es −z: el peso adelante, el acelerón en plancha y en zancada)
     if (this.prone) {
       this.proneUpdate(dt, head, cfg);
       return;

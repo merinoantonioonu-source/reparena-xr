@@ -90,7 +90,7 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
   const rand = (a: number, b: number): number => a + (b - a) * env.rnd();
   const T = env.tune ?? TUNE_DEF;
   const clamp = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
-  const W = worldOf(tramo, env.worldLen), kinds = courseKinds(tramo, W);
+  const W = worldOf(tramo, env.worldLen), kinds = courseKinds(tramo, W).filter((k) => !env.skip?.includes(k));
   let end = start + env.len;
   // (el cofre se prueba con id 0 solo para medir el sitio que pide: su id verdadero va al final, tras la última pieza)
   const probe = piece(0, 'chest', end, tramo);

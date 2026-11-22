@@ -50,6 +50,8 @@ export interface StandCfg {
   /** «Manos: filtro nuevo» (solo RepArena XR, en pruebas): el curl con barra o kettlebell decide con el camino nuevo
    * (`barRobust`). Sin él, exactamente como en RepArena. */
   robust?: boolean;
+  /** La zancada: avisar del cambio de pierna tras cada una (de serie, como en RepArena); la Travesía lo avisa ella, cada tantas. */
+  legSay?: boolean;
 }
 
 /** Los de serie de RepArena (src/00_core.js: SCHEMA). */
@@ -230,7 +232,7 @@ export class StandingDetector {
       for (let i = n; i < out.length; i++) {
         if (out[i].type !== 'rep') continue;
         this.leg ^= 1;
-        this.say(`Ahora con la pierna ${this.leg ? 'izquierda' : 'derecha'} delante`, '#a49fc8');
+        if (c.legSay !== false) this.say(`Ahora con la pierna ${this.leg ? 'izquierda' : 'derecha'} delante`, '#a49fc8');
         break;
       }
     } else if (ex === 'curl') {

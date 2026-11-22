@@ -75,7 +75,9 @@ tabla de `README.md` dice qué hace cada archivo.
   la costa, `coastFloorPuts`/`coastDecoPuts`, el mar, `sea.ts`, los cañonazos, `cannon`, y los piratas, `isPirate`: el picado
   con `n` 2 o 3 y el de un lado con `n` 1; sus animaciones, con el nombre de los monstruitos, `CLIP_ALIAS`); en plancha, con «Flexiones» (`Runner.prone`;
   la suave, `trekAuto`: `Runner.auto`), `BodyMoves.prone` lee lo mismo de otra forma (abajo, agacharse; explosiva, saltar; dos,
-  supersalto; escorarse, a un lado; adelante, el acelerón, `dashT`); el cofre da llave y gema
+  supersalto; escorarse, a un lado; adelante, el acelerón, `dashT`); en zancada (`Runner.lunge`, la estática con `trekAuto`),
+  lo de pie con el lado más corto y el acelerón, sin túneles (`CourseEnv.skip`), y el aviso de cambio de pierna cada
+  `trekLegReps` (`legSwap`; el detector no lo dice en la Travesía: `StandCfg.legSay`); el cofre da llave y gema
   y el fantasma va en `reparenaxr-trekghost`. Su dificultad por rango (separación, huecos, vigas, plataformas, túneles y
   paso de los enemigos: los ajustes `plat*`, `xr: true`) sale de `RANK_VALS_XR` (`src/core/catalog.ts`) y de la tabla del
   desarrollador; `buildCourse` la recibe en `CourseEnv.tune` (`platTune`). Un ajuste solo de RepArena XR que mande el rango,

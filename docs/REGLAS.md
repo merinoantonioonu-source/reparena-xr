@@ -149,6 +149,13 @@ No las cambies sin preguntarle.
   explosivas seguidas**, el supersalto (plataformas altas, trampolín y el jefe mareado); y **el peso adelante**, un acelerón
   corto (cada 4 s como mucho). Lo que pasa por encima de la cabeza sale a la altura de la flexión. Se calibra en plancha, con
   los brazos estirados. Su cortinilla, la de las flexiones de Combate hasta que el usuario dé la suya.
+- Travesía de plataformas, **en zancada** (pedido del usuario; elegido de las propuestas): se juega con «Zancada», de pie con
+  una pierna delante, en los cuatro mundos y con sus jefes, con **dos formas** (el mismo ajuste «Avance solo»): la **dinámica**,
+  en la que cada bajada (sin dar pasos) te empuja, y la **estática**, en la que el recorrido viene solo. Bajar, agacharse;
+  inclinar el tronco a un lado (algo menos que un paso), apartarse; un salto corto, saltar; bajada honda y salto, el supersalto;
+  los brazos en cruz, planear; el tronco adelante, un acelerón. Sin túneles ni burpees. **El cambio de pierna** (opción 1 del
+  usuario): las gafas no ven las piernas, así que el juego avisa («¡Cambia de pierna!») cada **«Zancada: bajadas con cada
+  pierna»** (ajuste del usuario, 10 de serie) y confía en ti; en la estática, también si pasa un rato sin bajadas.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.
