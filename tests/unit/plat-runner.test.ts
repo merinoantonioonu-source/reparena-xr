@@ -1428,3 +1428,65 @@ describe('la Travesía de plataformas en plancha (con flexiones)', () => {
     for (const p of s.r.pieces) if (p.k === 'low' || p.k === 'dive') expect(p.h).toBeLessThan(0.15);
   });
 });
+
+describe('la Travesía de plataformas en zancada', () => {
+  const lunge = (auto: boolean, over: Record<string, number> = {}): Sim => {
+    const s = new Sim({ trekAuto: auto ? 1 : 0, ...over });
+    s.env.ex = 'lunge';
+    return s;
+  };
+  const says = (s: Sim): string[] => s.of('say').map((e) => e.text);
+
+  it('la dinámica: cada bajada empuja; la estática: avanza sola (y las bajadas no empujan)', () => {
+    const d = lunge(false);
+    d.load(course([mk(1, 'chest', 300, 0)]));
+    d.until(() => false, 72 * 3);
+    expect(d.r.dist).toBeLessThan(0.1);
+    for (let i = 0; i < 5; i++) d.squat(0.28);
+    expect(d.r.dist).toBeGreaterThan(3);
+    const a = lunge(true);
+    a.load(course([mk(1, 'chest', 300, 0)]));
+    a.until(() => false, 72 * 5);
+    expect(a.r.dist).toBeGreaterThan(3);
+    expect(a.r.rep(false)).toBe(false);
+  });
+
+  it('el cambio de pierna: al empezar, con cuál; cada «bajadas con cada pierna», a la otra', () => {
+    const s = lunge(false, { trekLegReps: 3 });
+    s.load(course([mk(1, 'chest', 300, 0)]));
+    s.frame();
+    expect(says(s)).toContain('Empieza con la pierna derecha delante');
+    for (let i = 0; i < 3; i++) s.squat(0.28);
+    expect(says(s)).toContain('¡Cambia de pierna! Ahora, la izquierda delante');
+    expect(s.r.leg).toBe(1);
+    for (let i = 0; i < 3; i++) s.squat(0.28);
+    expect(s.r.leg).toBe(0);
+  });
+
+  it('en la estática, la pierna también cambia por tiempo (apenas hay bajadas)', () => {
+    const s = lunge(true, { trekLegReps: 2 });
+    s.load(course([mk(1, 'chest', 400, 0)]));
+    s.until(() => s.r.leg === 1, 72 * 8);
+    expect(s.r.leg).toBe(1);
+  });
+
+  it('en zancada no salen túneles ni burpees (no se pasa echado)', () => {
+    const s = lunge(false);
+    for (let i = 0; i < 6; i++) s.r.addTramo(i, 220);
+    expect(s.r.pieces.some((p) => p.k === 'crawl' || p.burpee)).toBe(false);
+  });
+
+  it('inclinar el tronco a un lado (menos que un paso) esquiva al cangrejo; el tronco adelante, un acelerón', () => {
+    const s = lunge(true);
+    const C = mk(1, 'side', 30, 0, { side: 1 });
+    s.load(course([C, mk(2, 'chest', 300, 0)]));
+    expect(s.until(() => s.room(C) < 2, 72 * 60)).toBe(true);
+    s.head.x = -0.2;
+    expect(s.until(() => C.judged, 72 * 10)).toBe(true);
+    expect(C.ok).toBe(true);
+    s.head.x = 0;
+    s.head.z = -0.17;
+    s.frame();
+    expect(s.r.dashT).toBeGreaterThan(0);
+  });
+});

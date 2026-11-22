@@ -16,7 +16,7 @@ export const PLAY_MODE_EX: Record<string, string[]> = {
   arcs: ['squat'],
   touch: ['slam', 'jump', 'abs', 'pushup', 'combo'], // (abdominales y combinado, encendidos a petición del usuario)
   bars: ['row', 'pullup', 'hang'],
-  trek: ['squat', 'pushup'], // (la Travesía de plataformas: con sentadillas o, en plancha, con flexiones —o el avance solo—)
+  trek: ['squat', 'lunge', 'pushup'], // (la Travesía de plataformas: con sentadillas, con zancadas o, en plancha, con flexiones —estas dos, también con el avance solo—)
 };
 
 /** ¿Se puede jugar este ejercicio en este modo? */

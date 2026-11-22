@@ -36,8 +36,8 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { PORTAL_AT, worldNo, WORLD_LEN, WORLDS } from './worlds.js';
-import { BodyMoves, moveCfg, PRONE_FWD, PRONE_SIDE_K, PRONE_SIDE_MIN, type MoveCfg } from './moves.js';
-import { CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { BodyMoves, LUNGE_FWD, LUNGE_SIDE_K, moveCfg, PRONE_FWD, PRONE_SIDE_K, PRONE_SIDE_MIN, type MoveCfg } from './moves.js';
+import { CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -68,6 +68,10 @@ export const FRUIT_E = 0.25, SUPER_T = 5, SUPER_K = 1.3;
  * acelerón (echar el peso adelante): lo que dura (s), a qué velocidad como poco (× la máxima) y lo que hay que esperar para el
  * siguiente (s). */
 export const AUTO_K = 0.55, DASH_T = 1.5, DASH_K = 1.15, DASH_CD = 4;
+/** En zancada: las bajadas con cada pierna si no se dice (el ajuste «Zancada: bajadas con cada pierna») y, en la estática
+ * (que avanza sola y apenas pide bajadas), lo que se tarda como mucho en cambiar de pierna (s por cada bajada que toca). */
+export const LEG_REPS = 10, LEG_S = 3;
+const LUNGE_SKIP: PieceKind[] = ['crawl', 'burpee'];
 /** Dónde se avisa de lo que viene (m antes de la cabeza, o lo que recorres en tantos s si es más): las fluidas, a 4 m o
  * 1,4 s; el obstáculo a un lado y el hueco, antes (para prepararse). */
 export const WARN_AT = 4, WARN_S = 1.4, SIDE_WARN_AT = 6, SIDE_WARN_S = 1.8;
@@ -233,6 +237,12 @@ export class Runner {
   /** En plancha: el acelerón (lo que le queda y lo que falta para poder hacer otro, s). */
   dashT = 0;
   private dashCd = 0;
+  /** En zancada: la pierna que va delante (0 la derecha, 1 la izquierda), las bajadas con ella, el tiempo con ella y si ya se
+   * dijo con cuál empezar. */
+  leg = 0;
+  legReps = 0;
+  private legT = 0;
+  private legAsked = false;
   /** La pelea con el jefe del mundo (o null). */
   fight: BossFight | null = null;
   /** Los jefes derrotados en la ronda. */
@@ -311,6 +321,8 @@ export class Runner {
     this.world = 0;
     this.time = 0;
     this.dashT = this.dashCd = 0;
+    this.leg = this.legReps = this.legT = 0;
+    this.legAsked = false;
     this.fork = null;
     this.lane = 0;
     this.uShift = 0;
@@ -332,7 +344,8 @@ export class Runner {
     if (this.ends.length > i) return;
     while (this.ends.length < i) this.addTramo(this.ends.length, len); // (los de antes, por orden)
     const start = this.ends.length ? this.ends[this.ends.length - 1] + 0.5 : this.tk.dist;
-    const c = buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)), worldLen: this.worldLen }, i, this.env.rank, start, this.id);
+    // (en zancada no hay túnel ni burpee: no se pasa echado)
+    const c = buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)), worldLen: this.worldLen, skip: this.lunge ? LUNGE_SKIP : undefined }, i, this.env.rank, start, this.id);
     // en plancha, lo que pasa por encima de la cabeza (la viga, el picado, el tajo, la bala alta), a la altura de la flexión: se
     // ve justo por encima de la cabeza abajo (el juicio, `BodyMoves.under`, pide estar abajo)
     if (this.prone) {
@@ -346,9 +359,18 @@ export class Runner {
   get prone(): boolean {
     return this.env.ex === 'pushup';
   }
-  /** ¿La suave? (en plancha, con «Avance solo»: el recorrido viene solo y los movimientos son para esquivar y los premios) */
+  /** ¿En zancada? (la Travesía con zancadas: de pie, con una pierna delante; elegido por el usuario, en sus dos formas) */
+  get lunge(): boolean {
+    return this.env.ex === 'lunge';
+  }
+  /** ¿La suave (en plancha) o la estática (en zancada)? Con «Avance solo»: el recorrido viene solo y los movimientos son para
+   * esquivar y los premios. */
   get auto(): boolean {
-    return this.prone && this.env.s('trekAuto') > 0;
+    return (this.prone || this.lunge) && this.env.s('trekAuto') > 0;
+  }
+  /** Las bajadas con cada pierna en zancada (el ajuste; de serie, LEG_REPS). */
+  get legEvery(): number {
+    return Math.max(1, Math.round(this.env.s('trekLegReps') || LEG_REPS));
   }
 
   /** Los tramos de cada mundo (el ajuste «Tramos por mundo»; sin él, `WORLD_LEN`). */
@@ -400,7 +422,8 @@ export class Runner {
    * el aire, no empuja. Devuelve si ha empujado (las de una parada no cuentan para el tramo). */
   rep(perfect: boolean): boolean {
     if (this.env.state !== 'play' || (this.moves.plank && !this.prone)) return false; // (echado, no empujas: llevas la inercia)
-    if (this.auto) return false; // (en la suave avanzas solo: las flexiones no empujan)
+    if (this.lunge) this.legRep();
+    if (this.auto) return false; // (en la suave avanzas solo: las flexiones o las bajadas no empujan)
     if (this.stop || this.hop) {
       if (this.stop && this.stop.k !== 'boss') this.ask(this.stop, false);
       return false;
@@ -421,8 +444,10 @@ export class Runner {
     this.foeV = fv > 0 ? fv : FOE_V;
     this.cfg.deepNeed = Math.max(0.12, (0.8 * (env.dv('squatDepth') || 26)) / 100);
     const prone = this.prone;
-    // (en plancha, escorarse mueve la cabeza menos que un paso de pie)
+    // (en plancha, escorarse mueve la cabeza menos que un paso de pie; en zancada, inclinar el tronco, algo menos también)
     if (prone) this.cfg.sideNeed = Math.max(PRONE_SIDE_MIN, this.cfg.sideNeed * PRONE_SIDE_K);
+    else if (this.lunge) this.cfg.sideNeed *= LUNGE_SIDE_K;
+    if (this.lunge) this.legStep(dt, st);
     this.moves.prone = prone;
     this.moves.hold = this.sideAhead() || !!this.hop?.glide; // (planeando, la cabeza a un lado coge las frutas)
     this.armsStep();
@@ -669,12 +694,34 @@ export class Runner {
     else if (near(L) || near(R)) this.armsOpen = false;
   }
 
+  /** En zancada, el cambio de pierna (opción 1 del usuario: el juego lo avisa y confía en ti; las gafas no ven las piernas): al
+   * empezar, con cuál; cada `legEvery` bajadas, a la otra. */
+  private legRep(): void {
+    if (++this.legReps >= this.legEvery) this.legSwap();
+  }
+  /** Cada fotograma en zancada: el primer aviso y, en la estática (que apenas pide bajadas), el cambio también por tiempo. */
+  private legStep(dt: number, st: string): void {
+    if (st !== 'play' || this.stop) return;
+    if (!this.legAsked) {
+      this.legAsked = true;
+      this.say('Empieza con la pierna derecha delante', COL_ASK, 2.5, true);
+    }
+    if (this.auto && (this.legT += dt) >= this.legEvery * LEG_S) this.legSwap();
+  }
+  private legSwap(): void {
+    this.leg ^= 1;
+    this.legReps = 0;
+    this.legT = 0;
+    this.say(`¡Cambia de pierna! Ahora, la ${this.leg ? 'izquierda' : 'derecha'} delante`, COL_ASK, 2.5, true);
+    this.ev.push({ t: 'haptic', k: 0.3, ms: 60 });
+  }
+
   /** En plancha, el acelerón: echar el peso adelante (la cabeza, PRONE_FWD m por delante de su sitio) da DASH_T s más deprisa;
    * el siguiente, pasados DASH_CD s. */
   private dashStep(dt: number, st: string): void {
     this.dashT = Math.max(0, this.dashT - dt);
     this.dashCd = Math.max(0, this.dashCd - dt);
-    if (!this.prone || st !== 'play' || this.stop || this.hop || this.dashCd > 0 || this.moves.fwd < PRONE_FWD) return;
+    if (!(this.prone || this.lunge) || st !== 'play' || this.stop || this.hop || this.dashCd > 0 || this.moves.fwd < (this.prone ? PRONE_FWD : LUNGE_FWD)) return;
     this.dashT = DASH_T;
     this.dashCd = DASH_CD;
     this.snd('whoosh', null, 'arc');

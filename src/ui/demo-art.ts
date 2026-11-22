@@ -222,6 +222,7 @@ export function demoInfo(ex: string, mode: string, o: DemoOpts): { D: DemoDef; f
   if (mode === 'arcs') what = 'Agáchate a tiempo para que el arco pase por encima de la cabeza.';
   else if (mode === 'bars') what = ex === 'hang' ? '' : 'Cada subida revienta con la cabeza la pompa que espera arriba.';
   else if (mode === 'touch') what = 'Mete la cabeza por el hueco del aro cuando llegue.';
+  else if (mode === 'trek' && ex === 'lunge') what = num('trekAuto') > 0 ? 'El sendero viene solo: en zancada, baja para agacharte, inclínate para apartarte y salta.' : 'Cada bajada de la zancada te empuja; cambia de pierna cuando te avise.';
   else if (mode === 'trek') what = ex === 'pushup' && num('trekAuto') > 0 ? 'El sendero viene solo: en plancha, abajo para agacharte, escórate para apartarte y explosiva para saltar.' : ex === 'pushup' ? 'Cada flexión te empuja por el sendero; abajo, te agachas; explosiva, saltas.' : 'Cada repetición te empuja por el sendero; si paras, te paras.';
   else {
     const foe = foesKind === 'flyers' ? 'al volador' : foesKind === 'spider' ? 'a la araña' : foesKind === 'mix' ? 'al enemigo' : D.tiny ? 'a la araña' : 'al robot';
