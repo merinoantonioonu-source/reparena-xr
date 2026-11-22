@@ -411,6 +411,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Travesía: los mundos** (`src/modes/trek/plat/worlds.ts`): un mundo nuevo es una fila de `WORLDS` (suelo, paisajes, el
+  paisaje de los lados, jefe y sus retos propios, `extra`/`without`). Las islas en el cielo y la costa pirata van en sus PR. El
+  suelo se elige por trozos entre portales (`TrekSystem.draw`, cortado en `ends[j] + PORTAL_AT`); el paisaje del tramo nuevo se
+  pone al cruzar el portal (`pendingBiome`), no al empezar el tramo. El risco: la losa es la meseta de `Cliff1` aplanada (lo
+  único casi plano del Pirate Kit: estiradas a lo alto, las rocas salían como agujas), la pared, `Cliff4` sin girar (su pico,
+  del lado del camino), y el vacío, un mar de nubes al infinito (`CloudSea`): las fotos de fondo están hechas de pie en una
+  loma y, sin él, a la derecha parecía haber una llanura. En las capturas (SwiftShader va a pocos fotogramas por segundo y se
+  recorta el paso), el destello del portal tarda medio minuto en irse: ponle `flashT = 0`.
+
 - **`.npmrc` con `onnxruntime-node-install-cuda=skip`** (desde el 18/11/2026): `onnxruntime-node` (lo trae `@iwsdk/reference`, para
   el ordenador del desarrollador; el juego no lo usa) intentaba descargar al instalarse su versión para tarjetas NVIDIA desde
   GitHub, que da 404: `npm ci` fallaba en la comprobación y en la publicación. No lo quites mientras siga así.

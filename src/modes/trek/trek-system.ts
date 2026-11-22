@@ -12,7 +12,7 @@
  * vista (de 20 m detrás a 88 m delante), sin crear objetos. La partida (GameSystem) lo engancha como Arcos: `begin`,
  * `startWave`, `waveLeft`, `rep`, `hud`, `end` y `clear`.
  */
-import { AdditiveBlending, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DataTexture, DomeTexture, Euler, Group, InstancedMesh, LinearFilter, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, RGBAFormat, Sprite, SpriteMaterial, UnsignedByteType, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, BackSide, DoubleSide, ShaderMaterial, SphereGeometry, TorusGeometry, CircleGeometry, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DataTexture, DomeTexture, Euler, Group, InstancedMesh, LinearFilter, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, RGBAFormat, Sprite, SpriteMaterial, UnsignedByteType, Vector3 } from '@iwsdk/core';
 import type { AnimationAction, DirectionalLight, FogExp2, HemisphereLight, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { diagEvent } from '../../core/diag.js';
@@ -23,13 +23,15 @@ import { num, settings } from '../../core/values.js';
 import { haptic } from '../../input/hand-system.js';
 import { hands, head, headFwd, type Hand } from '../../input/hand-model.js';
 import { Wings } from './wings.js';
+import { CloudSea } from './cloud-sea.js';
 import { groundTexture, kitParts, type Part } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import { LOOK_BOSS, LOOK_FIRE, LOOK_SPIT, Missile, type MissileLook } from '../../style/missile-fx.js';
 import { looks, looksTick } from '../../style/missile-look.js';
 import { PAL, vfx } from '../../style/vfx.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
-import { DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
+import { CLIFF_FLOOR_Y, cliffDecoPuts, cliffFloorPuts, DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
+import { PORTAL_AT, tramoBiome, tramoDeco, worldEnd, worldStart, WORLDS } from './plat/worlds.js';
 import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
 import { ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
@@ -37,7 +39,7 @@ import { ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK
 const BACK = 20, AHEAD = PLAT_SEE + 8;
 /** Cuántas instancias caben de cada modelo: el muelle (unos 45 a la vista), las piezas y el paisaje. */
 // (las plataformas llevan unos 20 barriles cada una y sus tablas: con varias a la vista, hace falta sitio)
-const CAP_DOCK = 120, CAP_PIECE = 160, CAP_DECO = 96, CAP_FOOD = 24;
+const CAP_DOCK = 120, CAP_PIECE = 160, CAP_CLIFF = 240, CAP_DECO = 96, CAP_FOOD = 24;
 /** El césped de debajo: lo que mide y cada cuánto se repite su dibujo (m). */
 const GROUND_SIZE = 260, GROUND_CELL = 4;
 
@@ -59,6 +61,8 @@ const LOOKS = Object.keys(FOE_LOOK) as Look[];
 const lookOf = (p: Piece): Look | null => (p.k === 'dive' ? (p.n % 2 ? 'bat' : 'bee') : p.k === 'foe' || p.k === 'side' || p.k === 'skull' || p.k === 'quake' || p.k === 'fire' ? p.k : null);
 /** Los que vuelan (sin andar: aletean). */
 const FLY: readonly Look[] = ['bee', 'bat'];
+/** El destello al cruzar un portal (s) y lo que mide el portal (m: el radio del aro). */
+const FLASH_T = 0.9, PORTAL_R = 1.55;
 /** Las ondas del cíclope a la vez, las bolas de fuego del demonio y lo alto del arco de cada cosa que se lanza (m). */
 const WAVE_POOL = 2, FIRE_POOL = 2, FIRE_ARC = 1.3, SPIT_ARC = 0.25;
 /** La cresta de la onda del cíclope: las rocas de cada fila (dos: la que revienta delante y la que se hunde detrás), lo que
@@ -193,6 +197,19 @@ export class TrekSystem extends createSystem({}) {
   private floorN = -1;
   private floor: Put[] = [];
   private readonly holes: [number, number][] = [];
+  /** Las cornisas a la vista (el sendero del risco, estrecho). */
+  private readonly narrow: [number, number][] = [];
+  /** Los portales (un aro de luz con su remolino; dos: el que viene y el que dejas atrás), el destello al cruzarlo, las rocas
+   * de los desprendimientos y lo que lleva soplando cada racha (s). */
+  private readonly portals: Group[] = [];
+  private portalMat!: ShaderMaterial;
+  private flash!: Mesh;
+  private flashT = 0;
+  private readonly falls: { p: Piece | null; t: number; dur: number; rocks: Mesh[] }[] = [];
+  private gustT = 0;
+  private gustOn = false;
+  /** El paisaje del primer tramo de un mundo nuevo, que se pone al cruzar su portal (−1: ninguno). */
+  private pendingBiome = -1;
   /** El paisaje de cada trozo de 24 m que está a la vista, y lo que pide cada pieza (por su id). */
   private readonly deco = new Map<number, Put[]>();
   private readonly looks = new Map<number, Put[]>();
@@ -216,6 +233,8 @@ export class TrekSystem extends createSystem({}) {
   /** Las estelas del turbo y las alas de planear. */
   private wind!: InstancedMesh;
   private wings!: Wings;
+  /** El mar de nubes bajo el risco (el vacío a la derecha del sendero). */
+  private sea!: CloudSea;
   private readonly fwd = new Vector3();
   private readonly winds: Wind[] = [];
   /** Los brillos de las frutas doradas a la vista (hechos al empezar y reutilizados). */
@@ -297,6 +316,10 @@ export class TrekSystem extends createSystem({}) {
     // las alas de luz al planear (en la arena, junto a tus brazos)
     this.wings = new Wings();
     this.world.createTransformEntity(this.wings.group);
+    // el mar de nubes del risco (con el resto de la Travesía: se esconde con ella)
+    this.sea = new CloudSea();
+    this.root.add(this.sea.mesh);
+    warmKeep(new Mesh(this.sea.mesh.geometry, this.sea.mesh.material));
     warmKeep(new InstancedMesh(this.wind.geometry, this.wind.material, 1)); // (instanciada como la de verdad: el mismo sombreador)
     // el brillo redondo (de las doradas)
     const n = 32, d = new Uint8Array(n * n * 4);
@@ -330,6 +353,54 @@ export class TrekSystem extends createSystem({}) {
       }
       this.waves.push({ p: null, dustT: 0, on: false, rocks });
     }
+    // los portales entre mundos: un aro de luz con chispas y, dentro, un remolino que gira (elegido por el usuario)
+    this.portalMat = new ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform float uTime; varying vec2 vUv;
+        void main(){ vec2 q = vUv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
+          float sw = sin(a * 5.0 + r * 9.0 - uTime * 4.0) * 0.5 + 0.5, sw2 = sin(a * 3.0 - r * 14.0 + uTime * 2.6) * 0.5 + 0.5;
+          vec3 c = mix(vec3(0.25, 0.85, 1.0), vec3(1.0, 0.55, 0.95), sw) * (0.55 + 0.6 * sw2);
+          c += vec3(1.0) * smoothstep(0.35, 0.0, r) * 0.9;
+          float al = smoothstep(1.0, 0.82, r) * (0.55 + 0.35 * sw);
+          gl_FragColor = vec4(c * al, al); }`,
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      side: DoubleSide,
+      toneMapped: false,
+    });
+    const ringMat = new MeshBasicMaterial({ color: 0xbff4ff, toneMapped: false }), ringGeo = new TorusGeometry(PORTAL_R, 0.09, 10, 48), discGeo = new CircleGeometry(PORTAL_R, 48);
+    for (let i = 0; i < 2; i++) {
+      const g = new Group(), ring = new Mesh(ringGeo, ringMat), disc = new Mesh(discGeo, this.portalMat);
+      ring.userData.noInk = disc.userData.noInk = true;
+      g.add(ring, disc);
+      g.visible = false;
+      this.root.add(g);
+      this.portals.push(g);
+    }
+    warmKeep(new Mesh(ringGeo, ringMat));
+    warmKeep(new Mesh(discGeo, this.portalMat));
+    // el destello al cruzarlo: una esfera blanca alrededor de la cabeza que se apaga
+    this.flash = new Mesh(new SphereGeometry(0.6, 16, 10), new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthTest: false, depthWrite: false, side: BackSide, toneMapped: false, fog: false }));
+    this.flash.renderOrder = 60;
+    this.flash.visible = false;
+    this.flash.userData.noInk = true;
+    this.world.createTransformEntity(this.flash);
+    // las rocas de los desprendimientos (roca de verdad, sin brasas: la del lanzador sin su fuego)
+    const rockMat = new MeshStandardMaterial({ color: 0x8a7e72, roughness: 1, flatShading: true });
+    for (let i = 0; i < 2; i++) {
+      const rocks: Mesh[] = [];
+      for (let j = 0; j < 3; j++) {
+        const m = new Mesh(looks().geo.meteor, rockMat);
+        m.castShadow = true;
+        m.visible = false;
+        this.root.add(m);
+        rocks.push(m);
+      }
+      this.falls.push({ p: null, t: 0, dur: 1, rocks });
+    }
+    warmKeep(new Mesh(looks().geo.meteor, rockMat));
     // el brillo dorado de las doradas (en el mundo que baja y sube: va con ellas)
     const goldMat = new SpriteMaterial({ map: gt, color: 0xffd166, transparent: true, opacity: 0.7, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
     for (let i = 0; i < 4; i++) {
@@ -363,6 +434,7 @@ export class TrekSystem extends createSystem({}) {
     if (head.p.y > 1.1) this.calibRef = head.p.y;
     this.runner.reset();
     this.runner.addTramo(0, tramoLen(waveReps(0)));
+    this.pendingBiome = -1;
     this.setBiome(0);
     this.applyEvents();
   }
@@ -380,14 +452,20 @@ export class TrekSystem extends createSystem({}) {
     R.addTramo(i, tramoLen(waveReps(i)));
     const N = nWaves();
     if (!N || i + 1 < N) R.addTramo(i + 1, tramoLen(waveReps(i + 1)));
-    this.setBiome(i);
+    // (el primer tramo de un mundo nuevo: su paisaje, al cruzar el portal)
+    if (i > 0 && worldStart(i, R.worldLen)) this.pendingBiome = i;
+    else this.setBiome(i);
     this.applyEvents();
   }
 
   /** El paisaje del tramo i (el fondo realista, la niebla y la luz; los árboles van con el sendero: `biomeAt`). */
   private setBiome(i: number): void {
-    const b = ((i % TREK_BIOMES.length) + TREK_BIOMES.length) % TREK_BIOMES.length, B = TREK_BIOMES[b], B0 = TREK_BIOMES[0];
-    this.biome = b;
+    const B = tramoBiome(i, this.runner.worldLen), B0 = TREK_BIOMES[0];
+    this.biome = i;
+    // (el césped de abajo: en el risco no hay; bajo el vacío se ve el valle de la foto de fondo, muy abajo)
+    const cliff = WORLDS[this.runner.worldAt(this.runner.dist) % WORLDS.length].floor === 'cliff';
+    this.ground.position.y = cliff ? CLIFF_FLOOR_Y : GROUND_Y;
+    this.ground.visible = !cliff;
     this.pano = B.pano;
     const fog = (this.world.scene as { fog: FogExp2 | null }).fog;
     if (fog && this.savedFog) {
@@ -416,7 +494,12 @@ export class TrekSystem extends createSystem({}) {
     const E = this.runner.ends;
     let i = 0;
     while (i < E.length && s > E[i]) i++;
-    return i % TREK_BIOMES.length;
+    return tramoDeco(i, this.runner.worldLen);
+  }
+
+  /** ¿El punto s del sendero es del risco? (Cambia en cada portal.) */
+  private cliffAt(s: number): boolean {
+    return WORLDS[this.runner.worldAt(s) % WORLDS.length].floor === 'cliff';
   }
 
   /** ¿Queda tramo? Se acaba al llegar a su cofre (nunca a mitad de un paso). */
@@ -440,7 +523,7 @@ export class TrekSystem extends createSystem({}) {
   /** Para la partida simulada: lo esencial en datos simples. */
   snapshot(): Record<string, unknown> {
     const R = this.runner, nx = R.live.find((p) => !p.judged);
-    return { next: nx ? { k: nx.k, rel: +(nx.at + nx.walk - R.dist).toFixed(2), side: nx.side } : null, dist: +R.dist.toFixed(2), v: +R.v.toFixed(2), turbo: R.tk.turbo, stop: R.stop?.k ?? '', energy: +R.energy.toFixed(2), superT: +R.superT.toFixed(1), plank: R.moves.plank, lev: +R.lev.toFixed(2), hop: !!R.hop, chest: R.chest?.tramo ?? -1, passed: R.passed, hits: R.hits, live: R.live.map((p) => p.k), ends: R.ends.map((e) => Math.round(e)), keys: R.keys, fruits: R.fruits, biome: this.biome, pano: this.pano, foes: this.rigs.filter((r) => r.p && r.root.visible).map((r) => `${r.kind}:${r.cur}`), wind: this.wind.visible, ghost: R.ghostDiff(), last: this.last && { medal: this.last.medal?.[0] ?? null, dist: this.last.dist }, boss: R.fight ? { phase: R.fight.phase, shot: R.fight.shot, got: R.fight.p.got } : null, bosses: R.bosses };
+    return { next: nx ? { k: nx.k, rel: +(nx.at + nx.walk - R.dist).toFixed(2), side: nx.side } : null, dist: +R.dist.toFixed(2), v: +R.v.toFixed(2), turbo: R.tk.turbo, stop: R.stop?.k ?? '', energy: +R.energy.toFixed(2), superT: +R.superT.toFixed(1), plank: R.moves.plank, lev: +R.lev.toFixed(2), hop: !!R.hop, chest: R.chest?.tramo ?? -1, passed: R.passed, hits: R.hits, live: R.live.map((p) => p.k), ends: R.ends.map((e) => Math.round(e)), keys: R.keys, fruits: R.fruits, biome: this.biome, pano: this.pano, foes: this.rigs.filter((r) => r.p && r.root.visible).map((r) => `${r.kind}:${r.cur}`), wind: this.wind.visible, ghost: R.ghostDiff(), last: this.last && { medal: this.last.medal?.[0] ?? null, dist: this.last.dist }, boss: R.fight ? { phase: R.fight.phase, shot: R.fight.shot, got: R.fight.p.got } : null, bosses: R.bosses, world: R.world };
   }
 
   /** Al acabar la ronda (`score`, tus puntos): la medalla, los metros, las frutas y, si llegaste más lejos que nunca (y no es
@@ -480,6 +563,10 @@ export class TrekSystem extends createSystem({}) {
       w.p = null;
       for (const m of w.rocks) m.visible = false;
     }
+    for (const F of this.falls) {
+      F.p = null;
+      for (const m of F.rocks) m.visible = false;
+    }
     this.shotFx.on = false;
   }
 
@@ -506,6 +593,7 @@ export class TrekSystem extends createSystem({}) {
     this.drawBoss(dt);
     this.stepSpits(dt);
     this.stepWind(dt);
+    this.stepWorld(dt);
     // planeando de verdad (con los brazos en cruz), las alas
     const H = this.runner.hop, glide = GAME.phase === 'playing' && !GAME.paused && !!H?.glide && H.won && !H.bad;
     this.wings.update(GAME.paused ? 0 : dt, glide, head.p, headFwd(this.fwd), this.env.hands.l, this.env.hands.r);
@@ -577,7 +665,8 @@ export class TrekSystem extends createSystem({}) {
     };
     add('island', 'Dock', isl.Dock, CAP_DOCK, false);
     // (las piezas: lo que use pieces.ts de cada kit, KIT_MODELS; el resto del bosque, para el paisaje)
-    for (const n of KIT_MODELS.island) if (n !== 'Dock') add('island', n, isl[n], CAP_PIECE, true);
+    // (las rocas del risco: dos por trozo del sendero y la pared, más de las que caben en una pieza)
+    for (const n of KIT_MODELS.island) if (n !== 'Dock') add('island', n, isl[n], n === 'Cliff1' || n === 'Cliff4' ? CAP_CLIFF : CAP_PIECE, true);
     for (const n of KIT_MODELS.food) add('food', n, food[n], CAP_FOOD, true);
     for (const n of Object.keys(nat)) add('nature', n, nat[n], CAP_DECO, false);
     return true;
@@ -672,6 +761,28 @@ export class TrekSystem extends createSystem({}) {
         // la seta, el cangrejo, la calavera o el picado echan a andar (o a volar) hacia ti: su voz
         const L = FOE_LOOK[lookOf(e.p) ?? 'foe'];
         SND.hiss(this.world3({ s: e.p.at + e.p.walk, u: e.p.k === 'side' ? e.p.side * CRAB_U : 0, y: 0.3 }, this.at), 1, L.voice);
+        break;
+      }
+      case 'world': {
+        // has cruzado el portal: un destello blanco, el paisaje del mundo nuevo y su suelo
+        this.flashT = FLASH_T;
+        if (this.pendingBiome >= 0) this.setBiome(this.pendingBiome);
+        this.pendingBiome = -1;
+        haptic('left', 0.8, 200);
+        haptic('right', 0.8, 200);
+        this.deco.clear();
+        this.floorS0 = NaN;
+        break;
+      }
+      case 'rockfall': {
+        // el desprendimiento: unas rocas se sueltan de lo alto de la pared y caen a su lado del camino (con su ruido)
+        const F = this.falls.find((x) => !x.p);
+        if (F) {
+          F.p = e.p;
+          F.t = 0;
+          F.dur = e.dur;
+        }
+        SND.metalHit(this.world3({ s: e.p.at, u: e.p.side * 0.5, y: 6 }, this.at), true);
         break;
       }
       case 'slam': {
@@ -834,7 +945,23 @@ export class TrekSystem extends createSystem({}) {
       this.holes.length = 0;
       for (const p of R.pieces) if ((p.k === 'gap' || p.k === 'glide' || p.k === 'fork') && p.at + p.len > s0 && p.at < s0 + BACK + AHEAD + DOCK_LEN) this.holes.push([p.at, p.at + p.len]);
       this.floor.length = 0;
-      floorPuts(s0, s0 + BACK + AHEAD + DOCK_LEN, this.holes, this.floor);
+      // por mundos: de portal en portal, las tablas o la roca del risco (cortadas justo en el portal)
+      const s1 = s0 + BACK + AHEAD + DOCK_LEN, cuts = [s0];
+      for (let j = 0; j < R.ends.length; j++) if (worldEnd(j, R.worldLen)) {
+        const P = R.ends[j] + PORTAL_AT;
+        if (P > s0 && P < s1) cuts.push(P);
+      }
+      cuts.push(s1);
+      for (let k = 0; k + 1 < cuts.length; k++) {
+        const a = cuts[k], b = cuts[k + 1], hs = this.holes.slice();
+        if (k > 0) hs.push([-1e9, a]);
+        if (k + 2 < cuts.length) hs.push([b, 1e9]);
+        if (this.cliffAt((a + b) / 2)) {
+          this.narrow.length = 0;
+          for (const p of R.pieces) if (p.k === 'ledge' && p.at + p.len > a && p.at < b) this.narrow.push([p.at, p.at + p.len]);
+          cliffFloorPuts(a, b, hs, this.narrow, this.floor);
+        } else floorPuts(a, b, hs, this.floor);
+      }
     }
     for (const u of this.floor) this.put(u, u.ds, 0, 1);
     // el paisaje de los lados (cada trozo, calculado una vez mientras está a la vista); con un menú abierto, sin él
@@ -844,7 +971,7 @@ export class TrekSystem extends createSystem({}) {
       for (let c = c0; c <= c1; c++) {
         let L = this.deco.get(c);
         if (!L) {
-          L = decoPuts(c, [], this.biomeAt(c * TREK_CH));
+          L = this.cliffAt((c + 0.5) * TREK_CH) ? cliffDecoPuts(c, []) : decoPuts(c, [], this.biomeAt(c * TREK_CH));
           this.deco.set(c, L);
         }
         for (const u of L) this.put(u, u.ds, 0, 1);
@@ -1316,6 +1443,90 @@ export class TrekSystem extends createSystem({}) {
     S.m.fly(S.pos, dt, head.p);
   }
 
+
+  // ---------------------------------------------------------------- los mundos
+
+  /** Los portales a la vista (tras el cofre del último tramo de cada mundo), el destello al cruzar uno, las rachas de viento y
+   * las rocas que caen. */
+  private stepWorld(dt: number): void {
+    const R = this.runner, lite = LITE.on, playing = GAME.phase === 'playing';
+    this.portalMat.uniforms.uTime.value = this.clock;
+    let n = 0;
+    for (let j = 0; j < R.ends.length && n < this.portals.length; j++) {
+      if (!worldEnd(j, R.worldLen)) continue;
+      const P = R.ends[j] + PORTAL_AT;
+      if (P < R.dist - BACK || P > R.dist + AHEAD) continue;
+      const g = this.portals[n++], ry = R.tk.bend(P, -R.uShift, this.bp);
+      g.position.set(this.bp.x, PORTAL_R + 0.05, this.bp.z);
+      g.rotation.set(0, ry, 0);
+      g.visible = !lite;
+      // (chispas que suben por el aro)
+      if (playing && !GAME.paused && !lite && Math.random() < dt * 30) {
+        const a = Math.random() * 6.283;
+        R.tk.bend(P, Math.cos(a) * PORTAL_R - R.uShift, this.bp);
+        HOOKS.sparks(this.at.set(this.bp.x, PORTAL_R + 0.05 + Math.sin(a) * PORTAL_R + R.dip, this.bp.z), 2, Math.random() < 0.5 ? 0x8ff0ff : 0xff9cf0);
+      }
+    }
+    for (let i = n; i < this.portals.length; i++) this.portals[i].visible = false;
+    // el mar de nubes, en el risco
+    this.sea.update(this.cliffAt(R.dist), this.clock, tramoBiome(this.biome, R.worldLen).fog);
+    // el destello
+    const fm = this.flash.material as MeshBasicMaterial;
+    if (this.flashT > 0) {
+      this.flashT = Math.max(0, this.flashT - dt);
+      fm.opacity = Math.min(1, (this.flashT / FLASH_T) * 1.6);
+      this.flash.position.copy(head.p);
+      this.flash.visible = true;
+    } else this.flash.visible = false;
+    if (!playing || GAME.paused) return;
+    // las rachas de viento: polvo y hojas que cruzan el camino desde su lado mientras soplan (y su ruido al empezar)
+    let gust = false;
+    for (const p of R.live) {
+      if (p.k !== 'gust' || p.judged) continue;
+      const z = p.at - R.dist;
+      if (z > 8 || z < -p.len) continue;
+      gust = true;
+      if (lite) continue;
+      this.gustT += dt;
+      while (this.gustT > 1 / 40) {
+        this.gustT -= 1 / 40;
+        const ds = R.dist + 1 + Math.random() * 7;
+        this.world3({ s: ds, u: p.side * 3.5, y: 0.2 + Math.random() * 2 }, this.at);
+        this.world3({ s: ds, u: -p.side * 3.5, y: 0.2 }, this.v);
+        this.v.sub(this.at).normalize().multiplyScalar(6 + Math.random() * 3);
+        const V = vfx();
+        V.matter.emit(this.at.x, this.at.y, this.at.z, this.v.x, 0.3, this.v.z, 0.12, 2.5, 1.1, PAL.dust[0], PAL.dust[1], 0.45, 0.2, 0);
+        if (Math.random() < 0.3) V.bits(this.at, 1, 0.04, 1, 1, PAL.slime, 0.9, 0.2);
+      }
+    }
+    if (gust && !this.gustOn) SND.whoosh(head.p, 'arc');
+    this.gustOn = gust;
+    // las rocas que caen: de lo alto de la pared (a la izquierda) a su lado del camino, girando; al llegar, se rompen
+    for (const F of this.falls) {
+      const p = F.p;
+      if (!p) continue;
+      F.t += dt;
+      const k = Math.min(1, F.t / F.dur);
+      for (let j = 0; j < F.rocks.length; j++) {
+        const m = F.rocks[j], u0 = -2.2 - j * 0.3, u1 = p.side * (0.45 + 0.2 * j) - 0.1 * j;
+        const ry = R.tk.bend(p.at + j * 0.5 - 0.5, u0 + (u1 - u0) * k - R.uShift, this.bp);
+        m.position.set(this.bp.x, 0.25 + (7 + j) * (1 - k * k), this.bp.z);
+        m.rotation.set(F.t * (5 + j), ry, F.t * (3 + j));
+        m.scale.setScalar(0.22 + 0.06 * j);
+        m.visible = !lite && k < 1;
+      }
+      if (k >= 1) {
+        // se rompen: piedras y polvo, y retumba
+        const at = this.world3({ s: p.at, u: p.side * 0.5, y: 0.2 }, this.at), V = vfx();
+        V.bits(at, 18, 0.06, 3.5, 1, PAL.debris);
+        V.puffs(at, 8, 0.25, 1.2, PAL.dust, 0.9, 0.5, 3, 0.65);
+        SND.metalHit(at, true);
+        haptic('left', 0.5, 90);
+        haptic('right', 0.5, 90);
+        F.p = null;
+      }
+    }
+  }
 
   // ---------------------------------------------------------------- el turbo
 

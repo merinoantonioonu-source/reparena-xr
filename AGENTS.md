@@ -67,8 +67,10 @@ tabla de `README.md` dice qué hace cada archivo.
   la plataforma alta, con un supersalto (sentadilla honda, `deepT`, y salto; `Runner.lev`, el suelo bajo los pies), y se
   baja sola; el burpee, un túnel y su plataforma (`Piece.burpee`). Las frutas (`fruit`, modelos de `frutas.glb`) llenan
   la energía (`Runner.energy`); llena, supervelocidad (`superT`). Los enemigos (PR D) son piezas: la seta (`foe`, se pisa) y el
-  cangrejo (`side`, a un lado), el picado (`dive`) y la calavera (`skull`) llegan andando (`Piece.walk`, `WALKERS`: se juzgan en `at + walk`); el cíclope (`quake`) y el demonio (`fire`), a un lado, atacan al acercarte; cada cuatro tramos, el jefe (`boss`, `Runner.fight`) y los pinta `TrekSystem` animados
-  (`FOE_POOL` de cada uno, reutilizados); cada tramo, su paisaje (`setBiome`, `decoPuts(…, biome)`); el cofre da llave y gema
+  cangrejo (`side`, a un lado), el picado (`dive`) y la calavera (`skull`) llegan andando (`Piece.walk`, `WALKERS`: se juzgan en `at + walk`); el cíclope (`quake`) y el demonio (`fire`), a un lado, atacan al acercarte; en el último tramo de cada mundo, el jefe (`boss`, `Runner.fight`) y los pinta `TrekSystem` animados
+  (`FOE_POOL` de cada uno, reutilizados); cada tramo, su paisaje (`setBiome`, `decoPuts(…, biome)`); los mundos (`worlds.ts`: cada «Tramos por mundo», `trekWorld`,
+  otro suelo, paisajes, retos y jefe; se pasa por un portal tras el cofre, `PORTAL_AT`, y `Runner.world` avisa con el suceso
+  `world`; el risco, `cliffFloorPuts`/`cliffDecoPuts` y el mar de nubes, `cloud-sea.ts`); el cofre da llave y gema
   y el fantasma va en `reparenaxr-trekghost`. Su dificultad por rango (separación, huecos, vigas, plataformas, túneles y
   paso de los enemigos: los ajustes `plat*`, `xr: true`) sale de `RANK_VALS_XR` (`src/core/catalog.ts`) y de la tabla del
   desarrollador; `buildCourse` la recibe en `CourseEnv.tune` (`platTune`). Un ajuste solo de RepArena XR que mande el rango,

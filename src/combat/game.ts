@@ -73,7 +73,7 @@ import { BEAT } from '../core/beat-hub.js';
 import { exSongsStart, pulse, spotify } from '../services/hub.js';
 import { TouchSystem } from '../modes/touch/touch-system.js';
 import { TrekSystem } from '../modes/trek/trek-system.js';
-import { TREK_BIOMES } from '../modes/trek/path.js';
+import { tramoBiome, worldNo, worldOf, worldStart } from '../modes/trek/plat/worlds.js';
 import { curEx } from '../ui/fields.js';
 import { PLAY_MODES, playableEx } from '../core/playable.js';
 import { dv, onSettingsChange, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, waveReps } from '../core/settings.js';
@@ -903,9 +903,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const p = this.waveP, o = p.mesh;
     const N = nWaves(), last = N > 0 && i >= N - 1;
     const nw = fresh.map((k) => foeName(xrFoe(k).k)).join(', ');
-    const t3 = nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
-    const trek = settings.mode === 'trek', W = trek ? 'TRAMO' : 'OLEADA', place = trek ? ` · ${TREK_BIOMES[i % TREK_BIOMES.length].name}` : '';
-    drawWave(p.ctx, p.W, p.H, (last ? (trek ? '¡ÚLTIMO TRAMO!' : '¡ÚLTIMA OLEADA!') : N ? `${W} ${i + 1} DE ${N}` : `${W} ${i + 1}`) + place, `${GAME.score} puntos`, t3, nw ? '#ff8a3d' : '#3cf0c6');
+    const trek = settings.mode === 'trek', wl = num('trekWorld') || 3, newWorld = trek && i > 0 && worldStart(i, wl);
+    // (la Travesía, al empezar un mundo nuevo: su nombre y que hay que cruzar el portal)
+    const t3 = newWorld ? `¡MUNDO ${worldNo(i, wl) + 1}: ${worldOf(i, wl).name}! Cruza el portal` : nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
+    const W = trek ? 'TRAMO' : 'OLEADA', place = trek ? ` · ${tramoBiome(i, wl).name}` : '';
+    drawWave(p.ctx, p.W, p.H, (last ? (trek ? '¡ÚLTIMO TRAMO!' : '¡ÚLTIMA OLEADA!') : N ? `${W} ${i + 1} DE ${N}` : `${W} ${i + 1}`) + place, `${GAME.score} puntos`, t3, newWorld ? '#bff4ff' : nw ? '#ff8a3d' : '#3cf0c6');
     p.tex.needsUpdate = true;
     // delante de ti y de cara, derecho (nunca se ladea con la cabeza); tumbado, en el suelo bajo la cara
     const V = VIEW_FRAME, ly = lyingEx();

@@ -6,6 +6,7 @@
 // la plataforma, el túnel y la fruta miden lo que toca; hay sitio para bajar de una plataforma, para frenar ante el
 // cofre, para echarse al suelo ante un túnel y para levantarse; y la dificultad sube de un tramo a otro, no dentro de él.
 import { describe, expect, it } from 'vitest';
+import { worldOf } from '../../src/modes/trek/plat/worlds.js';
 import { buildCourse, courseKinds, courseRules, minGap } from '../../src/modes/trek/plat/course.js';
 import { ARC_MAX, ARC_MIN, bossTramo, WALKERS, GOLD_N, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece, type PlatTune, platTune, TUNE_DEF } from '../../src/modes/trek/plat/types.js';
 
@@ -17,7 +18,7 @@ const env = (seed: number, vmax: number, len: number, tune: PlatTune = T0): Cour
 /** ¿Hay en el recorrido la clase `k`? El burpee no es una pieza: es un túnel con, justo detrás, una plataforma de burpee. */
 const hay = (ps: Piece[], k: string): boolean => (k === 'burpee' ? ps.some((p) => p.k === 'step' && p.burpee) : k === 'fruit' ? ps.some((p) => p.k === 'fruit' && !p.gold) : ps.some((p) => p.k === k));
 /** Las clases que son retos (el barril sorpresa es un premio: en un tramo corto, si cabe). */
-const retos = (t: number): string[] => courseKinds(t).filter((k) => k !== 'box' && k !== 'spring');
+const retos = (t: number): string[] => courseKinds(t, worldOf(t)).filter((k) => k !== 'box' && k !== 'spring');
 
 describe('el recorrido de la Travesía de plataformas', () => {
   it('el primer tramo, aun con lo más corto (40 m), trae siempre el tronco, la viga y el hueco', () => {
@@ -114,7 +115,7 @@ describe('el recorrido de la Travesía de plataformas', () => {
         expect(p.id, tag).toBe(id0 + i);
         expect(p.tramo, tag).toBe(tramo);
       });
-      const kinds = courseKinds(tramo);
+      const kinds = courseKinds(tramo, worldOf(tramo));
       for (const p of c.pieces) if (p.k !== 'chest' && p.k !== 'boss' && !(p.k === 'fruit' && p.gold)) expect(kinds, tag).toContain(p.k);
       if (len >= 300 && vmax <= 3.2) for (const k of retos(tramo)) expect(hay(c.pieces, k), `${tag}: falta ${k}`).toBe(true);
       // Las medidas (courseRules ya las comprueba; aquí, además, a mano).

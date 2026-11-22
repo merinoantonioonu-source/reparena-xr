@@ -10,6 +10,7 @@
 // - el paso a un lado se puede repetir hacia el otro lado (el centro no se pierde).
 import { describe, expect, it } from 'vitest';
 import { BEHIND, BOUNCE_LIFT, CHEST_PTS, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, STOMP_PTS, SUPER_K, TREASURE_PTS } from '../../src/modes/trek/plat/runner.js';
+import { PORTAL_AT } from '../../src/modes/trek/plat/worlds.js';
 import { FIRE_AT, QUAKE_AT, BOSS_HP, BOSS_LEN, BOSS_STEP, BOSS_THROWS, BOSS_WIND, glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece as mk, Sim } from './plat-sim.js';
 import type { Piece } from '../../src/modes/trek/plat/types.js';
@@ -1111,6 +1112,76 @@ describe('la Travesía de plataformas: los enemigos nuevos (picado, calavera, c�
       expect(s.of('spat').filter((e) => e.p === f).map((e) => e.ok)).toEqual([bien]);
       expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
       expect(lifeEv(s)).toBe(false);
+    }
+  });
+});
+
+describe('la Travesía de plataformas: los mundos (el risco)', () => {
+  it('cada «Tramos por mundo» tramos, otro mundo: su jefe al final, sus retos y el portal tras el cofre', () => {
+    const s = new Sim({ trekWorld: 2 });
+    for (let i = 0; i < 4; i++) s.r.addTramo(i, 160);
+    const P = s.r.pieces, of = (t: number) => P.filter((p) => p.tramo === t);
+    // el jefe, en el último tramo de cada mundo: el bosque, el Demonio verde (1); el risco, el Yeti (0)
+    expect(of(0).some((p) => p.k === 'boss')).toBe(false);
+    expect(of(1).find((p) => p.k === 'boss')?.n).toBe(1);
+    expect(of(3).find((p) => p.k === 'boss')?.n).toBe(0);
+    // en el risco, sus retos y nada de bifurcaciones; en el bosque, ninguno de los suyos
+    expect([...of(2), ...of(3)].some((p) => p.k === 'ledge' || p.k === 'gust' || p.k === 'rockfall')).toBe(true);
+    expect([...of(2), ...of(3)].some((p) => p.k === 'fork')).toBe(false);
+    expect([...of(0), ...of(1)].some((p) => p.k === 'ledge' || p.k === 'gust' || p.k === 'rockfall')).toBe(false);
+    // el mundo cambia al cruzar el portal (tras el cofre del tramo 1), no antes
+    const E = s.r.ends;
+    expect(s.r.worldAt(E[1] - 1)).toBe(0);
+    expect(s.r.worldAt(E[1] + PORTAL_AT + 0.5)).toBe(1);
+    expect(s.r.worldAt(E[0] + PORTAL_AT + 0.5)).toBe(0); // (tras el cofre del tramo 0 no hay portal: sigue el bosque)
+    for (const p of P) if (p.at < E[1] + 1) p.judged = true; // (lo de antes, ya pasado)
+    s.r.tk.dist = E[1] + PORTAL_AT + 1;
+    s.frame();
+    expect(s.of('world').map((e) => e.w)).toEqual([1]);
+    expect(s.r.world).toBe(1);
+  });
+
+  it('la cornisa: pegado a la pared (a la izquierda) se pasa; por el medio, frenas y se rompe la racha', () => {
+    for (const bien of [true, false]) {
+      const s = new Sim({ trekWorld: 1 });
+      const L = mk(1, 'ledge', 40, 1, { len: 6, side: 1 });
+      s.load(course([L, mk(2, 'chest', 140, 1)]));
+      expect(s.squatsTo(L, 2.5)).toBe(true);
+      // (sentadillas sin parar, para cruzarla entera; bien, con la cabeza a la izquierda)
+      if (bien) s.head.x = -0.35;
+      expect(s.walk(() => (L.judged ? 0 : 99), 1, 72 * 30)).toBe(true);
+      s.head.x = 0;
+      expect(L.ok).toBe(bien);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+      expect(lifeEv(s)).toBe(false);
+    }
+  });
+
+  it('la racha de viento: inclinado hacia donde sopla se aguanta; sin inclinarse, te empuja', () => {
+    for (const bien of [true, false]) {
+      const s = new Sim({ trekWorld: 1 });
+      const G = mk(1, 'gust', 40, 1, { len: 6, side: -1 });
+      s.load(course([G, mk(2, 'chest', 140, 1)]));
+      expect(s.squatsTo(G, 2.5)).toBe(true);
+      if (bien) s.head.x = -0.35;
+      expect(s.walk(() => (G.judged ? 0 : 99), 1, 72 * 30)).toBe(true);
+      s.head.x = 0;
+      expect(G.ok).toBe(bien);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+    }
+  });
+
+  it('el desprendimiento: las rocas empiezan a caer antes de llegar; apartado al otro lado, no te dan', () => {
+    for (const bien of [true, false]) {
+      const s = new Sim({ trekWorld: 1 });
+      const R = mk(1, 'rockfall', 40, 1, { side: 1 });
+      s.load(course([R, mk(2, 'chest', 140, 1)]));
+      expect(s.squatsTo(R, 2.5)).toBe(true);
+      expect(s.of('rockfall')).toHaveLength(1);
+      if (bien) s.side(-0.4, () => R.judged);
+      else s.until(() => R.judged, 72 * 20);
+      expect(R.ok).toBe(bien);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
     }
   });
 });
