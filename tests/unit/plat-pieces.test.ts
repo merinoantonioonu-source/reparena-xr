@@ -470,7 +470,7 @@ describe('la fruta', () => {
     const b = placed(p);
     return Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
   };
-  it('una sola fruta, a la altura de los ojos (y = ref) y al lado (u = side · FRUIT_U), centrada en at, de 25 a 30 cm', () => {
+  it('una sola fruta, a la altura de los ojos (y = ref) y al lado (u = side · FRUIT_U), centrada en at, de 25 a 30 cm (la sandía, 40)', () => {
     for (const ref of [1.45, 1.6, 1.8]) for (const side of [-1, 1] as const) for (let id = 1; id <= 12; id++) {
       const l = fruit(id, side, false, ref);
       expect(l.length).toBe(1);
@@ -479,8 +479,9 @@ describe('la fruta', () => {
       expect((b.min[1] + b.max[1]) / 2, `${l[0].n}`).toBeCloseTo(ref, 3);
       expect((b.min[0] + b.max[0]) / 2).toBeCloseTo(side * FRUIT_U, 3);
       expect((b.min[2] + b.max[2]) / 2).toBeCloseTo(0, 3);
-      expect(size(l[0]), l[0].n).toBeGreaterThanOrEqual(0.25);
-      expect(size(l[0]), l[0].n).toBeLessThanOrEqual(0.3);
+      const big = l[0].n === 'Watermelon' ? 1.4 : 1; // (la sandía, más grande: con el tamaño de una manzana parecía de juguete)
+      expect(size(l[0]), l[0].n).toBeGreaterThanOrEqual(0.25 * big);
+      expect(size(l[0]), l[0].n).toBeLessThanOrEqual(0.3 * big);
       expect(l[0].sx).toBe(l[0].sy); // (a escala pareja: sin deformarla)
       expect(l[0].sy).toBe(l[0].sz);
     }

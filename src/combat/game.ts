@@ -14,6 +14,7 @@
  *  - Un puñetazo rápido al zombi que tienes delante lo aparta y lo aturde un momento (sin quitarle vida).
  *  - Oleadas de zombis cada vez algo más rápidos; si te golpean, pierdes una vida; sin vidas, se acaba la ronda.
  */
+import { shortMsg } from '../ui/short-msg.js';
 import { FIT_LOG } from '../ui/fit-text.js';
 import type { Lightning } from './bolt.js';
 import { warmBusy, warmHook, warmSoon } from '../style/warm.js';
@@ -131,6 +132,8 @@ const WAVE_INTRO = 2.4, TROPHY_SECS = 3.6;
 const TROPHY_Y = 0.56, TROPHY_H = 0.42;
 
 // Avisos en el suelo (RepArena, src/60_ui.js: warnFloor y chargeFloor)
+/** Por debajo de esta altura de la cabeza (m: tumbado, en plancha), sin aviso en el suelo (lo dice el aviso breve). */
+const FLOOR_WARN_MIN_Y = 0.9;
 const WARN_SECS = 4;
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
@@ -451,6 +454,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // Lo que pide hacer algo ya (toast) sale delante, en la vista; las celebraciones, solo en el marcador (con «Avisos breves
   // en la vista» apagado, todo al marcador)
   private message(text: string, secs = 2.5, color = '#3cf0c6', toast = false): void {
+    text = shortMsg(text); // (cortos: pedido del usuario; src/ui/short-msg.ts)
     if (toast && on('toasts') && GAME.phase === 'playing') {
       HOOKS.toast(text, color, secs);
       return;
@@ -466,8 +470,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // Lo que estás haciendo mal se escribe en grande en el suelo, delante, durante 4 s (RepArena: warnFloor): más lejos
   // cuanto más alta la cabeza, tumbado y legible desde donde estás. Cada aviso nuevo sale delante; luego se queda quieto
   private floorWarn(text: string, color = WARN_COL): void {
+    text = shortMsg(text);
     if (this.warnLog[this.warnLog.length - 1] !== text) this.warnLog.push(text); // (los últimos, para la pausa)
     if (this.warnLog.length > 8) this.warnLog.shift();
+    // (tumbado o en plancha, el suelo está a un palmo de la cara: el aviso del suelo lo tapaba todo —el menú, los enemigos, el
+    // marcador—; ahí basta el aviso breve de la vista, que se aparta de todo eso. Pedido del usuario)
+    if (head.p.y < FLOOR_WARN_MIN_Y) return;
     const p = this.warnP, o = p.mesh;
     if (text === this.warnText && this.warnT > 1) {
       this.warnT = WARN_SECS;
@@ -477,8 +485,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.warnT = WARN_SECS;
     drawWarn(p.ctx, p.W, p.H, text, color); // (en una o dos líneas, lo más grande que quepa)
     p.tex.needsUpdate = true;
+    // (de tamaño medio: antes medía lo que la distancia y llenaba la vista; pedido del usuario)
     const d = clamp(head.p.y * 1.1, 0.5, 2.1);
-    this.layFlat(o, d, 0.02, clamp(d * 0.85, 0.42, 1.7));
+    this.layFlat(o, d, 0.02, clamp(d * 0.5, 0.3, 1.0));
     o.visible = true;
   }
 
@@ -511,7 +520,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   }
 
   private stepFloor(dt: number): void {
-    const playing = GAME.phase === 'playing', w = this.warnP.mesh, c = this.chargeP.mesh;
+    // (con un menú abierto, nada de lo del suelo: el menú tiene que verse entero; pedido del usuario)
+    const playing = GAME.phase === 'playing' && GAME.menu === 'none', w = this.warnP.mesh, c = this.chargeP.mesh;
     if (w?.visible) {
       this.warnT -= dt;
       if (this.warnT <= 0 || !playing) {
@@ -1392,12 +1402,18 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       if (e.type === 'charge') this.onCharge();
       else if (e.type === 'power') this.onPower(e.level, e.deep);
       else if (e.type === 'rep') {
+        // (al diagnóstico: cada repetición, con su carga y su lado; así se ve si un brazo no disparó)
+        diagEvent(`repetición${e.perfect ? ' perfecta' : ''}${e.pow > 1 ? ` ×${e.pow}` : ''}${e.side ? ` (${e.side === 'left' ? 'izquierda' : 'derecha'})` : ''}`);
         this.onRep(e.perfect, e.fast, e.pow, e.side);
         if (this.flCfg.ex === 'inchworm' && FLOOR_EX.includes(this.flCfg.ex)) this.shockwave(e.pow);
       }
-      else if (e.type === 'partial') this.onPartial(e.msg);
+      else if (e.type === 'partial') {
+        diagEvent(`a medias: ${e.msg}`);
+        this.onPartial(e.msg);
+      }
       else if (e.type === 'top') this.topCue(e.side);
       else {
+        diagEvent(`aviso: ${e.msg}`);
         this.message(e.msg, 1.4, e.color, true);
         if (e.color === WARN_COL) this.floorWarn(e.msg, e.color);
       }

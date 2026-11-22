@@ -522,7 +522,8 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       }
       // flotando a la altura de la cabeza, al lado (el sistema la hace girar y flotar); la misma para el mismo id; la especial, la piña, más grande
       const name = p.special ? 'Pineapple' : FRUIT_NORMAL[Math.abs(p.id) % FRUIT_NORMAL.length];
-      out.push(fruitPut(name, p.special ? FRUIT_SIZE_SPECIAL : FRUIT_SIZE, p.side * FRUIT_U, ref));
+      // (la sandía, más grande que una manzana: con el mismo tamaño parecía de juguete)
+      out.push(fruitPut(name, p.special ? FRUIT_SIZE_SPECIAL : name === 'Watermelon' ? FRUIT_SIZE * 1.4 : FRUIT_SIZE, p.side * FRUIT_U, ref));
       break;
     }
     case 'cannon':

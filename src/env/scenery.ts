@@ -27,7 +27,9 @@ export interface Part {
 
 // Atributos comprimidos (enteros normalizados) → números con decimales, para poder colocar cada pieza en su sitio
 function natFloat(a: BufferAttribute): BufferAttribute {
-  if (!a.normalized && a.array instanceof Float32Array) return a;
+  // (siempre una copia: luego se le aplica la colocación de su nodo, y varias piezas pueden compartir los mismos vértices
+  // —las 8 rodajas de la sandía—: sin copia, cada una movía y encogía la de las demás y salía un trocito diminuto, repetido)
+  if (!a.normalized && a.array instanceof Float32Array) return a.clone();
   const n = a.count, k = a.itemSize, f = new Float32Array(n * k), get = ['getX', 'getY', 'getZ', 'getW'] as const;
   const div = a.normalized ? ({ Int8Array: 127, Uint8Array: 255, Int16Array: 32767, Uint16Array: 65535 } as Record<string, number>)[a.array.constructor.name] || 1 : 1;
   for (let i = 0; i < n; i++) for (let j = 0; j < k; j++) f[i * k + j] = Math.max(-1, a[get[j]](i) / div);

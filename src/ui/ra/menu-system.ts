@@ -20,7 +20,7 @@ import { diagEvent } from '../../core/diag.js';
 import type { Btn, Widget } from './btn.js';
 import { activeWidgets, ENV, hideMenu, menuClose, noteStand, openMenu, refreshFields, UI, updateWatch, updateWristMenu, WATCH, watchBtn, WM, wristOpen, wristReady, type Row } from './menu-core.js';
 import { endMenu, lobbyMenu, MENU_ENV, pauseMenu, perkClose, perkMenu } from './menus.js';
-import { fingers, pokeHold, pokeWidgets, POKE } from './poke.js';
+import { fingers, pokeHold, pokeIdle, pokeWidgets, POKE } from './poke.js';
 import type { Summary } from '../../core/run.js';
 import { marqStep, spSync } from '../screens/music-screens.js';
 
@@ -279,7 +279,7 @@ export class RaMenuSystem extends createSystem({}, {}) {
       m.age += dt;
       const shown = !m.closed && m.group.visible && (!m.wrist || WM.on);
       pokeWidgets(activeWidgets(), dt, m.age > 0.5 && wristReady(), true, m, shown);
-    }
+    } else pokeIdle('menu'); // (sin menú, nada se queda pulsado ni apoyado: la de EMPEZAR seguía «hundida» en la partida)
     // el rayo de IWSDK, solo con un menú a la vista (si no, no se pinta ni estorba en la partida)
     const rayWant = inXR ? !!m && !m.closed && m.group.visible : true;
     if (rayWant !== this.rayOn) {

@@ -411,6 +411,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Avisos cortos** (`src/ui/short-msg.ts`): un aviso nuevo largo, con su forma corta en `EXACT` (o en `RULES`, si lleva un
+  dato); los detectores no se tocan (los comparan con RepArena). El aviso del suelo no sale con la cabeza a menos de 0,9 m
+  (`FLOOR_WARN_MIN_Y`) ni con un menú abierto; el breve mide `TOAST_W × TOAST_H` (`src/ui/view-panels.ts`).
+- **Los modelos de los kits** (`kitParts`, `src/env/scenery.ts`): cada pieza se queda con su copia de los vértices
+  (`natFloat`); antes se colocaban sobre los del modelo cargado y las que los compartían se descolocaban unas a otras (la
+  sandía salía como un trocito diminuto repetido).
+- El diagnóstico apunta cada repetición (con su carga y su lado), lo que sale a medias y los avisos del detector.
+
 - **Travesía: los mundos** (`src/modes/trek/plat/worlds.ts`): un mundo nuevo es una fila de `WORLDS` (suelo, paisajes, el
   paisaje de los lados, jefe y sus retos propios, `extra`/`without`). Las islas en el cielo y la costa pirata van en sus PR. El
   suelo se elige por trozos entre portales (`TrekSystem.draw`, cortado en `ends[j] + PORTAL_AT`); el paisaje del tramo nuevo se
