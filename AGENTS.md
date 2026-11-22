@@ -164,7 +164,8 @@ tabla de `README.md` dice qué hace cada archivo.
   de `src/ui/fit-text.ts`); un carácter que no esté en las letras sale como un punto (ver su `LEEME.md`).
 - **Diagnóstico** (`src/core/diag.ts`, `src/ui/diag-system.ts`): los últimos 30 s de las manos, el rayo, las teclas y los
   tirones; se guarda al salir de la VR y desde la pausa, y la página lo copia. Para un fallo de las gafas, pídeselo al usuario
-  antes de arreglar nada; lo nuevo que convenga seguir, con `diagEvent`. Con él se guarda la **caja negra** de los ejercicios
+  antes de arreglar nada; lo nuevo que convenga seguir, con `diagEvent`. Un error en un fotograma no congela el juego: cada sistema y
+  el pintado van protegidos (`guardWorld`, `src/core/guard.ts`) y el error sale en el diagnóstico («ERROR en …»). Con él se guarda la **caja negra** de los ejercicios
   con pesas (`src/core/blackbox.ts`: los últimos 25 s del detector, fotograma a fotograma; la reproduce `tests/replay`, ver
   `docs/PLAN-CURL-BARRA.md`): un cambio en el detector de pie, probado también con las capturas de `tests/replay/capturas`.
   El curl con barra y el de un brazo tienen un camino nuevo en pruebas, «Manos: filtro nuevo» (`handsNew` → `StandCfg.robust`

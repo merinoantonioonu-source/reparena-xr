@@ -3,6 +3,8 @@
  * Arranca el mundo con el proyecto (iwsdk.config.json) y registra los sistemas del juego: el de las manos justo detrás de
  * la entrada de IWSDK, y los de la partida detrás de la física (así leen las posiciones ya calculadas en cada paso).
  */
+import { guardWorld } from './core/guard.js';
+import { spriteRayFix } from './input/sprite-ray.js';
 import { World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
 import { EnemySystem } from './combat/enemies.js';
@@ -62,5 +64,8 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(FitTextSystem, { priority: 8 }); // (que las letras quepan en sus botones)
   world.registerSystem(DiagSystem, { priority: 99 }); // (el registro de diagnóstico: lo que pasó en los últimos 30 s)
   world.registerSystem(PerfSystem, { priority: 100 }); // (el medidor y el registro de tirones: después de todo)
+  // (que un error en un fotograma no deje la imagen congelada para siempre: se apunta y se sigue; src/core/guard.ts)
+  spriteRayFix(); // (el rayo de IWSDK no toca sprites: con él, la imagen se congelaba; src/input/sprite-ray.ts)
+  guardWorld(world, { PerfStartSystem, HandSystem, GateSystem, EnemySystem, FlyerSystem, HatchSystem, ArcsSystem, TouchSystem, BarsSystem, TrekSystem, EnvSystem, GameSystem, VfxSystem, RaMenuSystem, ViewSystem, GoalsSystem, GloveSystem, ComicSystem, SoundSystem, FitTextSystem, DiagSystem, PerfSystem });
   pageWorld(world);
 });
