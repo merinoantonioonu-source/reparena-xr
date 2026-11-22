@@ -70,6 +70,18 @@ export const WORLDS: World[] = [
   { key: 'coast', name: 'La costa pirata', floor: 'coast', boss: 3, biomes: COAST_BIOMES, deco: [3, 3], extra: ['cannon', 'cannon'], without: ['fork', 'crawl', 'burpee', 'quake', 'foe', 'fire'] },
 ];
 
+/**
+ * Los tramos que dura cada mundo en una partida de `tramos` tramos (0: sin fin) con el ajuste «Tramos por mundo» en `setting`.
+ * Si la partida no da para pasar de mundo (tiene como mucho esos tramos: acabaría en el cofre del jefe, antes del portal), se
+ * reparten para ver varios mundos (hasta todos: con 3 tramos, uno por mundo —bosque, risco e islas—). Elegido por el usuario
+ * (opción A), para todos los ejercicios de la Travesía.
+ */
+export function worldLenFor(setting: number, tramos: number): number {
+  const set = Math.max(1, Math.round(setting || WORLD_LEN));
+  if (tramos <= 0 || tramos > set) return set;
+  return Math.max(1, Math.ceil(tramos / Math.min(tramos, WORLDS.length)));
+}
+
 /** Los tramos de cada mundo si no se dice (las pruebas; en el juego, siempre el ajuste «Tramos por mundo», de serie 3). */
 export const WORLD_LEN = 4;
 const len = (n: number | undefined): number => Math.max(1, Math.round(n || WORLD_LEN));
