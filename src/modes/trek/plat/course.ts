@@ -18,19 +18,22 @@
  *
  * Lógica pura, sin IWSDK.
  */
-import { FIRE_AT, QUAKE_AT, WALKERS, BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
+import { worldOf, WORLDS, type World } from './worlds.js';
+import { CLIFF_WALL, GUST_MAX, GUST_MIN, LEDGE_MAX, LEDGE_MIN, ROCKFALL_AT, FIRE_AT, QUAKE_AT, WALKERS, BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
 
 /** Las clases de la lista de cada tramo: la primera, lo básico (el tronco, la viga y el hueco); desde el segundo, también
  * la fruta, la plataforma alta y la seta (que se pisa); desde el tercero, el túnel, el burpee y el cangrejo (que se esquiva
  * a un lado: los obstáculos a un lado son siempre enemigos, elegido por el usuario). Ojo: `burpee` no es una pieza, es un
  * segmento de dos (un túnel y, `BURPEE_GAP_S` después, una plataforma con `burpee`): en el recorrido no hay piezas de esa
- * clase. (Las gemas del plan son las frutas.) */
-export function courseKinds(tramo: number): PieceKind[] {
+ * clase. (Las gemas del plan son las frutas.) Cada mundo (`w`, worlds.ts) suma sus retos propios desde su primer tramo y
+ * quita los que no van en él. */
+export function courseKinds(tramo: number, w: World = WORLDS[0]): PieceKind[] {
   // (el barril sorpresa y el trampolín, desde el principio: son premios, no obstáculos)
   const k: PieceKind[] = ['log', 'low', 'gap', 'box', 'spring'];
   if (tramo >= 1) k.push('fruit', 'step', 'foe', 'glide', 'fork', 'dive', 'skull');
   if (tramo >= 2) k.push('crawl', 'burpee', 'side', 'quake', 'fire');
-  return k;
+  k.push(...w.extra);
+  return k.filter((x) => !w.without.includes(x));
 }
 
 /** La antelación con la que hay que echarse al suelo ante un túnel (s a velocidad máxima); y con la que abrir los brazos
@@ -50,7 +53,9 @@ export function minGap(prev: Piece, next: Piece, vmax: number): number {
   if (HALT.includes(next.k)) g = Math.max(g, STOP_AT + (vmax * vmax) / (2 * HALT_BRAKE) + 1);
   if (FLOORS.includes(prev.k)) g = Math.max(g, FLOOR_UP_S * vmax + LAND_PAST); // (levantarte, y el mundo te deja pasado su final)
   if (isJump(prev) && isJump(next)) g = Math.max(g, JUMP_GAP_S * vmax);
-  if ((prev.k === 'fruit' && !prev.gold) || prev.k === 'side') g = Math.max(g, SIDE_BACK_S * vmax); // (volver al centro)
+  // (volver al centro: tras un paso a un lado, una cornisa, una racha o un desprendimiento)
+  if ((prev.k === 'fruit' && !prev.gold) || prev.k === 'side' || prev.k === 'ledge' || prev.k === 'gust' || prev.k === 'rockfall') g = Math.max(g, SIDE_BACK_S * vmax);
+  if (next.k === 'rockfall') g += ROCKFALL_AT; // (las rocas caen antes de que llegues: ese sitio, libre)
   if (WALKERS.includes(prev.k)) g += FOE_WALK; // (lo encuentras hasta FOE_WALK m más allá de su sitio)
   // (la onda del cíclope y la bola de fuego del demonio te llegan antes de pasar a su lado: ese sitio, libre)
   if (next.k === 'quake') g += QUAKE_AT;
@@ -84,13 +89,13 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
   const rand = (a: number, b: number): number => a + (b - a) * env.rnd();
   const T = env.tune ?? TUNE_DEF;
   const clamp = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
-  const kinds = courseKinds(tramo);
+  const W = worldOf(tramo, env.worldLen), kinds = courseKinds(tramo, W);
   let end = start + env.len;
   // (el cofre se prueba con id 0 solo para medir el sitio que pide: su id verdadero va al final, tras la última pieza)
   const probe = piece(0, 'chest', end, tramo);
   // el jefe del mundo (cada BOSS_EVERY tramos), justo antes del cofre: las piezas, antes de él (en un tramo corto, el tramo
   // se alarga lo que pida: la carrera, el jefe y el sitio hasta el cofre)
-  const boss = bossTramo(tramo) ? piece(0, 'boss', 0, tramo, { len: BOSS_LEN, n: bossOf(tramo) }) : null;
+  const boss = bossTramo(tramo, env.worldLen) ? piece(0, 'boss', 0, tramo, { len: BOSS_LEN, n: bossOf(tramo, env.worldLen) }) : null;
   if (boss) {
     const tail = BOSS_LEN + minGap(boss, probe, env.vmax);
     end = Math.max(end, start + RUN_UP + 3 + tail);
@@ -177,6 +182,15 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     } else if (k === 'quake' || k === 'fire') {
       // el cíclope y el demonio, a un lado al azar
       seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1 }));
+    } else if (k === 'ledge') {
+      // la cornisa: el vacío, a la derecha (la pared, a la izquierda)
+      seg.push(piece(id, k, 0, tramo, { len: rand(LEDGE_MIN, LEDGE_MAX), side: (-CLIFF_WALL) as 1 }));
+    } else if (k === 'gust') {
+      // la racha: sopla desde un lado (side: desde dónde) y empuja hacia el otro
+      seg.push(piece(id, k, 0, tramo, { len: rand(GUST_MIN, GUST_MAX), side: env.rnd() < 0.5 ? -1 : 1 }));
+    } else if (k === 'rockfall') {
+      // el desprendimiento: las rocas caen a un lado del camino (hay que estar en el otro)
+      seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1 }));
     } else if (k === 'side') {
       // el cangrejo, pegado a un lado al azar (hay que apartarse al otro)
       seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1 }));
@@ -234,7 +248,7 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
 
 /** Las incumplidas del recorrido `pieces` (con velocidad máxima `vmax` y la tabla `tune`): lo que mide cada pieza y el
  * sitio entre ellas. */
-export function courseRules(pieces: Piece[], vmax: number, tune: PlatTune = TUNE_DEF): string[] {
+export function courseRules(pieces: Piece[], vmax: number, tune: PlatTune = TUNE_DEF, worldLen?: number): string[] {
   const T = tune, cm = (m: number): string => (m * 100).toFixed(0);
   const out: string[] = [];
   const eps = 1e-9;
@@ -259,11 +273,16 @@ export function courseRules(pieces: Piece[], vmax: number, tune: PlatTune = TUNE
       lastMain = p;
     }
     if (p.k === 'boss') {
-      if (!bossTramo(p.tramo)) out.push(`El jefe ${p.id} sale en el tramo ${p.tramo}: solo al final de cada mundo`);
+      if (!bossTramo(p.tramo, worldLen)) out.push(`El jefe ${p.id} sale en el tramo ${p.tramo}: solo al final de cada mundo`);
       if (pieces[i + 1]?.k !== 'chest') out.push(`El jefe ${p.id} no va justo antes del cofre`);
       if (Math.abs(p.len - BOSS_LEN) > eps) out.push(`El jefe ${p.id} mide ${p.len.toFixed(2)} m: debe medir ${BOSS_LEN} m`);
     }
-    if (bossTramo(p.tramo) && p.k === 'chest' && pieces[i - 1]?.k !== 'boss') out.push(`El cofre ${p.id} del tramo ${p.tramo} no tiene al jefe delante`);
+    if (bossTramo(p.tramo, worldLen) && p.k === 'chest' && pieces[i - 1]?.k !== 'boss') out.push(`El cofre ${p.id} del tramo ${p.tramo} no tiene al jefe delante`);
+    if ((p.k === 'ledge' || p.k === 'gust' || p.k === 'rockfall') && worldOf(p.tramo, worldLen).key !== 'cliff') out.push(`La pieza ${p.id} (${p.k}) sale fuera del risco`);
+    if (p.k === 'fork' && worldOf(p.tramo, worldLen).key === 'cliff') out.push(`La bifurcación ${p.id} sale en el risco`);
+    if ((p.k === 'gust' || p.k === 'rockfall') && p.side !== -1 && p.side !== 1) out.push(`La pieza ${p.id} (${p.k}) no tiene lado`);
+    if (p.k === 'ledge' && (p.len < LEDGE_MIN - eps || p.len > LEDGE_MAX + eps)) out.push(`La cornisa ${p.id} mide ${p.len.toFixed(2)} m`);
+    if (p.k === 'gust' && (p.len < GUST_MIN - eps || p.len > GUST_MAX + eps)) out.push(`La racha ${p.id} mide ${p.len.toFixed(2)} m`);
     if (p.k === 'burpee') out.push(`La pieza ${p.id} es de clase «burpee»: el burpee es un túnel y una plataforma, no una pieza`);
     if (p.k === 'side' && p.side !== -1 && p.side !== 1) out.push(`El cangrejo ${p.id} no tiene lado (side ${p.side}): debería ser −1 o 1`);
     if (p.k === 'side' && p.tramo < 2) out.push(`El cangrejo ${p.id} sale en el tramo ${p.tramo}: no antes del tercero`);

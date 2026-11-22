@@ -96,8 +96,8 @@ No las cambies sin preguntarle.
   el arco); sin ella, se pasa de un salto normal (no frena: es un premio). En la **bifurcación** la pasarela se abre en dos
   ramas: con un **paso a la derecha** al llegar, la difícil (más retos y más premios: un tronco, un barril y a veces una
   dorada); si no, la izquierda, la tranquila (frutas a los lados). Luego las dos se juntan.
-- Travesía de plataformas, **el jefe del mundo** (elegido por el usuario): cada cuatro tramos, antes del cofre, un jefe grande
-  te corta el paso (por turno: el Yeti, el Demonio verde y el Alien alto, de Quaternius) y te para delante. Lanza piedras con
+- Travesía de plataformas, **el jefe del mundo** (elegido por el usuario): en el último tramo de cada mundo, antes del cofre, un
+  jefe grande te corta el paso (el de ese mundo: el Demonio verde en el bosque, el Yeti en el risco; el Alien alto, de Quaternius, en las islas) y te para delante. Lanza piedras con
   aviso: **la alta, agacharse; la baja, rodando, saltar; la que va al cuerpo, apartarse**. Tras tres, se marea (estrellas):
   con un **supersalto** (sentadilla honda y salto) le caes encima, pasando por arriba, y él salta hacia atrás para quedarse
   delante (nunca detrás); **a la tercera, derrotado**. Si te da una piedra, se rompe la racha, sin vidas; si no saltas mientras
@@ -110,6 +110,18 @@ No las cambies sin preguntarle.
   cíclope y demonio, desde el tercero. **La onda del cíclope se ve** (pedido del usuario: solo con humo no se sabía cuándo
   saltar): una cresta de rocas al rojo que revientan las tablas y corre por la pasarela hacia ti, con polvo detrás; se salta
   cuando llega a tus pies.
+- Travesía de plataformas, **los mundos** («pasar de pantalla», decidido por el usuario): cada mundo dura **«Tramos por mundo»**
+  (un ajuste del usuario, de 1 a 10; 3 de serie) y se **empieza siempre en el primero** (pasado el último, vuelta a empezar).
+  El jefe sale en el último tramo de cada mundo y, tras su cofre, se pasa al siguiente cruzando un **portal de luz** (un aro
+  brillante con un remolino; al cruzarlo, destello blanco y el aviso «MUNDO 2 · El risco»). Cada mundo, su suelo, sus paisajes,
+  sus retos propios y su jefe. El orden lo eligió la IA (el usuario le dejó elegir): **el bosque** (la pasarela de siempre),
+  **el risco**, las islas en el cielo y la costa pirata.
+- Travesía de plataformas, **el risco** (el segundo mundo, propuesto y aprobado): un sendero de roca pegado a una pared de
+  montaña, con el vacío a la derecha y un mar de nubes muy abajo (los riscos lejanos salen de él; la foto de fondo, de montaña).
+  Sus retos: la **cornisa** (el camino se estrecha: pegarse a la pared, a la izquierda, mientras dure), las **rachas de viento**
+  (polvo que cruza el camino: inclinarse contra el viento y aguantar mientras sopla) y los **desprendimientos** (rocas que caen
+  de lo alto a un lado del camino, con aviso: apartarse al otro). Si no, frenas a la mitad y se rompe la racha, sin vidas. Sin
+  bifurcaciones (se abrirían sobre el vacío). Su jefe, el Yeti.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.

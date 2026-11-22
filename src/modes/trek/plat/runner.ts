@@ -35,8 +35,9 @@
 import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
+import { PORTAL_AT, worldNo, WORLD_LEN, WORLDS } from './worlds.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -219,6 +220,8 @@ export class Runner {
   uShift = 0;
   /** Los escupitajos en el aire. */
   spits: Spit[] = [];
+  /** El mundo en el que estás (su número desde 0; ver `worldAt`). */
+  world = 0;
   /** La pelea con el jefe del mundo (o null). */
   fight: BossFight | null = null;
   /** Los jefes derrotados en la ronda. */
@@ -294,6 +297,7 @@ export class Runner {
     this.spits.length = 0;
     this.fight = null;
     this.bosses = 0;
+    this.world = 0;
     this.fork = null;
     this.lane = 0;
     this.uShift = 0;
@@ -315,7 +319,20 @@ export class Runner {
     if (this.ends.length > i) return;
     while (this.ends.length < i) this.addTramo(this.ends.length, len); // (los de antes, por orden)
     const start = this.ends.length ? this.ends[this.ends.length - 1] + 0.5 : this.tk.dist;
-    this.addCourse(buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)) }, i, this.env.rank, start, this.id));
+    this.addCourse(buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)), worldLen: this.worldLen }, i, this.env.rank, start, this.id));
+  }
+
+  /** Los tramos de cada mundo (el ajuste «Tramos por mundo»; sin él, `WORLD_LEN`). */
+  get worldLen(): number {
+    return Math.max(1, Math.round(this.env.s('trekWorld') || WORLD_LEN));
+  }
+
+  /** El mundo en el que estás (su número desde 0, sin dar la vuelta): cambia al cruzar el portal que hay tras el cofre del
+   * último tramo de cada mundo; el del punto `s` del sendero, igual. */
+  worldAt(s: number): number {
+    let k = 0;
+    while (k < this.ends.length && s > this.ends[k] + PORTAL_AT) k++;
+    return worldNo(k, this.worldLen);
   }
 
   /** Añade un tramo ya hecho detrás de lo que hay (lo usa `addTramo`; las pruebas, con recorridos a mano). */
@@ -430,6 +447,15 @@ export class Runner {
       this.spit(dt);
       if (this.moves.takeoff && !this.hop && !this.stop) this.takeoff(H.z);
       this.forkStep();
+      // el portal: al cruzarlo, otro mundo
+      const w = this.worldAt(tk.dist - H.z);
+      if (w !== this.world) {
+        this.world = w;
+        const W = WORLDS[w % WORLDS.length];
+        this.ev.push({ t: 'world', w });
+        this.snd('victory', null);
+        this.ev.push({ t: 'trophy', title: `MUNDO ${w + 1}`, sub: W.name });
+      }
       for (const p of this.live) {
         if (p.judged || !FLUID.includes(p.k) || p === this.hop?.p) continue;
         const z = p.at + p.walk - tk.dist + H.z;
@@ -599,7 +625,7 @@ export class Runner {
   /** ¿Se acerca un obstáculo a un lado (o está pasando)? Entonces el centro no sigue a la cabeza. */
   private sideAhead(): boolean {
     const look = Math.max(SIDE_WARN_AT, SIDE_HOLD_S * Math.max(this.tk.v, 0.5));
-    for (const p of this.live) if ((p.k === 'side' || p.k === 'fruit' || p.k === 'fork' || p.k === 'fire') && !p.judged && p.at - this.tk.dist < look + (p.k === 'fire' ? FIRE_AT : 0)) return true;
+    for (const p of this.live) if ((p.k === 'side' || p.k === 'fruit' || p.k === 'fork' || p.k === 'fire' || p.k === 'ledge' || p.k === 'gust' || p.k === 'rockfall') && !p.judged && p.at - this.tk.dist < look + (p.k === 'fire' ? FIRE_AT : 0)) return true;
     return false;
   }
 
@@ -644,12 +670,45 @@ export class Runner {
   /** El juicio de una fluida; `z`, lo que le falta para llegar a tu cabeza (m). */
   private judge(p: Piece, z: number): void {
     const M = this.moves, C = this.cfg, v = this.tk.v;
-    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box' || p.k === 'spring' || p.k === 'fork' || p.k === 'dive' || p.k === 'skull';
+    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box' || p.k === 'spring' || p.k === 'fork' || p.k === 'dive' || p.k === 'skull' || p.k === 'ledge' || p.k === 'gust';
     // (el túnel, con más tiempo: hay que echarse al suelo; el cíclope y el demonio, antes de su ataque)
-    const warnAt = p.k === 'quake' ? QUAKE_AT + 4 : p.k === 'fire' ? FIRE_AT + 4 : p.k === 'crawl' || p.k === 'glide' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
+    const warnAt = p.k === 'quake' ? QUAKE_AT + 4 : p.k === 'rockfall' ? Math.max(10, (v + 0.2) * ROCKFALL_T + 6) : p.k === 'fire' ? FIRE_AT + 4 : p.k === 'crawl' || p.k === 'glide' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
     if (!p.warned && z < warnAt) {
       p.warned = true;
       this.ask(p, true);
+    }
+    if (p.k === 'ledge' || p.k === 'gust') {
+      // la cornisa (pegado a la pared: el vacío, al lado `side`) y la racha (inclinado contra el viento, que sopla desde
+      // `side`): todo su largo; si no, una vez, frenas y se rompe la racha
+      const need = C.sideNeed * LEAN_K, lean = p.k === 'ledge' ? -p.side * M.dx : p.side * M.dx;
+      if (z < 0.1 && z > -p.len && !p.bad && lean < need) {
+        p.bad = true;
+        this.tk.v *= HIT_KEEP;
+        this.hit(p, this.pos(p, 0, 0.6));
+        this.say(p.k === 'ledge' ? '¡Pégate a la pared!' : `¡Inclínate contra el viento, a la ${p.side < 0 ? 'izquierda' : 'derecha'}!`, COL_WARN, 1.6, true);
+      }
+      if (z < -p.len - 0.3) {
+        p.judged = true;
+        p.ok = !p.bad;
+        if (p.ok) {
+          this.passed++;
+          this.ev.push({ t: 'pass', p });
+          this.score(180);
+          this.cheer(p.k === 'ledge' ? '¡Cornisa superada!' : '¡Has aguantado el viento!', COL_OK, 1.0);
+        }
+      }
+      return;
+    }
+    if (p.k === 'rockfall') {
+      // el desprendimiento: las rocas empiezan a caer cuando te queda ROCKFALL_T para llegar (con su ruido) y caen a tu lado
+      // del camino al llegar: hay que estar en el otro
+      if (!p.woke && z < Math.max(2.5, (v + 0.2) * ROCKFALL_T)) {
+        p.woke = true;
+        this.ev.push({ t: 'rockfall', p, dur: ROCKFALL_T });
+      }
+      if (Math.abs(z) < SIDE_WIN && !M.clear(p.side as -1 | 1, C)) p.bad = true;
+      if (z < -SIDE_WIN) this.result(p, !p.bad);
+      return;
     }
     if (p.k === 'dive') {
       // la abeja o el murciélago en picado: cuando llega a tu cabeza, agachado (como bajo una viga)
@@ -814,14 +873,14 @@ export class Runner {
       this.ev.push({ t: 'pass', p });
       this.score(p.k === 'log' || p.k === 'dive' || p.k === 'skull' ? 150 : p.k === 'quake' ? 180 : p.k === 'side' ? CRAB_PTS : 120);
       this.snd('whoosh', at, 'arc');
-      this.cheer(p.k === 'log' ? '¡Saltado!' : p.k === 'low' ? '¡Esquivada!' : p.k === 'dive' ? '¡Picado esquivado!' : p.k === 'skull' ? '¡Calavera saltada!' : p.k === 'quake' ? '¡Onda saltada!' : '¡Cangrejo esquivado!', COL_OK, 0.9);
+      this.cheer(p.k === 'log' ? '¡Saltado!' : p.k === 'low' ? '¡Esquivada!' : p.k === 'dive' ? '¡Picado esquivado!' : p.k === 'skull' ? '¡Calavera saltada!' : p.k === 'quake' ? '¡Onda saltada!' : p.k === 'rockfall' ? '¡Desprendimiento esquivado!' : '¡Cangrejo esquivado!', COL_OK, 0.9);
       return;
     }
     this.tk.v *= HIT_KEEP;
     this.hit(p, at);
     const away = p.side < 0 ? 'derecha' : 'izquierda';
-    if (p.k === 'dive' || p.k === 'skull' || p.k === 'quake') {
-      this.say(p.k === 'dive' ? `¡Te ha ${p.n % 2 ? 'mordido' : 'picado'}! Agáchate cuando baje en picado` : p.k === 'skull' ? '¡Salta la calavera!' : '¡Salta la onda del cíclope!', COL_WARN, 1.6, true);
+    if (p.k === 'dive' || p.k === 'skull' || p.k === 'quake' || p.k === 'rockfall') {
+      this.say(p.k === 'rockfall' ? `¡Te han dado las rocas! Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}` : p.k === 'dive' ? `¡Te ha ${p.n % 2 ? 'mordido' : 'picado'}! Agáchate cuando baje en picado` : p.k === 'skull' ? '¡Salta la calavera!' : '¡Salta la onda del cíclope!', COL_WARN, 1.6, true);
       return;
     }
     this.say(p.k === 'log' ? '¡Salta el tronco!' : p.k === 'low' ? '¡Agáchate bajo la viga!' : p.k === 'foe' ? '¡Te ha mordido! Sáltale encima a la seta' : `¡Te ha mordido! Apártate a la ${away}`, COL_WARN, 1.6, true);
@@ -1211,6 +1270,9 @@ export class Runner {
     else if (p.k === 'skull') this.say('¡Una calavera botando! Sáltala', COL_ASK, 1.6, false);
     else if (p.k === 'quake') this.say(`¡Un cíclope a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Va a golpear el suelo: salta su onda`, COL_ASK, 2, false);
     else if (p.k === 'fire') this.say(`¡Un demonio a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Esquiva su bola de fuego con un paso`, COL_ASK, 2, false);
+    else if (p.k === 'ledge') this.say('¡Cornisa! Pégate a la pared, a la izquierda', COL_ASK, 2, false);
+    else if (p.k === 'gust') this.say(`¡Viento! Inclínate a la ${p.side < 0 ? 'izquierda' : 'derecha'} y aguanta`, COL_ASK, 2, false);
+    else if (p.k === 'rockfall') this.say(`¡Desprendimiento a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}`, COL_ASK, 2, false);
   }
 
   /* ---------- el jefe del mundo ---------- */

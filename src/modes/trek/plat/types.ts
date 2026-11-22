@@ -8,6 +8,7 @@
  * Sin IWSDK. Las distancias van en metros a lo largo del sendero (`s`, hacia delante) y a su derecha (`u`); la altura, `y`,
  * sobre el suelo de la pasarela. La cabeza, en la arena (x a un lado, y arriba, z hacia ti).
  */
+import { WORLD_LEN, worldEnd, worldOf } from './worlds.js';
 
 /** Lo que hay en el recorrido. */
 export type PieceKind =
@@ -31,13 +32,16 @@ export type PieceKind =
   | 'skull' // la calavera que llega botando por la pasarela: saltarla (fluido)
   | 'quake' // el cíclope, a un lado: golpea el suelo y su onda corre por la pasarela hacia ti: saltarla (fluido)
   | 'fire' // el demonio, a un lado: lanza una bola de fuego en arco hacia ti: un paso a un lado (fluido)
-  | 'boss' // el jefe del mundo, al final de cada BOSS_EVERY tramos y antes del cofre (paso): esquivar y supersalto encima
+  | 'ledge' // el risco: la cornisa, el camino se estrecha por el lado del vacío: pegarse a la pared todo su largo (fluido)
+  | 'gust' // el risco: una racha de viento que empuja hacia el vacío: aguantar inclinado contra el viento todo su largo (fluido)
+  | 'rockfall' // el risco: un desprendimiento, rocas que caen de lo alto a un lado del camino: apartarse al otro (fluido)
+  | 'boss' // el jefe del mundo, al final de cada mundo («Tramos por mundo») y antes del cofre (paso): esquivar y supersalto encima
   | 'chest'; // fin del tramo (paso)
 
 /** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
  * si fallas, chocas o tropiezas (frenas y pierdes la racha, sin perder vidas, y sigues). El hueco también: si no saltas a
  * tiempo, tropiezas al cruzarlo (nunca se cae). */
-export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork', 'dive', 'skull', 'quake', 'fire'];
+export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork', 'dive', 'skull', 'quake', 'fire', 'ledge', 'gust', 'rockfall'];
 /** Los pasos: el mundo frena suave y te para a `STOP_AT` (solo el cofre, al acabar el tramo). */
 export const HALT: readonly PieceKind[] = ['chest', 'boss'];
 /** Los que se cruzan saltando (entre dos seguidos, al menos `JUMP_GAP_S` a velocidad máxima). */
@@ -72,7 +76,7 @@ export const FORK_U = 1.5, FORK_RAMP = 4, FORK_PICK = 0.18;
  * aguanta (supersaltos encima), dónde está (m por delante de donde te paras), lo que sube el supersalto que le cae encima
  * (m: el mundo baja), lo que dura (s), sus lanzamientos antes de marearse, lo que tardan en salir y llegar (s), lo que dura
  * mareado (s) y sus puntos. Lo que te mueve cada supersalto: `BOSS_STEP` (pasas por encima y él salta hacia atrás). */
-export const BOSS_EVERY = 4, BOSS_HP = 3, BOSS_Z = 3, BOSS_LIFT = 1.7, BOSS_HOP_T = 1.6, BOSS_THROWS = 3, BOSS_WIND = 1.1, BOSS_FLY = 0.55, BOSS_GAP = 0.7, BOSS_DIZZY = 5, BOSS_PTS = 1500;
+export const BOSS_EVERY = WORLD_LEN, BOSS_HP = 3, BOSS_Z = 3, BOSS_LIFT = 1.7, BOSS_HOP_T = 1.6, BOSS_THROWS = 3, BOSS_WIND = 1.1, BOSS_FLY = 0.55, BOSS_GAP = 0.7, BOSS_DIZZY = 5, BOSS_PTS = 1500;
 /** Para esquivar lo que lanza: la alta, la coronilla bajada (m); la que va al cuerpo, la cabeza apartada de donde estaba (m). */
 export const BOSS_DUCK = 0.2, BOSS_AWAY = 0.3;
 /** Los jefes (uno por mundo, por turno): el modelo, su nombre y su voz. */
@@ -82,8 +86,9 @@ export const BOSSES = [
   { asset: 'foe-alientall', name: 'el Alien alto', voice: 'alientall', nat: 2.11 },
 ] as const;
 /** ¿Acaba el tramo `t` (desde 0) con el jefe del mundo? Y cuál es (índice de BOSSES). */
-export const bossTramo = (t: number): boolean => (t + 1) % BOSS_EVERY === 0;
-export const bossOf = (t: number): number => (Math.floor((t + 1) / BOSS_EVERY) - 1 + BOSSES.length * 100) % BOSSES.length;
+export const bossTramo = (t: number, n = BOSS_EVERY): boolean => worldEnd(t, n);
+/** El jefe del mundo del tramo `t` (el suyo: el bosque, el Demonio verde; el risco, el Yeti…). */
+export const bossOf = (t: number, n = BOSS_EVERY): number => worldOf(t, n).boss;
 /** Lo que lanza el jefe: alta (agáchate), baja (salta) o al cuerpo (apártate). */
 export type BossShot = 'high' | 'low' | 'body';
 export const ARMS_OUT = 0.42, ARMS_DY = 0.45, ARMS_SH = 0.25, ARMS_IN = 0.25;
@@ -103,6 +108,10 @@ export const WALKERS: readonly PieceKind[] = ['foe', 'side', 'dive', 'skull'];
 /** El cíclope y el demonio: a qué lado de la pasarela están (m), cuándo golpea el suelo (m de tu cabeza), lo que tarda en
  * salir su onda (s), lo deprisa que corre (m/s) y su ventana (m); cuándo lanza el demonio (m), lo que tarda en soltarla y en
  * llegar (s) y lo que hay que apartar la cabeza de donde estaba (m). */
+/** El risco: la pared está a la izquierda (u < 0) y el vacío a la derecha. La cornisa y la racha: lo que miden (m), lo que
+ * hay que apartar la cabeza (× «el paso a un lado») y el ancho que queda de camino en la cornisa (m). El desprendimiento:
+ * cuándo empiezan a caer (m antes de tu cabeza) y lo que tardan (s). */
+export const CLIFF_WALL = -1, LEDGE_MIN = 5, LEDGE_MAX = 9, GUST_MIN = 5, GUST_MAX = 8, LEAN_K = 0.6, LEDGE_W = 0.7, ROCKFALL_AT = 9, ROCKFALL_T = 1.1;
 export const ASIDE_U = 1.7, QUAKE_AT = 8, QUAKE_WIND = 0.5, QUAKE_V = 5, QUAKE_WIN = 0.5, FIRE_AT = 11, FIRE_WIND = 0.5, FIRE_DUR = 1.3, FIRE_R = 0.3;
 /** El escupitajo del cangrejo (pedido del usuario): lo lanza una vez, solo desde lejos (cuando te queda entre `SPIT_NEAR` y
  * `SPIT_FAR` m) y si no hay otro reto cerca de ti (`SPIT_FREE` m: nada pide dos movimientos a la vez); se encabrita
@@ -224,6 +233,8 @@ export function platTune(s: (k: string) => number): PlatTune {
 
 /** Lo que `buildCourse` necesita para hacer un tramo. */
 export interface CourseEnv {
+  /** Los tramos de cada mundo (el ajuste «Tramos por mundo»; sin él, `BOSS_EVERY`). */
+  worldLen?: number;
   /** Lo que manda la tabla de dificultad (sin él, `TUNE_DEF`). */
   tune?: PlatTune;
   /** La velocidad más alta que se puede llevar (m/s: la de «Velocidad de avance» con el turbo): las separaciones en
@@ -328,7 +339,11 @@ export type PlatEv =
   | { t: 'bthrow'; p: Piece; shot: BossShot; wind: number; dur: number; aim: { x: number; y: number; z: number } }
   | { t: 'bdodge'; p: Piece; ok: boolean }
   /** El cíclope golpea el suelo (su onda sale en `wind` s). */
-  | { t: 'slam'; p: Piece; wind: number };
+  | { t: 'slam'; p: Piece; wind: number }
+  /** El risco: las rocas del desprendimiento empiezan a caer (llegan en `dur` s). */
+  | { t: 'rockfall'; p: Piece; dur: number }
+  /** Has cruzado el portal: otro mundo (su número desde 0). */
+  | { t: 'world'; w: number };
 
 /** Los colores de los avisos (los de la Travesía): pedir algo, lo que se ha hecho mal y lo conseguido. */
 export const COL_ASK = '#ffd166';

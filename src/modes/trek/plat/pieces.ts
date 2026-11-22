@@ -23,7 +23,7 @@
  */
 import { trekRng, TREK_CH } from '../path.js';
 import { HEAD_TOP } from '../env.js';
-import { BOX_CLEAR, FORK_RAMP, FORK_U, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, SPRING_LIFT, type Piece } from './types.js';
+import { LEDGE_W, BOX_CLEAR, FORK_RAMP, FORK_U, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, SPRING_LIFT, type Piece } from './types.js';
 
 export type Kit = 'island' | 'nature' | 'food';
 
@@ -150,6 +150,69 @@ export function floorPuts(s0: number, s1: number, holes: ReadonlyArray<readonly 
     if (cuts.length > 2 && cuts[1] - cuts[0] < L * 0.5) cuts.splice(1, 1);
     if (cuts.length > 2 && cuts[cuts.length - 1] - cuts[cuts.length - 2] < L * 0.5) cuts.splice(cuts.length - 2, 1);
     for (let i = 0; i + 1 < cuts.length; i++) dockAt(cuts[i], cuts[i + 1], out);
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ el risco (mundo 2) */
+
+/** Lo que baja la roca del sendero del risco (m): una columna que se hunde en el vacío. */
+export const CLIFF_DEPTH = 9;
+/** El vacío del risco: dónde queda el suelo de abajo (m). */
+export const CLIFF_FLOOR_Y = -45;
+
+/**
+ * El sendero del risco de `s0` a `s1`, en la misma rejilla que el muelle (lo que no toca nada sale siempre igual), sin tapar los
+ * huecos (`holes`) y, en las cornisas (`narrow`: intervalos), estrecho, pegado a la pared (la izquierda) con `LEDGE_W` de camino.
+ * Cada trozo, dos rocas del Pirate Kit: encima, la meseta de `Cliff1` aplanada (su cara de arriba es casi plana: se pisa bien;
+ * estirada a lo alto salían agujas), algo más ancha que el camino y más larga que el trozo, para que su borde redondeado quede
+ * fuera y los trozos se junten sin escalones; debajo, otra estirada hasta el fondo (la cara del risco, hacia el vacío).
+ */
+export function cliffFloorPuts(s0: number, s1: number, holes: ReadonlyArray<readonly [number, number]>, narrow: ReadonlyArray<readonly [number, number]>, out: Put[]): Put[] {
+  const tmp: Put[] = [], W = DOCK_W / 2;
+  floorPuts(s0, s1, holes, tmp);
+  for (const P of tmp) {
+    // (el trozo de muelle que tocaba: de a a b a lo largo)
+    const half = (P.sz * DOCK_LEN) / 2, mid = P.ds - ((DK.z0 + DK.z1) / 2) * P.sz, a = mid - half, b = mid + half;
+    // partido por las cornisas: lo de dentro, estrecho; lo de fuera, entero
+    const cuts = [a, b];
+    for (const [x, y] of narrow) for (const c of [x, y]) if (c > a + 0.05 && c < b - 0.05) cuts.push(c);
+    cuts.sort((m, n) => m - n);
+    for (let i = 0; i + 1 < cuts.length; i++) {
+      const c0 = cuts[i], c1 = cuts[i + 1], cm = (c0 + c1) / 2, thin = narrow.some(([x, y]) => cm > x && cm < y);
+      const R = trekRng((Math.round(cm * 7) * 2654435761) >>> 0), ext = Math.max(0.4, (c1 - c0) * 0.5), right = thin ? -W + LEDGE_W : W;
+      // la losa: la meseta (lo plano, en su centro) cubre el camino, muy aplanada (sus bultos, de pocos cm); arriba, a ras de
+      // las tablas. En la cornisa, apenas sobresale del camino: que se vea estrecha
+      out.push(rockFit('island', 'Cliff1', -W - (thin ? 0.6 : 1.3), right + (thin ? 0.25 : 1.3), -0.45, 0.03, c0 - ext, c1 + ext, R() < 0.5));
+      // la cara del risco, debajo
+      out.push(rockFit('island', 'Cliff1', -W - 0.35, right + (thin ? 0.1 : 0.5), -CLIFF_DEPTH, -0.3, c0 - ext, c1 + ext, R() < 0.5));
+    }
+  }
+  return out;
+}
+
+/** El paisaje del risco en el trozo `chunk`: la pared de roca a la izquierda, que sube muy por encima de ti, con algún pino
+ * agarrado a ella; y a la derecha, en el vacío, riscos lejanos que salen de muy abajo (la sensación de altura). */
+export function cliffDecoPuts(chunk: number, out: Put[]): Put[] {
+  const R = trekRng((Math.imul(chunk | 0, 0x85ebca6b) ^ 0xc2b2ae35) >>> 0), s0 = chunk * TREK_CH;
+  const between = (a: number, b: number): number => a + R() * (b - a);
+  // la pared: `Cliff4` sin girar, con su pico del lado del camino (su cara alta es el tercio del medio a lo largo: cada roca,
+  // tres veces más larga que su paso, así siempre hay pared alta junto al camino); a trozos de 3 a 5 m, cada uno algo distinto
+  for (let s = s0; s < s0 + TREK_CH; ) {
+    const L = between(3, 5), e = Math.min(s0 + TREK_CH, s + L), m = (s + e) / 2, h = between(5, 8);
+    out.push(rockFit('island', 'Cliff4', -between(7, 9), -DOCK_W / 2 - between(0.2, 0.5), -between(2, 4), h, m - 1.5 * L, m + 1.5 * L));
+    if (R() < 0.3) {
+      const sc = between(0.6, 0.9);
+      out.push(put('nature', R() < 0.5 ? 'Pine_4' : 'Pine_2', m, -between(5, 7), between(5, 8), { ry: R() * 6.28, sx: sc, sy: sc, sz: sc }));
+    }
+    s = e;
+  }
+  // más arriba, detrás de la pared, la montaña
+  out.push(rockFit('island', 'Cliff3', -between(22, 30), -between(9, 12), -CLIFF_DEPTH, between(18, 26), s0 - 2, s0 + TREK_CH + 2, R() < 0.5));
+  // los riscos lejanos, en el vacío de la derecha
+  if (R() < 0.7) {
+    const u = between(22, 55), w = between(6, 14), h = between(25, 45), ds = between(s0, s0 + TREK_CH);
+    out.push(rockFit('island', R() < 0.5 ? 'Cliff3' : 'Cliff4', u, u + w, CLIFF_FLOOR_Y, CLIFF_FLOOR_Y + h, ds, ds + w, R() < 0.5));
   }
   return out;
 }
