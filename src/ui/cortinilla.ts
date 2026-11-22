@@ -10,11 +10,16 @@ import { FB, fitFont, rr } from './canvas-kit.js';
 
 /** Lo que miden las imágenes (px) y la franja que se tapa (en esas medidas: cubre la de todas, que cambia un poco). */
 export const CORT_W = 1024, CORT_H = 572;
+/** Las que aún no tienen la suya y usan la de otro (la Travesía en plancha, la de las flexiones de Combate, hasta que el
+ * usuario dé la suya: `public/cortinillas/LEEME.md`). */
+const CORT_SAME: Record<string, string> = { 'trek-pushup': 'combat-pushup' };
 const BADGE = { x0: 418, x1: 958, y0: 668, y1: 752, w: 1376, h: 768 } as const;
 
 /** La dirección de la cortinilla de un modo y ejercicio (o null si ese ejercicio no está en ese modo). */
 export function cortUrl(mode: string, ex: string, base = '/'): string | null {
-  return exOk(mode, ex) ? `${base}cortinillas/${mode}-${ex}.jpg` : null;
+  if (!exOk(mode, ex)) return null;
+  const k = `${mode}-${ex}`;
+  return `${base}cortinillas/${CORT_SAME[k] ?? k}.jpg`;
 }
 
 /** El texto de la franja de abajo: las oleadas (en la Travesía, los tramos; «Al fallo» o sin fin) y las vidas (la Travesía

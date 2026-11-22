@@ -1047,7 +1047,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.placeBoard();
     this.restT = 3;
     SND.charge();
-    this.message('¡Bien! A punto', 3);
+    this.trek()?.calibrated(y); // (la Travesía en plancha: la altura de la cabeza arriba de la plancha)
+    this.message(settings.mode === 'trek' ? `PREPÁRATE · ${nWaves() ? `${nWaves()} TRAMOS` : 'SIN FIN'}` : '¡Bien! A punto', 3);
   }
 
   // lo que pide el ejercicio en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
@@ -1725,8 +1726,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       const kb = this.input.keyboard;
       const down = kb.getKeyPressed('ArrowDown') || kb.getKeyPressed('KeyS');
       // en la Travesía, además: Espacio salta, C se agacha (bajo la viga), A/D dan un paso a un lado y P (mantenida) te echa
-      // al suelo en plancha (con P, la flecha abajo es una flexión)
-      const trek = settings.mode === 'trek', duck = trek && kb.getKeyPressed('KeyC'), plank = trek && kb.getKeyPressed('KeyP');
+      // al suelo en plancha (con P, la flecha abajo es una flexión); con flexiones, siempre en plancha, y W echa el peso adelante
+      const trek = settings.mode === 'trek', prone = trek && settings.exercise === 'pushup', duck = trek && kb.getKeyPressed('KeyC'), plank = trek && (prone || kb.getKeyPressed('KeyP'));
+      this.world.camera.position.z += ((prone && kb.getKeyPressed('KeyW') ? -0.14 : 0) - this.world.camera.position.z) * Math.min(1, dt * 8);
       if (trek && kb.getKeyDown('Space') && this.desktopHop <= 0) this.desktopHop = 0.45;
       this.desktopHop = Math.max(0, this.desktopHop - dt);
       const hop = this.desktopHop > 0 ? 0.16 * Math.sin((Math.PI * (0.45 - this.desktopHop)) / 0.45) : 0;

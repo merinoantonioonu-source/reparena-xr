@@ -36,7 +36,7 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { PORTAL_AT, worldNo, WORLD_LEN, WORLDS } from './worlds.js';
-import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
+import { BodyMoves, moveCfg, PRONE_FWD, PRONE_SIDE_K, PRONE_SIDE_MIN, type MoveCfg } from './moves.js';
 import { CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
@@ -64,6 +64,10 @@ export const STEP_EARLY_S = 1.2, STEP_EARLY_MIN = 3.5, STEP_LAND = 0.5;
 export const CRAWL_V = 1.2, CRAWL_NEAR = 15;
 /** Las frutas: la energía de cada una (la especial, toda), lo que dura la supervelocidad (s) y cuánto más que la máxima. */
 export const FRUIT_E = 0.25, SUPER_T = 5, SUPER_K = 1.3;
+/** En plancha (la Travesía con flexiones). Suave («Avance solo»): lo deprisa que avanzas sin hacer nada (× la máxima). El
+ * acelerón (echar el peso adelante): lo que dura (s), a qué velocidad como poco (× la máxima) y lo que hay que esperar para el
+ * siguiente (s). */
+export const AUTO_K = 0.55, DASH_T = 1.5, DASH_K = 1.15, DASH_CD = 4;
 /** Dónde se avisa de lo que viene (m antes de la cabeza, o lo que recorres en tantos s si es más): las fluidas, a 4 m o
  * 1,4 s; el obstáculo a un lado y el hueco, antes (para prepararse). */
 export const WARN_AT = 4, WARN_S = 1.4, SIDE_WARN_AT = 6, SIDE_WARN_S = 1.8;
@@ -171,7 +175,7 @@ export class Runner {
   /** El impulso de la Travesía (su `dist` es dónde vas). */
   readonly tk: Trek;
   readonly moves = new BodyMoves();
-  readonly cfg: MoveCfg = { jumpH: 0.06, sideNeed: 0.3, plankY: 0.7, pushNeed: 0.1, deepNeed: 0.2 };
+  readonly cfg: MoveCfg = { jumpH: 0.06, sideNeed: 0.3, plankY: 0.7, pushNeed: 0.1, deepNeed: 0.2, lowNeed: 0.08 };
   /** El recorrido hecho hasta ahora (los tramos ya montados, en orden) y el primero que aún no ha salido a la vista. */
   pieces: Piece[] = [];
   private nextShow = 0;
@@ -226,6 +230,9 @@ export class Runner {
   time = 0;
   /** El paso de este fotograma (s), para los juicios que cuentan tiempo. */
   private dtNow = 0;
+  /** En plancha: el acelerón (lo que le queda y lo que falta para poder hacer otro, s). */
+  dashT = 0;
+  private dashCd = 0;
   /** La pelea con el jefe del mundo (o null). */
   fight: BossFight | null = null;
   /** Los jefes derrotados en la ronda. */
@@ -303,6 +310,7 @@ export class Runner {
     this.bosses = 0;
     this.world = 0;
     this.time = 0;
+    this.dashT = this.dashCd = 0;
     this.fork = null;
     this.lane = 0;
     this.uShift = 0;
@@ -315,8 +323,8 @@ export class Runner {
   }
 
   /** Tu altura de pie y el centro, al calibrar. */
-  calibrate(ref: number, x0: number): void {
-    this.moves.reset(ref, x0);
+  calibrate(ref: number, x0: number, z0 = 0): void {
+    this.moves.reset(ref, x0, z0);
   }
 
   /** Monta el tramo i detrás de lo que ya hay (si no está): `len`, lo que mide hasta su cofre. */
@@ -324,7 +332,23 @@ export class Runner {
     if (this.ends.length > i) return;
     while (this.ends.length < i) this.addTramo(this.ends.length, len); // (los de antes, por orden)
     const start = this.ends.length ? this.ends[this.ends.length - 1] + 0.5 : this.tk.dist;
-    this.addCourse(buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)), worldLen: this.worldLen }, i, this.env.rank, start, this.id));
+    const c = buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)), worldLen: this.worldLen }, i, this.env.rank, start, this.id);
+    // en plancha, lo que pasa por encima de la cabeza (la viga, el picado, el tajo, la bala alta), a la altura de la flexión: se
+    // ve justo por encima de la cabeza abajo (el juicio, `BodyMoves.under`, pide estar abajo)
+    if (this.prone) {
+      moveCfg(this.sFn, this.cfg);
+      for (const p of c.pieces) if (p.k === 'low' || p.k === 'dive' || (p.k === 'cannon' && !p.n)) p.h = this.cfg.lowNeed + 0.01;
+    }
+    this.addCourse(c);
+  }
+
+  /** ¿En plancha? (la Travesía con flexiones: elegido por el usuario, en sus dos formas) */
+  get prone(): boolean {
+    return this.env.ex === 'pushup';
+  }
+  /** ¿La suave? (en plancha, con «Avance solo»: el recorrido viene solo y los movimientos son para esquivar y los premios) */
+  get auto(): boolean {
+    return this.prone && this.env.s('trekAuto') > 0;
   }
 
   /** Los tramos de cada mundo (el ajuste «Tramos por mundo»; sin él, `WORLD_LEN`). */
@@ -375,7 +399,8 @@ export class Runner {
   /** Una repetición del ejercicio. Empuja si vas en marcha; parado ante un paso, recuerda lo que toca (y no empuja); en
    * el aire, no empuja. Devuelve si ha empujado (las de una parada no cuentan para el tramo). */
   rep(perfect: boolean): boolean {
-    if (this.env.state !== 'play' || this.moves.plank) return false; // (echado, no empujas: llevas la inercia)
+    if (this.env.state !== 'play' || (this.moves.plank && !this.prone)) return false; // (echado, no empujas: llevas la inercia)
+    if (this.auto) return false; // (en la suave avanzas solo: las flexiones no empujan)
     if (this.stop || this.hop) {
       if (this.stop && this.stop.k !== 'boss') this.ask(this.stop, false);
       return false;
@@ -395,9 +420,22 @@ export class Runner {
     const fv = env.s('platFoeV');
     this.foeV = fv > 0 ? fv : FOE_V;
     this.cfg.deepNeed = Math.max(0.12, (0.8 * (env.dv('squatDepth') || 26)) / 100);
+    const prone = this.prone;
+    // (en plancha, escorarse mueve la cabeza menos que un paso de pie)
+    if (prone) this.cfg.sideNeed = Math.max(PRONE_SIDE_MIN, this.cfg.sideNeed * PRONE_SIDE_K);
+    this.moves.prone = prone;
     this.moves.hold = this.sideAhead() || !!this.hop?.glide; // (planeando, la cabeza a un lado coge las frutas)
     this.armsStep();
     this.moves.update(dt, H, this.cfg);
+    // (en plancha, «abrir los brazos» para planear es aguantar abajo)
+    if (prone) this.armsOpen = this.moves.plank;
+    // la suave: el recorrido viene solo, a su paso (sin turbo: no hay repeticiones)
+    if (this.auto && st === 'play' && !this.stop) {
+      tk.want = this.vmax * AUTO_K;
+      tk.push = 1;
+      tk.idle = 0;
+    }
+    this.dashStep(dt, st);
     const d0 = tk.dist, push0 = tk.push, v0 = tk.v;
     if (this.stop || this.hop) tk.idle = 0; // (el turbo espera en las paradas y en el aire)
     tk.step(dt, env.now);
@@ -414,12 +452,14 @@ export class Runner {
       // en el aire (el tronco, el supersalto o saltar porque sí), la inercia: no frenas
       tk.v = Math.max(tk.v, v0);
       tk.push = push0;
-    } else if (st === 'play' && this.moves.plank) {
+    } else if (st === 'play' && this.moves.plank && !this.auto) {
       // echado (el túnel): la inercia, sin gastarse; cerca y dentro de un túnel, como poco CRAWL_V (pasas por debajo)
       tk.v = Math.max(v0, this.crawlNear() ? CRAWL_V : 0);
       tk.push = push0;
       tk.dist = d0 + tk.v * dt;
     } else if (st === 'play' && tk.push > 0 && tk.v < tk.want) tk.v = Math.min(tk.want, tk.v + dt * PLAT_ACCEL); // (acelera antes)
+    // el acelerón (en plancha): como poco DASH_K la máxima, mientras dura
+    if (this.dashT > 0 && st === 'play' && !this.stop && !this.hop) tk.v = Math.max(tk.v, this.vmax * DASH_K);
     // la supervelocidad: como poco SUPER_K la máxima, mientras dura
     if (this.superT > 0 && st === 'play') {
       this.superT = Math.max(0, this.superT - dt);
@@ -627,6 +667,19 @@ export class Runner {
     const L = A.l, R = A.r;
     if ((out(L) && out(R)) || (out(L) && !R.ok) || (out(R) && !L.ok)) this.armsOpen = true;
     else if (near(L) || near(R)) this.armsOpen = false;
+  }
+
+  /** En plancha, el acelerón: echar el peso adelante (la cabeza, PRONE_FWD m por delante de su sitio) da DASH_T s más deprisa;
+   * el siguiente, pasados DASH_CD s. */
+  private dashStep(dt: number, st: string): void {
+    this.dashT = Math.max(0, this.dashT - dt);
+    this.dashCd = Math.max(0, this.dashCd - dt);
+    if (!this.prone || st !== 'play' || this.stop || this.hop || this.dashCd > 0 || this.moves.fwd < PRONE_FWD) return;
+    this.dashT = DASH_T;
+    this.dashCd = DASH_CD;
+    this.snd('whoosh', null, 'arc');
+    this.ev.push({ t: 'haptic', k: 0.4, ms: 70 });
+    this.cheer('¡Acelerón!', COL_OK, 0.9);
   }
 
   /** ¿Se acerca un obstáculo a un lado (o está pasando)? Entonces el centro no sigue a la cabeza. */
@@ -1152,6 +1205,7 @@ export class Runner {
           // nada en medio: si no, es un salto sin más y la plataforma se juzga al llegar a ella
           const won = p.burpee || this.moves.deepT < DEEP_WIN;
           if (z > win && (!won || between)) break;
+          if (!won && this.prone) break; // (en plancha, la primera explosiva de las dos es un salto sin más: aún llega la segunda)
           this.climb(p, won);
           if (won && z > 0.3) this.leap(p, hz);
         }

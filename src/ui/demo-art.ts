@@ -7,6 +7,7 @@
  * Coordenadas: metros, x hacia delante (el monigote mira a la derecha), y hacia arriba, suelo en y = 0.
  */
 import { DEEP_EX, EX_NAMES, MODE_NAMES } from '../core/catalog.js';
+import { num } from '../core/values.js';
 import { FB, FD, TAU, clamp, fitFont, lerp, rr, smooth } from './canvas-kit.js';
 
 /** Lo que la caricatura mira de los ajustes (RepArena los leía de settings, foes(), swordSet() y pistolOn()). */
@@ -221,7 +222,7 @@ export function demoInfo(ex: string, mode: string, o: DemoOpts): { D: DemoDef; f
   if (mode === 'arcs') what = 'Agáchate a tiempo para que el arco pase por encima de la cabeza.';
   else if (mode === 'bars') what = ex === 'hang' ? '' : 'Cada subida revienta con la cabeza la pompa que espera arriba.';
   else if (mode === 'touch') what = 'Mete la cabeza por el hueco del aro cuando llegue.';
-  else if (mode === 'trek') what = 'Cada repetición te empuja por el sendero; si paras, te paras.';
+  else if (mode === 'trek') what = ex === 'pushup' && num('trekAuto') > 0 ? 'El sendero viene solo: en plancha, abajo para agacharte, escórate para apartarte y explosiva para saltar.' : ex === 'pushup' ? 'Cada flexión te empuja por el sendero; abajo, te agachas; explosiva, saltas.' : 'Cada repetición te empuja por el sendero; si paras, te paras.';
   else {
     const foe = foesKind === 'flyers' ? 'al volador' : foesKind === 'spider' ? 'a la araña' : foesKind === 'mix' ? 'al enemigo' : D.tiny ? 'a la araña' : 'al robot';
     what = o.sword ? `Con la espada, corta ${foe} con un tajo amplio al subir.` : o.pistol ? `Cada repetición carga la pistola: dispara ${foe} con el gatillo.` : `Cada repetición lanza un rayo ${foe} más cercano.`;

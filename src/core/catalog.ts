@@ -34,7 +34,7 @@ export const MODE_EX: Record<string, string[]> = {
   // leñador, que no aportaba nada; su código sigue, por si vuelven, y su historial se sigue viendo)
   combat: ['squat', 'lunge', 'jsquat', 'pushup', 'inchworm', 'dips', 'curl', 'curl2', 'twist', 'fraise', 'thruster', 'frontsq', 'swing', 'dlrow', 'plank1', 'splank', 'superman'], arcs: ['squat'],
   bars: ['row', 'pullup', 'hang'], touch: ['slam', 'jump', 'abs', 'pushup', 'combo'], // (en Toques, sentadillas y zancadas pasan a ser el Slam)
-  trek: ['squat', 'lunge', 'jsquat', 'frontsq', 'curl', 'curl2'] // (de pie: en la Travesía se avanza por el sendero)
+  trek: ['squat', 'lunge', 'jsquat', 'frontsq', 'curl', 'curl2', 'pushup'] // (de pie se avanza por el sendero; con flexiones, en plancha: RepArena XR)
 };
 // Zonas del cuerpo, para ordenar los ejercicios por lo que trabajan (opcional)
 export const BODY_ZONES: [string, string[]][] = [
