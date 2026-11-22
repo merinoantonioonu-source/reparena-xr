@@ -1289,3 +1289,142 @@ describe('la Travesía de plataformas: la costa pirata', () => {
     }
   });
 });
+
+describe('la Travesía de plataformas en plancha (con flexiones)', () => {
+  /** En plancha: la cabeza, a 45 cm del suelo con los brazos estirados (la calibración). */
+  const TOP = 0.45;
+  const prone = (auto: boolean): Sim => {
+    const s = new Sim({ trekAuto: auto ? 1 : 0, pushDepth: 13 });
+    s.env.ex = 'pushup';
+    s.env.calibRef = TOP;
+    s.head.y = TOP;
+    s.r.calibrate(TOP, 0, 0);
+    return s;
+  };
+  /** Una flexión: baja 11 cm en 0,5 s y sube (explosiva, de golpe en 0,12 s; si no, en 0,5 s); al subir, la repetición. */
+  const push = (s: Sim, explosive = false): void => {
+    for (let t = 0; t < 0.5; t += DT) {
+      s.head.y = TOP - 0.11 * Math.sin((Math.PI / 2) * (t / 0.5));
+      s.frame();
+    }
+    const up = explosive ? 0.12 : 0.5;
+    for (let t = 0; t < up; t += DT) {
+      s.head.y = TOP - 0.11 * (1 - t / up);
+      s.frame();
+    }
+    s.head.y = TOP;
+    s.frame();
+    s.r.rep(false);
+  };
+  /** Flexiones hasta que la pieza `p` esté a `z` m. */
+  const pushTo = (s: Sim, p: Piece, z: number): boolean => {
+    for (let i = 0; i < 200 && s.room(p) > z; i++) {
+      if (s.room(p) > z + 3) push(s);
+      else s.frame();
+    }
+    return s.room(p) <= z;
+  };
+
+  it('la dura: sin flexiones no avanzas; cada flexión te empuja', () => {
+    const s = prone(false);
+    s.load(course([mk(1, 'chest', 200, 0)]));
+    s.until(() => false, 72 * 3);
+    expect(s.r.dist).toBeLessThan(0.1);
+    for (let i = 0; i < 6; i++) push(s);
+    expect(s.r.dist).toBeGreaterThan(3);
+  });
+
+  it('la suave: el recorrido viene solo, sin flexiones (y las flexiones no empujan)', () => {
+    const s = prone(true);
+    s.load(course([mk(1, 'chest', 200, 0)]));
+    s.until(() => false, 72 * 6);
+    expect(s.r.dist).toBeGreaterThan(4);
+    expect(s.r.rep(false)).toBe(false);
+  });
+
+  it('agacharse es quedarse abajo en la flexión: la viga pasa por encima; arriba, chocas', () => {
+    for (const bien of [true, false]) {
+      const s = prone(true);
+      const L = mk(1, 'low', 30, 0, { h: 0.3 });
+      s.load(course([L, mk(2, 'chest', 200, 0)]));
+      expect(s.until(() => s.room(L) < 1.5, 72 * 60)).toBe(true);
+      if (bien) s.head.y = TOP - 0.1;
+      expect(s.until(() => L.judged, 72 * 10)).toBe(true);
+      s.head.y = TOP;
+      expect(L.ok).toBe(bien);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+    }
+  });
+
+  it('saltar es una flexión explosiva: el tronco se salta; una flexión normal no salta', () => {
+    for (const bien of [true, false]) {
+      const s = prone(true);
+      const T = mk(1, 'log', 30, 0);
+      s.load(course([T, mk(2, 'chest', 200, 0)]));
+      expect(s.until(() => s.room(T) < 1.2, 72 * 60)).toBe(true);
+      push(s, bien);
+      expect(s.until(() => T.judged, 72 * 10)).toBe(true);
+      expect(T.ok).toBe(bien);
+    }
+  });
+
+  it('escorarse a un lado esquiva al cangrejo (unos centímetros bastan en plancha)', () => {
+    const s = prone(true);
+    const C = mk(1, 'side', 30, 0, { side: 1 });
+    s.load(course([C, mk(2, 'chest', 200, 0)]));
+    expect(s.until(() => s.room(C) < 2, 72 * 60)).toBe(true);
+    s.head.x = -0.12;
+    expect(s.until(() => C.judged, 72 * 10)).toBe(true);
+    expect(C.ok).toBe(true);
+  });
+
+  it('dos flexiones explosivas seguidas suben a la plataforma alta (una sola, no)', () => {
+    for (const two of [true, false]) {
+      const s = prone(true);
+      const P = mk(1, 'step', 30, 1, { h: 0.6, len: 6 });
+      s.load(course([P, mk(2, 'chest', 200, 1)]));
+      expect(s.until(() => s.room(P) < 3.2, 72 * 60)).toBe(true);
+      if (two) push(s, true);
+      push(s, true);
+      s.until(() => P.judged, 72 * 10);
+      expect(P.ok).toBe(two);
+    }
+  });
+
+  it('el túnel se pasa aguantando abajo todo su largo', () => {
+    for (const bien of [true, false]) {
+      const s = prone(true);
+      const T = mk(1, 'crawl', 30, 2, { len: 4 });
+      s.load(course([T, mk(2, 'chest', 200, 2)]));
+      expect(s.until(() => s.room(T) < 1, 72 * 60)).toBe(true);
+      if (bien) s.head.y = TOP - 0.1;
+      expect(s.until(() => T.judged, 72 * 20)).toBe(true);
+      s.head.y = TOP;
+      expect(T.ok).toBe(bien);
+    }
+  });
+
+  it('el peso adelante da un acelerón (y otro, solo pasado un rato)', () => {
+    const s = prone(false);
+    s.load(course([mk(1, 'chest', 200, 0)]));
+    for (let i = 0; i < 3; i++) push(s);
+    s.head.z = -0.12;
+    s.frame();
+    expect(s.r.dashT).toBeGreaterThan(0);
+    s.until(() => s.r.dashT === 0, 72 * 3);
+    expect(s.r.v).toBeGreaterThan(0);
+    s.head.z = 0;
+    s.frame();
+    s.head.z = -0.12;
+    s.frame();
+    expect(s.r.dashT).toBe(0); // (aún no: hay que esperar)
+  });
+
+  it('en plancha, lo que pasa por encima de la cabeza sale a la altura de la flexión', () => {
+    const s = prone(true);
+    s.r.addTramo(0, 200);
+    s.r.addTramo(1, 200);
+    s.r.addTramo(2, 200);
+    for (const p of s.r.pieces) if (p.k === 'low' || p.k === 'dive') expect(p.h).toBeLessThan(0.15);
+  });
+});

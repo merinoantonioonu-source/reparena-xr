@@ -15,11 +15,24 @@
  *   supersalto de las plataformas altas la pide justo antes del salto.
  * - **De pie** (`standing`): la cabeza, a menos de 12 cm de tu altura de pie.
  *
+ * **En plancha** (`prone`: la Travesía con flexiones, elegido por el usuario), la altura de referencia es la de la cabeza arriba
+ * de la plancha (los brazos estirados) y cada cosa se lee así:
+ * - **Agacharse** (las vigas, los picados, los tajos, la bala alta) y **aguantar abajo** (el túnel, el barranco): la cabeza,
+ *   abajo en la flexión (`lowNeed`, tres cuartos de lo que baja una flexión): `under` y `plank`.
+ * - **Saltar** (huecos, troncos, calaveras, la bala baja…): una **flexión explosiva**, subiendo de golpe (la cabeza, a más de
+ *   `PRONE_VY`) hasta arriba: `takeoff` y `air` (`PRONE_AIR` s).
+ * - **Supersalto** (plataformas altas, trampolín, el jefe mareado): **dos explosivas seguidas** (`deepT`: cuánto hace que
+ *   hiciste una explosiva menos de `PAIR_T` s después de otra).
+ * - **A un lado**: escorarte (`dx`, con el lado de la plancha: `sideNeed` lo pone la marcha).
+ * - **Adelante** (`fwd`): echar el peso hacia delante (la cabeza, por delante de su sitio): el acelerón.
+ *
  * Lógica pura, sin IWSDK (se prueba con trazas de cabeza en tests/unit/plat-runner.test.ts).
  */
 
 /** Los umbrales (de los ajustes de Arcos: los mismos que ya conoces de las vallas y los inclinados). */
 export interface MoveCfg {
+  /** En plancha: lo que hay que bajar la cabeza para que cuente como agachado o abajo (m). */
+  lowNeed: number;
   /** Lo que hay que subir la cabeza para que cuente como salto (m). */
   jumpH: number;
   /** Lo que hay que apartar la cabeza del centro para librar un obstáculo a un lado (m). */
@@ -34,11 +47,12 @@ export interface MoveCfg {
 
 /** Los umbrales con los ajustes: el salto, el de las vallas (6 cm de serie); el lado, tres cuartos del «Desplazamiento
  * lateral» de los inclinados (40 cm de serie: 30 cm de cabeza, un paso corto de verdad), entre 15 y 40 cm. */
-export function moveCfg(s: (key: string) => number, out: MoveCfg = { jumpH: 0.06, sideNeed: 0.3, plankY: 0.7, pushNeed: 0.1, deepNeed: 0.2 }): MoveCfg {
+export function moveCfg(s: (key: string) => number, out: MoveCfg = { jumpH: 0.06, sideNeed: 0.3, plankY: 0.7, pushNeed: 0.1, deepNeed: 0.2, lowNeed: 0.08 }): MoveCfg {
   out.jumpH = Math.max(0.02, (s('arcJumpH') || 6) / 100);
   out.sideNeed = Math.min(0.4, Math.max(0.15, ((s('arcShift') || 40) / 100) * 0.75));
   out.plankY = Math.min(0.9, Math.max(0.4, (s('arcPlankH') || 60) / 100)) + 0.1;
   out.pushNeed = Math.max(0.06, ((s('pushDepth') || 13) / 100) * 0.8);
+  out.lowNeed = Math.max(0.05, ((s('pushDepth') || 13) / 100) * 0.6);
   return out;
 }
 
@@ -52,6 +66,11 @@ export const JUMP_FRESH = 0.6;
 export const VY_TAU = 1 / 72 / Math.LN2;
 /** Lo que tarda el centro en seguir a la cabeza (s): despacio, para que un paso a un lado no se borre solo. */
 export const CENTER_TAU = 4;
+/** En plancha: la velocidad hacia arriba de una flexión explosiva (m/s; una normal no pasa de 0,35), lo cerca de arriba que
+ * tiene que llegar la cabeza (m), lo que dura «en el aire» (s), lo que puede pasar entre dos explosivas para que sean un
+ * supersalto (s) y lo que hay que echar la cabeza adelante para el acelerón (m). Lo que hay que escorarse, una fracción del
+ * paso a un lado de pie (`PRONE_SIDE_K`; como poco `PRONE_SIDE_MIN` m). */
+export const PRONE_VY = 0.5, PRONE_TOP = 0.04, PRONE_AIR = 0.45, PAIR_T = 1.6, PRONE_FWD = 0.09, PRONE_SIDE_K = 0.35, PRONE_SIDE_MIN = 0.08;
 
 export class BodyMoves {
   /** Tu altura de pie (los ojos) y el centro (x de la cabeza en la arena). */
@@ -75,12 +94,25 @@ export class BodyMoves {
   deepT = 9;
   /** De pie. */
   standing = true;
+  /** En plancha (la Travesía con flexiones): cambia cómo se lee cada cosa (ver arriba). */
+  prone = false;
+  /** Lo que se echa la cabeza hacia delante de su sitio (m; en plancha, el acelerón). */
+  fwd = 0;
+  z0 = 0;
   private lastY = NaN;
+  /** En plancha: lo que llevas «en el aire» tras una explosiva, desde la última explosiva y desde la última de dos seguidas (s). */
+  private airT = 9;
+  private boostT = 9;
+  private pairT = 9;
+  private lowNeed = 0.08;
 
   /** Al calibrar o empezar la ronda: tu altura de pie y el centro. */
-  reset(ref: number, x0: number): void {
+  reset(ref: number, x0: number, z0 = 0): void {
     this.ref = ref;
     this.x0 = x0;
+    this.z0 = z0;
+    this.fwd = 0;
+    this.airT = this.boostT = this.pairT = 9;
     this.hold = false;
     this.up = this.down = this.dx = this.vy = 0;
     this.fastT = 9;
@@ -106,9 +138,16 @@ export class BodyMoves {
       // puntillas no es un salto)
       this.fastT = this.vy > JUMP_VY && y - this.ref > 0.01 ? 0 : this.fastT + dt;
       if (this.fastT === 0) fresh = true;
-      if (!this.hold) this.x0 += (head.x - this.x0) * Math.min(1, dt / CENTER_TAU);
+      if (!this.hold) {
+        this.x0 += (head.x - this.x0) * Math.min(1, dt / CENTER_TAU);
+        this.z0 += (head.z - this.z0) * Math.min(1, dt / CENTER_TAU);
+      }
     }
     this.lastY = y;
+    if (this.prone) {
+      this.proneUpdate(dt, head, cfg);
+      return;
+    }
     this.up = y - this.ref;
     this.down = this.ref - y;
     this.dx = head.x - this.x0;
@@ -121,8 +160,39 @@ export class BodyMoves {
     this.deepT = this.down >= cfg.deepNeed ? 0 : this.deepT + Math.max(0, dt);
   }
 
-  /** ¿La coronilla pasa bajo una viga que obliga a bajarla `need` m? (Con 2 cm de margen, como los arcos.) */
+  /** En plancha: cada fotograma (la velocidad vertical y el centro ya puestos). */
+  private proneUpdate(dt: number, head: { x: number; y: number; z: number }, cfg: MoveCfg): void {
+    const y = head.y, d = Math.max(0, dt);
+    this.lowNeed = cfg.lowNeed;
+    this.down = this.ref - y;
+    this.dx = head.x - this.x0;
+    this.fwd = this.z0 - head.z; // (delante es −z)
+    this.takeoff = false;
+    // la explosiva: subiendo de golpe hasta arriba (cerca de la altura de los brazos estirados)
+    this.fastT = this.vy > PRONE_VY ? 0 : this.fastT + d;
+    this.airT += d;
+    this.boostT += d;
+    this.pairT += d;
+    if (!this.air && this.fastT < JUMP_FRESH && y > this.ref - PRONE_TOP) {
+      this.air = this.takeoff = true;
+      this.airT = 0;
+      // (dos seguidas: el supersalto)
+      if (this.boostT < PAIR_T) this.pairT = 0;
+      this.boostT = 0;
+    } else if (this.air && this.airT > PRONE_AIR) this.air = false;
+    // (lo que sube la cabeza: en el aire, lo que vale un salto; si no, nunca lo bastante —levantar la cabeza para mirar no es
+    // saltar—)
+    const up = y - this.ref;
+    this.up = this.air ? Math.max(up, cfg.jumpH + 0.005) : Math.min(up, cfg.jumpH - 0.005);
+    this.standing = false;
+    this.plank = this.down >= this.lowNeed;
+    this.deepT = this.pairT;
+  }
+
+  /** ¿La coronilla pasa bajo una viga que obliga a bajarla `need` m? (Con 2 cm de margen, como los arcos.) En plancha, abajo
+   * en la flexión, sea la viga que sea. */
   under(need: number): boolean {
+    if (this.prone) return this.down >= this.lowNeed;
     return this.down >= need - 0.02;
   }
 

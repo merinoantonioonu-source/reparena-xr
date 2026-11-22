@@ -23,7 +23,7 @@ export const isSeated = (): boolean => settings.exercise === 'dips';
 // Tumbado boca arriba (abdominales)
 export const isSupine = (): boolean => settings.exercise === 'abs' || (settings.exercise === 'combo' && settings.comboBase === 'abs');
 // Batalla diminuta bajo tu cara (flexiones y plancha); en el superman los bichos vuelan de frente a tamaño normal
-export const isTiny = (): boolean => settings.mode !== 'touch' && (settings.exercise === 'pushup' || settings.exercise === 'pike' || settings.exercise === 'inchworm' || oneArm());
+export const isTiny = (): boolean => settings.mode !== 'touch' && settings.mode !== 'trek' && (settings.exercise === 'pushup' || settings.exercise === 'pike' || settings.exercise === 'inchworm' || oneArm());
 
 // Enemigos de la partida: los elegidos de cada grupo (foeList), si alguno de ellos sale en esta partida (foeOn) y, de
 // ahí, el reparto: solo por tierra, solo voladores o mezcla. La plancha con un brazo trae siempre arañas y el superman,

@@ -6,3 +6,6 @@ usuario: «Modelo 2», estilo HUD holográfico táctico, una por modo y ejercici
 
 La franja de abajo de cada imagen («OLEADAS: 3 · VIDAS: 3») la tapa el juego con una igual que dice lo que tienes puesto
 (`src/ui/cortinilla.ts`). Un ejercicio nuevo: su imagen aquí, con ese nombre (lo comprueba `tests/unit/cortinilla.test.ts`).
+
+Provisional: la Travesía con flexiones (`trek-pushup`) usa la de Combate (`combat-pushup.jpg`, `CORT_SAME` en
+`src/ui/cortinilla.ts`) hasta que haya la suya.

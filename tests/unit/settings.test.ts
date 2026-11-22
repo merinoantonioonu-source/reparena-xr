@@ -32,10 +32,10 @@ beforeEach(() => {
 });
 
 describe('el esquema', () => {
-  it('tiene los 186 ajustes de RepArena y los 10 nuevos (las manos, el tamaño del menú, los 6 de la Travesía de plataformas, los tramos por mundo y el filtro nuevo de las manos), sin claves repetidas', () => {
-    expect(SCHEMA.length).toBe(196);
-    expect(new Set(SCHEMA.map((f) => f.key)).size).toBe(196);
-    expect(SCHEMA.filter((f) => f.xr).length).toBe(10);
+  it('tiene los 186 ajustes de RepArena y los 11 nuevos (las manos, el tamaño del menú, los 6 de la Travesía de plataformas, los tramos por mundo, el avance solo en plancha y el filtro nuevo de las manos), sin claves repetidas', () => {
+    expect(SCHEMA.length).toBe(197);
+    expect(new Set(SCHEMA.map((f) => f.key)).size).toBe(197);
+    expect(SCHEMA.filter((f) => f.xr).length).toBe(11);
     expect(SCHEMA.filter((f) => f.key === 'handLook' || f.key === 'menuSize').length).toBe(2);
   });
   it('cada valor de serie está dentro de sus límites', () => {
@@ -199,7 +199,7 @@ describe('guardar', () => {
     // los de RepArena XR, aparte (RepArena no los conoce)
     expect(s).not.toHaveProperty('handLook');
     // (los de la Travesía de plataformas, los del rango de serie: el cabo)
-    expect(saved(XR_STORE_KEY)).toEqual({ handLook: 'glove', menuSize: 75, platSpace: 100, platGap: 90, platDuck: 24, platHigh: 86, platTunnel: 3.3, platFoeV: 0.9, trekWorld: 3, handsNew: 0 });
+    expect(saved(XR_STORE_KEY)).toEqual({ handLook: 'glove', menuSize: 75, platSpace: 100, platGap: 90, platDuck: 24, platHigh: 86, platTunnel: 3.3, platFoeV: 0.9, trekWorld: 3, trekAuto: 0, handsNew: 0 });
     expect(s.mode).toBe('combat');
     expect(store(STORE_KEY)).toEqual(s);
   });

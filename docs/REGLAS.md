@@ -140,6 +140,15 @@ No las cambies sin preguntarle.
   *Cambio sobre la propuesta*: los «tiburones que saltan entre muelles» no se pudieron hacer (no hay modelo de tiburón pez: los
   tiburones del juego son piratas con cabeza de tiburón y no se crean enemigos de cero); son el tiburón pirata que llega
   corriendo.
+- Travesía de plataformas, **en plancha** (pedido del usuario: un modo para brazos; elegido de las propuestas): se juega con
+  «Flexiones» en los cuatro mundos, con sus jefes, y tiene **dos formas**: la **dura**, en la que cada flexión te empuja (sin
+  flexiones te paras), y la **suave** («En plancha, avance solo»), en la que el recorrido viene solo y los movimientos son solo
+  para esquivar y los premios. En las dos, los movimientos son: **abajo en la flexión**, agacharse (vigas, picados, tajos, la
+  bala alta) y, aguantando abajo, el túnel y el barranco (en vez de planear); **escorarse** a un lado, apartarse (y coger las
+  frutas, la cornisa, el viento); **una flexión explosiva**, saltar (huecos, troncos, calaveras, la seta, la bala baja); **dos
+  explosivas seguidas**, el supersalto (plataformas altas, trampolín y el jefe mareado); y **el peso adelante**, un acelerón
+  corto (cada 4 s como mucho). Lo que pasa por encima de la cabeza sale a la altura de la flexión. Se calibra en plancha, con
+  los brazos estirados. Su cortinilla, la de las flexiones de Combate hasta que el usuario dé la suya.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.

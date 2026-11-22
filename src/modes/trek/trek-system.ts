@@ -472,7 +472,7 @@ export class TrekSystem extends createSystem({}) {
   /** Ya calibrado (de pie, quieto 2 s): tu altura de pie y el centro, donde estás. */
   calibrated(y: number): void {
     this.calibRef = y;
-    this.runner.calibrate(y, head.p.x);
+    this.runner.calibrate(y, head.p.x, head.p.z);
   }
 
   /** Empieza el tramo i: el cofre del anterior se esfuma y el siguiente se monta ya (para verlo llegar de lejos). */
@@ -621,7 +621,7 @@ export class TrekSystem extends createSystem({}) {
     if (GAME.paused) return;
     if (GAME.phase === 'playing') this.runner.step(dt);
     // echado (en plancha, bajo un túnel): los avisos, en el suelo bajo la cara (de pie, delante, no se leerían)
-    VIEW.prone = GAME.phase === 'playing' && this.runner.moves.plank;
+    VIEW.prone = GAME.phase === 'playing' && (this.runner.moves.plank || this.runner.prone); // (en plancha, siempre)
     this.applyEvents();
     this.stepAnims(dt);
     this.draw();
@@ -631,7 +631,8 @@ export class TrekSystem extends createSystem({}) {
     this.stepWind(dt);
     this.stepWorld(dt);
     // planeando de verdad (con los brazos en cruz), las alas
-    const H = this.runner.hop, glide = GAME.phase === 'playing' && !GAME.paused && !!H?.glide && H.won && !H.bad;
+    // (en plancha no hay brazos en cruz: sin alas, con las estelas de viento)
+    const H = this.runner.hop, glide = GAME.phase === 'playing' && !GAME.paused && !!H?.glide && H.won && !H.bad && !this.runner.prone;
     this.wings.update(GAME.paused ? 0 : dt, glide, head.p, headFwd(this.fwd), this.env.hands.l, this.env.hands.r);
   }
 
