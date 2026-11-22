@@ -1134,6 +1134,11 @@ arregla, se quita el apaño.
   el destello que señala el botón MENÚ de la muñeca. Apaño: `src/input/sprite-ray.ts` (sin cámara, el rayo no toca sprites:
   ninguno es una tecla). Y, para cualquier otro error, `src/core/guard.ts`: cada sistema y el pintado van protegidos, el error
   se apunta en el diagnóstico («ERROR en …», con dónde pasó) y el juego sigue.
+- **La mano «aplastada» del navegador de las Quest 157** (no es de IWSDK, pero va aquí con lo demás de la entrada): al perder
+  de vista una mano, a veces sigue mandándola con sus 25 articulaciones en el mismo punto, delante de la cara. Se pintaba un
+  muñón (el guante aplastado o la mano de IWSDK, con el destello rosa del botón MENÚ encima) y contaba como un pellizco
+  continuo. Apaño: `src/input/hand-collapse.ts` (con la muñeca y las puntas del índice y del meñique a menos de 2 cm, la mano
+  se toma por perdida; `COLLAPSE` esconde también la mano de IWSDK, `skinShown`).
 - **IWSDK vuelve a enseñar su mano en cada fotograma** (pone `model.visible`): para esconderla bajo los guantes, se esconde su
   piel por dentro, y solo mientras se pinta el guante de ese lado (`GLOVE_ON`).
 - **Los dibujos que cambian se suben con la imagen de las gafas abierta.** Con las dos vistas a la vez (multiview, en las

@@ -11,6 +11,7 @@
  *    índice se dobla con el gatillo y los demás dedos con el agarre); el mando funciona como una mano (h.virt): se apunta con
  *    él y se lanza con el gatillo.
  */
+import { COLLAPSE, handCollapsed } from './hand-collapse.js';
 import { AnimatedController, createSystem, InputComponent, Matrix4, Quaternion, Vector3, VisibilityState } from '@iwsdk/core';
 import type { VisualConstructor, VisualImplementation } from '@iwsdk/core';
 import { on } from '../core/values.js';
@@ -111,6 +112,7 @@ export class HandSystem extends createSystem({}, {}) {
       const h = hands[s];
       h.ok = h.tipOk = h.tipSm = h.pinch = h.rayOk = h.trig = h.grip = h.btnMenu = h.virt = false;
       for (const J of h.J) J.ok = false;
+      COLLAPSE[s] = false;
     }
     const xrm = this.world.renderer.xr;
     const frame = inXR ? xrm.getFrame() : null, ref = inXR ? xrm.getReferenceSpace() : null;
@@ -221,6 +223,14 @@ export class HandSystem extends createSystem({}, {}) {
         J.ok = true;
         if (jp.radius) J.r = jp.radius;
       }
+    // (aplastada —todas las articulaciones en un punto: el navegador 157 de las Quest al perderla—, no es una mano: perdida, sin
+    // pintarla ni pellizcar; src/input/hand-collapse.ts)
+    if (handCollapsed(h.J)) {
+      COLLAPSE[h === hands.left ? 'left' : 'right'] = true;
+      for (const J of h.J) J.ok = false;
+      h.rayOk = false;
+      return;
+    }
     if (h.J[0].ok) handSmooth(h, this.F[h === hands.left ? 'left' : 'right'], t); // (perdida, el filtro se queda como estaba)
     const W = h.J[0], T = h.J[9];
     if (W.ok) {
