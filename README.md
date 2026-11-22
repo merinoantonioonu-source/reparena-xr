@@ -237,6 +237,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/core/blackbox.ts`, `src/input/hand-probe.ts` | La caja negra de los ejercicios con pesas: los últimos 25 s del detector, fotograma a fotograma (lo que entra, lo que dicen las gafas de cada mano y lo que decide), guardada con el diagnóstico |
 | `src/input/hand-filter.ts` | La lectura de las manos de RepArena: el suavizado para pintarlas, los saltos imposibles, la mano perdida (su gesto o el cuerpo) y el filtro `HF` de las dos manos en la pesa |
 | `src/input/sprite-ray.ts` | Fallo de IWSDK: su rayo de apuntar no lleva cámara y rompía con los sprites (la imagen se congelaba); sin cámara, el rayo no los toca |
+| `src/input/hand-collapse.ts` | La mano «aplastada» (el navegador de las Quest 157 la manda así al perderla): no se pinta ni pellizca; se toma por perdida |
 | `src/input/hand-model.ts` | Lo que el juego sabe de cada mano (muñeca, articulaciones, pellizco, gatillo, agarre, rayo) y el puño |
 | `src/input/throw.ts` | La sacudida que lanza el rayo y el gatillo con mandos como manos (los de RepArena), sin IWSDK |
 | `src/input/gaze-lock.ts`, `src/input/punch.ts`, `src/input/target.ts` | La mirada que fija al enemigo, el puñetazo y lo que ven de cada enemigo (de RepArena, sin IWSDK) |

@@ -9,6 +9,7 @@ import { AnimatedHand, MeshStandardMaterial, outlineMaterial } from '@iwsdk/core
 import type { Object3D, SkinnedMesh } from '@iwsdk/core';
 import { str } from '../core/values.js';
 import { GLOVE_ON } from './hold.js';
+import { COLLAPSE } from './hand-collapse.js';
 
 /** El material de la mano lisa (uno para todas). */
 export const skinMat = new MeshStandardMaterial({ color: 0xd6dbe6, roughness: 0.6, metalness: 0.05 });
@@ -53,8 +54,9 @@ export class SkinHand extends AnimatedHand {
   }
 }
 
-/** La piel de una mano de IWSDK, a la vista solo si no se está pintando el guante de ese lado. */
+/** La piel de una mano de IWSDK, a la vista solo si no se está pintando el guante de ese lado (ni llega aplastada: perdida,
+ * con todas las articulaciones en un punto; src/input/hand-collapse.ts). */
 export function skinShown(skin: Object3D[], side: 'left' | 'right'): void {
-  const v = !(str('handLook') !== 'skin' && GLOVE_ON[side]);
+  const v = !(str('handLook') !== 'skin' && GLOVE_ON[side]) && !COLLAPSE[side];
   for (const o of skin) if (o.visible !== v) o.visible = v;
 }
