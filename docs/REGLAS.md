@@ -97,7 +97,8 @@ No las cambies sin preguntarle.
   ramas: con un **paso a la derecha** al llegar, la difícil (más retos y más premios: un tronco, un barril y a veces una
   dorada); si no, la izquierda, la tranquila (frutas a los lados). Luego las dos se juntan.
 - Travesía de plataformas, **el jefe del mundo** (elegido por el usuario): en el último tramo de cada mundo, antes del cofre, un
-  jefe grande te corta el paso (el de ese mundo: el Demonio verde en el bosque, el Yeti en el risco; el Alien alto, de Quaternius, en las islas) y te para delante. Lanza piedras con
+  jefe grande te corta el paso (el de ese mundo: el Demonio verde en el bosque, el Yeti en el risco, el Alien alto en las islas,
+  de Quaternius, y el Capitán en la costa pirata) y te para delante. Lanza piedras con
   aviso: **la alta, agacharse; la baja, rodando, saltar; la que va al cuerpo, apartarse**. Tras tres, se marea (estrellas):
   con un **supersalto** (sentadilla honda y salto) le caes encima, pasando por arriba, y él salta hacia atrás para quedarse
   delante (nunca detrás); **a la tercera, derrotado**. Si te da una piedra, se rompe la racha, sin vidas; si no saltas mientras
@@ -129,6 +130,16 @@ No las cambies sin preguntarle.
   sin pararse; si dejas de hacer repeticiones en él, se te hunde). El demonio que lanza la bola de fuego es aquí un **dragón**
   que vuela a un lado. Sin túneles, cangrejos, cíclopes ni bifurcaciones (no hay suelo a los lados). Si fallas, frenas a la
   mitad y se rompe la racha, sin vidas. Su jefe, el Alien alto.
+- Travesía de plataformas, **la costa pirata** (el cuarto mundo, propuesto y aprobado): el muelle de tablas sobre el mar
+  (realista: olas, rizos a rachas, reflejo del cielo y destellos), roto a trozos, con islotes de palmeras (alguno con huesos o
+  calaveras), barriles y botellas flotando y barcos piratas a lo lejos; fondo del lago (y otro tramo, al atardecer). Sus retos:
+  los **cañonazos** desde un barco a un lado (fogonazo, humo y estampido; la bala alta, a la cabeza: agacharse; la baja, a ras
+  del muelle: saltarla). Los enemigos son **piratas** (de Quaternius): el **tiburón pirata** llega corriendo por el muelle y
+  tira un tajo alto (agacharse) y el **esqueleto pirata**, a un lado, tira un tajo (apartarse; no escupe); además, la calavera y
+  el cangrejo. Sin setas, demonios, cíclopes, túneles ni bifurcaciones. Su jefe, el Capitán (lanza balas de cañón en llamas).
+  *Cambio sobre la propuesta*: los «tiburones que saltan entre muelles» no se pudieron hacer (no hay modelo de tiburón pez: los
+  tiburones del juego son piratas con cabeza de tiburón y no se crean enemigos de cero); son el tiburón pirata que llega
+  corriendo.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.

@@ -71,7 +71,9 @@ tabla de `README.md` dice qué hace cada archivo.
   (`FOE_POOL` de cada uno, reutilizados); cada tramo, su paisaje (`setBiome`, `decoPuts(…, biome)`); los mundos (`worlds.ts`: cada «Tramos por mundo», `trekWorld`,
   otro suelo, paisajes, retos y jefe; se pasa por un portal tras el cofre, `PORTAL_AT`, y `Runner.world` avisa con el suceso
   `world`; el risco, `cliffFloorPuts`/`cliffDecoPuts` y el mar de nubes, `cloud-sea.ts`; las islas, `skyFloorPuts`/`skyDecoPuts`, con los
-  islotes que suben y bajan, `bobY`, y los que se hunden: el suelo que se mueve lleva `Put.seg` y lo mueve `TrekSystem.islandY`); el cofre da llave y gema
+  islotes que suben y bajan, `bobY`, y los que se hunden: el suelo que se mueve lleva `Put.seg` y lo mueve `TrekSystem.islandY`;
+  la costa, `coastFloorPuts`/`coastDecoPuts`, el mar, `sea.ts`, los cañonazos, `cannon`, y los piratas, `isPirate`: el picado
+  con `n` 2 o 3 y el de un lado con `n` 1; sus animaciones, con el nombre de los monstruitos, `CLIP_ALIAS`); el cofre da llave y gema
   y el fantasma va en `reparenaxr-trekghost`. Su dificultad por rango (separación, huecos, vigas, plataformas, túneles y
   paso de los enemigos: los ajustes `plat*`, `xr: true`) sale de `RANK_VALS_XR` (`src/core/catalog.ts`) y de la tabla del
   desarrollador; `buildCourse` la recibe en `CourseEnv.tune` (`platTune`). Un ajuste solo de RepArena XR que mande el rango,

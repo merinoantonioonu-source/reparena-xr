@@ -235,9 +235,13 @@ export class Missile {
 export const LOOK_SPIT: MissileLook = { kind: 'slime', size: 0.06 };
 export const LOOK_FIRE: MissileLook = { kind: 'fire', size: 0.1 };
 export const LOOK_ROCK: MissileLook = { kind: 'meteor', size: 0.06 };
-/** Los jefes: el Yeti, una bola de nieve; el Demonio verde, fuego verde; el Alien alto, plasma. */
+/** Los jefes: el Yeti, una bola de nieve; el Demonio verde, fuego verde; el Alien alto, plasma; el Capitán, una bala de cañón
+ * en llamas. */
 export const LOOK_BOSS: MissileLook[] = [
   { kind: 'snow', size: 0.16 },
   { kind: 'greenFire', size: 0.13 },
   { kind: 'plasma', size: 0.11 },
+  { kind: 'meteor', size: 0.12 },
 ];
+/** La bala del cañonazo del barco (la costa). */
+export const LOOK_CANNON: MissileLook = { kind: 'meteor', size: 0.13 };

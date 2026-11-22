@@ -24,16 +24,17 @@ import { haptic } from '../../input/hand-system.js';
 import { hands, head, headFwd, type Hand } from '../../input/hand-model.js';
 import { Wings } from './wings.js';
 import { CloudSea } from './cloud-sea.js';
+import { Sea } from './sea.js';
 import { groundTexture, kitParts, type Part } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
-import { LOOK_BOSS, LOOK_FIRE, LOOK_SPIT, Missile, type MissileLook } from '../../style/missile-fx.js';
+import { LOOK_BOSS, LOOK_CANNON, LOOK_FIRE, LOOK_SPIT, Missile, type MissileLook } from '../../style/missile-fx.js';
 import { looks, looksTick } from '../../style/missile-look.js';
 import { PAL, vfx } from '../../style/vfx.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
-import { CLIFF_FLOOR_Y, cliffDecoPuts, cliffFloorPuts, skyDecoPuts, skyFloorPuts, DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
+import { SEA_Y, CLIFF_FLOOR_Y, cliffDecoPuts, cliffFloorPuts, coastDecoPuts, coastFloorPuts, skyDecoPuts, skyFloorPuts, DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { PORTAL_AT, tramoBiome, tramoDeco, worldEnd, worldStart, WORLDS, type FloorStyle } from './plat/worlds.js';
 import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
-import { BOB_CRACK, BOB_ISLE, bobY, ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
+import { CANNON_AT, CANNON_LOW_Y, SHIP_U, BOB_CRACK, BOB_ISLE, bobY, ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
@@ -59,11 +60,21 @@ const FOE_LOOK = {
   fire: { asset: 'foe-demon', nat: 1.62, h: 1.4, voice: 'demon', pool: 2 },
   // (en las islas, el que lanza la bola de fuego es un dragón que vuela a un lado: no hay suelo donde ponerse)
   dragon: { asset: 'foe-dragon', nat: 1.65, h: 1.3, voice: 'dragon', pool: 2 },
+  // (en la costa: los piratas de Quaternius; el tiburón pirata llega corriendo y el esqueleto, a un lado)
+  sharky: { asset: 'foe-sharky', nat: 1.56, h: 1.56, voice: 'sharky', pool: 2 },
+  mako: { asset: 'foe-mako', nat: 1.59, h: 1.59, voice: 'mako', pool: 2 },
+  skeleton: { asset: 'foe-skeleton', nat: 1.5, h: 1.5, voice: 'skeleton', pool: 3 },
 } as const;
 type Look = keyof typeof FOE_LOOK;
 const LOOKS = Object.keys(FOE_LOOK) as Look[];
 /** El aspecto de una pieza que es un enemigo (o null): la abeja o el murciélago, según su `n`. */
-const lookOf = (p: Piece): Look | null => (p.k === 'dive' ? (p.n % 2 ? 'bat' : 'bee') : p.k === 'fire' && p.n ? 'dragon' : p.k === 'foe' || p.k === 'side' || p.k === 'skull' || p.k === 'quake' || p.k === 'fire' ? p.k : null);
+const lookOf = (p: Piece): Look | null => (p.k === 'dive' ? (p.n >= 2 ? (p.n === 2 ? 'sharky' : 'mako') : p.n % 2 ? 'bat' : 'bee') : p.k === 'side' && p.n === 1 ? 'skeleton' : p.k === 'fire' && p.n ? 'dragon' : p.k === 'foe' || p.k === 'side' || p.k === 'skull' || p.k === 'quake' || p.k === 'fire' ? p.k : null);
+/** Las animaciones que los piratas (y el Capitán) llaman de otra forma: el mordisco es su tajo de espada, el salto, su
+ * puñetazo, y el golpe recibido, su `HitReact`. Se añaden con el nombre de los monstruitos (lo que ya haya, se queda). */
+const CLIP_ALIAS: Record<string, string> = { Bite_Front: 'Sword', Jump: 'Punch', HitRecieve: 'HitReact' };
+function aliasClips(acts: Map<string, AnimationAction>): void {
+  for (const [k, v] of Object.entries(CLIP_ALIAS)) if (!acts.has(k) && acts.has(v)) acts.set(k, acts.get(v)!);
+}
 /** Los que vuelan (sin andar: aletean). */
 const FLY: readonly Look[] = ['bee', 'bat'];
 /** El destello al cruzar un portal (s) y lo que mide el portal (m: el radio del aro). */
@@ -209,6 +220,8 @@ export class TrekSystem extends createSystem({}) {
   private readonly movers: Piece[] = [];
   private readonly settled = new Map<number, { y: number; t: number }>();
   private readonly sinkAt = new Map<number, number>();
+  /** Las balas de los cañonazos de la costa (dos a la vez como mucho): la pieza que es cada una y por dónde va. */
+  private readonly balls: { m: Missile; p: Piece | null; pos: Vector3; from: Vector3; to: Vector3; gone: number }[] = [];
   /** Los portales (un aro de luz con su remolino; dos: el que viene y el que dejas atrás), el destello al cruzarlo, las rocas
    * de los desprendimientos y lo que lleva soplando cada racha (s). */
   private readonly portals: Group[] = [];
@@ -243,8 +256,10 @@ export class TrekSystem extends createSystem({}) {
   /** Las estelas del turbo y las alas de planear. */
   private wind!: InstancedMesh;
   private wings!: Wings;
-  /** El mar de nubes bajo el risco (el vacío a la derecha del sendero). */
+  /** El mar de nubes bajo el risco y las islas (el vacío). */
   private sea!: CloudSea;
+  /** El mar de la costa pirata. */
+  private ocean!: Sea;
   private readonly fwd = new Vector3();
   private readonly winds: Wind[] = [];
   /** Los brillos de las frutas doradas a la vista (hechos al empezar y reutilizados). */
@@ -330,6 +345,10 @@ export class TrekSystem extends createSystem({}) {
     this.sea = new CloudSea();
     this.root.add(this.sea.mesh);
     warmKeep(new Mesh(this.sea.mesh.geometry, this.sea.mesh.material));
+    // el mar de la costa
+    this.ocean = new Sea();
+    this.root.add(this.ocean.mesh);
+    warmKeep(new Mesh(this.ocean.mesh.geometry, this.ocean.mesh.material));
     warmKeep(new InstancedMesh(this.wind.geometry, this.wind.material, 1)); // (instanciada como la de verdad: el mismo sombreador)
     // el brillo redondo (de las doradas)
     const n = 32, d = new Uint8Array(n * n * 4);
@@ -345,6 +364,7 @@ export class TrekSystem extends createSystem({}) {
       return m;
     };
     for (let i = 0; i < SPIT_POOL; i++) this.spits.push({ m: missile(LOOK_SPIT), pos: new Vector3(), p: null, arc: SPIT_ARC, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
+    for (let i = 0; i < 2; i++) this.balls.push({ m: missile(LOOK_CANNON), p: null, pos: new Vector3(), from: new Vector3(), to: new Vector3(), gone: 0 });
     for (let i = 0; i < FIRE_POOL; i++) this.fires.push({ m: missile(LOOK_FIRE), pos: new Vector3(), p: null, arc: FIRE_ARC, from: new Vector3(), to: new Vector3(), t: 0, wind: 0, dur: 1 });
     this.bossFx = missile(LOOK_BOSS[0]);
     // la onda del cíclope: la llevan las partículas (polvo que salta a su paso: src/style/vfx.ts)
@@ -553,6 +573,10 @@ export class TrekSystem extends createSystem({}) {
   }
 
   private clearLooks(): void {
+    for (const B of this.balls) {
+      B.p = null;
+      B.m.stop();
+    }
     this.settled.clear();
     this.sinkAt.clear();
     this.looks.clear();
@@ -678,7 +702,7 @@ export class TrekSystem extends createSystem({}) {
     add('island', 'Dock', isl.Dock, CAP_DOCK, false);
     // (las piezas: lo que use pieces.ts de cada kit, KIT_MODELS; el resto del bosque, para el paisaje)
     // (las rocas del risco: dos por trozo del sendero y la pared, más de las que caben en una pieza)
-    for (const n of KIT_MODELS.island) if (n !== 'Dock') add('island', n, isl[n], n === 'Cliff1' || n === 'Cliff4' ? CAP_CLIFF : CAP_PIECE, true);
+    for (const n of KIT_MODELS.island) if (n !== 'Dock') add('island', n, isl[n], n === 'Cliff1' || n === 'Cliff4' || n === 'Dock_Pole' ? CAP_CLIFF : CAP_PIECE, true);
     for (const n of KIT_MODELS.food) add('food', n, food[n], CAP_FOOD, true);
     for (const n of Object.keys(nat)) add('nature', n, nat[n], CAP_DECO, false);
     return true;
@@ -786,6 +810,19 @@ export class TrekSystem extends createSystem({}) {
         haptic('right', 0.8, 200);
         this.deco.clear();
         this.floorS0 = NaN;
+        break;
+      }
+      case 'cannon': {
+        // el barco dispara: fogonazo y humo en la boca del cañón, el estampido, y la bala sale hacia ti
+        const B = this.balls.find((x) => !x.p) ?? this.balls[0];
+        B.p = e.p;
+        B.gone = 0;
+        const at = this.muzzle(e.p, this.at), V = vfx();
+        V.flames(at, 10, 0.5, 0.5, PAL.fire, 0.4, 0, 0.5);
+        V.puffs(at, 10, 0.6, 1.6, PAL.smoke, 1.2, 0.6, 2.5, 0.8);
+        SND.explosion(at, true);
+        haptic('left', 0.3, 60);
+        haptic('right', 0.3, 60);
         break;
       }
       case 'settle':
@@ -989,6 +1026,7 @@ export class TrekSystem extends createSystem({}) {
         if (k + 2 < cuts.length) hs.push([b, 1e9]);
         const fl = this.floorAt((a + b) / 2);
         if (fl === 'sky') skyFloorPuts(a, b, hs, this.floor);
+        else if (fl === 'coast') coastFloorPuts(a, b, hs, this.floor);
         else if (fl === 'cliff') {
           this.narrow.length = 0;
           for (const p of R.pieces) if (p.k === 'ledge' && p.at + p.len > a && p.at < b) this.narrow.push([p.at, p.at + p.len]);
@@ -1009,7 +1047,7 @@ export class TrekSystem extends createSystem({}) {
         let L = this.deco.get(c);
         if (!L) {
           const fl = this.floorAt((c + 0.5) * TREK_CH);
-          L = fl === 'cliff' ? cliffDecoPuts(c, []) : fl === 'sky' ? skyDecoPuts(c, []) : decoPuts(c, [], this.biomeAt(c * TREK_CH));
+          L = fl === 'cliff' ? cliffDecoPuts(c, []) : fl === 'sky' ? skyDecoPuts(c, []) : fl === 'coast' ? coastDecoPuts(c, []) : decoPuts(c, [], this.biomeAt(c * TREK_CH));
           this.deco.set(c, L);
         }
         for (const u of L) this.put(u, u.ds, 0, 1);
@@ -1048,6 +1086,8 @@ export class TrekSystem extends createSystem({}) {
     this.ground.rotation.y = F.th;
     this.ground.position.x = -R.uShift; // (en una bifurcación, el césped también se desplaza: no patina bajo lo apoyado)
     this.groundTex.offset.set(F.x / GROUND_CELL, -F.z / GROUND_CELL);
+    const B = tramoBiome(this.biome, R.worldLen);
+    this.ocean.update(!LITE.on && this.floorAt(d) === 'coast', this.clock, F.x, F.z, F.th, -R.uShift, B.fog, B.dens, B.dusk);
     this.turnPano(PANO_FOLLOW * F.th);
   }
 
@@ -1106,6 +1146,8 @@ export class TrekSystem extends createSystem({}) {
         this.root.add(root);
         const mixer = new AnimationMixer(model), acts = new Map<string, AnimationAction>();
         for (const c of gltf.animations) acts.set(c.name, mixer.clipAction(c));
+      aliasClips(acts);
+        aliasClips(acts);
         this.rigs.push({ kind, root, model, mixer, acts, cur: '', p: null, act: 'live', t: 0, off: 0, dir: 1 });
       }
     }
@@ -1177,7 +1219,8 @@ export class TrekSystem extends createSystem({}) {
         this.clip(r, fly || hover ? 'Flying' : 'Idle');
       }
       // tras morderte se aparta a un lado (fuera de la pasarela: nunca lo atraviesas); el cíclope y el demonio ya están a un lado
-      if ((r.act === 'bite' || (r.act === 'live' && p.ok === false)) && r.kind !== 'quake' && r.kind !== 'fire' && r.kind !== 'dragon') r.off = Math.min(0.9, r.off + dt * 2);
+      // (el tiburón pirata, que llega por el centro, también se aparta tras su tajo, le des o no: nunca te atraviesa)
+      if ((r.act === 'bite' || (r.act === 'live' && p.ok === false) || ((r.kind === 'sharky' || r.kind === 'mako') && p.judged)) && r.kind !== 'quake' && r.kind !== 'fire' && r.kind !== 'dragon') r.off = Math.min(0.9, r.off + dt * 2);
       let k = 1, y = 0;
       if (fly) {
         // en picado: baja desde lo alto mientras se acerca, hasta la altura de tu cabeza al llegar; pasado (o tras picarte),
@@ -1397,6 +1440,48 @@ export class TrekSystem extends createSystem({}) {
     this.stepWaves(dt);
     for (const S of this.spits) this.stepSpit(S, dt);
     for (const S of this.fires) this.stepSpit(S, dt);
+    this.stepBalls(dt);
+  }
+
+  /** La boca del cañón del barco del cañonazo `p` (en la arena). */
+  private muzzle(p: Piece, out: Vector3): Vector3 {
+    return this.world3({ s: p.at + 3, u: p.side * (SHIP_U - 3), y: SEA_Y + 3.2 }, out);
+  }
+
+  /** Las balas de los cañonazos: van del barco hacia ti al paso que llega la pieza (llegan justo cuando te alcanza: la lógica
+   * la juzga entonces); la alta, en arco, a la altura de la cabeza; la baja, que baja enseguida y pasa a ras del muelle. Pasada,
+   * sigue hacia el otro lado y cae al mar. */
+  private stepBalls(dt: number): void {
+    const R = this.runner;
+    for (const B of this.balls) {
+      if (!GAME.paused) B.m.update(dt);
+      const p = B.p;
+      if (!p) continue;
+      if (GAME.phase !== 'playing' || GAME.between) {
+        B.p = null;
+        B.m.stop();
+        continue;
+      }
+      if (GAME.paused) continue;
+      looksTick();
+      const z = p.at - R.dist + head.p.z, k = Math.max(0, 1 - z / CANNON_AT);
+      this.muzzle(p, B.from);
+      // (a dónde va: a ti, a la altura de la cabeza o de los tobillos)
+      this.world3({ s: p.at, u: 0, y: p.n ? CANNON_LOW_Y : this.calibRef - p.h + 0.08 }, B.to);
+      B.pos.lerpVectors(B.from, B.to, k);
+      if (p.n) B.pos.y = B.to.y + (B.from.y - B.to.y) * Math.max(0, 1 - k / 0.55) ** 2; // (la baja: cae pronto y sigue a ras)
+      else B.pos.y += 1.6 * Math.sin(Math.PI * Math.min(1, k)); // (la alta, en arco)
+      B.m.fly(B.pos, dt, head.p);
+      // pasada, se va y cae al mar (salpica)
+      if (k > 1.35 || (p.judged && p.ok === false && (B.gone += dt) > 0.05)) {
+        if (p.judged && p.ok === false) B.m.hit(this.v.copy(B.from).sub(B.to).setLength(1.2).add(B.to));
+        else {
+          B.m.coast(0.3);
+          SND.splash(B.pos);
+        }
+        B.p = null;
+      }
+    }
   }
 
   /** La onda del cíclope (realista, pedido del usuario): el puñetazo levanta un anillo de polvo y piedras; la onda corre por la
@@ -1528,7 +1613,8 @@ export class TrekSystem extends createSystem({}) {
     }
     for (let i = n; i < this.portals.length; i++) this.portals[i].visible = false;
     // el mar de nubes, en el risco
-    this.sea.update(this.floorAt(R.dist) !== 'dock', this.clock, tramoBiome(this.biome, R.worldLen).fog);
+    const fl = this.floorAt(R.dist);
+    this.sea.update(fl === 'cliff' || fl === 'sky', this.clock, tramoBiome(this.biome, R.worldLen).fog);
     // el destello
     const fm = this.flash.material as MeshBasicMaterial;
     if (this.flashT > 0) {

@@ -1243,3 +1243,49 @@ describe('la Travesía de plataformas: las islas en el cielo', () => {
     }
   });
 });
+
+describe('la Travesía de plataformas: la costa pirata', () => {
+  it('el cuarto mundo: cañonazos y piratas (tiburones y esqueletos), y el Capitán; sin setas, demonios ni túneles', () => {
+    const s = new Sim({ trekWorld: 1 });
+    for (let i = 0; i < 5; i++) s.r.addTramo(i, 220);
+    const P = s.r.pieces.filter((p) => p.tramo === 3);
+    expect(P.find((p) => p.k === 'boss')?.n).toBe(3);
+    expect(P.some((p) => p.k === 'cannon')).toBe(true);
+    expect(P.some((p) => ['foe', 'fire', 'quake', 'crawl', 'fork'].includes(p.k))).toBe(false);
+    for (const p of P) if (p.k === 'dive') expect(p.n).toBeGreaterThanOrEqual(2); // (el tiburón pirata)
+    // fuera de la costa, ni cañonazos ni piratas; y pasada la costa, vuelta al bosque (sin cañonazos)
+    for (const p of s.r.pieces) if (p.tramo !== 3) {
+      expect(p.k).not.toBe('cannon');
+      if (p.k === 'dive') expect(p.n).toBeLessThan(2);
+      if (p.k === 'side') expect(p.n).toBe(0);
+    }
+  });
+
+  it('la bala alta del cañonazo: el barco dispara antes de llegar; agachado, pasa por encima', () => {
+    for (const bien of [true, false]) {
+      const s = new Sim({ trekWorld: 1 });
+      const C = mk(1, 'cannon', 40, 3, { side: 1, n: 0, h: 0.3 });
+      s.load(course([C, mk(2, 'chest', 140, 3)]));
+      expect(s.squatsTo(C, 2.5)).toBe(true);
+      expect(s.of('cannon')).toHaveLength(1);
+      if (bien) s.duck(C.h + 0.03, () => C.judged);
+      else s.until(() => C.judged, 72 * 20);
+      expect(C.ok).toBe(bien);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+      expect(lifeEv(s)).toBe(false);
+    }
+  });
+
+  it('la bala baja del cañonazo: pasa a ras del muelle; saltándola, bien', () => {
+    for (const bien of [true, false]) {
+      const s = new Sim({ trekWorld: 1 });
+      const C = mk(1, 'cannon', 40, 3, { side: -1, n: 1, h: 0 });
+      s.load(course([C, mk(2, 'chest', 140, 3)]));
+      expect(s.squatsTo(C, 0.5)).toBe(true);
+      if (bien) s.jump();
+      expect(s.until(() => C.judged, 72 * 5)).toBe(true);
+      expect(C.ok).toBe(bien);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+    }
+  });
+});

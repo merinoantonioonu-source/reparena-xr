@@ -37,7 +37,7 @@ import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { PORTAL_AT, worldNo, WORLD_LEN, WORLDS } from './worlds.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -508,7 +508,7 @@ export class Runner {
   private spit(dt: number): void {
     const d = this.tk.dist, H = this.env.head, v = Math.max(0, this.tk.v);
     for (const p of this.live) {
-      if (p.k !== 'side' || p.judged || p.spat || !p.woke) continue;
+      if (p.k !== 'side' || p.n || p.judged || p.spat || !p.woke) continue; // (el esqueleto pirata no escupe)
       const z = p.at + p.walk - d + H.z;
       if (z < SPIT_NEAR) p.spat = true; // (ya cerca: nunca)
       if (z > SPIT_FAR || p.spat || !this.spitFree(p, SPIT_FREE + v * 1.3)) continue;
@@ -677,9 +677,9 @@ export class Runner {
   /** El juicio de una fluida; `z`, lo que le falta para llegar a tu cabeza (m). */
   private judge(p: Piece, z: number): void {
     const M = this.moves, C = this.cfg, v = this.tk.v;
-    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box' || p.k === 'spring' || p.k === 'fork' || p.k === 'dive' || p.k === 'skull' || p.k === 'ledge' || p.k === 'gust' || p.k === 'bob' || p.k === 'sink';
+    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box' || p.k === 'spring' || p.k === 'fork' || p.k === 'dive' || p.k === 'skull' || p.k === 'ledge' || p.k === 'gust' || p.k === 'bob' || p.k === 'sink' || p.k === 'cannon';
     // (el túnel, con más tiempo: hay que echarse al suelo; el cíclope y el demonio, antes de su ataque)
-    const warnAt = p.k === 'quake' ? QUAKE_AT + 4 : p.k === 'rockfall' ? Math.max(10, (v + 0.2) * ROCKFALL_T + 6) : p.k === 'fire' ? FIRE_AT + 4 : p.k === 'crawl' || p.k === 'glide' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
+    const warnAt = p.k === 'cannon' ? CANNON_AT + 2 : p.k === 'quake' ? QUAKE_AT + 4 : p.k === 'rockfall' ? Math.max(10, (v + 0.2) * ROCKFALL_T + 6) : p.k === 'fire' ? FIRE_AT + 4 : p.k === 'crawl' || p.k === 'glide' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
     if (!p.warned && z < warnAt) {
       p.warned = true;
       this.ask(p, true);
@@ -752,8 +752,29 @@ export class Runner {
       return;
     }
     if (p.k === 'dive') {
-      // la abeja o el murciélago en picado: cuando llega a tu cabeza, agachado (como bajo una viga)
+      // la abeja o el murciélago en picado (en la costa, el tiburón pirata y su tajo alto): cuando llega a tu cabeza,
+      // agachado (como bajo una viga)
       if (z < 0.1) this.result(p, M.under(p.h));
+      return;
+    }
+    if (p.k === 'cannon') {
+      // el cañonazo: el barco dispara a CANNON_AT m (la bala llega cuando la pieza llega a ti); la alta, agachado, como bajo
+      // una viga; la baja, que rueda por el muelle, en el aire al pasar (como un tronco)
+      if (!p.woke && z < CANNON_AT) {
+        p.woke = true;
+        this.ev.push({ t: 'cannon', p });
+        this.say(p.n ? '¡Bala baja! Sáltala' : '¡Bala alta! Agáchate', COL_ASK, 1.4, false);
+      }
+      if (!p.n) {
+        if (z < 0.1) this.result(p, M.under(p.h));
+        return;
+      }
+      const win = Math.max(LOG_WIN, LOG_WIN_S * v);
+      if (Math.abs(z) < win) {
+        p.maxUp = Math.max(p.maxUp, M.up);
+        if (M.air) p.fast = true;
+      }
+      if (z < -win) this.result(p, p.maxUp >= C.jumpH && p.fast);
       return;
     }
     if (p.k === 'skull') {
@@ -908,18 +929,22 @@ export class Runner {
   private result(p: Piece, ok: boolean): void {
     p.judged = true;
     p.ok = ok;
-    const at = this.pos(p, p.k === 'quake' ? -Math.max(0, p.fx) : p.walk, p.k === 'low' || p.k === 'dive' ? this.env.calibRef + HEAD_TOP - p.h : 0.3);
+    const at = this.pos(p, p.k === 'quake' ? -Math.max(0, p.fx) : p.walk, p.k === 'low' || p.k === 'dive' || (p.k === 'cannon' && !p.n) ? this.env.calibRef + HEAD_TOP - p.h : 0.3);
     if (ok) {
       this.passed++;
       this.ev.push({ t: 'pass', p });
-      this.score(p.k === 'log' || p.k === 'dive' || p.k === 'skull' ? 150 : p.k === 'quake' ? 180 : p.k === 'side' ? CRAB_PTS : 120);
+      this.score(p.k === 'cannon' ? 160 : p.k === 'log' || p.k === 'dive' || p.k === 'skull' ? 150 : p.k === 'quake' ? 180 : p.k === 'side' ? CRAB_PTS : 120);
       this.snd('whoosh', at, 'arc');
-      this.cheer(p.k === 'log' ? '¡Saltado!' : p.k === 'low' ? '¡Esquivada!' : p.k === 'dive' ? '¡Picado esquivado!' : p.k === 'skull' ? '¡Calavera saltada!' : p.k === 'quake' ? '¡Onda saltada!' : p.k === 'rockfall' ? '¡Desprendimiento esquivado!' : '¡Cangrejo esquivado!', COL_OK, 0.9);
+      this.cheer(p.k === 'cannon' ? '¡Bala esquivada!' : isPirate(p) ? (p.k === 'dive' ? '¡Tajo esquivado!' : '¡Esqueleto esquivado!') : p.k === 'log' ? '¡Saltado!' : p.k === 'low' ? '¡Esquivada!' : p.k === 'dive' ? '¡Picado esquivado!' : p.k === 'skull' ? '¡Calavera saltada!' : p.k === 'quake' ? '¡Onda saltada!' : p.k === 'rockfall' ? '¡Desprendimiento esquivado!' : '¡Cangrejo esquivado!', COL_OK, 0.9);
       return;
     }
     this.tk.v *= HIT_KEEP;
     this.hit(p, at);
     const away = p.side < 0 ? 'derecha' : 'izquierda';
+    if (p.k === 'cannon' || isPirate(p)) {
+      this.say(p.k === 'cannon' ? (p.n ? '¡Te ha dado la bala! Salta la que rueda' : '¡Te ha dado la bala! Agáchate con la alta') : p.k === 'dive' ? '¡Te ha dado con la espada! Agáchate' : `¡Te ha dado el esqueleto! Apártate a la ${away}`, COL_WARN, 1.6, true);
+      return;
+    }
     if (p.k === 'dive' || p.k === 'skull' || p.k === 'quake' || p.k === 'rockfall') {
       this.say(p.k === 'rockfall' ? `¡Te han dado las rocas! Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}` : p.k === 'dive' ? `¡Te ha ${p.n % 2 ? 'mordido' : 'picado'}! Agáchate cuando baje en picado` : p.k === 'skull' ? '¡Salta la calavera!' : '¡Salta la onda del cíclope!', COL_WARN, 1.6, true);
       return;
@@ -1311,9 +1336,11 @@ export class Runner {
     else if (p.k === 'fruit') this.say(`¡${p.special ? 'Fruta especial' : 'Fruta'} a la ${p.side < 0 ? 'izquierda' : 'derecha'}!`, COL_ASK, 1.2, false);
     else if (p.k === 'log') this.say('¡Salta!', COL_ASK, 1.2, false);
     else if (p.k === 'low') this.say('¡Agáchate!', COL_ASK, 1.2, false);
+    else if (p.k === 'side' && p.n) this.say(`¡Un esqueleto pirata a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}`, COL_ASK, 1.6, false);
     else if (p.k === 'side') this.say(`¡Un cangrejo a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}`, COL_ASK, 1.6, false);
     else if (p.k === 'foe') this.say('¡Una seta! Sáltale encima cuando llegue', COL_ASK, 1.6, false);
-    else if (p.k === 'dive') this.say(`¡${p.n % 2 ? 'Un murciélago' : 'Una abeja'} en picado! Agáchate`, COL_ASK, 1.6, false);
+    else if (p.k === 'dive') this.say(isPirate(p) ? '¡Un tiburón pirata! Agáchate cuando tire el tajo' : `¡${p.n % 2 ? 'Un murciélago' : 'Una abeja'} en picado! Agáchate`, COL_ASK, 1.6, false);
+    else if (p.k === 'cannon') this.say(`¡Cañonazo desde el barco, a la ${p.side < 0 ? 'izquierda' : 'derecha'}!`, COL_ASK, 1.6, false);
     else if (p.k === 'skull') this.say('¡Una calavera botando! Sáltala', COL_ASK, 1.6, false);
     else if (p.k === 'quake') this.say(`¡Un cíclope a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Va a golpear el suelo: salta su onda`, COL_ASK, 2, false);
     else if (p.k === 'fire') this.say(`¡Un demonio a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Esquiva su bola de fuego con un paso`, COL_ASK, 2, false);
