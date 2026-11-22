@@ -23,7 +23,7 @@
  */
 import { trekRng, TREK_CH } from '../path.js';
 import { HEAD_TOP } from '../env.js';
-import { LEDGE_W, BOX_CLEAR, FORK_RAMP, FORK_U, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, SPRING_LIFT, type Piece } from './types.js';
+import { SHIP_U, LEDGE_W, BOX_CLEAR, FORK_RAMP, FORK_U, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, SPRING_LIFT, type Piece } from './types.js';
 
 export type Kit = 'island' | 'nature' | 'food';
 
@@ -76,7 +76,7 @@ export const DOCK_LEN = DK.z1 - DK.z0;
 
 /** Todos los nombres de modelo que usa este archivo, por kit (el sistema que pinta los carga de aquí). */
 export const KIT_MODELS: Record<Kit, string[]> = {
-  island: ['Dock', 'Dock_Broken', 'Dock_Pole', 'Barrel', 'Chest_Closed', 'Chest_Gold', 'Cliff1', 'Cliff3', 'Cliff4', 'Rock_2', 'Rock_3', 'Rock_4', 'Rock_5'],
+  island: ['Dock', 'Dock_Broken', 'Dock_Pole', 'Barrel', 'Chest_Closed', 'Chest_Gold', 'Cliff1', 'Cliff3', 'Cliff4', 'Rock_1', 'Rock_2', 'Rock_3', 'Rock_4', 'Rock_5', 'PalmTree_1', 'PalmTree_2', 'PalmTree_3', 'LargeBones', 'Skulls', 'ShipLarge', 'Bottle_1'],
   nature: [
     'CommonTree_3', 'CommonTree_4', 'CommonTree_5', 'Pine_2', 'Pine_4', 'Pine_5', 'DeadTree_1', 'DeadTree_2',
     'Bush_Common', 'Bush_Common_Flowers', 'Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3',
@@ -276,6 +276,52 @@ export function cliffDecoPuts(chunk: number, out: Put[]): Put[] {
   return out;
 }
 
+/** La costa: a qué altura está el mar (m, bajo las tablas; el mismo que pinta `Sea`) y el centro del barco a lo largo de su
+ * casco (el modelo no está centrado: m). */
+export const SEA_Y = -1.55;
+const SHIP_X = 1.8;
+
+/** El muelle de la costa de `s0` a `s1`: el de tablas (`floorPuts`) y, bajo cada trozo, dos postes que bajan hasta el mar. */
+export function coastFloorPuts(s0: number, s1: number, holes: ReadonlyArray<readonly [number, number]>, out: Put[]): Put[] {
+  const n0 = out.length;
+  floorPuts(s0, s1, holes, out);
+  for (let i = n0, n = out.length; i < n; i++) {
+    const P = out[i], mid = P.ds - ((DK.z0 + DK.z1) / 2) * P.sz;
+    for (const u of [-DOCK_W / 2 + 0.12, DOCK_W / 2 - 0.12]) out.push(standPole(mid, u, SEA_Y - 0.8, 0.75 - SEA_Y, 0.75));
+  }
+  return out;
+}
+
+/** El paisaje de la costa en el trozo `chunk`: islotes de roca con palmeras (alguno con huesos de ballena o calaveras),
+ * barriles y botellas flotando junto al muelle, postes de un muelle viejo y, de vez en cuando, un barco pirata a lo lejos. */
+export function coastDecoPuts(chunk: number, out: Put[]): Put[] {
+  const R = trekRng((Math.imul(chunk | 0, 0x2545f491) ^ 0x6a09e667) >>> 0), s0 = chunk * TREK_CH;
+  const between = (a: number, b: number): number => a + R() * (b - a);
+  const side = (): -1 | 1 => (R() < 0.5 ? -1 : 1);
+  // los islotes con palmeras
+  const n = 1 + Math.floor(R() * 2);
+  for (let i = 0; i < n; i++) {
+    const u = side() * between(7, 22), ds = s0 + ((i + R()) / n) * TREK_CH, w = between(4, 8), top = SEA_Y + between(0.3, 0.7);
+    out.push(rockFit('island', 'Rock_1', u - w / 2, u + w / 2, SEA_Y - 1.2, top, ds - w / 2, ds + w / 2, R() < 0.5));
+    const palms = 1 + Math.floor(R() * 3);
+    for (let j = 0; j < palms; j++) {
+      const sc = between(1.1, 1.6);
+      out.push(put('island', `PalmTree_${1 + Math.floor(R() * 3)}`, ds + between(-w, w) * 0.25, u + between(-w, w) * 0.25, top - 0.15, { ry: R() * 6.28, sx: sc, sy: sc, sz: sc }));
+    }
+    if (R() < 0.35) out.push(put('island', R() < 0.6 ? 'LargeBones' : 'Skulls', ds, u, top - 0.1, { ry: R() * 6.28, sx: 0.45, sy: 0.45, sz: 0.45 }));
+  }
+  // barriles y botellas flotando cerca del muelle, y postes sueltos de un muelle viejo
+  for (let i = 0; i < 3; i++) {
+    const ds = between(s0, s0 + TREK_CH), u = side() * between(2.2, 5);
+    if (R() < 0.5) out.push(put('island', 'Barrel', ds, u, SEA_Y - 0.25, { rx: R() * 0.6, ry: R() * 6.28, sx: 0.8, sy: 0.8, sz: 0.8 }));
+    else if (R() < 0.5) out.push(put('island', 'Bottle_1', ds, u, SEA_Y - 0.1, { rz: 1.3, ry: R() * 6.28 }));
+    else out.push(standPole(ds, side() * between(3, 8), SEA_Y - 0.8, 0.8 + between(0.4, 1.6), 0.8));
+  }
+  // un barco pirata a lo lejos, de vez en cuando
+  if (R() < 0.3) out.push(put('island', 'ShipLarge', between(s0, s0 + TREK_CH), side() * between(45, 75), SEA_Y + 0.8, { ry: R() * 6.28 }));
+  return out;
+}
+
 /* ------------------------------------------------------------------ las piezas */
 
 /** Un `Dock_Pole` de pie: de `y0` a `y0 + len` (m), con grosor `th` (escala en x y z). */
@@ -293,6 +339,7 @@ function layPole(ds: number, u: number, bottom: number, len: number, th: number)
 
 /** Cajas de los modelos (a escala 1; vértices del .glb, con la escala y el giro de su nodo): [x0, y0, z0, x1, y1, z1]. */
 const BOX: Record<string, readonly [number, number, number, number, number, number]> = {
+  Rock_1: [-0.35, -0.24, -0.32, 0.34, 0.35, 0.33],
   Cliff1: [-2.5561, -0.482, -2.4228, 3.0647, 2.482, 2.9854],
   Cliff3: [-3.403, -0.4568, -3.4319, 3.4452, 5.712, 2.5046],
   Cliff4: [-3.3744, -0.2529, -3.6979, 3.9956, 5.2705, 3.4144],
@@ -478,6 +525,11 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       out.push(fruitPut(name, p.special ? FRUIT_SIZE_SPECIAL : FRUIT_SIZE, p.side * FRUIT_U, ref));
       break;
     }
+    case 'cannon':
+      // el barco pirata que dispara, a su lado del muelle, de costado (su largo, a lo largo del sendero); la bala la pinta el
+      // sistema
+      out.push(put('island', 'ShipLarge', 4 + SHIP_X, p.side * SHIP_U, SEA_Y + 0.8, { ry: p.side < 0 ? Math.PI / 2 : -Math.PI / 2 }));
+      break;
     default:
       break; // floor, drop y gems: no se usan (las gemas del plan son las frutas)
   }

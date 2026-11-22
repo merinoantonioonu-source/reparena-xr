@@ -37,19 +37,20 @@ export type PieceKind =
   | 'rockfall' // el risco: un desprendimiento, rocas que caen de lo alto a un lado del camino: apartarse al otro (fluido)
   | 'bob' // las islas: un hueco con la orilla de enfrente en un islote que sube y baja: saltar cuando está a ras (fluido)
   | 'sink' // las islas: un islote que se hunde al pisarlo: cruzarlo sin pararse (fluido)
+  | 'cannon' // la costa: un cañonazo desde el barco (a un lado, `side`): la bala alta (`n` 0), agacharse; la baja (`n` 1), rodando por el muelle, saltar (fluido)
   | 'boss' // el jefe del mundo, al final de cada mundo («Tramos por mundo») y antes del cofre (paso): esquivar y supersalto encima
   | 'chest'; // fin del tramo (paso)
 
 /** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
  * si fallas, chocas o tropiezas (frenas y pierdes la racha, sin perder vidas, y sigues). El hueco también: si no saltas a
  * tiempo, tropiezas al cruzarlo (nunca se cae). */
-export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork', 'dive', 'skull', 'quake', 'fire', 'ledge', 'gust', 'rockfall', 'bob', 'sink'];
+export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork', 'dive', 'skull', 'quake', 'fire', 'ledge', 'gust', 'rockfall', 'bob', 'sink', 'cannon'];
 /** Los pasos: el mundo frena suave y te para a `STOP_AT` (solo el cofre, al acabar el tramo). */
 export const HALT: readonly PieceKind[] = ['chest', 'boss'];
 /** Los que se cruzan saltando (entre dos seguidos, al menos `JUMP_GAP_S` a velocidad máxima). */
 export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'box', 'glide', 'spring', 'skull', 'quake', 'bob'];
-/** ¿Se cruza saltando? (las de `JUMPS` y la fruta dorada, que flota alta en el centro) */
-export const isJump = (p: Piece): boolean => JUMPS.includes(p.k) || (p.k === 'fruit' && p.gold);
+/** ¿Se cruza saltando? (las de `JUMPS`, la fruta dorada, que flota alta en el centro, y la bala baja del cañonazo) */
+export const isJump = (p: Piece): boolean => JUMPS.includes(p.k) || (p.k === 'fruit' && p.gold) || (p.k === 'cannon' && p.n === 1);
 /** Los de suelo (tras ellos, `FLOOR_UP_S` para levantarse antes de otra cosa; salvo la plataforma de un burpee, que llega
  * `BURPEE_GAP_S` después del túnel). */
 export const FLOORS: readonly PieceKind[] = ['crawl'];
@@ -86,6 +87,7 @@ export const BOSSES = [
   { asset: 'foe-yeti', name: 'el Yeti', voice: 'yeti', nat: 1.67 },
   { asset: 'foe-greendemon', name: 'el Demonio verde', voice: 'greendemon', nat: 1.62 },
   { asset: 'foe-alientall', name: 'el Alien alto', voice: 'alientall', nat: 2.11 },
+  { asset: 'foe-captain', name: 'el Capitán', voice: 'captain', nat: 1.85 },
 ] as const;
 /** ¿Acaba el tramo `t` (desde 0) con el jefe del mundo? Y cuál es (índice de BOSSES). */
 export const bossTramo = (t: number, n = BOSS_EVERY): boolean => worldEnd(t, n);
@@ -126,6 +128,13 @@ export function bobY(p: Pick<Piece, 'id'>, t: number): number {
   const s = Math.sin((2 * Math.PI * t) / BOB_T + p.id * 1.7);
   return BOB_AMP * s * s * s;
 }
+/** La costa pirata. El cañonazo: dónde está el barco que dispara (m a un lado del muelle), cuándo dispara (m de tu cabeza)
+ * y la bala baja, a qué altura rueda (m). Los enemigos de la costa son los piratas: el tiburón pirata (el picado, `dive`, con
+ * `n` 2 o 3: llega corriendo y tira un tajo alto, agacharse) y el esqueleto pirata (el de un lado, `side`, con `n` 1: tira un
+ * tajo, apartarse; no escupe). */
+export const SHIP_U = 26, CANNON_AT = 16, CANNON_LOW_Y = 0.25;
+/** ¿Es un pirata (tiburón o esqueleto) en vez del bicho de siempre? */
+export const isPirate = (p: Pick<Piece, 'k' | 'n'>): boolean => (p.k === 'dive' && p.n >= 2) || (p.k === 'side' && p.n === 1);
 export const CLIFF_WALL = -1, LEDGE_MIN = 5, LEDGE_MAX = 9, GUST_MIN = 5, GUST_MAX = 8, LEAN_K = 0.6, LEDGE_W = 0.7, ROCKFALL_AT = 9, ROCKFALL_T = 1.1;
 export const ASIDE_U = 1.7, QUAKE_AT = 8, QUAKE_WIND = 0.5, QUAKE_V = 5, QUAKE_WIN = 0.5, FIRE_AT = 11, FIRE_WIND = 0.5, FIRE_DUR = 1.3, FIRE_R = 0.3;
 /** El escupitajo del cangrejo (pedido del usuario): lo lanza una vez, solo desde lejos (cuando te queda entre `SPIT_NEAR` y
@@ -361,6 +370,8 @@ export type PlatEv =
    * empieza a hundirse (lo pisas). */
   | { t: 'settle'; p: Piece; y: number }
   | { t: 'sinking'; p: Piece }
+  /** La costa: el barco dispara la bala del cañonazo `p` (llega a ti cuando la pieza llega a tu cabeza). */
+  | { t: 'cannon'; p: Piece }
   /** Has cruzado el portal: otro mundo (su número desde 0). */
   | { t: 'world'; w: number };
 

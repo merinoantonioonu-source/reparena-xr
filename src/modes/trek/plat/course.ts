@@ -19,7 +19,7 @@
  * Lógica pura, sin IWSDK.
  */
 import { worldOf, WORLDS, type World } from './worlds.js';
-import { BOB_CRACK, BOB_ISLE, SINK_MAX, SINK_MIN, CLIFF_WALL, GUST_MAX, GUST_MIN, LEDGE_MAX, LEDGE_MIN, ROCKFALL_AT, FIRE_AT, QUAKE_AT, WALKERS, BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
+import { isPirate, BOB_CRACK, BOB_ISLE, SINK_MAX, SINK_MIN, CLIFF_WALL, GUST_MAX, GUST_MIN, LEDGE_MAX, LEDGE_MIN, ROCKFALL_AT, FIRE_AT, QUAKE_AT, WALKERS, BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
 
 /** Las clases de la lista de cada tramo: la primera, lo básico (el tronco, la viga y el hueco); desde el segundo, también
  * la fruta, la plataforma alta y la seta (que se pisa); desde el tercero, el túnel, el burpee y el cangrejo (que se esquiva
@@ -179,7 +179,8 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     } else if (k === 'dive') {
       // en picado: hay que agacharse lo de una viga baja; la abeja o el murciélago, al azar
       const h = clamp(T.duck + 0.015 * tramo + rand(0, 0.04), T.duck, T.duck + TUNE_UP.duck);
-      seg.push(piece(id, k, 0, tramo, { h, n: env.rnd() < 0.5 ? 0 : 1 }));
+      // (en la costa, el tiburón pirata, el de siempre o el gris: `n` 2 o 3)
+      seg.push(piece(id, k, 0, tramo, { h, n: (W.key === 'coast' ? 2 : 0) + (env.rnd() < 0.5 ? 0 : 1) }));
     } else if (k === 'quake' || k === 'fire') {
       // el cíclope y el demonio, a un lado al azar (en las islas, el demonio es un dragón que vuela: `n` = 1)
       seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1, n: k === 'fire' && W.key === 'sky' ? 1 : 0 }));
@@ -200,8 +201,13 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
       // el desprendimiento: las rocas caen a un lado del camino (hay que estar en el otro)
       seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1 }));
     } else if (k === 'side') {
-      // el cangrejo, pegado a un lado al azar (hay que apartarse al otro)
-      seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1 }));
+      // el cangrejo, pegado a un lado al azar (hay que apartarse al otro); en la costa, a veces un esqueleto pirata (`n` 1)
+      const side: -1 | 1 = env.rnd() < 0.5 ? -1 : 1;
+      seg.push(piece(id, k, 0, tramo, { side, n: W.key === 'coast' && env.rnd() < 0.5 ? 1 : 0 }));
+    } else if (k === 'cannon') {
+      // el cañonazo: el barco, a un lado al azar; la bala alta (agacharse lo de una viga) o la baja (saltarla)
+      const high = env.rnd() < 0.5, h = high ? clamp(T.duck + 0.015 * tramo + rand(0, 0.04), T.duck, T.duck + TUNE_UP.duck) : 0;
+      seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1, n: high ? 0 : 1, h }));
     } else if (k === 'fruit') {
       const side: -1 | 1 = env.rnd() < 0.5 ? -1 : 1;
       const f = piece(id, k, 0, tramo, { side });
@@ -289,6 +295,12 @@ export function courseRules(pieces: Piece[], vmax: number, tune: PlatTune = TUNE
     if ((p.k === 'ledge' || p.k === 'gust' || p.k === 'rockfall') && worldOf(p.tramo, worldLen).key !== 'cliff') out.push(`La pieza ${p.id} (${p.k}) sale fuera del risco`);
     if (p.k === 'fork' && worldOf(p.tramo, worldLen).key === 'cliff') out.push(`La bifurcación ${p.id} sale en el risco`);
     if ((p.k === 'bob' || p.k === 'sink') && worldOf(p.tramo, worldLen).key !== 'sky') out.push(`La pieza ${p.id} (${p.k}) sale fuera de las islas`);
+    const coast = worldOf(p.tramo, worldLen).key === 'coast';
+    if (p.k === 'cannon' && !coast) out.push(`El cañonazo ${p.id} sale fuera de la costa`);
+    if (p.k === 'cannon' && ((p.side !== -1 && p.side !== 1) || (p.n !== 0 && p.n !== 1) || (p.n === 0 && (p.h < T.duck - eps || p.h > T.duck + TUNE_UP.duck + eps)))) out.push(`El cañonazo ${p.id} está mal hecho (lado ${p.side}, bala ${p.n}, ${p.h.toFixed(2)} m)`);
+    if (coast && (['fork', 'crawl', 'quake', 'foe', 'fire'] as PieceKind[]).includes(p.k)) out.push(`La pieza ${p.id} (${p.k}) sale en la costa`);
+    if (isPirate(p) && !coast) out.push(`El pirata ${p.id} (${p.k}) sale fuera de la costa`);
+    if (coast && p.k === 'dive' && !isPirate(p)) out.push(`El picado ${p.id} de la costa no es un tiburón pirata`);
     if (worldOf(p.tramo, worldLen).key === 'sky' && (['fork', 'crawl', 'side', 'quake'] as PieceKind[]).includes(p.k)) out.push(`La pieza ${p.id} (${p.k}) sale en las islas`);
     if (p.k === 'sink' && (p.len < SINK_MIN - eps || p.len > SINK_MAX + eps)) out.push(`El islote que se hunde ${p.id} mide ${p.len.toFixed(2)} m`);
     if (p.k === 'bob' && (p.len < T.gap - eps || p.len > T.gap + TUNE_UP.gap + eps)) out.push(`El hueco del islote ${p.id} mide ${p.len.toFixed(2)} m`);

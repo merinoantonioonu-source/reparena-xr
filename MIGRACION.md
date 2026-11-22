@@ -423,6 +423,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   una grieta (`BOB_CRACK`) que lo separa del camino; lo alto, `bobY(p, Runner.time)` (el mismo reloj en la lógica y en lo que
   se ve) y, al despegar, el suceso `settle` lo deja quieto a ras. El dragón es la pieza `fire` con `n = 1` (la pone
   `buildCourse` en las islas). Los trozos de roca no se alargan junto a un hueco (`rockSegs`): si no, la losa lo tapaba.
+- **La costa pirata** (cuarto mundo): el mar es un plano con su sombreador (`sea.ts`) cuyo dibujo corre y gira con el mundo
+  como el césped (`uOff` y el giro del plano); su altura, `SEA_Y` (pieces.ts). El cañonazo (`cannon`, `n` 0 alta, 1 baja) se
+  juzga como una viga o un tronco; la bala va del barco hacia ti al paso al que llega la pieza (`stepBalls`), así que llega
+  justo cuando se juzga. Los piratas reutilizan el picado (`dive`, `n` 2/3: el tiburón pirata) y el de un lado (`side`, `n` 1:
+  el esqueleto, que no escupe); sus animaciones y las del Capitán se llaman distinto (`Sword`, `HitReact`): `CLIP_ALIAS`.
 
 - **`.npmrc` con `onnxruntime-node-install-cuda=skip`** (desde el 18/11/2026): `onnxruntime-node` (lo trae `@iwsdk/reference`, para
   el ordenador del desarrollador; el juego no lo usa) intentaba descargar al instalarse su versión para tarjetas NVIDIA desde
