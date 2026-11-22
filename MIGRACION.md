@@ -411,6 +411,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Los tramos de cada mundo** salen de `worldLenFor(trekWorld, tramos de la partida)` (`worlds.ts`): en una partida que no da
+  para pasar de mundo, se reparten. Lo usan la marcha (`Runner.worldLen`) y el panel entre tramos (`game.ts`); no leas
+  `trekWorld` a pelo.
+
 - **Avisos cortos** (`src/ui/short-msg.ts`): un aviso nuevo largo, con su forma corta en `EXACT` (o en `RULES`, si lleva un
   dato); los detectores no se tocan (los comparan con RepArena). El aviso del suelo no sale con la cabeza a menos de 0,9 m
   (`FLOOR_WARN_MIN_Y`) ni con un menú abierto; el breve mide `TOAST_W × TOAST_H` (`src/ui/view-panels.ts`).

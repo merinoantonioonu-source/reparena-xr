@@ -117,6 +117,9 @@ No las cambies sin preguntarle.
   brillante con un remolino; al cruzarlo, destello blanco y el aviso «MUNDO 2 · El risco»). Cada mundo, su suelo, sus paisajes,
   sus retos propios y su jefe. El orden lo eligió la IA (el usuario le dejó elegir): **el bosque** (la pasarela de siempre),
   **el risco**, las islas en el cielo y la costa pirata.
+  **En una partida corta** (opción A del usuario, en todos los ejercicios): si la partida no tiene más tramos que «Tramos por
+  mundo» (acabaría en el cofre del jefe, antes del portal, y nunca se pasaría de mundo), los tramos se reparten para ver
+  varios mundos, hasta los cuatro (con 3 tramos, uno por mundo: bosque, risco e islas, cada uno con su jefe).
 - Travesía de plataformas, **el risco** (el segundo mundo, propuesto y aprobado): un sendero de roca pegado a una pared de
   montaña, con el vacío a la derecha y un mar de nubes muy abajo (los riscos lejanos salen de él; la foto de fondo, de montaña).
   Sus retos: la **cornisa** (el camino se estrecha: pegarse a la pared, a la izquierda, mientras dure), las **rachas de viento**

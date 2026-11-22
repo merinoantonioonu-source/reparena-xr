@@ -10,7 +10,7 @@
 // - el paso a un lado se puede repetir hacia el otro lado (el centro no se pierde).
 import { describe, expect, it } from 'vitest';
 import { BEHIND, BOUNCE_LIFT, CHEST_PTS, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, STOMP_PTS, SUPER_K, TREASURE_PTS } from '../../src/modes/trek/plat/runner.js';
-import { PORTAL_AT } from '../../src/modes/trek/plat/worlds.js';
+import { PORTAL_AT, worldLenFor } from '../../src/modes/trek/plat/worlds.js';
 import { BOB_T, FIRE_AT, QUAKE_AT, BOSS_HP, BOSS_LEN, BOSS_STEP, BOSS_THROWS, BOSS_WIND, glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece as mk, Sim } from './plat-sim.js';
 import type { Piece } from '../../src/modes/trek/plat/types.js';
@@ -1488,5 +1488,29 @@ describe('la Travesía de plataformas en zancada', () => {
     s.head.z = -0.17;
     s.frame();
     expect(s.r.dashT).toBeGreaterThan(0);
+  });
+});
+
+describe('los mundos en una partida corta (opción A del usuario)', () => {
+  it('si la partida no da para pasar de mundo, se reparten los tramos para ver varios', () => {
+    expect(worldLenFor(3, 3)).toBe(1); // (3 tramos: bosque, risco e islas)
+    expect(worldLenFor(3, 2)).toBe(1);
+    expect(worldLenFor(5, 5)).toBe(2); // (5 tramos: 2, 2 y 1)
+    expect(worldLenFor(3, 1)).toBe(1);
+    // con más tramos que «Tramos por mundo», o sin fin, el ajuste tal cual
+    expect(worldLenFor(3, 7)).toBe(3);
+    expect(worldLenFor(3, 0)).toBe(3);
+  });
+
+  it('en la marcha, con 3 tramos y «Tramos por mundo» en 3, cada tramo es un mundo con su jefe (también en plancha y zancada)', () => {
+    for (const ex of ['squat', 'pushup', 'lunge']) {
+      const s = new Sim({ trekWorld: 3, waves: 3 });
+      s.env.ex = ex;
+      expect(s.r.worldLen).toBe(1);
+      for (let i = 0; i < 3; i++) s.r.addTramo(i, 160);
+      const bosses = s.r.pieces.filter((p) => p.k === 'boss').map((p) => p.n);
+      expect(bosses).toEqual([1, 0, 2]); // (el Demonio verde, el Yeti y el Alien alto)
+      expect(s.r.pieces.some((p) => p.tramo === 1 && (p.k === 'ledge' || p.k === 'gust' || p.k === 'rockfall'))).toBe(true);
+    }
   });
 });
