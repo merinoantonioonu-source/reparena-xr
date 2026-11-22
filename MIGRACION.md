@@ -1127,6 +1127,13 @@ arregla, se quita el apaño.
   la pinza, sigue) y la hace `src/ui/solid-keys.ts` con las teclas medidas en cada panel (las que escuchan la pulsación; los
   elementos de UIKit están «invisibles» para Three: se mira `isVisible`), solo con el dedo que llega por delante. Cada tecla
   atiende una pulsación cada vez (`onPress`, `src/ui/press.ts`).
+- **El rayo de apuntar no lleva cámara y rompe con los sprites** (visto con el navegador de las Quest 157, el 22/11/2026): el
+  rayo de IWSDK (pmndrs/pointer-events) busca lo que toca con un `Raycaster` sin `camera`; el `Sprite` de Three la necesita,
+  avisa («Raycaster.camera needs to be set…») y lanza un error. En pleno fotograma, ese error paraba el bucle de dibujo de Three
+  (pide el fotograma siguiente después de pintar) y la imagen se quedaba congelada al entrar en VR, en cuanto el rayo pasaba por
+  el destello que señala el botón MENÚ de la muñeca. Apaño: `src/input/sprite-ray.ts` (sin cámara, el rayo no toca sprites:
+  ninguno es una tecla). Y, para cualquier otro error, `src/core/guard.ts`: cada sistema y el pintado van protegidos, el error
+  se apunta en el diagnóstico («ERROR en …», con dónde pasó) y el juego sigue.
 - **IWSDK vuelve a enseñar su mano en cada fotograma** (pone `model.visible`): para esconderla bajo los guantes, se esconde su
   piel por dentro, y solo mientras se pinta el guante de ese lado (`GLOVE_ON`).
 - **Los dibujos que cambian se suben con la imagen de las gafas abierta.** Con las dos vistas a la vez (multiview, en las

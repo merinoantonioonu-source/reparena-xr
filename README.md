@@ -229,12 +229,14 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/thumbs.ts` | El pulgar arriba y los botones del mando recién pulsados (saltar la carátula) |
 | `src/ui/fonts.ts` | Pone las letras de RepArena (con tildes) en los paneles |
 | `src/core/diag.ts`, `src/ui/diag-system.ts`, `src/ui/key-name.ts` | El registro de diagnóstico: los últimos 30 s de las manos, el rayo, las teclas y los tirones; se guarda al salir de la VR o desde la pausa, y la página lo copia o descarga |
+| `src/core/guard.ts` | Que un error no congele el juego: cada sistema y el pintado, protegidos; el error va al diagnóstico («ERROR en …») y se sigue |
 | `src/ui/fit.ts`, `src/ui/fit-text.ts` | Que las letras quepan en sus botones y cajas: encoge la que no cabe (la fila entera a la vez) en los paneles que se ven |
 | `src/ui/ra/` | Los menús de RepArena enteros (opción B del usuario): `kit.ts` (los paneles pintados y sus dibujos; el de cada tecla, solo si se pinta en él), `btn.ts` (las teclas planas y el deslizador, que se mueve sin repintarse), `poke.ts` (pulsar con el dedo: sólidas, pegadas, con imán), `menu-core.ts` (openMenu, los fondos que se reutilizan, el teclado de números, la «?», el atril, la muñeca y su botón MENÚ), `menus.ts` (el principal, Opciones, la pausa, el resumen y las cartas), `career-draw.ts` y `summary-draw.ts` (los dibujos de la carrera y del resumen) y `menu-system.ts` (cada fotograma, el rayo de IWSDK y la nitidez) |
 | `src/ui/fields.ts` | Lo que enseñan los menús de cada ajuste y lo que hace tocarlo, las pestañas y la ficha de la ronda, sin IWSDK |
 | `src/input/hand-system.ts` | Las manos y los mandos en cada fotograma (leídos como en RepArena, en `hands` y `head`), el cuerpo para las manos perdidas, la vibración y «Mandos como manos» |
 | `src/core/blackbox.ts`, `src/input/hand-probe.ts` | La caja negra de los ejercicios con pesas: los últimos 25 s del detector, fotograma a fotograma (lo que entra, lo que dicen las gafas de cada mano y lo que decide), guardada con el diagnóstico |
 | `src/input/hand-filter.ts` | La lectura de las manos de RepArena: el suavizado para pintarlas, los saltos imposibles, la mano perdida (su gesto o el cuerpo) y el filtro `HF` de las dos manos en la pesa |
+| `src/input/sprite-ray.ts` | Fallo de IWSDK: su rayo de apuntar no lleva cámara y rompía con los sprites (la imagen se congelaba); sin cámara, el rayo no los toca |
 | `src/input/hand-model.ts` | Lo que el juego sabe de cada mano (muñeca, articulaciones, pellizco, gatillo, agarre, rayo) y el puño |
 | `src/input/throw.ts` | La sacudida que lanza el rayo y el gatillo con mandos como manos (los de RepArena), sin IWSDK |
 | `src/input/gaze-lock.ts`, `src/input/punch.ts`, `src/input/target.ts` | La mirada que fija al enemigo, el puñetazo y lo que ven de cada enemigo (de RepArena, sin IWSDK) |
