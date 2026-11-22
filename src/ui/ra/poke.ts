@@ -170,6 +170,15 @@ export function pokeHold(side: Side, out: Vector3): Vector3 {
   return out;
 }
 
+/** Sin nada que pulsar de `key` (el menú cerrado): ninguna tecla iluminada, hundida ni con la mano apoyada. */
+export function pokeIdle(key: string): void {
+  for (const side of ['left', 'right'] as const) {
+    const S = POKE.st[key]?.[side];
+    if (S) reset(S);
+    if (POKE.lock[side]?.key === key) POKE.lock[side] = null;
+  }
+}
+
 /** Un fotograma de pulsar con el dedo (list: lo que se puede pulsar; ready: si ya se puede; isMenu: el menú, no el botón
  * de la muñeca; menu: el menú abierto). Devuelve si se ha pulsado algo. */
 export function pokeWidgets(list: Widget[], dt: number, ready: boolean, isMenu: boolean, menu: PokeMenu | null, menuShown: boolean): boolean {

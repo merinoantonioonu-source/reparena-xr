@@ -10,6 +10,7 @@
  * que viene (se van a otro hueco o se aclaran). Los paneles de texto son de UIKit; la caricatura y la carátula, dibujos
  * en un lienzo (como en RepArena).
  */
+import { shortMsg } from './short-msg.js';
 import { MW, UI } from './ra/menu-core.js';
 import { HITCH } from '../core/hitch.js';
 import { createSystem, BackSide, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, Vector3, VisibilityState } from '@iwsdk/core';
@@ -43,12 +44,16 @@ export const VIEW_FRAME = new ViewFrame();
 /** Tumbado (los de suelo, sentado y boca arriba): los avisos, en el suelo bajo la cara o en el techo. */
 export const lyingEx = (): boolean => isFloor() || isSupine() || settings.exercise === 'row' || VIEW.prone;
 
+/** El aviso breve (lo que pide hacer algo ya): de tamaño medio, entre el enorme del suelo en plancha y el pequeño de antes
+ * (pedido del usuario); m. */
+const TOAST_W = 0.8, TOAST_H = 0.14;
+
 export class ViewSystem extends createSystem({}) {
   // el del centro y el breve: lienzos como en RepArena (src/ui/info-draw.ts; antes, paneles de UIKit con el texto saliéndose)
   private center!: RaPanel;
   private toast!: RaPanel;
   private readonly C = hudSpot([[0, -0.08], [0, 0.42], [0, -0.5]], -1.1, 0.5 * CENTER_SC, 0.2 * CENTER_SC);
-  private readonly T = hudSpot([[0, -0.4], [0, 0.4], [-0.5, -0.24], [0.5, -0.24]], -1.2, 0.62, 0.1);
+  private readonly T = hudSpot([[0, -0.4], [0, 0.4], [-0.5, -0.24], [0.5, -0.24]], -1.2, TOAST_W, TOAST_H);
   private readonly lzC = mkLazy();
   private readonly lzT = mkLazy();
   private toastT = 0;
@@ -85,7 +90,7 @@ export class ViewSystem extends createSystem({}) {
     }
     // encima de todo, como en RepArena (sin prueba de profundidad): tumbado, el aviso queda en el suelo bajo tu cara y se ve
     this.center = makePanel(0.5 * CENTER_SC, 0.2 * CENTER_SC, 1024, { depthTest: false });
-    this.toast = makePanel(0.62, 0.1, 1024, { depthTest: false });
+    this.toast = makePanel(TOAST_W, TOAST_H, 1024, { depthTest: false });
     for (const p of [this.center, this.toast]) {
       p.mesh.renderOrder = 50;
       p.mesh.visible = false;
@@ -224,6 +229,7 @@ export class ViewSystem extends createSystem({}) {
   // ---------------------------------------------------------------- el breve
 
   private showToast(text: string, color: string, secs: number): void {
+    text = shortMsg(text); // (cortos: src/ui/short-msg.ts)
     const p = this.toast, o = p.mesh;
     if (text !== this.toastKey[0] || color !== this.toastKey[1]) {
       drawToast(p.ctx, p.W, p.H, text, color);
@@ -236,7 +242,7 @@ export class ViewSystem extends createSystem({}) {
 
   private stepToast(dt: number, lying: boolean, n: number): void {
     const o = this.toast.mesh;
-    if (this.toastT <= 0 || GAME.phase !== 'playing' || VIEW.duel || GAME.paused) {
+    if (this.toastT <= 0 || GAME.phase !== 'playing' || VIEW.duel || GAME.paused || GAME.menu !== 'none') {
       o.visible = false;
       this.lzT.init = false;
       this.toastT = 0;
@@ -244,7 +250,7 @@ export class ViewSystem extends createSystem({}) {
     }
     this.toastT -= dt;
     const L = lazyAt(VIEW_FRAME, this.lzT, hudSlot(VIEW_FRAME, this.T, this.T.slots, head, lying, this.threats, n, dt, this.at), VIEW_FRAME.hudQ(head, lying), head, dt);
-    const vis = Math.min(1, this.toastT * 3) * this.T.fade * lazyClear(L, o, 0.62, 0.1, head.p, this.threats, n, dt);
+    const vis = Math.min(1, this.toastT * 3) * this.T.fade * lazyClear(L, o, TOAST_W, TOAST_H, head.p, this.threats, n, dt);
     (o.material as MeshBasicMaterial).opacity = vis;
     o.position.copy(L.at);
     o.quaternion.copy(L.q);

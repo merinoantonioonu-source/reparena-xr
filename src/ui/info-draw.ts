@@ -19,7 +19,7 @@ export function drawToast(c: Ctx, W: number, H: number, text: string, color: str
   c.fillStyle = color;
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  fitFont(c, text, W - 70, 104, '%px ' + FD);
+  fitFont(c, text, W - 70, Math.round(H * 0.6), '%px ' + FD); // (lo más grande que quepa en su alto)
   c.fillText(text, W / 2, H / 2 + 4);
 }
 

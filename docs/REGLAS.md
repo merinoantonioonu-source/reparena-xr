@@ -379,7 +379,13 @@ No las cambies sin preguntarle.
   con la cabeza**: siempre derechos de pie y colgado.
   - Tumbado y en plancha: en el suelo bajo la cara o en el techo, de cara a los ojos, con lo de arriba del texto hacia la
     cabeza y fijos (ladearla no los gira). Igual para todos los avisos de la vista.
-- Los avisos de lo que se hace mal salen grandes, impresos en el suelo, durante unos 4 s.
+- Los avisos de lo que se hace mal salen impresos en el suelo, durante unos 4 s, **de tamaño medio** (corregido por el usuario:
+  en plancha llenaban la vista y tapaban el menú, los enemigos y el marcador). **Tumbado o en plancha no salen en el suelo**
+  (está a un palmo de la cara): basta el aviso breve de la vista.
+- **Los avisos, cortos y de tamaño medio** (pedido del usuario): lo que pide hacer algo ya, en dos a cuatro palabras
+  («¡Barranco! Brazos en cruz», «Apoya la otra mano»), con el aviso breve de la vista algo más grande que antes (los de la
+  Travesía se leían mal). Los detectores dicen lo mismo que RepArena; se acortan al enseñarlos (`src/ui/short-msg.ts`).
+- **Con un menú abierto, nada lo tapa**: ni los avisos del suelo ni el breve ni la carga del suelo (pedido del usuario).
 - Al empezar cada ronda, la **carátula del duelo** (`src/64_intro.js`, modelo 3 de los propuestos; en RepArena XR, con la cortinilla del ejercicio): 7 s, grande, a 2,5 m,
   con todo lo demás en negro; tú (rango y récord) contra el jefe de la ronda, sin la caricatura (sale después, hasta
   calibrar). Se salta con cualquier botón del mando o con el pulgar arriba.
