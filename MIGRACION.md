@@ -419,6 +419,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   del lado del camino), y el vacío, un mar de nubes al infinito (`CloudSea`): las fotos de fondo están hechas de pie en una
   loma y, sin él, a la derecha parecía haber una llanura. En las capturas (SwiftShader va a pocos fotogramas por segundo y se
   recorta el paso), el destello del portal tarda medio minuto en irse: ponle `flashT = 0`.
+- **Las islas en el cielo** (tercer mundo): el islote que sube y baja es un hueco (`bob`) con el islote detrás (`BOB_ISLE`) y
+  una grieta (`BOB_CRACK`) que lo separa del camino; lo alto, `bobY(p, Runner.time)` (el mismo reloj en la lógica y en lo que
+  se ve) y, al despegar, el suceso `settle` lo deja quieto a ras. El dragón es la pieza `fire` con `n = 1` (la pone
+  `buildCourse` en las islas). Los trozos de roca no se alargan junto a un hueco (`rockSegs`): si no, la losa lo tapaba.
 
 - **`.npmrc` con `onnxruntime-node-install-cuda=skip`** (desde el 18/11/2026): `onnxruntime-node` (lo trae `@iwsdk/reference`, para
   el ordenador del desarrollador; el juego no lo usa) intentaba descargar al instalarse su versión para tarjetas NVIDIA desde

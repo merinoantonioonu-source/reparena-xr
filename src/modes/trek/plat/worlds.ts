@@ -8,15 +8,19 @@
  * - **El risco**: un sendero de roca pegado a un acantilado, con el vacío al otro lado; retos propios: la **cornisa** (el
  *   camino se estrecha: pegarse a la pared), las **rachas de viento** (aguantar inclinado contra el viento) y los
  *   **desprendimientos** (rocas que caen de lo alto a un lado del camino: apartarse al otro); jefe, el Yeti.
+ * - **Las islas en el cielo**: islotes de roca flotando sobre un mar de nubes, al atardecer; casi todo son saltos, supersaltos
+ *   y planeos. Retos propios: el **islote que sube y baja** (saltar cuando está a ras) y el **islote que se hunde** (cruzarlo
+ *   sin pararse); el demonio es aquí un dragón que vuela a un lado. Sin túneles, cangrejos, cíclopes ni bifurcaciones (no hay
+ *   suelo a los lados); jefe, el Alien alto.
  *
  * Lógica pura, sin IWSDK.
  */
 import { TREK_BIOMES, type TrekBiome } from '../path.js';
 import type { PieceKind } from './types.js';
 
-export type WorldKey = 'forest' | 'cliff';
-/** Cómo es el suelo: la pasarela de tablas o el sendero de roca del risco. */
-export type FloorStyle = 'dock' | 'cliff';
+export type WorldKey = 'forest' | 'cliff' | 'sky';
+/** Cómo es el suelo: la pasarela de tablas, el sendero de roca del risco o los islotes flotantes. */
+export type FloorStyle = 'dock' | 'cliff' | 'sky';
 
 export interface World {
   key: WorldKey;
@@ -40,10 +44,18 @@ const CLIFF_BIOMES: TrekBiome[] = [
   { name: 'Cumbre', pano: 'cumbre', fog: 0xd6e0ec, dens: 0.007, hemi: 0xe6eeff, hemiI: 1.05, key: 0xfff8ee, keyI: 1.7, dusk: 0, trees: ['Pine_4', 'DeadTree_1'], nTree: 2, bush: 1, rock: 7, flower: 0, water: false },
 ];
 
+/** Los paisajes de las islas: el atardecer y el ocaso (fondos realistas ya en el juego). */
+const SKY_BIOMES: TrekBiome[] = [
+  { name: 'Islas al atardecer', pano: 'atardecer', fog: 0xe9b48e, dens: 0.006, hemi: 0xffd2ae, hemiI: 0.9, key: 0xffb070, keyI: 1.35, dusk: 1, trees: ['Pine_2', 'CommonTree_4'], nTree: 2, bush: 2, rock: 2, flower: 3, water: false },
+  { name: 'Islas al ocaso', pano: 'ocaso', fog: 0xd59a9a, dens: 0.006, hemi: 0xf0c0c8, hemiI: 0.85, key: 0xff9a70, keyI: 1.25, dusk: 1, trees: ['CommonTree_3', 'Pine_4'], nTree: 2, bush: 2, rock: 2, flower: 3, water: false },
+];
+
 export const WORLDS: World[] = [
   { key: 'forest', name: 'El bosque', floor: 'dock', boss: 1, biomes: TREK_BIOMES, deco: [0, 1, 2, 3], extra: [], without: [] },
   // (en el risco no hay bifurcación: la pasarela se abriría sobre el vacío)
   { key: 'cliff', name: 'El risco', floor: 'cliff', boss: 0, biomes: CLIFF_BIOMES, deco: [3, 3], extra: ['ledge', 'gust', 'rockfall'], without: ['fork'] },
+  // (los saltos, el doble de veces; sin nada que pida suelo a los lados ni túneles)
+  { key: 'sky', name: 'Las islas en el cielo', floor: 'sky', boss: 2, biomes: SKY_BIOMES, deco: [3, 3], extra: ['bob', 'sink', 'gap', 'glide', 'step', 'bob'], without: ['fork', 'crawl', 'burpee', 'side', 'quake'] },
 ];
 
 /** Los tramos de cada mundo si no se dice (las pruebas; en el juego, siempre el ajuste «Tramos por mundo», de serie 3). */

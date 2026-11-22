@@ -35,12 +35,15 @@ void main() {
   float top = smoothstep(0.32, 0.78, n), side = clamp((n - n2) * 4.0 + 0.5, 0.0, 1.0);
   vec3 col = mix(vec3(0.58, 0.63, 0.73), vec3(1.0, 0.99, 0.97), top * (0.55 + 0.45 * side));
   // a lo lejos, la bruma (el color de la niebla del tramo)
-  float far = smoothstep(-0.25, 0.0, h);
+  float far = smoothstep(-0.2, 0.0, h);
   col = mix(col, uHaze, far * 0.7);
   // casi opacas bajo los pies; en el horizonte, bruma que deja ver las montañas de la foto
-  float a = smoothstep(0.03, -0.07, h) * mix(0.82 + 0.18 * top, 1.0, smoothstep(-0.2, -0.5, h));
+  // (la bruma, solo en la franja del horizonte: más abajo, el suelo de la foto se veía como una llanura tras las nubes)
+  float a = smoothstep(0.015, -0.03, h) * mix(0.85 + 0.15 * top, 1.0, smoothstep(-0.15, -0.4, h));
   gl_FragColor = vec4(col, a);
 }`;
+
+const WHITE = new Color(0xffffff);
 
 export class CloudSea {
   readonly mesh: Mesh;
@@ -62,6 +65,7 @@ export class CloudSea {
     this.mesh.visible = on;
     if (!on) return;
     this.mat.uniforms.uT.value = t;
-    (this.mat.uniforms.uHaze.value as Color).setHex(haze);
+    // (la niebla del atardecer es naranja: tal cual, la franja del horizonte parecía tierra; aclarada, bruma)
+    (this.mat.uniforms.uHaze.value as Color).setHex(haze).lerp(WHITE, 0.55);
   }
 }

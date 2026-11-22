@@ -37,7 +37,7 @@ import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { PORTAL_AT, worldNo, WORLD_LEN, WORLDS } from './worlds.js';
 import { BodyMoves, moveCfg, type MoveCfg } from './moves.js';
-import { COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -222,6 +222,10 @@ export class Runner {
   spits: Spit[] = [];
   /** El mundo en el que estás (su número desde 0; ver `worldAt`). */
   world = 0;
+  /** El reloj de la marcha (s): el de los islotes que suben y bajan (los pinta el sistema con el mismo, `bobY`). */
+  time = 0;
+  /** El paso de este fotograma (s), para los juicios que cuentan tiempo. */
+  private dtNow = 0;
   /** La pelea con el jefe del mundo (o null). */
   fight: BossFight | null = null;
   /** Los jefes derrotados en la ronda. */
@@ -298,6 +302,7 @@ export class Runner {
     this.fight = null;
     this.bosses = 0;
     this.world = 0;
+    this.time = 0;
     this.fork = null;
     this.lane = 0;
     this.uShift = 0;
@@ -385,6 +390,8 @@ export class Runner {
   step(dt: number): void {
     const env = this.env, tk = this.tk, st = env.state, H = env.head;
     moveCfg(this.sFn, this.cfg);
+    this.time += dt;
+    this.dtNow = dt;
     const fv = env.s('platFoeV');
     this.foeV = fv > 0 ? fv : FOE_V;
     this.cfg.deepNeed = Math.max(0.12, (0.8 * (env.dv('squatDepth') || 26)) / 100);
@@ -670,12 +677,46 @@ export class Runner {
   /** El juicio de una fluida; `z`, lo que le falta para llegar a tu cabeza (m). */
   private judge(p: Piece, z: number): void {
     const M = this.moves, C = this.cfg, v = this.tk.v;
-    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box' || p.k === 'spring' || p.k === 'fork' || p.k === 'dive' || p.k === 'skull' || p.k === 'ledge' || p.k === 'gust';
+    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box' || p.k === 'spring' || p.k === 'fork' || p.k === 'dive' || p.k === 'skull' || p.k === 'ledge' || p.k === 'gust' || p.k === 'bob' || p.k === 'sink';
     // (el túnel, con más tiempo: hay que echarse al suelo; el cíclope y el demonio, antes de su ataque)
     const warnAt = p.k === 'quake' ? QUAKE_AT + 4 : p.k === 'rockfall' ? Math.max(10, (v + 0.2) * ROCKFALL_T + 6) : p.k === 'fire' ? FIRE_AT + 4 : p.k === 'crawl' || p.k === 'glide' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
     if (!p.warned && z < warnAt) {
       p.warned = true;
       this.ask(p, true);
+    }
+    if (p.k === 'bob') {
+      // llegas al borde sin haber saltado: tropiezas al cruzarlo (el islote se queda a ras para que pases)
+      if (z <= 0 && !this.hop) this.go(p, false, '¡Salta al islote cuando esté a ras!');
+      return;
+    }
+    if (p.k === 'sink') {
+      // el islote que se hunde: al pisarlo empieza a hundirse; si te paras en él (dejas de hacer repeticiones SINK_IDLE s, o
+      // vas más despacio que SINK_V más de SINK_GRACE s), se te hunde: frenas y se rompe la racha, una vez
+      if (z < 0.1 && !p.woke) {
+        p.woke = true;
+        this.ev.push({ t: 'sinking', p });
+        this.snd('metalHit', this.pos(p, 0, 0), false);
+      }
+      if (z < 0.1 && z > -p.len && !p.bad && !this.hop) {
+        p.got = v < SINK_V ? p.got + this.dtNow : 0; // (lo que llevas casi parado en él, en `got`)
+        if (p.got > SINK_GRACE || this.tk.idle > SINK_IDLE) {
+          p.bad = true;
+          this.tk.v *= HIT_KEEP;
+          this.hit(p, this.pos(p, 0, 0));
+          this.say('¡Que se hunde! No te pares', COL_WARN, 1.6, true);
+        }
+      }
+      if (z < -p.len - 0.3) {
+        p.judged = true;
+        p.ok = !p.bad;
+        if (p.ok) {
+          this.passed++;
+          this.ev.push({ t: 'pass', p });
+          this.score(180);
+          this.cheer('¡Islote cruzado!', COL_OK, 1.0);
+        }
+      }
+      return;
     }
     if (p.k === 'ledge' || p.k === 'gust') {
       // la cornisa (pegado a la pared: el vacío, al lado `side`) y la racha (inclinado contra el viento, que sopla desde
@@ -1063,18 +1104,24 @@ export class Runner {
    * con lo que sube la cabeza); al borde de una plataforma, subes a ella. Todos se notan: el mundo baja y sube bajo los
    * pies. `hz`, la cabeza hacia ti (m). */
   private takeoff(hz: number): void {
-    const v = this.tk.v, win = Math.max(GAP_EARLY_MIN, GAP_EARLY_S * v), stepWin = Math.max(STEP_EARLY_MIN, STEP_EARLY_S * v);
+    const v = this.tk.v, win = Math.max(GAP_EARLY_MIN, GAP_EARLY_S * v), stepWin = Math.max(STEP_EARLY_MIN, STEP_EARLY_S * v), bobWin = Math.max(BOB_EARLY_MIN, BOB_EARLY_S * v);
     let between = false; // (otro reto por delante de la plataforma: el salto no te lleva por encima de él)
     for (const p of this.live) {
       if (p.judged) continue;
       const z = p.at - this.tk.dist + hz;
-      if (p.k !== 'gap' && p.k !== 'step') {
+      if (p.k !== 'gap' && p.k !== 'step' && p.k !== 'bob') {
         if (p.k !== 'fruit' && p.k !== 'chest' && z > -0.2) between = true;
         continue;
       }
-      if (z > (p.k === 'step' ? stepWin : win)) break; // (el primero que queda por delante, y aún lejos: es pronto)
+      if (z > (p.k === 'step' ? stepWin : p.k === 'bob' ? bobWin : win)) break; // (el primero que queda por delante, y aún lejos: es pronto)
       if (z > -0.2) {
         if (p.k === 'gap') this.go(p, true);
+        else if (p.k === 'bob') {
+          // el islote: si está a ras al despegar, el salto vale; si no, chocas con él (alto) o no llegas (bajo)
+          const y = bobY(p, this.time), ok = Math.abs(y) <= BOB_OK;
+          this.ev.push({ t: 'settle', p, y });
+          this.go(p, ok, y > 0 ? '¡Has chocado con el islote! Salta cuando esté a ras' : '¡El islote estaba abajo! Salta cuando esté a ras');
+        }
         else {
           // la alta pide sentadilla honda antes del salto (la del burpee, un salto); antes del borde, solo el bueno y sin
           // nada en medio: si no, es un salto sin más y la plataforma se juzga al llegar a ella
@@ -1106,7 +1153,7 @@ export class Runner {
 
   /** Empieza el cruce del hueco: con el salto (`won`), a tu velocidad (o algo más, si no llegas al otro lado en HOP_MAX) y
    * hasta pasado su borde lejano; sin salto, un tropiezo: más despacio, frenas y se rompe la racha (nunca se cae). */
-  private go(p: Piece, won: boolean): void {
+  private go(p: Piece, won: boolean, why = '¡Salta el hueco!'): void {
     const tk = this.tk, v0 = tk.v, s0 = tk.dist;
     const land = p.at + p.len + LAND_PAST, need = Math.max(0, land - s0);
     let dur: number, s1: number, v1: number;
@@ -1119,7 +1166,7 @@ export class Runner {
       dur = Math.max(TRIP_MIN, need / Math.max(TRIP_V, v1));
       s1 = land;
     }
-    this.hop = { p, s0, s1, t: 0, dur, won, v1, lift: won ? JUMP_LIFT : 0, score: 200, cheer: '¡Hueco saltado!' };
+    this.hop = { p, s0, s1, t: 0, dur, won, v1, lift: won ? JUMP_LIFT : 0, score: 200, cheer: p.k === 'bob' ? '¡Al islote!' : '¡Hueco saltado!' };
     this.airT = -1;
     this.stop = null;
     this.ev.push({ t: 'go', p, dur });
@@ -1131,7 +1178,7 @@ export class Runner {
     p.judged = true;
     p.ok = false;
     this.hit(p, this.pos(p, 0, 0));
-    this.say('¡Salta el hueco!', COL_WARN, 1.6, true);
+    this.say(why, COL_WARN, 1.6, true);
   }
 
   /** El trampolín te lanza: lejos (su largo) y alto (el mundo baja SPRING_LIFT), comiéndote las frutas del arco del vuelo. */
@@ -1271,6 +1318,8 @@ export class Runner {
     else if (p.k === 'quake') this.say(`¡Un cíclope a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Va a golpear el suelo: salta su onda`, COL_ASK, 2, false);
     else if (p.k === 'fire') this.say(`¡Un demonio a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Esquiva su bola de fuego con un paso`, COL_ASK, 2, false);
     else if (p.k === 'ledge') this.say('¡Cornisa! Pégate a la pared, a la izquierda', COL_ASK, 2, false);
+    else if (p.k === 'bob') this.say('¡Islote que sube y baja! Salta cuando esté a ras', COL_ASK, 2, false);
+    else if (p.k === 'sink') this.say('¡Islote que se hunde! Crúzalo sin pararte', COL_ASK, 2, false);
     else if (p.k === 'gust') this.say(`¡Viento! Inclínate a la ${p.side < 0 ? 'izquierda' : 'derecha'} y aguanta`, COL_ASK, 2, false);
     else if (p.k === 'rockfall') this.say(`¡Desprendimiento a la ${p.side < 0 ? 'izquierda' : 'derecha'}! Apártate a la ${p.side < 0 ? 'derecha' : 'izquierda'}`, COL_ASK, 2, false);
   }
