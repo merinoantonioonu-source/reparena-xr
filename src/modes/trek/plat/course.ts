@@ -19,7 +19,7 @@
  * Lógica pura, sin IWSDK.
  */
 import { worldOf, WORLDS, type World } from './worlds.js';
-import { CLIFF_WALL, GUST_MAX, GUST_MIN, LEDGE_MAX, LEDGE_MIN, ROCKFALL_AT, FIRE_AT, QUAKE_AT, WALKERS, BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
+import { BOB_CRACK, BOB_ISLE, SINK_MAX, SINK_MIN, CLIFF_WALL, GUST_MAX, GUST_MIN, LEDGE_MAX, LEDGE_MIN, ROCKFALL_AT, FIRE_AT, QUAKE_AT, WALKERS, BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
 
 /** Las clases de la lista de cada tramo: la primera, lo básico (el tronco, la viga y el hueco); desde el segundo, también
  * la fruta, la plataforma alta y la seta (que se pisa); desde el tercero, el túnel, el burpee y el cangrejo (que se esquiva
@@ -48,6 +48,7 @@ export function minGap(prev: Piece, next: Piece, vmax: number): number {
   if (prev.k === 'crawl' && next.k === 'step' && next.burpee) return BURPEE_GAP_S * vmax;
   let g = MIN_GAP;
   if (prev.k === 'gap' || prev.k === 'glide') g += LAND_PAST; // (aterrizas pasado el borde lejano)
+  if (prev.k === 'bob') g += BOB_ISLE + BOB_CRACK; // (el islote, y su grieta con el camino: nada encima)
   if (HALT.includes(next.k)) g += STOP_AT; // (te paras antes de su borde: ese sitio, libre)
   // (para frenar suave a HALT_BRAKE hasta quedarte a STOP_AT de su borde, y un metro de colchón)
   if (HALT.includes(next.k)) g = Math.max(g, STOP_AT + (vmax * vmax) / (2 * HALT_BRAKE) + 1);
@@ -180,14 +181,21 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
       const h = clamp(T.duck + 0.015 * tramo + rand(0, 0.04), T.duck, T.duck + TUNE_UP.duck);
       seg.push(piece(id, k, 0, tramo, { h, n: env.rnd() < 0.5 ? 0 : 1 }));
     } else if (k === 'quake' || k === 'fire') {
-      // el cíclope y el demonio, a un lado al azar
-      seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1 }));
+      // el cíclope y el demonio, a un lado al azar (en las islas, el demonio es un dragón que vuela: `n` = 1)
+      seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1, n: k === 'fire' && W.key === 'sky' ? 1 : 0 }));
     } else if (k === 'ledge') {
       // la cornisa: el vacío, a la derecha (la pared, a la izquierda)
       seg.push(piece(id, k, 0, tramo, { len: rand(LEDGE_MIN, LEDGE_MAX), side: (-CLIFF_WALL) as 1 }));
     } else if (k === 'gust') {
       // la racha: sopla desde un lado (side: desde dónde) y empuja hacia el otro
       seg.push(piece(id, k, 0, tramo, { len: rand(GUST_MIN, GUST_MAX), side: env.rnd() < 0.5 ? -1 : 1 }));
+    } else if (k === 'bob') {
+      // el islote que sube y baja: un hueco (como los de siempre) y, al otro lado, el islote
+      const len = clamp(T.gap + 0.12 * tramo + rand(-0.1, 0.1), T.gap, T.gap + TUNE_UP.gap);
+      seg.push(piece(id, k, 0, tramo, { len }));
+    } else if (k === 'sink') {
+      // el islote que se hunde
+      seg.push(piece(id, k, 0, tramo, { len: rand(SINK_MIN, SINK_MAX) }));
     } else if (k === 'rockfall') {
       // el desprendimiento: las rocas caen a un lado del camino (hay que estar en el otro)
       seg.push(piece(id, k, 0, tramo, { side: env.rnd() < 0.5 ? -1 : 1 }));
@@ -280,6 +288,10 @@ export function courseRules(pieces: Piece[], vmax: number, tune: PlatTune = TUNE
     if (bossTramo(p.tramo, worldLen) && p.k === 'chest' && pieces[i - 1]?.k !== 'boss') out.push(`El cofre ${p.id} del tramo ${p.tramo} no tiene al jefe delante`);
     if ((p.k === 'ledge' || p.k === 'gust' || p.k === 'rockfall') && worldOf(p.tramo, worldLen).key !== 'cliff') out.push(`La pieza ${p.id} (${p.k}) sale fuera del risco`);
     if (p.k === 'fork' && worldOf(p.tramo, worldLen).key === 'cliff') out.push(`La bifurcación ${p.id} sale en el risco`);
+    if ((p.k === 'bob' || p.k === 'sink') && worldOf(p.tramo, worldLen).key !== 'sky') out.push(`La pieza ${p.id} (${p.k}) sale fuera de las islas`);
+    if (worldOf(p.tramo, worldLen).key === 'sky' && (['fork', 'crawl', 'side', 'quake'] as PieceKind[]).includes(p.k)) out.push(`La pieza ${p.id} (${p.k}) sale en las islas`);
+    if (p.k === 'sink' && (p.len < SINK_MIN - eps || p.len > SINK_MAX + eps)) out.push(`El islote que se hunde ${p.id} mide ${p.len.toFixed(2)} m`);
+    if (p.k === 'bob' && (p.len < T.gap - eps || p.len > T.gap + TUNE_UP.gap + eps)) out.push(`El hueco del islote ${p.id} mide ${p.len.toFixed(2)} m`);
     if ((p.k === 'gust' || p.k === 'rockfall') && p.side !== -1 && p.side !== 1) out.push(`La pieza ${p.id} (${p.k}) no tiene lado`);
     if (p.k === 'ledge' && (p.len < LEDGE_MIN - eps || p.len > LEDGE_MAX + eps)) out.push(`La cornisa ${p.id} mide ${p.len.toFixed(2)} m`);
     if (p.k === 'gust' && (p.len < GUST_MIN - eps || p.len > GUST_MAX + eps)) out.push(`La racha ${p.id} mide ${p.len.toFixed(2)} m`);

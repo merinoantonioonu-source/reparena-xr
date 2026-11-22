@@ -30,15 +30,18 @@ import { LOOK_BOSS, LOOK_FIRE, LOOK_SPIT, Missile, type MissileLook } from '../.
 import { looks, looksTick } from '../../style/missile-look.js';
 import { PAL, vfx } from '../../style/vfx.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
-import { CLIFF_FLOOR_Y, cliffDecoPuts, cliffFloorPuts, DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
-import { PORTAL_AT, tramoBiome, tramoDeco, worldEnd, worldStart, WORLDS } from './plat/worlds.js';
+import { CLIFF_FLOOR_Y, cliffDecoPuts, cliffFloorPuts, skyDecoPuts, skyFloorPuts, DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
+import { PORTAL_AT, tramoBiome, tramoDeco, worldEnd, worldStart, WORLDS, type FloorStyle } from './plat/worlds.js';
 import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
-import { ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
+import { BOB_CRACK, BOB_ISLE, bobY, ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
 /** Cuántas instancias caben de cada modelo: el muelle (unos 45 a la vista), las piezas y el paisaje. */
 // (las plataformas llevan unos 20 barriles cada una y sus tablas: con varias a la vista, hace falta sitio)
+/** Las islas: lo que tarda el islote en quedarse quieto a ras al saltar hacia él (s) y lo que hay que dejar atrás un trozo del
+ * que se hunde para que caiga (m). */
+const SETTLE_T = 0.35, SINK_BACK = 1.5;
 const CAP_DOCK = 120, CAP_PIECE = 160, CAP_CLIFF = 240, CAP_DECO = 96, CAP_FOOD = 24;
 /** El césped de debajo: lo que mide y cada cuánto se repite su dibujo (m). */
 const GROUND_SIZE = 260, GROUND_CELL = 4;
@@ -54,11 +57,13 @@ const FOE_LOOK = {
   skull: { asset: 'foe-skull', nat: 1.55, h: 0.5, voice: 'skull', pool: 3 },
   quake: { asset: 'foe-cyclops', nat: 1.67, h: 1.6, voice: 'cyclops', pool: 2 },
   fire: { asset: 'foe-demon', nat: 1.62, h: 1.4, voice: 'demon', pool: 2 },
+  // (en las islas, el que lanza la bola de fuego es un dragón que vuela a un lado: no hay suelo donde ponerse)
+  dragon: { asset: 'foe-dragon', nat: 1.65, h: 1.3, voice: 'dragon', pool: 2 },
 } as const;
 type Look = keyof typeof FOE_LOOK;
 const LOOKS = Object.keys(FOE_LOOK) as Look[];
 /** El aspecto de una pieza que es un enemigo (o null): la abeja o el murciélago, según su `n`. */
-const lookOf = (p: Piece): Look | null => (p.k === 'dive' ? (p.n % 2 ? 'bat' : 'bee') : p.k === 'foe' || p.k === 'side' || p.k === 'skull' || p.k === 'quake' || p.k === 'fire' ? p.k : null);
+const lookOf = (p: Piece): Look | null => (p.k === 'dive' ? (p.n % 2 ? 'bat' : 'bee') : p.k === 'fire' && p.n ? 'dragon' : p.k === 'foe' || p.k === 'side' || p.k === 'skull' || p.k === 'quake' || p.k === 'fire' ? p.k : null);
 /** Los que vuelan (sin andar: aletean). */
 const FLY: readonly Look[] = ['bee', 'bat'];
 /** El destello al cruzar un portal (s) y lo que mide el portal (m: el radio del aro). */
@@ -199,6 +204,11 @@ export class TrekSystem extends createSystem({}) {
   private readonly holes: [number, number][] = [];
   /** Las cornisas a la vista (el sendero del risco, estrecho). */
   private readonly narrow: [number, number][] = [];
+  /** Las islas: los islotes que se mueven a la vista (los que suben y bajan y los que se hunden), los que se han quedado
+   * quietos a ras al saltar hacia ellos (desde qué altura y cuándo) y cuándo empezó a hundirse cada uno. */
+  private readonly movers: Piece[] = [];
+  private readonly settled = new Map<number, { y: number; t: number }>();
+  private readonly sinkAt = new Map<number, number>();
   /** Los portales (un aro de luz con su remolino; dos: el que viene y el que dejas atrás), el destello al cruzarlo, las rocas
    * de los desprendimientos y lo que lleva soplando cada racha (s). */
   private readonly portals: Group[] = [];
@@ -463,7 +473,7 @@ export class TrekSystem extends createSystem({}) {
     const B = tramoBiome(i, this.runner.worldLen), B0 = TREK_BIOMES[0];
     this.biome = i;
     // (el césped de abajo: en el risco no hay; bajo el vacío se ve el valle de la foto de fondo, muy abajo)
-    const cliff = WORLDS[this.runner.worldAt(this.runner.dist) % WORLDS.length].floor === 'cliff';
+    const cliff = WORLDS[this.runner.worldAt(this.runner.dist) % WORLDS.length].floor !== 'dock';
     this.ground.position.y = cliff ? CLIFF_FLOOR_Y : GROUND_Y;
     this.ground.visible = !cliff;
     this.pano = B.pano;
@@ -498,8 +508,8 @@ export class TrekSystem extends createSystem({}) {
   }
 
   /** ¿El punto s del sendero es del risco? (Cambia en cada portal.) */
-  private cliffAt(s: number): boolean {
-    return WORLDS[this.runner.worldAt(s) % WORLDS.length].floor === 'cliff';
+  private floorAt(s: number): FloorStyle {
+    return WORLDS[this.runner.worldAt(s) % WORLDS.length].floor;
   }
 
   /** ¿Queda tramo? Se acaba al llegar a su cofre (nunca a mitad de un paso). */
@@ -543,6 +553,8 @@ export class TrekSystem extends createSystem({}) {
   }
 
   private clearLooks(): void {
+    this.settled.clear();
+    this.sinkAt.clear();
     this.looks.clear();
     this.knock.clear();
     this.gone.clear();
@@ -713,6 +725,8 @@ export class TrekSystem extends createSystem({}) {
         else this.looks.set(e.p.id, piecePuts(e.p, this.calibRef, []));
         break;
       case 'hide': {
+        this.settled.delete(e.p.id);
+        this.sinkAt.delete(e.p.id);
         this.looks.delete(e.p.id);
         this.knock.delete(e.p.id);
         this.gone.delete(e.p.id);
@@ -774,6 +788,19 @@ export class TrekSystem extends createSystem({}) {
         this.floorS0 = NaN;
         break;
       }
+      case 'settle':
+        // el islote que sube y baja se queda quieto a ras mientras saltas hacia él (bien o mal)
+        this.settled.set(e.p.id, { y: e.y, t: this.clock });
+        break;
+      case 'sinking': {
+        // el islote empieza a hundirse bajo tus pies: cruje y se le sueltan piedras por debajo
+        this.sinkAt.set(e.p.id, this.clock);
+        const V = vfx();
+        for (let i = 0; i < 3; i++) V.bits(this.world3({ s: e.p.at + (i + 0.5) * (e.p.len / 3), u: 0, y: -1.2 }, this.at), 6, 0.05, 1.5, 1, PAL.debris);
+        haptic('left', 0.35, 80);
+        haptic('right', 0.35, 80);
+        break;
+      }
       case 'rockfall': {
         // el desprendimiento: unas rocas se sueltan de lo alto de la pared y caen a su lado del camino (con su ruido)
         const F = this.falls.find((x) => !x.p);
@@ -812,7 +839,7 @@ export class TrekSystem extends createSystem({}) {
           S.m.charge(S.pos, 0.05);
         }
         this.rigAct(e.p, 'spit');
-        SND.hiss(this.world3({ s: e.p.at + e.p.walk, u: e.p.side * (fire ? ASIDE_U : CRAB_U), y: 0.3 }, this.at), 1.2, FOE_LOOK[fire ? 'fire' : 'side'].voice);
+        SND.hiss(this.world3({ s: e.p.at + e.p.walk, u: e.p.side * (fire ? ASIDE_U : CRAB_U), y: 0.3 }, this.at), 1.2, FOE_LOOK[lookOf(e.p) ?? 'side'].voice);
         break;
       }
       case 'spat': {
@@ -943,7 +970,11 @@ export class TrekSystem extends createSystem({}) {
       this.floorS0 = s0;
       this.floorN = R.pieces.length;
       this.holes.length = 0;
-      for (const p of R.pieces) if ((p.k === 'gap' || p.k === 'glide' || p.k === 'fork') && p.at + p.len > s0 && p.at < s0 + BACK + AHEAD + DOCK_LEN) this.holes.push([p.at, p.at + p.len]);
+      for (const p of R.pieces) if ((p.k === 'gap' || p.k === 'glide' || p.k === 'fork' || p.k === 'bob') && p.at + p.len + BOB_ISLE + BOB_CRACK > s0 && p.at < s0 + BACK + AHEAD + DOCK_LEN) {
+        this.holes.push([p.at, p.at + p.len]);
+        // (el islote que sube y baja, separado del camino por una grieta: se mueve solo él)
+        if (p.k === 'bob') this.holes.push([p.at + p.len + BOB_ISLE, p.at + p.len + BOB_ISLE + BOB_CRACK]);
+      }
       this.floor.length = 0;
       // por mundos: de portal en portal, las tablas o la roca del risco (cortadas justo en el portal)
       const s1 = s0 + BACK + AHEAD + DOCK_LEN, cuts = [s0];
@@ -956,14 +987,20 @@ export class TrekSystem extends createSystem({}) {
         const a = cuts[k], b = cuts[k + 1], hs = this.holes.slice();
         if (k > 0) hs.push([-1e9, a]);
         if (k + 2 < cuts.length) hs.push([b, 1e9]);
-        if (this.cliffAt((a + b) / 2)) {
+        const fl = this.floorAt((a + b) / 2);
+        if (fl === 'sky') skyFloorPuts(a, b, hs, this.floor);
+        else if (fl === 'cliff') {
           this.narrow.length = 0;
           for (const p of R.pieces) if (p.k === 'ledge' && p.at + p.len > a && p.at < b) this.narrow.push([p.at, p.at + p.len]);
           cliffFloorPuts(a, b, hs, this.narrow, this.floor);
         } else floorPuts(a, b, hs, this.floor);
       }
     }
-    for (const u of this.floor) this.put(u, u.ds, 0, 1);
+    // (las islas: el islote que sube y baja y el que se hunde se mueven enteros: los trozos de su suelo, por su `seg`)
+    const mv = this.movers;
+    mv.length = 0;
+    for (const p of R.live) if (p.k === 'bob' || (p.k === 'sink' && this.sinkAt.has(p.id))) mv.push(p);
+    for (const u of this.floor) this.put(u, u.ds, 0, 1, 0, undefined, 0, mv.length && u.seg !== undefined ? this.islandY(u.seg) : 0);
     // el paisaje de los lados (cada trozo, calculado una vez mientras está a la vista); con un menú abierto, sin él
     const c0 = Math.floor((d - BACK) / TREK_CH), c1 = Math.floor((d + AHEAD) / TREK_CH);
     for (const k of this.deco.keys()) if (k < c0 || k > c1) this.deco.delete(k);
@@ -971,7 +1008,8 @@ export class TrekSystem extends createSystem({}) {
       for (let c = c0; c <= c1; c++) {
         let L = this.deco.get(c);
         if (!L) {
-          L = this.cliffAt((c + 0.5) * TREK_CH) ? cliffDecoPuts(c, []) : decoPuts(c, [], this.biomeAt(c * TREK_CH));
+          const fl = this.floorAt((c + 0.5) * TREK_CH);
+          L = fl === 'cliff' ? cliffDecoPuts(c, []) : fl === 'sky' ? skyDecoPuts(c, []) : decoPuts(c, [], this.biomeAt(c * TREK_CH));
           this.deco.set(c, L);
         }
         for (const u of L) this.put(u, u.ds, 0, 1);
@@ -1089,7 +1127,7 @@ export class TrekSystem extends createSystem({}) {
     r.root.visible = true;
     r.root.scale.set(1, 1, 1);
     this.rigOf.set(p.id, r);
-    this.clip(r, FLY.includes(r.kind) ? 'Flying' : 'Idle');
+    this.clip(r, FLY.includes(r.kind) || r.kind === 'dragon' ? 'Flying' : 'Idle');
   }
 
   private freeRig(r: FoeRig): void {
@@ -1107,7 +1145,7 @@ export class TrekSystem extends createSystem({}) {
     r.act = act;
     r.t = 0;
     // (escupir: el cangrejo se encabrita y el cíclope salta para golpear el suelo; el demonio echa el brazo y lanza)
-    this.clip(r, act === 'die' ? 'Death' : act === 'spit' ? (r.kind === 'fire' ? 'Bite_Front' : 'Jump') : 'Bite_Front', true);
+    this.clip(r, act === 'die' ? 'Death' : act === 'spit' ? (r.kind === 'fire' || r.kind === 'dragon' ? 'Bite_Front' : 'Jump') : 'Bite_Front', true);
   }
 
   /** Su animación (con un fundido corto); `once`, sin repetir y quieta al acabar. */
@@ -1132,14 +1170,14 @@ export class TrekSystem extends createSystem({}) {
       if (!p) continue;
       r.t += dt;
       // (andan solo en pleno tramo: entre tramos, el recorrido está quieto y ellos también)
-      const fly = FLY.includes(r.kind);
-      if (r.act === 'live') this.clip(r, fly ? 'Flying' : p.woke && p.walk > 0 && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 'Walk' : 'Idle');
+      const fly = FLY.includes(r.kind), hover = r.kind === 'dragon';
+      if (r.act === 'live') this.clip(r, fly || hover ? 'Flying' : p.woke && p.walk > 0 && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 'Walk' : 'Idle');
       else if ((r.act === 'bite' || r.act === 'miss' || r.act === 'spit') && r.t > BITE_T && !(fly && p.judged)) {
         r.act = 'live';
-        this.clip(r, fly ? 'Flying' : 'Idle');
+        this.clip(r, fly || hover ? 'Flying' : 'Idle');
       }
       // tras morderte se aparta a un lado (fuera de la pasarela: nunca lo atraviesas); el cíclope y el demonio ya están a un lado
-      if ((r.act === 'bite' || (r.act === 'live' && p.ok === false)) && r.kind !== 'quake' && r.kind !== 'fire') r.off = Math.min(0.9, r.off + dt * 2);
+      if ((r.act === 'bite' || (r.act === 'live' && p.ok === false)) && r.kind !== 'quake' && r.kind !== 'fire' && r.kind !== 'dragon') r.off = Math.min(0.9, r.off + dt * 2);
       let k = 1, y = 0;
       if (fly) {
         // en picado: baja desde lo alto mientras se acerca, hasta la altura de tu cabeza al llegar; pasado (o tras picarte),
@@ -1155,6 +1193,7 @@ export class TrekSystem extends createSystem({}) {
           r.root.scale.setScalar(k);
         }
       } else if (r.kind === 'skull' && p.woke && !p.judged) y = 0.28 * Math.abs(Math.sin(this.clock * 6 + p.id)); // (botando)
+      else if (hover) y = 0.9 + 0.22 * Math.sin(this.clock * 2.3 + p.id); // (el dragón, en el aire junto al camino, subiendo y bajando)
       if (r.act === 'die') {
         // la seta pisada: se chafa y, al rato, se esfuma
         const sq = Math.min(1, r.t / SQUASH_T);
@@ -1446,6 +1485,26 @@ export class TrekSystem extends createSystem({}) {
 
   // ---------------------------------------------------------------- los mundos
 
+  /** Lo que sube o baja el trozo de suelo de las islas con centro en `s` (m): el islote que sube y baja (quieto a ras desde que
+   * saltas hacia él) y el que se hunde (tiembla y baja un poco bajo tus pies; lo que dejas atrás cae al vacío). */
+  private islandY(s: number): number {
+    const R = this.runner;
+    for (const p of this.movers) {
+      if (p.k === 'bob') {
+        const a = p.at + p.len;
+        if (s < a || s > a + BOB_ISLE) continue;
+        const st = this.settled.get(p.id);
+        if (!st) return bobY(p, R.time);
+        const k = Math.min(1, (this.clock - st.t) / SETTLE_T);
+        return st.y * (1 - k * k * (3 - 2 * k));
+      }
+      if (s < p.at || s > p.at + p.len) continue;
+      const t = this.clock - (this.sinkAt.get(p.id) ?? this.clock), back = R.dist - SINK_BACK - s;
+      return -0.06 * Math.min(1, t) + 0.015 * Math.sin(this.clock * 47 + s * 3) - (back > 0 ? 0.8 * back * back : 0);
+    }
+    return 0;
+  }
+
   /** Los portales a la vista (tras el cofre del último tramo de cada mundo), el destello al cruzar uno, las rachas de viento y
    * las rocas que caen. */
   private stepWorld(dt: number): void {
@@ -1469,7 +1528,7 @@ export class TrekSystem extends createSystem({}) {
     }
     for (let i = n; i < this.portals.length; i++) this.portals[i].visible = false;
     // el mar de nubes, en el risco
-    this.sea.update(this.cliffAt(R.dist), this.clock, tramoBiome(this.biome, R.worldLen).fog);
+    this.sea.update(this.floorAt(R.dist) !== 'dock', this.clock, tramoBiome(this.biome, R.worldLen).fog);
     // el destello
     const fm = this.flash.material as MeshBasicMaterial;
     if (this.flashT > 0) {

@@ -42,6 +42,8 @@ export interface Put {
   sz: number;
   /** Las frutas en arco del hueco: su número (se dejan de pintar al comérselas); la dorada de una plataforma, `GOLD_TAG`. */
   tag?: number;
+  /** Las islas: el centro (a lo largo) del trozo de suelo al que pertenece (lo que sube, baja o se hunde, se mueve entero). */
+  seg?: number;
 }
 /** La marca de la fruta dorada de encima de una plataforma (se deja de pintar al cogerla). */
 export const GOLD_TAG = 99;
@@ -169,23 +171,80 @@ export const CLIFF_FLOOR_Y = -45;
  * fuera y los trozos se junten sin escalones; debajo, otra estirada hasta el fondo (la cara del risco, hacia el vacío).
  */
 export function cliffFloorPuts(s0: number, s1: number, holes: ReadonlyArray<readonly [number, number]>, narrow: ReadonlyArray<readonly [number, number]>, out: Put[]): Put[] {
-  const tmp: Put[] = [], W = DOCK_W / 2;
+  const W = DOCK_W / 2;
+  for (const [c0, c1, thin, R, e0, e1] of rockSegs(s0, s1, holes, narrow)) {
+    const right = thin ? -W + LEDGE_W : W;
+    // la losa: la meseta (lo plano, en su centro) cubre el camino, muy aplanada (sus bultos, de pocos cm); arriba, a ras de
+    // las tablas. En la cornisa, apenas sobresale del camino: que se vea estrecha
+    out.push(rockFit('island', 'Cliff1', -W - (thin ? 0.6 : 1.3), right + (thin ? 0.25 : 1.3), -0.45, 0.03, c0 - e0, c1 + e1, R() < 0.5));
+    // la cara del risco, debajo
+    out.push(rockFit('island', 'Cliff1', -W - 0.35, right + (thin ? 0.1 : 0.5), -CLIFF_DEPTH, -0.3, c0 - e0, c1 + e1, R() < 0.5));
+  }
+  return out;
+}
+
+/**
+ * Los trozos de suelo de roca (el risco y las islas) de `s0` a `s1`, en la rejilla del muelle, partidos por las cornisas
+ * (`narrow`): [desde, hasta, estrecho, su azar, lo que se alarga por detrás y por delante]. Cada roca se alarga un 50 % por
+ * cada lado (su borde redondeado queda dentro del vecino: sin escalones), salvo junto a un hueco, que se vería tapado.
+ */
+function rockSegs(s0: number, s1: number, holes: ReadonlyArray<readonly [number, number]>, narrow: ReadonlyArray<readonly [number, number]>): [number, number, boolean, () => number, number, number][] {
+  const tmp: Put[] = [], out: [number, number, boolean, () => number, number, number][] = [];
   floorPuts(s0, s1, holes, tmp);
+  const nearHole = (s: number): boolean => holes.some(([x, y]) => Math.abs(s - x) < 0.06 || Math.abs(s - y) < 0.06);
   for (const P of tmp) {
     // (el trozo de muelle que tocaba: de a a b a lo largo)
     const half = (P.sz * DOCK_LEN) / 2, mid = P.ds - ((DK.z0 + DK.z1) / 2) * P.sz, a = mid - half, b = mid + half;
-    // partido por las cornisas: lo de dentro, estrecho; lo de fuera, entero
     const cuts = [a, b];
     for (const [x, y] of narrow) for (const c of [x, y]) if (c > a + 0.05 && c < b - 0.05) cuts.push(c);
     cuts.sort((m, n) => m - n);
     for (let i = 0; i + 1 < cuts.length; i++) {
       const c0 = cuts[i], c1 = cuts[i + 1], cm = (c0 + c1) / 2, thin = narrow.some(([x, y]) => cm > x && cm < y);
-      const R = trekRng((Math.round(cm * 7) * 2654435761) >>> 0), ext = Math.max(0.4, (c1 - c0) * 0.5), right = thin ? -W + LEDGE_W : W;
-      // la losa: la meseta (lo plano, en su centro) cubre el camino, muy aplanada (sus bultos, de pocos cm); arriba, a ras de
-      // las tablas. En la cornisa, apenas sobresale del camino: que se vea estrecha
-      out.push(rockFit('island', 'Cliff1', -W - (thin ? 0.6 : 1.3), right + (thin ? 0.25 : 1.3), -0.45, 0.03, c0 - ext, c1 + ext, R() < 0.5));
-      // la cara del risco, debajo
-      out.push(rockFit('island', 'Cliff1', -W - 0.35, right + (thin ? 0.1 : 0.5), -CLIFF_DEPTH, -0.3, c0 - ext, c1 + ext, R() < 0.5));
+      const ext = Math.max(0.4, (c1 - c0) * 0.5);
+      out.push([c0, c1, thin, trekRng((Math.round(cm * 7) * 2654435761) >>> 0), nearHole(c0) ? 0.04 : ext, nearHole(c1) ? 0.04 : ext]);
+    }
+  }
+  return out;
+}
+
+/** Una roca colgando boca abajo (rx = π: la punta, abajo), de `top` a `bottom` a lo alto, [u0, u1] a lo ancho y [s0, s1] a lo
+ * largo: la panza de una isla flotante. */
+function hangFit(n: string, u0: number, u1: number, top: number, bottom: number, s0: number, s1: number, o: Partial<Put> = {}): Put {
+  const [x0, by0, z0, x1, by1, z1] = BOX[n], sx = (u1 - u0) / (x1 - x0), sy = (top - bottom) / (by1 - by0), sz = (s1 - s0) / (z1 - z0);
+  // (boca abajo, y y z cambian de signo: lo de abajo del modelo queda arriba, en `top`)
+  return put('island', n, (s0 + s1) / 2 - ((z0 + z1) / 2) * sz, (u0 + u1) / 2 - ((x0 + x1) / 2) * sx, top + by0 * sy, { rx: Math.PI, sx, sy, sz, ...o });
+}
+
+/**
+ * El suelo de las islas en el cielo de `s0` a `s1`: islotes de roca flotando (sin tapar los huecos). Cada trozo, la losa de
+ * la meseta de `Cliff1` aplanada (como en el risco) y, debajo, colgando boca abajo, la panza de la isla (`Cliff3`, con la
+ * punta abajo y de largo distinto en cada trozo). Todas sus piezas llevan `seg`: lo que sube, baja o se hunde se mueve entero.
+ */
+export function skyFloorPuts(s0: number, s1: number, holes: ReadonlyArray<readonly [number, number]>, out: Put[]): Put[] {
+  const W = DOCK_W / 2;
+  for (const [c0, c1, , R, e0, e1] of rockSegs(s0, s1, holes, [])) {
+    const seg = (c0 + c1) / 2, deep = 2.5 + R() * 3, wide = 0.4 + R() * 0.5;
+    const cap = rockFit('island', 'Cliff1', -W - 0.9, W + 0.9, -0.45, 0.03, c0 - e0, c1 + e1, R() < 0.5);
+    cap.seg = seg;
+    out.push(cap, hangFit('Cliff3', -W - wide, W + wide, -0.3, -0.3 - deep, c0 - e0 * 0.6, c1 + e1 * 0.6, { seg, ry: R() < 0.5 ? Math.PI : 0 }));
+  }
+  return out;
+}
+
+/** El paisaje de las islas en el trozo `chunk`: otras islas flotando a los lados, a distintas alturas y tamaños, algunas
+ * con un árbol encima (las de muy lejos, sin él: no se distinguiría). */
+export function skyDecoPuts(chunk: number, out: Put[]): Put[] {
+  const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ 0x7f4a7c15) >>> 0), s0 = chunk * TREK_CH;
+  const between = (a: number, b: number): number => a + R() * (b - a);
+  const n = 1 + Math.floor(R() * 3);
+  for (let i = 0; i < n; i++) {
+    const side = R() < 0.5 ? -1 : 1, near = R() < 0.5, w = near ? between(4, 7) : between(8, 16), u = side * (near ? between(7, 14) : between(18, 45));
+    const ds = between(s0, s0 + TREK_CH), y = near ? between(-6, 3) : between(-14, 14), deep = w * between(0.6, 1.1);
+    out.push(rockFit('island', 'Cliff1', u - w / 2, u + w / 2, y - w * 0.12, y, ds - w / 2, ds + w / 2, R() < 0.5));
+    out.push(hangFit('Cliff3', u - w * 0.42, u + w * 0.42, y - w * 0.08, y - w * 0.08 - deep, ds - w * 0.4, ds + w * 0.4, { ry: R() * 6.28 }));
+    if (near && R() < 0.7) {
+      const sc = between(0.7, 1.1);
+      out.push(put('nature', R() < 0.5 ? 'CommonTree_4' : 'Pine_4', ds + between(-1, 1), u + between(-1, 1), y - 0.05, { ry: R() * 6.28, sx: sc, sy: sc, sz: sc }));
     }
   }
   return out;

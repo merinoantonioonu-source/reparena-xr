@@ -122,6 +122,13 @@ No las cambies sin preguntarle.
   (polvo que cruza el camino: inclinarse contra el viento y aguantar mientras sopla) y los **desprendimientos** (rocas que caen
   de lo alto a un lado del camino, con aviso: apartarse al otro). Si no, frenas a la mitad y se rompe la racha, sin vidas. Sin
   bifurcaciones (se abrirían sobre el vacío). Su jefe, el Yeti.
+- Travesía de plataformas, **las islas en el cielo** (el tercer mundo, propuesto y aprobado): islotes de roca flotando sobre un
+  mar de nubes, al atardecer y al ocaso, con otras islas alrededor (algunas con árboles); casi todo son saltos, supersaltos y
+  planeos. Sus retos: el **islote que sube y baja** (al otro lado de un hueco: hay que saltar cuando está a ras; si está
+  arriba, chocas con él, y si está abajo, no llegas) y el **islote que se hunde** (tiembla y se hunde al pisarlo: cruzarlo
+  sin pararse; si dejas de hacer repeticiones en él, se te hunde). El demonio que lanza la bola de fuego es aquí un **dragón**
+  que vuela a un lado. Sin túneles, cangrejos, cíclopes ni bifurcaciones (no hay suelo a los lados). Si fallas, frenas a la
+  mitad y se rompe la racha, sin vidas. Su jefe, el Alien alto.
 - Siempre en Cómic. Cada repetición empuja por un sendero del bosque; sin repeticiones, te paras. La velocidad sale del
   ritmo de las repeticiones y de lo hondo que se baja (más rápido e intenso, más deprisa). Más deprisa que al
   principio (es una prueba física: hasta 2 m/s por la «Velocidad de avance», de 60 a 200 %, 130 % de serie; con el turbo, un 20 % más), sobre una plataforma quieta bajo los pies.

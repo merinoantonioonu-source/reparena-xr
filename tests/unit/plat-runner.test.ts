@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { BEHIND, BOUNCE_LIFT, CHEST_PTS, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, STOMP_PTS, SUPER_K, TREASURE_PTS } from '../../src/modes/trek/plat/runner.js';
 import { PORTAL_AT } from '../../src/modes/trek/plat/worlds.js';
-import { FIRE_AT, QUAKE_AT, BOSS_HP, BOSS_LEN, BOSS_STEP, BOSS_THROWS, BOSS_WIND, glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
+import { BOB_T, FIRE_AT, QUAKE_AT, BOSS_HP, BOSS_LEN, BOSS_STEP, BOSS_THROWS, BOSS_WIND, glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece as mk, Sim } from './plat-sim.js';
 import type { Piece } from '../../src/modes/trek/plat/types.js';
 
@@ -1182,6 +1182,64 @@ describe('la Travesía de plataformas: los mundos (el risco)', () => {
       else s.until(() => R.judged, 72 * 20);
       expect(R.ok).toBe(bien);
       expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+    }
+  });
+});
+
+describe('la Travesía de plataformas: las islas en el cielo', () => {
+  /** El reloj de la marcha con el islote de `p` a ras (`fase` 0) o arriba del todo (`fase` 0,25 de su vuelta). */
+  const timeFor = (p: Piece, fase: number): number => {
+    const t0 = (-p.id * 1.7 * BOB_T) / (2 * Math.PI);
+    return t0 + fase * BOB_T + 10 * BOB_T;
+  };
+
+  it('el tercer mundo: islotes que suben y bajan y que se hunden, el dragón y el Alien alto; sin túneles ni cangrejos', () => {
+    const s = new Sim({ trekWorld: 1 });
+    for (let i = 0; i < 4; i++) s.r.addTramo(i, 200);
+    const P = s.r.pieces.filter((p) => p.tramo === 2);
+    expect(P.find((p) => p.k === 'boss')?.n).toBe(2);
+    expect(P.some((p) => p.k === 'bob')).toBe(true);
+    expect(P.some((p) => p.k === 'sink')).toBe(true);
+    expect(P.some((p) => p.k === 'crawl' || p.k === 'side' || p.k === 'quake' || p.k === 'fork')).toBe(false);
+    for (const p of P) if (p.k === 'fire') expect(p.n).toBe(1); // (el dragón)
+    // fuera de las islas, ni sus retos ni el dragón
+    for (const p of s.r.pieces) if (p.tramo !== 2) {
+      expect(p.k === 'bob' || p.k === 'sink').toBe(false);
+      if (p.k === 'fire') expect(p.n).toBe(0);
+    }
+  });
+
+  it('el islote que sube y baja: saltando cuando está a ras, vale; cuando está arriba, chocas (sin vidas)', () => {
+    for (const bien of [true, false]) {
+      const s = new Sim({ trekWorld: 1 });
+      const B = mk(1, 'bob', 40, 2, { len: 1.2 });
+      s.load(course([B, mk(2, 'chest', 140, 2)]));
+      expect(s.squatsTo(B, 1.2)).toBe(true);
+      s.r.time = timeFor(B, bien ? 0 : 0.25);
+      s.jump();
+      expect(s.until(() => B.judged, 72 * 5)).toBe(true);
+      expect(B.ok).toBe(bien);
+      expect(s.of('settle')).toHaveLength(1);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+      expect(lifeEv(s)).toBe(false);
+    }
+  });
+
+  it('el islote que se hunde: cruzándolo sin parar, bien; parado en él, se hunde (frenas y se rompe la racha)', () => {
+    for (const bien of [true, false]) {
+      const s = new Sim({ trekWorld: 1 });
+      const K = mk(1, 'sink', 40, 2, { len: 7 });
+      s.load(course([K, mk(2, 'chest', 140, 2)]));
+      if (bien) expect(s.walk(() => (K.judged ? 0 : 99), 1, 72 * 30)).toBe(true);
+      else {
+        expect(s.squatsTo(K, -1)).toBe(true);
+        s.stand(4);
+      }
+      expect(s.of('sinking')).toHaveLength(1);
+      if (bien) expect(K.ok).toBe(true);
+      else expect(K.bad).toBe(true);
+      expect(s.of('hit')).toHaveLength(bien ? 0 : 1);
+      expect(lifeEv(s)).toBe(false);
     }
   });
 });

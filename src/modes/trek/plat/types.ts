@@ -35,17 +35,19 @@ export type PieceKind =
   | 'ledge' // el risco: la cornisa, el camino se estrecha por el lado del vacío: pegarse a la pared todo su largo (fluido)
   | 'gust' // el risco: una racha de viento que empuja hacia el vacío: aguantar inclinado contra el viento todo su largo (fluido)
   | 'rockfall' // el risco: un desprendimiento, rocas que caen de lo alto a un lado del camino: apartarse al otro (fluido)
+  | 'bob' // las islas: un hueco con la orilla de enfrente en un islote que sube y baja: saltar cuando está a ras (fluido)
+  | 'sink' // las islas: un islote que se hunde al pisarlo: cruzarlo sin pararse (fluido)
   | 'boss' // el jefe del mundo, al final de cada mundo («Tramos por mundo») y antes del cofre (paso): esquivar y supersalto encima
   | 'chest'; // fin del tramo (paso)
 
 /** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
  * si fallas, chocas o tropiezas (frenas y pierdes la racha, sin perder vidas, y sigues). El hueco también: si no saltas a
  * tiempo, tropiezas al cruzarlo (nunca se cae). */
-export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork', 'dive', 'skull', 'quake', 'fire', 'ledge', 'gust', 'rockfall'];
+export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork', 'dive', 'skull', 'quake', 'fire', 'ledge', 'gust', 'rockfall', 'bob', 'sink'];
 /** Los pasos: el mundo frena suave y te para a `STOP_AT` (solo el cofre, al acabar el tramo). */
 export const HALT: readonly PieceKind[] = ['chest', 'boss'];
 /** Los que se cruzan saltando (entre dos seguidos, al menos `JUMP_GAP_S` a velocidad máxima). */
-export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'box', 'glide', 'spring', 'skull', 'quake'];
+export const JUMPS: readonly PieceKind[] = ['gap', 'log', 'step', 'foe', 'box', 'glide', 'spring', 'skull', 'quake', 'bob'];
 /** ¿Se cruza saltando? (las de `JUMPS` y la fruta dorada, que flota alta en el centro) */
 export const isJump = (p: Piece): boolean => JUMPS.includes(p.k) || (p.k === 'fruit' && p.gold);
 /** Los de suelo (tras ellos, `FLOOR_UP_S` para levantarse antes de otra cosa; salvo la plataforma de un burpee, que llega
@@ -111,6 +113,19 @@ export const WALKERS: readonly PieceKind[] = ['foe', 'side', 'dive', 'skull'];
 /** El risco: la pared está a la izquierda (u < 0) y el vacío a la derecha. La cornisa y la racha: lo que miden (m), lo que
  * hay que apartar la cabeza (× «el paso a un lado») y el ancho que queda de camino en la cornisa (m). El desprendimiento:
  * cuándo empiezan a caer (m antes de tu cabeza) y lo que tardan (s). */
+/** Las islas en el cielo. El islote que sube y baja (`bob`): lo que mide el islote (m) y la grieta que lo separa del camino
+ * (m), cuánto sube y baja (m), lo que tarda en ir y volver (s), lo que puede estar de ras al despegar para que el salto
+ * valga (m) y desde dónde se puede despegar (m o s a tu velocidad: algo antes que en un hueco, para esperar el momento). El
+ * islote que se hunde (`sink`): lo que mide (m), lo despacio que se puede ir por él (m/s) y cuánto tiempo (s), y lo que se
+ * puede estar en él sin hacer repeticiones (s). */
+export const BOB_ISLE = 3, BOB_CRACK = 0.4, BOB_AMP = 1.0, BOB_T = 2.6, BOB_OK = 0.35, BOB_EARLY_MIN = 2.2, BOB_EARLY_S = 1.0;
+export const SINK_MIN = 5, SINK_MAX = 8, SINK_V = 0.55, SINK_GRACE = 0.8, SINK_IDLE = 2.5;
+/** Lo alto del islote de `p` respecto al camino (m) en el reloj `t` de la marcha (s): sube y baja, y se queda un rato a ras
+ * en cada paso (seno al cubo: la mitad del tiempo, a menos de `BOB_OK`). Cada islote, con su desfase. */
+export function bobY(p: Pick<Piece, 'id'>, t: number): number {
+  const s = Math.sin((2 * Math.PI * t) / BOB_T + p.id * 1.7);
+  return BOB_AMP * s * s * s;
+}
 export const CLIFF_WALL = -1, LEDGE_MIN = 5, LEDGE_MAX = 9, GUST_MIN = 5, GUST_MAX = 8, LEAN_K = 0.6, LEDGE_W = 0.7, ROCKFALL_AT = 9, ROCKFALL_T = 1.1;
 export const ASIDE_U = 1.7, QUAKE_AT = 8, QUAKE_WIND = 0.5, QUAKE_V = 5, QUAKE_WIN = 0.5, FIRE_AT = 11, FIRE_WIND = 0.5, FIRE_DUR = 1.3, FIRE_R = 0.3;
 /** El escupitajo del cangrejo (pedido del usuario): lo lanza una vez, solo desde lejos (cuando te queda entre `SPIT_NEAR` y
@@ -342,6 +357,10 @@ export type PlatEv =
   | { t: 'slam'; p: Piece; wind: number }
   /** El risco: las rocas del desprendimiento empiezan a caer (llegan en `dur` s). */
   | { t: 'rockfall'; p: Piece; dur: number }
+  /** Las islas: el islote que sube y baja se queda quieto a ras (has despegado hacia él; estaba a `y`); el que se hunde
+   * empieza a hundirse (lo pisas). */
+  | { t: 'settle'; p: Piece; y: number }
+  | { t: 'sinking'; p: Piece }
   /** Has cruzado el portal: otro mundo (su número desde 0). */
   | { t: 'world'; w: number };
 
