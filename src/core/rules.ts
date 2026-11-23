@@ -7,7 +7,7 @@ import { DEEP_EX, FOES_DEF } from './catalog.js';
 import { num, settings, str } from './values.js';
 
 // De pie con las manos libres: sentadillas y zancadas (se apunta con las manos y valen las pistolas)
-export const handsFree = (): boolean => settings.exercise === 'squat' || settings.exercise === 'lunge';
+export const handsFree = (): boolean => settings.exercise === 'squat' || settings.exercise === 'lunge' || settings.exercise === 'slunge' || settings.exercise === 'skater';
 // Con pesas en las manos (no se abre la pausa juntando los dedos)
 export const holdsWeights = (): boolean => ['curl', 'curl2', 'twist', 'press', 'press2', 'fraise', 'thruster', 'frontsq', 'swing', 'chop', 'dlrow'].includes(settings.exercise);
 // En plancha sobre una mano: arañas por los dos costados, cada brazo dispara a su lado

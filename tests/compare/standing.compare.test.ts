@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { mkHand, type Hand, type Side } from '../../src/input/hand-model.js';
 import { StandingDetector, STAND_EX, standDefaults, type StandCfg, type StandEvent } from '../../src/exercise/standing.js';
-import { RA_DIR, raRun, raSlice } from './ra.js';
+import { RA_DIR, raRun, raSlice, xrOnlyEx } from './ra.js';
 
 const { Vector3: V3, Quaternion: Q4 } = THREE;
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
@@ -212,7 +212,7 @@ function scenario(ex: string, seed: number, frames: number): { ra: string[]; por
 
 describe.skipIf(!RA_DIR)('los ejercicios de pie, como en RepArena', () => {
   const SEEDS = Number(process.env.SEEDS || 40);
-  for (const ex of STAND_EX)
+  for (const ex of STAND_EX.filter((x) => !xrOnlyEx(x)))
     it(`${ex}: lo mismo en ${SEEDS} partidas al azar`, () => {
       const n: Record<string, number> = {};
       for (let s = 1; s <= SEEDS; s++) {

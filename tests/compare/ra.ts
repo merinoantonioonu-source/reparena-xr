@@ -51,3 +51,9 @@ export function raRun<T>(code: string, ret: string, globals: Record<string, unkn
   vm.createContext(ctx);
   return vm.runInContext(`(function(){\n${code}\n;return (${ret});})()`, ctx) as T;
 }
+
+import { MODE_EX, XR_ONLY_EX } from '../../src/core/catalog.js';
+/** Los ejercicios de cada modo que también tiene RepArena (sin lo que solo tiene RepArena XR: `XR_ONLY_EX`). */
+export const RA_MODE_EX: Record<string, string[]> = Object.fromEntries(Object.entries(MODE_EX).map(([m, xs]) => [m, xs.filter((x) => !XR_ONLY_EX[m]?.includes(x))]));
+/** ¿Es un ejercicio que solo tiene RepArena XR (en ningún modo de RepArena)? */
+export const xrOnlyEx = (ex: string): boolean => Object.values(MODE_EX).some((xs) => xs.includes(ex)) && !Object.values(RA_MODE_EX).some((xs) => xs.includes(ex));

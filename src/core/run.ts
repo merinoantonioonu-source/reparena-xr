@@ -9,7 +9,7 @@
 export const HIST_KEY = 'reparena3-history';
 
 /** El esfuerzo de cada ejercicio (MET) y el de descansar (RepArena: EX_MET, REST_MET). */
-export const EX_MET: Record<string, number> = { slam: 7.5, squat: 5.5, lunge: 5, jsquat: 8, pushup: 6, pike: 6, inchworm: 6.5, dips: 5, curl: 3.5, curl2: 3.5, press: 4, press2: 4, fraise: 3.5, thruster: 7, frontsq: 6, swing: 9.8, chop: 5, dlrow: 6, plank1: 4, plankrow: 5, splank: 3, superman: 3.5, row: 6, pullup: 8, hang: 3.5, jump: 8, abs: 3.8, combo: 6 };
+export const EX_MET: Record<string, number> = { slam: 7.5, squat: 5.5, lunge: 5, slunge: 5.5, skater: 8, jsquat: 8, pushup: 6, pike: 6, inchworm: 6.5, dips: 5, curl: 3.5, curl2: 3.5, press: 4, press2: 4, fraise: 3.5, thruster: 7, frontsq: 6, swing: 9.8, chop: 5, dlrow: 6, plank1: 4, plankrow: 5, splank: 3, superman: 3.5, row: 6, pullup: 8, hang: 3.5, jump: 8, abs: 3.8, combo: 6 };
 const REST_MET = 2;
 
 /** Las calorías de una ronda (estimadas): el esfuerzo del ejercicio en el tiempo de oleada y el de descansar en el resto,

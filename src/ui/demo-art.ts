@@ -113,10 +113,18 @@ const ABS_UP: Pose = { hip: [0, 0.12], torso: -38, head: 12, legF: { to: [0.46, 
 const PRESS_DN = P_(STAND, ST_ARMS([28, 172], [24, 170])), PRESS_UP = P_(STAND, ST_ARMS([172, 176], [168, 174]));
 const JUMP_UP = P_(STAND, { hip: [0, 1.16], legF: { to: [0.02, 0.26], b: 1 }, legB: { to: [-0.05, 0.24], b: 1 }, ...ST_ARMS([30, 30], [26, 26]) });
 
+// los de glúteos (RepArena XR), vistos de frente: el paso a un lado y la caída sobre una pierna
+const SLUNGE_DN: Pose = { hip: [0.22, 0.6], torso: 6, legF: { to: [0.5, 0.04], b: 1 }, legB: { to: [-0.4, 0.04], b: 1 }, armF: { ang: [40, 60] }, armB: { ang: [36, 56] } };
+const SK_L: Pose = { hip: [-0.28, 0.74], torso: 26, legF: { to: [-0.28, 0.04], b: 1 }, legB: { to: [-0.02, 0.3], b: 1 }, armF: { ang: [-30, -30] }, armB: { ang: [60, 70] } };
+const SK_R: Pose = { hip: [0.28, 0.74], torso: 26, legF: { to: [0.28, 0.04], b: 1 }, legB: { to: [0.02, 0.3], b: 1 }, armF: { ang: [60, 70] }, armB: { ang: [-30, -30] } };
+const SK_AIR = P_(STAND, { hip: [0, 1.0], legF: { to: [0.08, 0.3], b: 1 }, legB: { to: [-0.08, 0.3], b: 1 } });
+
 /** Cada ejercicio (RepArena: DEMO), en el mismo orden. */
 export const DEMO: Record<string, DemoDef> = {
   squat: { P: 2.6, keys: [[0, STAND], [0.38, SQUAT], [0.55, SQUAT], [0.9, STAND], [1, STAND]], fire: 0.84, low: 0.45, desc: 'Pies a la anchura de los hombros: baja la cadera hacia atrás hasta casi sentarte y sube. Al subir, disparas.' },
   lunge: { P: 2.8, keys: [[0, STAND], [0.4, LUNGE_DN], [0.55, LUNGE_DN], [0.9, STAND], [1, STAND]], fire: 0.84, low: 0.48, desc: 'Da un paso al frente y baja hasta que la rodilla de atrás casi toque el suelo; vuelve y alterna la pierna.' },
+  slunge: { P: 3.2, keys: [[0, STAND], [0.4, SLUNGE_DN], [0.55, SLUNGE_DN], [0.9, STAND], [1, STAND]], fire: 0.84, low: 0.5, desc: 'Paso largo a un lado y baja sobre esa pierna, la otra estirada y el pecho alto; vuelve y alterna el lado. Glúteos.' },
+  skater: { P: 2.4, keys: [[0, SK_L], [0.2, SK_AIR], [0.35, SK_R], [0.5, SK_R], [0.7, SK_AIR], [0.85, SK_L], [1, SK_L]], fire: [0.38, 0.88], low: [0.38, 0.88], desc: 'Salta de lado de una pierna a la otra, como un patinador, y cae flexionándola con la otra cruzada detrás. Glúteos y cardio.' },
   jsquat: { P: 2.8, high: 2.45, keys: [[0, STAND], [0.35, SQUAT], [0.5, SQUAT], [0.62, P_(STAND, { hip: [0, 1.14], legF: { to: [0.02, 0.24], b: 1 }, legB: { to: [-0.05, 0.22], b: 1 }, ...ST_ARMS([165, 170], [160, 168]) })], [0.75, STAND], [1, STAND]], fire: 0.62, low: 0.62, desc: 'Baja en sentadilla y sube con un salto explosivo, brazos arriba. Aterriza suave con las rodillas flexionadas.' },
   pushup: { P: 2.6, keys: [[0, PLANK_UP], [0.4, PLANK_DN], [0.55, PLANK_DN], [0.9, PLANK_UP], [1, PLANK_UP]], fire: 0.84, low: 0.47, tiny: true, desc: 'Cuerpo recto de la cabeza a los talones: baja el pecho hasta casi el suelo y empuja. Disparas al subir.' },
   pike: { P: 2.6, keys: [[0, PIKE_UP], [0.4, PIKE_DN], [0.55, PIKE_DN], [0.9, PIKE_UP], [1, PIKE_UP]], fire: 0.84, low: 0.47, tiny: true, desc: 'Manos y pies en el suelo, la cadera bien alta (una V invertida): dobla los codos hasta casi tocar el suelo con la cabeza entre las manos y empuja. Hombros y tríceps.' },
@@ -195,7 +203,7 @@ export function demoPose(D: DemoDef, u: number): Pose {
 }
 
 // Lo que hace una PERFECTA y el extra propio del ejercicio (o del modo), en una línea cada uno
-const DEMO_RANGE: Record<string, string> = { squat: 'baja hasta casi sentarte', lunge: 'la rodilla de atrás casi al suelo', jsquat: 'sentadilla a fondo y salto', pushup: 'el pecho casi al suelo', pike: 'la cabeza casi al suelo, entre las manos', inchworm: 'la cabeza hasta la línea y vuelta a la salida', dips: 'baja hasta los codos en ángulo recto',
+const DEMO_RANGE: Record<string, string> = { slunge: 'paso a un lado y baja', skater: 'de lado a lado, cayendo flexionado', squat: 'baja hasta casi sentarte', lunge: 'la rodilla de atrás casi al suelo', jsquat: 'sentadilla a fondo y salto', pushup: 'el pecho casi al suelo', pike: 'la cabeza casi al suelo, entre las manos', inchworm: 'la cabeza hasta la línea y vuelta a la salida', dips: 'baja hasta los codos en ángulo recto',
   curl: 'sube hasta el hombro y baja del todo', curl2: 'sube hasta el hombro y baja del todo', press: 'brazos estirados del todo arriba', press2: 'brazos estirados del todo arriba', fraise: 'hasta la altura de los hombros', thruster: 'sentadilla a fondo y brazos estirados',
   frontsq: 'sentadilla a fondo', swing: 'cadera bien atrás', chop: 'de arriba abajo, cruzando el cuerpo', dlrow: 'cadera atrás y espalda recta', plank1: 'cuerpo recto, sin girar la cadera', splank: 'cadera bien arriba', superman: 'brazos y piernas a la vez arriba',
   row: 'el pecho hasta la barra', pullup: 'la barbilla por encima de la barra', abs: 'sube los hombros del suelo', slam: 'a fondo y con fuerza', jump: 'salto con todo el cuerpo', combo: 'cada movimiento completo' };

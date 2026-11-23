@@ -7,7 +7,7 @@ import { exFor, MODE_EX, RANKS, XR_ONLY_EX } from '../../src/core/catalog.js';
 import { SCHEMA } from '../../src/core/schema.js';
 import * as P from '../../src/core/settings.js';
 import { settings as PS } from '../../src/core/values.js';
-import { Mem, RA_DIR, raRun, raSlice } from './ra.js';
+import { Mem, RA_DIR, RA_MODE_EX, raRun, raSlice } from './ra.js';
 
 // (los ajustes que solo tiene RepArena XR, aparte: RepArena no los conoce)
 const XR = new Set(SCHEMA.filter((f) => f.xr).map((f) => f.key)), RA_SCHEMA = SCHEMA.filter((f) => !f.xr);
@@ -53,7 +53,7 @@ let O: { api: Api; mem: Mem };
 // azar con semilla (para poder repetir un fallo)
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
 // (sin los ejercicios que RepArena ya no ofrece: con ellos, RepArena deja el modo vacío y aquí se queda el de antes)
-const EXS = [...new Set(Object.values(MODE_EX).flat())];
+const EXS = [...new Set(Object.values(RA_MODE_EX).flat())];
 function randomOp(r: () => number): [string, string | number] {
   const x = r(), pick = <T>(a: T[]): T => a[Math.floor(r() * a.length)];
   if (x < 0.12) return ['mode', pick(['combat', 'arcs', 'bars', 'touch', 'trek', 'walkers', 'flyers'])];

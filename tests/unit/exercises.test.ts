@@ -18,6 +18,8 @@ type V3 = [number, number, number];
  * segundos. De pie, las muñecas van respecto a los ojos; en el suelo, en la arena. */
 interface Seg {
   y?: number;
+  /** A un lado (m, + a la derecha): los de glúteos. */
+  x?: number;
   z?: number;
   l?: V3 | null;
   r?: V3 | null;
@@ -54,10 +56,10 @@ function play(ex: string, segs: Seg[], o: Opts = {}): { all: Ev[]; types: string
   const sc = { ...standDefaults(ex), ...o.over } as StandCfg, fc = { ...floorDefaults(ex), ...o.over } as FloorCfg;
   if (floor) fd.reset(y0, { left: pos.left.y, right: pos.right.y });
   else sd.reset(y0);
-  let y = y0, z = head.p.z, ang = 0, t = 0;
+  let y = y0, z = head.p.z, x = head.p.x, ang = 0, t = 0;
   const out: StandEvent[] = [], all: Ev[] = [], tmp = new Vector3();
   for (const g of segs) {
-    const n = Math.max(1, Math.round(g.s * FPS)), y1 = g.y ?? y, z1 = g.z ?? z, a0 = ang, a1 = g.ang ?? ang;
+    const n = Math.max(1, Math.round(g.s * FPS)), y1 = g.y ?? y, z1 = g.z ?? z, x1 = g.x ?? x, a0 = ang, a1 = g.ang ?? ang;
     from.left.copy(pos.left);
     from.right.copy(pos.right);
     for (let i = 1; i <= n; i++) {
@@ -66,6 +68,7 @@ function play(ex: string, segs: Seg[], o: Opts = {}): { all: Ev[]; types: string
       const w = wob * Math.sin(t * 4.1) + wob * 0.5 * Math.sin(t * 9.7 + 1);
       head.p.y = y + (y1 - y) * e + w;
       head.p.z = z + (z1 - z) * e;
+      head.p.x = x + (x1 - x) * e;
       head.speed = Math.abs(head.p.y - prev) / DT;
       ang = a0 + (a1 - a0) * e;
       I.iwZ = head.p.z;
@@ -92,6 +95,7 @@ function play(ex: string, segs: Seg[], o: Opts = {}): { all: Ev[]; types: string
     }
     y = y1;
     z = z1;
+    x = x1;
   }
   const reps = all.filter((e) => e.type === 'rep') as (StandEvent & { type: 'rep' })[];
   return { all, types: all.map((e) => e.type), reps, charges: all.filter((e) => e.type === 'charge').length };
@@ -117,7 +121,12 @@ const GOOD: Record<string, Seg[]> = {
   curl2: [{ l: [-0.04, -0.45, -0.25], r: [0.04, -0.45, -0.25], s: 0.9 }, { l: [-0.04, -0.78, -0.2], r: [0.04, -0.78, -0.2], s: 0.9 }, PAUSE],
   fraise: [{ l: [-0.04, -0.28, -0.6], r: [0.04, -0.28, -0.6], s: 1 }, { l: [-0.04, -0.85, -0.2], r: [0.04, -0.85, -0.2], s: 0.9 }, PAUSE],
   twist: [{ ang: 2.6, s: 0.8 }, { ang: -2.6, s: 0.8 }],
+  // los de glúteos: el paso a un lado bajando sobre esa pierna; el patinador, de un lado a otro cayendo flexionado (dos saltos)
+  slunge: [{ y: Y0 - 0.24, x: 0.36, s: 1.1 }, { y: Y0, x: 0, s: 0.9 }, PAUSE],
+  skater: [{ x: 0.26, s: 0.35 }, { y: Y0 - 0.12, s: 0.25 }, { y: Y0, s: 0.3 }, { x: -0.26, s: 0.35 }, { y: Y0 - 0.12, s: 0.25 }, { y: Y0, s: 0.3 }],
 };
+/** Lo que se hace antes de la primera (el patinador: ponerse en un lado). */
+const PREP: Record<string, Seg[]> = { skater: [{ x: -0.26, s: 0.6 }, PAUSE] };
 /** Dónde tiene las manos cada uno al empezar (la pesa agarrada). */
 const START: Record<string, Opts> = {
   curl2: { l0: [-0.04, -0.78, -0.2], r0: [0.04, -0.78, -0.2] },
@@ -126,12 +135,12 @@ const START: Record<string, Opts> = {
   twist: { l0: [-0.3, -0.4, -0.35], r0: [0.3, -0.4, -0.35] },
 };
 /** El antebrazo cuenta un giro de cada dos (uno carga y el siguiente, al revés, dispara): cinco ciclos, cinco disparos. */
-const PER_CYCLE: Record<string, number> = { twist: 1 };
+const PER_CYCLE: Record<string, number> = { twist: 1, skater: 2 };
 
 describe('cada ejercicio de pie', () => {
   for (const ex of STAND_EX) {
     it(`${ex}: cinco bien hechas cuentan cinco`, () => {
-      const { reps } = play(ex, [{ s: 0.6 }, ...times(5, GOOD[ex])], START[ex]);
+      const { reps } = play(ex, [{ s: 0.6 }, ...(PREP[ex] ?? []), ...times(5, GOOD[ex])], START[ex]);
       expect(reps.length).toBe(5 * (PER_CYCLE[ex] ?? 1));
     });
     it(`${ex}: quieto 12 s en la postura, ni carga ni dispara`, () => {
@@ -146,6 +155,20 @@ describe('cada ejercicio de pie', () => {
       expect(reps.length, ex).toBe(0);
       expect(all.some((e) => e.type === 'partial'), ex).toBe(true);
     }
+  });
+  it('zancada lateral: bajar sin apartarse a un lado, o apartarse sin bajar, no cuenta (y avisa)', () => {
+    const recto = play('slunge', [{ s: 0.6 }, { y: Y0 - 0.24, s: 1.1 }, UP, PAUSE]);
+    expect(recto.reps.length).toBe(0);
+    expect(msgs(recto.all, 'partial')).toEqual(['¡Da el paso más a un lado!']);
+    const alto = play('slunge', [{ s: 0.6 }, { y: Y0 - 0.06, x: 0.36, s: 1.1 }, { y: Y0, x: 0, s: 0.9 }, PAUSE]);
+    expect(alto.reps.length).toBe(0);
+  });
+  it('patinador: ir de un lado al otro andando, o caer sin flexionar, no cuenta (y avisa)', () => {
+    const andando = play('skater', [{ s: 0.6 }, { x: -0.26, s: 0.6 }, PAUSE, { x: 0.26, s: 2.2 }, { y: Y0 - 0.12, s: 0.3 }, { y: Y0, s: 0.3 }]);
+    expect(andando.reps.length).toBe(0);
+    const tieso = play('skater', [{ s: 0.6 }, { x: -0.26, s: 0.6 }, PAUSE, { x: 0.26, s: 0.35 }, { s: 1 }]);
+    expect(tieso.reps.length).toBe(0);
+    expect(msgs(tieso.all, 'partial')).toEqual(['¡Flexiona al caer sobre la pierna!']);
   });
   it('curl: subir a medias no cuenta (y avisa)', () => {
     const { reps, all } = play('curl', [{ s: 0.6 }, { r: [0.15, -0.62, -0.2], s: 0.7 }, { r: REST_R, s: 0.7 }]);

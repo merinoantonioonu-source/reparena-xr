@@ -15,7 +15,7 @@ describe('las cortinillas', () => {
         expect(existsSync(url!), url!).toBe(true);
         n++;
       }
-    expect(n).toBe(33);
+    expect(n).toBe(35);
     expect(cortUrl('arcs', 'curl')).toBeNull(); // (un ejercicio que no está en ese modo)
   });
   it('la franja: oleadas y vidas de verdad; en la Travesía, solo los tramos', () => {

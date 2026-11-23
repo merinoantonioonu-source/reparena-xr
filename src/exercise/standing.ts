@@ -22,7 +22,7 @@ import { powLevel, VertDetector, type VertConfig, type VertEvent } from './verti
 import { handFilter, mkHF } from '../input/hand-filter.js';
 
 /** Los ejercicios de pie de Combate (los de MODE_EX.combat que no van en el suelo ni sentados). */
-export const STAND_EX = ['squat', 'lunge', 'jsquat', 'thruster', 'frontsq', 'swing', 'dlrow', 'curl', 'curl2', 'fraise', 'twist'];
+export const STAND_EX = ['squat', 'lunge', 'jsquat', 'thruster', 'frontsq', 'swing', 'dlrow', 'curl', 'curl2', 'fraise', 'twist', 'slunge', 'skater'];
 
 /** Lo que pide cada ejercicio: los ajustes de «Tu cuerpo (recorridos)» y los de la carga. Se leen al empezar cada oleada. */
 export interface StandCfg {
@@ -52,10 +52,16 @@ export interface StandCfg {
   robust?: boolean;
   /** La zancada: avisar del cambio de pierna tras cada una (de serie, como en RepArena); la Travesía lo avisa ella, cada tantas. */
   legSay?: boolean;
+  /** Glúteos (solo RepArena XR; pedidos por el usuario): la zancada lateral, lo que baja la cabeza y lo que se aparta a un
+   * lado (cm); el patinador, lo que va la cabeza de un lado a otro en cada salto y lo que baja al caer (cm). */
+  slungeDepth?: number;
+  slungeSide?: number;
+  skaterWidth?: number;
+  skaterDip?: number;
 }
 
 /** Los de serie de RepArena (src/00_core.js: SCHEMA). */
-export const standDefaults = (ex = 'squat'): StandCfg => ({ ex, squatDepth: 26, lungeDepth: 28, swingDrop: 15, dlDepth: 28, thrUp: 20, jsqJump: 8, curlRange: 27, fraiseRange: 45, twistDeg: 70, perfectTime: 1.2, powHold: 1.5, powHoldInc: 0.5, deepDrop: 0, power: true });
+export const standDefaults = (ex = 'squat'): StandCfg => ({ ex, squatDepth: 26, lungeDepth: 28, swingDrop: 15, dlDepth: 28, thrUp: 20, jsqJump: 8, curlRange: 27, fraiseRange: 45, twistDeg: 70, perfectTime: 1.2, powHold: 1.5, powHoldInc: 0.5, deepDrop: 0, power: true, slungeDepth: 18, slungeSide: 30, skaterWidth: 50, skaterDip: 8 });
 
 /** Lo que ve el detector en cada fotograma. */
 export interface StandInput {
@@ -107,6 +113,10 @@ export const CHAIN: Record<string, ChainDef> = {
   jsquat: { depth: (c) => c.squatDepth, jump: true, miss: '¡Salta al subir!' },
 };
 const CH_WIN = 2.5; // (segundos para el gesto, ya de pie)
+/** Glúteos: lo que tarda el centro en seguir a la cabeza (s); el patinador: dónde empieza cada lado (× el ancho del salto),
+ * lo que puede durar un salto de lado a lado (s), lo que hay para flexionar al caer (s), lo de más para la perfecta (m) y lo
+ * que baja tu altura de pie por segundo (m). */
+const SIDE_TAU = 3, SK_EDGE = 0.35, SK_MAX_T = 1.4, SK_LAND_T = 0.7, SK_PERFECT = 0.05, SK_REF_DOWN = 0.02;
 
 /** Los números del camino nuevo del curl con barra («Manos: filtro nuevo», `barRobust`), sacados de las cajas negras de las
  * gafas (docs/PLAN-CURL-BARRA.md):
@@ -177,6 +187,13 @@ export class StandingDetector {
   readonly tw = { last: NaN, acc: 0, lo: 0, hi: 0, dir: 0, n: 0, t0: 0, lostT: 0, warnT: 0, ext: 0, holdT: 0, pow: 1, first: false };
   /** ¿Hay un disparo cargado? (RepArena: `charged`, que se pone al cargar y se quita al disparar o al perderlo) */
   charged = false;
+  /** La zancada lateral (bajar y subir, como la zancada, más el paso a un lado): su bajada, el centro (en el suelo, donde
+   * estás de pie), lo más que se ha apartado la cabeza en esta bajada y hacia qué lado, y el lado de la anterior. */
+  readonly sl = new VertDetector();
+  readonly side = { cx: 0, cz: 0, max: 0, dir: 0, last: 0, init: false };
+  /** El patinador: tu altura de pie (sube enseguida, baja despacio), el lado en que estás (−1, 0, 1), cuándo saliste del
+   * anterior, si vas saltando hacia el otro (y desde cuándo has llegado, esperando la caída) y lo más hondo de esa caída. */
+  readonly sk = { ref: 1.6, at: 0, leftT: 0, flying: false, landT: -1, dip: 0, from: 0 };
 
   private vEv: VertEvent[] = [];
   private vCfg: VertConfig = { req: 0.26, start: 0.08, back: 0.05, partial: 0.1, perfectDur: 1.2, power: true, powHold: 1.5, powHoldInc: 0.5, deepDrop: 0 };
@@ -214,6 +231,9 @@ export class StandingDetector {
     Object.assign(this.fr, { state: 'down', bottom: -0.85, max: 0, t0: 0, lost: 0, fwd: 0, o: null, holdT: 0, pow: 1 });
     Object.assign(this.tw, { last: NaN, acc: 0, lo: 0, hi: 0, dir: 0, n: 0, t0: 0, lostT: 0, warnT: 0, ext: 0, holdT: 0, pow: 1, first: false });
     this.charged = false;
+    this.sl.reset(y);
+    Object.assign(this.side, { max: 0, dir: 0, last: 0, init: false });
+    Object.assign(this.sk, { ref: y, at: 0, leftT: 0, flying: false, landT: -1, dip: 0, from: 0 });
   }
 
   /** Un fotograma (t: el reloj, s; dt: lo que ha pasado): añade a `out` lo que haya pasado. */
@@ -249,6 +269,8 @@ export class StandingDetector {
       if (c.robust) this.barRobust(dt);
       else this.barStep(dt);
     }
+    else if (ex === 'slunge') this.slungeStep(dt);
+    else if (ex === 'skater') this.skaterStep(dt);
     else if (ex === 'twist') this.twistStep(dt);
     else if (CHAIN[ex]) this.chainStep(CHAIN[ex], dt);
     else if (ex === 'fraise') this.fraiseStep(dt);
@@ -304,6 +326,95 @@ export class StandingDetector {
       else if (e.type === 'partial') this.partial(msg);
       else if (defer) defer(e);
       else this.rep(e);
+    }
+  }
+
+  // ---------------------------------------------------------------- glúteos (solo RepArena XR)
+
+  /** Lo que se aparta la cabeza del centro a tu derecha (m; el centro sigue despacio a la cabeza mientras estás de pie y
+   * quieto en el sitio). */
+  private lateral(dt: number, follow: boolean): number {
+    const S = this.side, p = this.I.head.p, f = this.I.fwd;
+    if (!S.init) {
+      S.cx = p.x;
+      S.cz = p.z;
+      S.init = true;
+    }
+    if (follow && dt > 0) {
+      const k = Math.min(1, dt / SIDE_TAU);
+      S.cx += (p.x - S.cx) * k;
+      S.cz += (p.z - S.cz) * k;
+    }
+    // (la derecha de «delante»: delante es −z con la derecha en +x)
+    return (p.x - S.cx) * -f.z + (p.z - S.cz) * f.x;
+  }
+
+  // La zancada lateral: un paso largo a un lado y bajar sobre esa pierna (la cabeza baja y se va a ese lado). Bajar y subir
+  // como la zancada (carga, ×2-×4 aguantando abajo, perfecta); al subir cuenta si la cabeza se apartó lo pedido. Un lado y
+  // luego el otro: tras cada una, el aviso del otro lado.
+  private slungeStep(dt: number): void {
+    const c = this.c, S = this.side, depth = c.slungeDepth ?? 18, need = (c.slungeSide ?? 30) / 100;
+    const down = this.I.head.p.y < this.sl.ref - 0.04;
+    const lat = this.lateral(dt, !down);
+    if (down && Math.abs(lat) > S.max) {
+      S.max = Math.abs(lat);
+      S.dir = Math.sign(lat);
+    }
+    this.vert(this.sl, depth, 0.06, 0.05, 0.4, '¡Baja más sobre la pierna!', (o) => {
+      const ok = S.max >= need;
+      if (ok) {
+        this.rep(o);
+        if (S.dir === S.last) this.say(`Ahora hacia la ${S.dir > 0 ? 'izquierda' : 'derecha'}`, '#a49fc8');
+        S.last = S.dir;
+      } else this.partial('¡Da el paso más a un lado!');
+      S.max = 0;
+    });
+    if (!down && this.out.length && this.out[this.out.length - 1].type === 'partial') S.max = 0;
+  }
+
+  // El patinador: saltos de lado de una pierna a la otra (la cabeza va de un lado al otro deprisa) cayendo flexionado sobre
+  // la pierna de llegada (la cabeza baja). Al salir de un lado, la carga; al caer en el otro, bajando lo pedido, el disparo
+  // (perfecta, cayendo hondo). Ir de un lado al otro andando, o caer sin flexionar, no cuenta.
+  private skaterStep(dt: number): void {
+    const c = this.c, K = this.sk, y = this.I.head.p.y, w = (c.skaterWidth ?? 50) / 100, dip = (c.skaterDip ?? 8) / 100, t = this.t;
+    // tu altura de pie: sube enseguida y baja despacio (como la de la sentadilla)
+    if (y > K.ref) K.ref += (y - K.ref) * Math.min(1, dt * 8);
+    else K.ref -= Math.min(K.ref - y, SK_REF_DOWN * dt);
+    const lat = this.lateral(dt, !K.flying && K.landT < 0), thr = w * SK_EDGE;
+    const at = lat >= thr ? 1 : lat <= -thr ? -1 : 0;
+    if (!K.flying && K.landT < 0) {
+      if (K.at && at === 0) {
+        // sale de un lado: empieza el salto
+        K.flying = true;
+        K.from = K.at;
+        K.leftT = t;
+        this.charge();
+      } else if (at) K.at = at;
+    } else if (K.flying) {
+      if (at === -K.from) {
+        // ha llegado al otro lado: ¿deprisa (un salto) y luego, al caer, flexiona?
+        K.flying = false;
+        K.at = at;
+        if (t - K.leftT > SK_MAX_T) this.partial('¡Salta de lado, no andes!');
+        else {
+          K.landT = t;
+          K.dip = 0;
+        }
+      } else if (at === K.from || t - K.leftT > SK_MAX_T) {
+        // vuelve al mismo lado, o tarda demasiado: no ha sido un salto
+        K.flying = false;
+        this.charged = false;
+      }
+    } else if (K.landT >= 0) {
+      K.dip = Math.max(K.dip, K.ref - y);
+      if (K.dip >= dip) {
+        const perfect = K.dip >= dip + SK_PERFECT;
+        K.landT = -1;
+        this.rep({ perfect, fast: false });
+      } else if (t - K.landT > SK_LAND_T) {
+        K.landT = -1;
+        this.partial('¡Flexiona al caer sobre la pierna!');
+      }
     }
   }
 

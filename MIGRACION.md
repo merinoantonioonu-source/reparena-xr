@@ -413,6 +413,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Los de glúteos** (`slunge`, `skater`): en `StandingDetector` (`slungeStep`, con su `VertDetector` `sl` y lo que se aparta
+  la cabeza, `lateral`; `skaterStep`, con su altura de pie `sk.ref`), sus ajustes `xr` (`slungeDepth`, `slungeSide`,
+  `skaterWidth`, `skaterDip`), en `XR_ONLY_EX.combat` (las comparaciones con RepArena se los saltan: `RA_MODE_EX` y
+  `xrOnlyEx`, `tests/compare/ra.ts`) y su caricatura vista de frente. Llevarlos a la Travesía o a Toques: pendiente.
+
 - **Toques desde las compuertas**: `TouchEnv.gateFrom` (lo da `TouchSystem` con las compuertas de delante) pone el `from` de
   cada objetivo en su boca (`MoveSpec.gate`; suave, `smoothstep`) y salen `TCH_GATE_K` veces antes (`gateLead`); con
   `classic`, como RepArena.
