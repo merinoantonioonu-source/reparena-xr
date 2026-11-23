@@ -36,6 +36,7 @@ export interface FBCfg {
   board: boolean;
   /** Lo que sube cada aletazo (× lo de serie; las capturas viejas, sin él: 1). */
   flapK?: number;
+  rateK?: number;
 }
 
 class FlyBox {
@@ -43,7 +44,7 @@ class FlyBox {
   i = 0;
   n = 0;
   fresh = 0;
-  cfg: FBCfg = { model: 'pos', auto: true, range: 0.12, depth: 0.13, lowNeed: 0.078, backTo: 0.18, board: false };
+  cfg: FBCfg = { model: 'mid', auto: true, range: 0.12, depth: 0.13, lowNeed: 0.078, backTo: 0.18, board: false };
   private acc = 0;
   /** Lo que pasó entre dos filas (una flexión, una explosiva) y el reto que se seguía (para apuntar su acierto o fallo). */
   private rep = 0;
@@ -84,6 +85,7 @@ class FlyBox {
     c.lowNeed = I.lowNeed;
     c.backTo = I.backTo;
     c.flapK = I.flapK;
+    c.rateK = I.rateK;
     c.board = board;
     const o = this.i * NC, v = this.v, q = this.next;
     v[o + C.t] = now - this.t0;
@@ -222,7 +224,7 @@ export function flyReplay(P: FBParsed, over: Partial<FlyIn> = {}): FBReplay {
   G.rising = !!(R[0].fl & 4);
   for (let j = 0; j < R.length; j++) {
     const r = R[j], dt = j ? Math.max(1e-3, r.t - R[j - 1].t) : 1 / FB_HZ;
-    Object.assign(I, { side: r.side, down: r.down, back: r.back, depth: P.cfg.depth, lowNeed: P.cfg.lowNeed, range: P.cfg.range, backTo: P.cfg.backTo, flapK: P.cfg.flapK ?? 1, rep: r.rep, flap: !!r.flap, pair: !!r.pair, auto: P.cfg.auto, sinceRep: r.since, updraft: !!r.upd, land: r.land, model: P.cfg.model }, over);
+    Object.assign(I, { side: r.side, down: r.down, back: r.back, depth: P.cfg.depth, lowNeed: P.cfg.lowNeed, range: P.cfg.range, backTo: P.cfg.backTo, flapK: P.cfg.flapK ?? 1, rateK: P.cfg.rateK ?? 1, rep: r.rep, flap: !!r.flap, pair: !!r.pair, auto: P.cfg.auto, sinceRep: r.since, updraft: !!r.upd, land: r.land, model: P.cfg.model }, over);
     G.step(dt, I);
     out.alt.push(G.alt);
     out.u.push(G.u);

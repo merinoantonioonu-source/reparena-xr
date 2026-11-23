@@ -185,11 +185,14 @@ No las cambies sin preguntarle.
     «hipersensible»): 2,5 cm sin efecto y del todo a un lado con lo que diga «Vuelo: recorrido de lado» (15 cm de serie, de 8
     a 30: más, menos sensible); la práctica nunca lo acorta. **La sensibilidad de cada eje, en los ajustes** (pedido del
     usuario como desarrollador): «Vuelo: recorrido de lado», «Vuelo: recorrido para bajar» (13 cm de serie), «Vuelo: recorrido
-    para subir» (la pica, 18 cm) y «Vuelo: fuerza del aletazo» (100 %). La altura,
-    con el **mando de altura** (en pruebas, «Vuelo: mando de altura»): **posición** en la suave (bajar el pecho baja en
-    proporción; la cadera arriba sube) y **aleteo** en la dura (cada flexión, un aletazo; aguantar abajo quieto, el
-    **picado**, más hondo, más deprisa). **La pica manda sobre el picado**. Una explosiva sube más (nunca hace falta); de
-    canto, un **tonel**.
+    para subir» (la pica, 18 cm), «Vuelo: fuerza del aletazo» (100 %) y «Vuelo: velocidad al subir y bajar» (100 %).
+    **La altura, con media flexión** (elegido por el usuario entre tres: la reglilla de altura no respondía a la cabeza con el
+    aleteo): **aguantando a media flexión vuelas recto**; con los brazos estirados (la cabeza arriba), **subes**; con el pecho
+    más abajo de la mitad, **bajas**, más deprisa cuanto más lejos (la mitad, la de «Vuelo: recorrido para bajar»). Al
+    despegar subes solo hasta la altura de vuelo. **La pica frena** (y manda: en pica ni subes ni bajas). Una explosiva, un
+    empujón hacia arriba (nunca hace falta); de canto, un **tonel**. Los otros mandos, para comparar en «Vuelo: mando de
+    altura»: **posición** (tu altura sale de tu pecho; la pica sube) y **aleteo** (cada flexión, un aletazo; abajo quieto,
+    el picado).
   - **Que se vea lo que haces**: tu **sombra** de ave en el suelo, con el pico hacia delante (se ladea con la escora, se pliega al picar, se abre en pica
     y bate en cada aletazo); **sin alas** (corregido por el usuario con su vídeo: pegadas a la cabeza salían delante y detrás
     y tapaban la vista); el viento al picar, un golpe de aire al aletear y un siseo al frenar; la **ventana de cada reto**, con luz verde (el canto de abajo del puente, el lado

@@ -116,6 +116,63 @@ describe('la sensibilidad, en los ajustes del desarrollador', () => {
   });
 });
 
+describe('la altura, media flexión (de serie, elegido por el usuario)', () => {
+  const M = { model: 'mid' as const, depth: 0.13 };
+  it('aguantando a media flexión, recto; con los brazos estirados, subes; más abajo, bajas (más deprisa cuanto más lejos)', () => {
+    const mid = new Glider(), top = new Glider(), low = new Glider(), deep = new Glider();
+    run(mid, 3, IN({ ...M, down: 0.065 }));
+    run(top, 1.5, IN({ ...M, down: 0 }));
+    run(low, 1, IN({ ...M, down: 0.1 }));
+    run(deep, 1, IN({ ...M, down: 0.13 }));
+    expect(mid.alt).toBeCloseTo(FLY.alt0, 6);
+    expect(top.alt).toBeGreaterThan(FLY.alt0 + 1.5);
+    expect(low.alt).toBeLessThan(FLY.alt0 - 0.5);
+    expect(deep.alt).toBeLessThan(low.alt - 0.5);
+    expect(deep.diving).toBe(true);
+  });
+  it('cerca de la mitad, nada (su zona muerta); la reglilla dice adónde vas', () => {
+    const g = new Glider();
+    run(g, 2, IN({ ...M, down: 0.065 + 0.005 }));
+    expect(g.alt).toBeCloseTo(FLY.alt0, 6);
+    const t = new Glider();
+    run(t, 0.5, IN({ ...M, down: 0 }));
+    expect(t.tgtAlt).toBeGreaterThan(t.alt);
+  });
+  it('la pica frena y no sube ni baja; «Vuelo: velocidad al subir y bajar» la cambia', () => {
+    const p = new Glider();
+    run(p, 2, IN({ ...M, down: 0.13, back: 0.14 }));
+    expect(p.braking).toBe(true);
+    expect(p.alt).toBeCloseTo(FLY.alt0, 6);
+    const a = new Glider(), b = new Glider();
+    run(a, 1, IN({ ...M, down: 0, rateK: 1 }));
+    run(b, 1, IN({ ...M, down: 0, rateK: 2 }));
+    expect(b.alt - FLY.alt0).toBeGreaterThan(1.5 * (a.alt - FLY.alt0));
+  });
+});
+
+describe('la Travesía volando con media flexión', () => {
+  it('despega solo; a media flexión, recto; y el aro se pasa bajando un poco más hasta su altura', () => {
+    const TOP = 0.45, HALF = 0.065, s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });
+    s.env.ex = 'pushup';
+    s.env.mem.set('reparenaxr-flytuto', 1);
+    s.env.calibRef = TOP;
+    s.head.y = TOP - HALF;
+    s.r.calibrate(TOP, 0, 0);
+    const R = mk(1, 'ring', 60, 0, { u: 0, h: 4.5 });
+    s.load(course([R, mk(2, 'chest', 300, 0)]));
+    expect(s.until(() => s.r.flyAlt >= FLY.alt0 - 0.01, 72 * 8)).toBe(true);
+    s.until(() => false, 72 * 2);
+    expect(s.r.flyAlt).toBeCloseTo(FLY.alt0, 1); // (a media flexión, recto)
+    // como un jugador: cerca del aro, más abajo hasta su altura; luego, otra vez a la mitad
+    const each = (): void => {
+      const want = R.at - s.r.dist < 25 ? R.h : FLY.alt0, err = s.r.flyAlt - want;
+      s.head.y = TOP - HALF - Math.max(-0.06, Math.min(0.06, err * 0.04));
+    };
+    expect(s.until(() => (each(), R.judged), 72 * 60)).toBe(true);
+    expect(R.ok).toBe(true);
+  });
+});
+
 describe('la altura, aleteo (A)', () => {
   const A = { model: 'flap' as const };
   it('una flexión normal no pica: sube un aletazo', () => {
@@ -176,9 +233,9 @@ describe('la altura, aleteo (A)', () => {
 });
 
 describe('el planeador', () => {
-  it('el mando de serie: posición en la suave, aleteo en la dura; o el que se elija', () => {
-    expect(flyModel(0, true)).toBe('pos');
-    expect(flyModel(0, false)).toBe('flap');
+  it('el mando de serie: media flexión (elegido por el usuario), en la suave y en la dura; o el que se elija', () => {
+    expect(flyModel(0, true)).toBe('mid');
+    expect(flyModel(0, false)).toBe('mid');
     expect(flyModel(1, false)).toBe('pos');
     expect(flyModel(2, true)).toBe('flap');
   });
@@ -206,7 +263,8 @@ describe('el planeador', () => {
 describe('la Travesía volando', () => {
   const TOP = 0.45;
   const fly = (): Sim => {
-    const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });
+    // (con el mando de posición: los retos se juzgan igual con cualquiera)
+    const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1, flyAlt: 1 });
     s.env.ex = 'pushup';
     s.env.mem.set('reparenaxr-flytuto', 1); // (la práctica de vuelo, ya hecha)
     s.env.calibRef = TOP;

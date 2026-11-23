@@ -1221,6 +1221,7 @@ export class Runner {
     I.range = Math.max(0.08, (this.env.s('flySide') || FLY.sideRange * 100) / 100);
     I.backTo = Math.max(F ? F.back : 0, Math.max(FLY.pikeFrom + 0.03, (this.env.s('flyUp') || FLY.pikeTo * 100) / 100));
     I.flapK = Math.max(0.1, (this.env.s('flyFlap') || 100) / 100);
+    I.rateK = Math.max(0.1, (this.env.s('flyRate') || 100) / 100);
     I.rep = play ? this.flyRepN : 0;
     this.flyRepN = 0;
     I.flap = play && M.takeoff;
@@ -1250,7 +1251,7 @@ export class Runner {
     if (!this.practiceSeen) {
       this.practiceSeen = true;
       if (!this.env.store(FLY_TUTO) || this.env.s('flyPractice') > 0) P.begin();
-      else this.say(I.model === 'pos' ? 'Escórate: a un lado · Pecho abajo: bajas · Cadera arriba: subes' : 'Escórate: a un lado · Cada flexión, un aletazo · Abajo quieto: picas', COL_ASK, 4, false);
+      else this.say(I.model === 'mid' ? 'Media flexión: recto · Arriba: subes · Abajo: bajas' : I.model === 'pos' ? 'Escórate: a un lado · Pecho abajo: bajas · Cadera arriba: subes' : 'Escórate: a un lado · Cada flexión, un aletazo · Abajo quieto: picas', COL_ASK, 4, false);
     }
     if (!P.active) return;
     const r = P.update(dt, this.flyBody.side, I.down, I.back, this.moves.roll, I.rep > 0);

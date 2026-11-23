@@ -11,7 +11,7 @@ const TOP = 0.45;
 
 /** Un vuelo de mentira (la suave): pasa un aro escorándose y un puente bajando el pecho, grabado en la caja negra. */
 function flight(): { text: string; s: Sim } {
-  const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });
+  const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1, flyAlt: 1 });
   s.env.ex = 'pushup';
   s.env.mem.set('reparenaxr-flytuto', 1); // (la práctica de vuelo, ya hecha)
   s.env.calibRef = TOP;
