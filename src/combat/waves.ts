@@ -17,6 +17,9 @@ export interface WaveSpec {
   kind: string;
   hp: number;
   fk?: string;
+  /** RepArena XR: su rasgo de élite (src/combat/elite.ts) y si es el jefe errante. */
+  elite?: string;
+  roam?: boolean;
 }
 
 /** Lo que mira buildWave de los ajustes y de la partida. */

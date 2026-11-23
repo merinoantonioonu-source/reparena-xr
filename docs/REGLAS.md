@@ -458,6 +458,16 @@ No las cambies sin preguntarle.
   quietos en la postura del golpe y de espaldas. Al rato se desvanecen.
 - Parados esperando su turno, bailan al compás (el marcado o el de la canción de Spotify), también los robots.
 - El lanzador tira algo más deprisa (y más a menudo) cuanto más difícil, poco a poco (como mucho un 40 %).
+- **Enemigos de élite** (elegidos por el usuario; Combate, «Enemigos de élite», de serie): desde la segunda oleada, algunos de
+  los de tierra salen con un rasgo, cada vez más a menudo (como mucho uno de cada tres; nunca dos seguidos), y se distinguen
+  por un **aro de color a sus pies** que late: **rápido** (rojo: se mueve y golpea mucho más deprisa), **gigante** (naranja:
+  más grande, lento y pesado; quita una vida más), **con escudo** (turquesa: una burbuja que para los disparos; se rompe con
+  tres o, de golpe, con una carga ×3, que además le da), **que se divide** (verde: al caer salen dos pequeños de una bolita
+  de vida) y **que parpadea** (violeta: de vez en cuando se esfuma un instante y reaparece a un lado). El escudo y los
+  pequeños piden algo más de esfuerzo; la primera vez que el escudo para un disparo, el aviso breve dice cómo romperlo.
+- **Jefe errante** (elegido por el usuario; Combate, «Jefe errante», de serie): desde la tercera oleada, a veces sale un jefe
+  de los de esa oleada a mitad de una oleada normal (nunca en la del jefe), con el aviso «¡JEFE ERRANTE!»; su vida sale de
+  los que quedaban por salir al final: la oleada pide las mismas repeticiones.
 - Travesía: la roca del derrumbe se queda quieta del todo al embestirla (el golpe se ve en su cara). Una zancada hacia
   delante empuja a los bandidos y hace recular a los lobos cercanos. Los bandidos no se quedan plantados: cambian de
   sitio entre lanzamientos y a veces provocan.
