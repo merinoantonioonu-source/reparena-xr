@@ -39,16 +39,44 @@ export type PieceKind =
   | 'sink' // las islas: un islote que se hunde al pisarlo: cruzarlo sin pararse (fluido)
   | 'cannon' // la costa: un cañonazo desde el barco (a un lado, `side`): la bala alta (`n` 0), agacharse; la baja (`n` 1), rodando por el muelle, saltar (fluido)
   | 'lane' // en plancha: rocas que ocupan tu lado (`side`) de la pasarela todo su largo: caminar con las manos al otro y aguantar ahí (fluido)
+  // más movimientos de brazos en plancha (pedidos por el usuario: «y demás movimientos de brazos en plancha»; solo en plancha)
+  | 'tilt' // la viga inclinada, baja del lado `side`: flexión arquera (abajo, cargando el peso hacia el lado alto) (fluido)
+  | 'wave' // la valla baja y larga: «la ola» (de la pica, atrás y arriba, a zambullirse por debajo y salir en cobra) (fluido)
+  | 'slit' // la rendija entre dos rocas altas: giro abierto (de canto, como en la plancha lateral) todo su largo (fluido)
+  | 'reach' // frutas a ras de las tablas, lejos: caminar con las manos hacia delante para alcanzarlas (fluido; un premio)
+  | 'paw' // una llave en las tablas, a un lado: zarpazo (levantar una mano y cogerla) (fluido; un premio)
+  | 'slap' // una seta a un lado: palmada al suelo, encima, y se chafa (fluido; un premio)
+  | 'grip' // la pasarela se estrecha entre rocas (`n` 0: manos juntas) o una roca en medio (`n` 1: manos anchas) (fluido)
   | 'boss' // el jefe del mundo, al final de cada mundo («Tramos por mundo») y antes del cofre (paso): esquivar y supersalto encima
   | 'chest'; // fin del tramo (paso)
 
 /** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
  * si fallas, chocas o tropiezas (frenas y pierdes la racha, sin perder vidas, y sigues). El hueco también: si no saltas a
  * tiempo, tropiezas al cruzarlo (nunca se cae). */
-export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork', 'dive', 'skull', 'quake', 'fire', 'ledge', 'gust', 'rockfall', 'bob', 'sink', 'cannon', 'lane'];
+export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork', 'dive', 'skull', 'quake', 'fire', 'ledge', 'gust', 'rockfall', 'bob', 'sink', 'cannon', 'lane', 'tilt', 'wave', 'slit', 'reach', 'paw', 'slap', 'grip'];
 /** El paso lateral en plancha (elegido por el usuario: caminar con las manos, no con los pies, a un lado): lo que mide (m) y
  * lo que hay que llevar la cabeza al otro lado mientras dura (m, desde el centro: más que escorarse). */
 export const LANE_MIN = 3, LANE_MAX = 5, LANE_NEED = 0.26;
+/** Los demás movimientos de brazos en plancha (docs/PLAN-ERGONOMIA-Y-CUESTAS.md, apartado 5), de los que salen tres por tramo
+ * (además del paso lateral), cada tramo otros, para no llenarlo. */
+export const ARMS_KINDS: readonly PieceKind[] = ['tilt', 'wave', 'slit', 'reach', 'paw', 'slap', 'grip'];
+/** La viga inclinada: lo que hay que llevar la cabeza hacia el lado alto (m, desde el centro; abajo en la flexión). */
+export const TILT_NEED = 0.06;
+/** La ola: cuánto vale una hecha antes de llegar a la valla (s). */
+export const WAVE_WIN = 1.8;
+/** La rendija: lo que mide (m) y lo que hay que girar la cabeza de canto (rad: 40°). */
+export const SLIT_MIN = 1.2, SLIT_MAX = 2, SLIT_ROLL = 0.7;
+/** Las frutas lejanas: cuántas, y lo que hay que adelantar la cabeza para alcanzarlas (m; el acelerón pide 9 cm). */
+export const REACH_N = 3, REACH_NEED = 0.2;
+/** La llave y la seta del zarpazo y la palmada: a qué distancia del centro están (m), lo cerca que tiene que llegar la mano
+ * (m) y, en la palmada, lo deprisa que baja (m/s). */
+export const PAW_U = 0.32, PAW_R = 0.3, SLAP_VY = 0.6;
+/** Manos juntas y anchas: lo que mide (m) y la separación de las muñecas que pide cada una (m: como mucho, juntas; como poco,
+ * anchas). Solo se juzga si se ven las dos muñecas (si no, se da por buena). */
+export const GRIP_LEN = 1.6, GRIP_NARROW = 0.3, GRIP_WIDE = 0.5;
+/** Trepar: en una cuesta de más de esto (subida por metro), en la dura, cada vaivén de la cabeza (`CLIMB_SWAY` m a cada lado,
+ * como al ir mano a mano) te empuja como una flexión. */
+export const CLIMB_SLOPE = 0.07, CLIMB_SWAY = 0.035;
 /** Los pasos: el mundo frena suave y te para a `STOP_AT` (solo el cofre, al acabar el tramo). */
 export const HALT: readonly PieceKind[] = ['chest', 'boss'];
 /** Los que se cruzan saltando (entre dos seguidos, al menos `JUMP_GAP_S` a velocidad máxima). */
@@ -298,8 +326,9 @@ export interface PlatEnv {
   ex: string;
   /** El estado de la partida: 'play' (en el tramo), 'rest' (entre tramos), 'ready' (antes del primero), 'paused', 'end'. */
   state: string;
-  /** La cabeza en la arena y tu altura de pie (calibrada). */
-  head: { x: number; y: number; z: number };
+  /** La cabeza en la arena y tu altura de pie (calibrada); `roll`, lo que se gira de canto mirando al suelo (rad, sin signo:
+   * 0 en plancha, unos 90° en la plancha lateral). */
+  head: { x: number; y: number; z: number; roll?: number };
   /** Las muñecas (en la arena) y si se ven de verdad (una calculada al perderla, no): para planear con los brazos en cruz. */
   hands: { l: { ok: boolean; x: number; y: number; z: number }; r: { ok: boolean; x: number; y: number; z: number } };
   calibRef: number;

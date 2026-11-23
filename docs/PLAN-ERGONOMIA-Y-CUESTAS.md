@@ -523,6 +523,9 @@ ver una mano necesita un plan B.
 | 9 | **Manos juntas / manos anchas** (flexión diamante y ancha) | Tríceps / pecho | La pasarela **se estrecha** (manos juntas) o tiene un agujero en el centro (manos anchas) | La distancia entre las dos muñecas; solo se juzga si se ven las dos (si no, se da por buena) | Media-baja |
 | 10 | **Remar** (subir un codo, alternando) | Espalda, core | Una **balsa** en la costa pirata: cada remada empuja | La mano que rema se va hacia la cadera y las gafas la pierden; solo queda el giro de la cabeza | Baja (no recomendada) |
 
+**Hecho** (el usuario pidió todos menos remar): el 1 es la pieza `lane`; del 2 al 9, `tilt`, `wave`, `slit`, `reach`, `paw`
+(con uvas: no hay modelo de llave), `slap` (una seta), `grip` y trepar (ver `docs/REGLAS.md`).
+
 Recomendación: empezar por **1, 2, 3 y 5** (solo dependen de la cabeza: saldrán bien a la primera) y **4**; luego **6 y 7**
 con su plan B; dejar 8 y 9 para después de probar las manos en plancha con la caja negra; descartar la 10.
 

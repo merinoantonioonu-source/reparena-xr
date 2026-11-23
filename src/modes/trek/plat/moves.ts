@@ -24,7 +24,14 @@
  * - **Supersalto** (plataformas altas, trampolín, el jefe mareado): **dos explosivas seguidas** (`deepT`: cuánto hace que
  *   hiciste una explosiva menos de `PAIR_T` s después de otra).
  * - **A un lado**: escorarte (`dx`, con el lado de la plancha: `sideNeed` lo pone la marcha).
- * - **Adelante** (`fwd`): echar el peso hacia delante (la cabeza, por delante de su sitio): el acelerón.
+ * - **Adelante** (`fwd`): echar el peso hacia delante (la cabeza, por delante de su sitio): el acelerón; más (caminar con las
+ *   manos hacia delante), alcanzar las frutas lejanas.
+ * - **La ola** (`waveT`: cuánto hace que acabaste una): de la pica (la cabeza atrás, `WAVE_BACK`) a zambullirse (abajo en la
+ *   flexión, yendo hacia delante) y salir en cobra (arriba y adelante, `WAVE_OUT`), cada paso a menos de `WAVE_STEP` s del
+ *   anterior.
+ * - **De canto** (`roll`): lo que se gira la cabeza hacia un lado mirando al suelo (la plancha lateral, el giro abierto).
+ * - **Trepar** (`climb`): el fotograma en que la cabeza cruza al otro lado en el vaivén de ir mano a mano (`sway` m a cada
+ *   lado del centro, alternando).
  *
  * Lógica pura, sin IWSDK (se prueba con trazas de cabeza en tests/unit/plat-runner.test.ts).
  */
@@ -73,6 +80,8 @@ export const CENTER_TAU = 4;
 /** En zancada: lo que hay que inclinar el tronco a un lado (× el paso a un lado de pie) y echarlo adelante (m). */
 export const LUNGE_SIDE_K = 0.6, LUNGE_FWD = 0.14;
 export const PRONE_VY = 0.5, PRONE_TOP = 0.04, PRONE_AIR = 0.45, PAIR_T = 1.6, PRONE_FWD = 0.09, PRONE_SIDE_K = 0.35, PRONE_SIDE_MIN = 0.08;
+/** La ola: lo que va la cabeza atrás en la pica (m), lo adelante que sale en cobra (m) y lo que puede durar cada paso (s). */
+export const WAVE_BACK = 0.06, WAVE_OUT = 0.04, WAVE_STEP = 2.2;
 
 export class BodyMoves {
   /** Tu altura de pie (los ojos) y el centro (x de la cabeza en la arena). */
@@ -107,6 +116,17 @@ export class BodyMoves {
   private boostT = 9;
   private pairT = 9;
   private lowNeed = 0.08;
+  /** En plancha: cuánto hace que acabaste una ola (s), en qué paso de ella vas (0: nada; 1, la pica; 2, zambullido) y cuánto
+   * llevas en él. */
+  waveT = 9;
+  private wavePh = 0;
+  private wavePhT = 0;
+  /** Lo que se gira de canto la cabeza (rad) y, trepando, el fotograma en que cruzas al otro lado (y a qué lado ibas). */
+  roll = 0;
+  climb = false;
+  /** Lo que hay que apartar la cabeza a cada lado al trepar (m; lo pone la marcha). */
+  sway = 0.035;
+  private swaySide = 0;
 
   /** Al calibrar o empezar la ronda: tu altura de pie y el centro. */
   reset(ref: number, x0: number, z0 = 0): void {
@@ -123,10 +143,16 @@ export class BodyMoves {
     this.deepT = 9;
     this.standing = true;
     this.lastY = NaN;
+    this.waveT = 9;
+    this.wavePh = 0;
+    this.wavePhT = 0;
+    this.roll = 0;
+    this.climb = false;
+    this.swaySide = 0;
   }
 
   /** Un fotograma con la cabeza donde está ahora. */
-  update(dt: number, head: { x: number; y: number; z: number }, cfg: MoveCfg): void {
+  update(dt: number, head: { x: number; y: number; z: number; roll?: number }, cfg: MoveCfg): void {
     const y = head.y;
     // (lo reciente se mide al principio de este fotograma: si los fotogramas llegan a saltos, el despegue visto en el anterior
     // sigue valiendo aunque este tarde más de JUMP_FRESH en llegar)
@@ -164,7 +190,7 @@ export class BodyMoves {
   }
 
   /** En plancha: cada fotograma (la velocidad vertical y el centro ya puestos). */
-  private proneUpdate(dt: number, head: { x: number; y: number; z: number }, cfg: MoveCfg): void {
+  private proneUpdate(dt: number, head: { x: number; y: number; z: number; roll?: number }, cfg: MoveCfg): void {
     const y = head.y, d = Math.max(0, dt);
     this.lowNeed = cfg.lowNeed;
     this.down = this.ref - y;
@@ -190,6 +216,37 @@ export class BodyMoves {
     this.standing = false;
     this.plank = this.down >= this.lowNeed;
     this.deepT = this.pairT;
+    this.roll = head.roll ?? 0;
+    this.waveStep(d);
+    // trepar: la cabeza va de un lado a otro, a ritmo, al ir mano a mano (cada vez que cruza al otro lado, un paso)
+    this.climb = false;
+    const sd = this.dx >= this.sway ? 1 : this.dx <= -this.sway ? -1 : 0;
+    if (sd && sd !== this.swaySide) {
+      this.climb = this.swaySide !== 0;
+      this.swaySide = sd;
+    }
+  }
+
+  /** La ola, paso a paso: la pica (la cabeza atrás), zambullirse (abajo, sin ir ya hacia atrás) y salir (arriba y adelante). */
+  private waveStep(d: number): void {
+    this.waveT += d;
+    this.wavePhT += d;
+    if (this.wavePh > 0 && this.wavePhT > WAVE_STEP) this.wavePh = 0;
+    if (this.wavePh === 0 && this.fwd <= -WAVE_BACK) {
+      this.wavePh = 1;
+      this.wavePhT = 0;
+    } else if (this.wavePh === 1 && this.down >= this.lowNeed && this.fwd > -WAVE_BACK / 2) {
+      this.wavePh = 2;
+      this.wavePhT = 0;
+    } else if (this.wavePh === 2 && this.down < this.lowNeed / 2 && this.fwd >= WAVE_OUT) {
+      this.wavePh = 0;
+      this.waveT = 0;
+    }
+  }
+
+  /** ¿Vas por debajo, zambullido en plena ola? */
+  get diving(): boolean {
+    return this.wavePh === 2;
   }
 
   /** ¿La coronilla pasa bajo una viga que obliga a bajarla `need` m? (Con 2 cm de margen, como los arcos.) En plancha, abajo

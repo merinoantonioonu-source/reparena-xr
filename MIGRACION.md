@@ -413,6 +413,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Los movimientos de brazos en plancha** (apartado 5 del plan, menos remar): las piezas `tilt`, `wave`, `slit`, `reach`,
+  `paw`, `slap` y `grip` (`ARMS_KINDS`, types.ts), tres por tramo por turnos (`proneExtra`, runner.ts, en `CourseEnv.extra`);
+  se juzgan en `Runner.judgeArms` con los gestos nuevos de `BodyMoves` (la ola, `waveT`/`diving`; de canto, `roll`, que da
+  `TrekSystem` en `env.head.roll`; trepar, `climb`) y las muñecas (`handAt`, con su plan B de la cabeza). Trepar no es una
+  pieza: en la dura, con cuestas empinadas (`CLIMB_SLOPE`), cada vaivén es una flexión. Los umbrales son una primera
+  estimación: con la caja negra de la plancha (aún sin hacer) se ajustarán los de las manos.
+
 - **La ergonomía, aplicada** (el usuario: «aplica todas tus propuestas», `docs/ERGONOMIA.md`): lo de RepArena sigue tras
   `classic` para compararlo (`TouchEnv.classic`: lo alto de Toques, las flexiones desde 2,5 m, los abdominales que bajan del
   aire y el mínimo de 2 s en el suelo, `TCH_FLOOR_GAP`; `BarsEnv.classic`: el remo, desde arriba; y el superman de
