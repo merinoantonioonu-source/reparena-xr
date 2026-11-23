@@ -45,6 +45,7 @@ import { aimForced, aimManual, deepOn, flyList, foes, groundList, handsFree, hol
 import { HatchSystem, hatchFoes } from './hatch-foes.js';
 import { devFoe, flyFoes, FOE_DEF, foeName, foeReady, gateFoes } from './foes.js';
 import { faunaOf, legOf, PLACE_NAME, placeAt, travelsAt, type Place } from './journey.js';
+import { spiceWave, type Elite } from './elite.js';
 import { Rewards } from './rewards.js';
 import { RUSH_SECS } from './perks.js';
 import { BoardRing } from '../ui/board-ring.js';
@@ -248,7 +249,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private rcPose = { ry1: 0, x1: 0, z1: 0 };
   // los que van a salir por una compuerta que se está abriendo (a cada uno le falta «t» para salir)
   private gates: GateSystem | null = null;
-  private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0, kind: '', boss: false, hp: 1 }));
+  private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0, kind: '', boss: false, hp: 1, elite: '' as Elite | '' }));
   private fg: FlyGate = { x: 0, z: 0, ry: 0, scale: 1 };
   private spawnT = 0;
   private msgT = 0;
@@ -1015,6 +1016,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const arcsMode = settings.mode === 'arcs';
     const touchMode = settings.mode === 'touch', barsMode = settings.mode === 'bars', trekMode = settings.mode === 'trek';
     const w = arcsMode || touchMode || barsMode || trekMode ? { list: [], fresh: [] as string[] } : buildWave(i, env, this.seen);
+    // (RepArena XR: algunos de élite y, a veces, el jefe errante; la oleada pide las mismas repeticiones)
+    if (!tiny && w.list.length && settings.mode === 'combat') spiceWave(w.list, { i, rank: rankIdx(), elites: on('cbElite'), roam: on('cbRoam'), bossWave: isBossWave(i, nWaves()), ground: env.foes === 'flyers' ? [] : ground, isGround: (k) => { const x = xrFoe(k); return !x.boss && !!FOE_DEF[x.k] && !FOE_DEF[x.k].fly; }, rnd: Math.random });
     this.queue = w.list;
     this.waveTarget = env.reps;
     if (arcsMode) this.arcs()?.startWave(env.reps); // (en Arcos, la oleada son los obstáculos que van saliendo)
@@ -1478,7 +1481,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (this.gates && this.gates.queries.gates.entities.size > 0) {
       const slot = this.pending.find((p) => !p.gate), g = slot ? (who.boss && this.gates.centerGate()) || this.gates.freeGate() : null;
       if (!slot || !g) return false;
-      Object.assign(slot, { kind: who.k, boss: who.boss, hp: spec.hp });
+      Object.assign(slot, { kind: who.k, boss: who.boss, hp: spec.hp, elite: (spec.elite ?? '') as Elite | '' });
+      if (spec.roam) this.message('¡JEFE ERRANTE!', 2, '#ff8a3d');
       this.gates.openGate(g, FOE_DEF[who.k]?.fly ? Math.max(3.2, Flight.gateTime(who.k, dv('flySpeed', this.rampLvl))) : 3.2);
       slot.gate = g;
       slot.t = 0.55;
@@ -1497,14 +1501,15 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.fg.x = x;
       this.fg.z = z;
       this.fg.ry = Math.atan2(GAME.head.x - x, GAME.head.z - z);
-      this.spawnFoe(who.k, who.boss, spec.hp, this.fg, x, z);
+      this.spawnFoe(who.k, who.boss, spec.hp, this.fg, x, z, (spec.elite ?? '') as Elite | '');
+      if (spec.roam) this.message('¡JEFE ERRANTE!', 2, '#ff8a3d');
       return true;
     }
     return false;
   }
 
   // Sale uno: los voladores, con su vuelo; si su modelo aún no ha cargado, un zombi verde
-  private spawnFoe(k: string, boss: boolean, hp: number, gate: FlyGate, x: number, z: number): void {
+  private spawnFoe(k: string, boss: boolean, hp: number, gate: FlyGate, x: number, z: number, elite: Elite | '' = ''): void {
     const flyers = this.world.getSystem(FlyerSystem);
     if (FOE_DEF[k]?.fly) {
       if (flyers?.ready(k)) {
@@ -1514,7 +1519,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       k = 'zgreen';
     }
     if (!this.enemies.ready(k)) k = 'zgreen';
-    this.rw.onSpawn(this.enemies.spawn(k, x, z, hp, boss), boss);
+    this.rw.onSpawn(this.enemies.spawn(k, x, z, hp, boss, elite), boss);
   }
 
   // con un menú abierto en las gafas (la pausa), los enemigos no se ven: la escena va más fluida (src/core/state.ts, LITE)
@@ -1530,7 +1535,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     for (const p of this.pending) {
       if (!p.gate || (p.t -= dt) > 0) continue;
       const at = this.gates!.spawnPoint(p.gate, this.tmpC);
-      this.spawnFoe(p.kind, p.boss, p.hp, this.gates!.frame(p.gate, this.fg), at.x, at.z);
+      this.spawnFoe(p.kind, p.boss, p.hp, this.gates!.frame(p.gate, this.fg), at.x, at.z, p.elite);
       p.gate = null;
     }
   }

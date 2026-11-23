@@ -8,8 +8,13 @@
  * los lanza por el aire dando vueltas y caen al suelo como un cuerpo suelto. Encima, sus cuentas de vida (src/combat/life.ts).
  */
 import { robotGltf } from './robots.js';
+import { ELITE_COL, ELITES, SHIELD_HITS, SHIELD_POW, type Elite } from './elite.js';
 import {
+  AdditiveBlending,
   AnimationAction,
+  MeshBasicMaterial,
+  RingGeometry,
+  SphereGeometry,
   AnimationClip,
   MeshStandardMaterial,
   NearestFilter,
@@ -107,6 +112,14 @@ interface FoeRuntime {
   stun: number;
   fade: Material[] | null;
   target: FoeTarget;
+  /** De élite (src/combat/elite.ts): su rasgo ('' si no), los disparos que le quedan al escudo y su burbuja, lo que le falta
+   * para parpadear (y lo que dura el parpadeo), y si es uno de los pequeños de uno que se dividió. */
+  elite: Elite | '';
+  shield: number;
+  bubble: Mesh | null;
+  blinkT: number;
+  blinkOn: number;
+  mini: boolean;
   /** Su puesto de ataque (y cada cuánto busca uno mejor), y desde dónde estabas al buscarlo. */
   sf: SlotFoe;
   slotT: number;
@@ -200,8 +213,25 @@ export class EnemySystem extends createSystem(
   private readonly cq = new Quaternion();
   private readonly cq2 = new Quaternion();
   private readonly xAxis = new Vector3(1, 0, 0);
+  /** Los élites: el aro de color de cada rasgo a sus pies y la burbuja del escudo (geometrías y materiales compartidos, hechos
+   * al arrancar), sus filas de la tabla (el gigante, el rápido y los pequeños) y los pequeños que salen al caer uno que se divide. */
+  private eliteRing!: RingGeometry;
+  private readonly eliteMat = new Map<Elite, MeshBasicMaterial>();
+  private bubbleGeo!: SphereGeometry;
+  private bubbleMat!: MeshBasicMaterial;
+  private readonly eliteDefs = new Map<string, FoeDef>();
+  private readonly splitQ: { kind: string; x: number; z: number }[] = [];
+  private shieldTold = false;
+  private eliteClock = 0;
 
   init(): void {
+    this.eliteRing = new RingGeometry(0.78, 1, 40, 1);
+    this.eliteRing.rotateX(-Math.PI / 2);
+    for (const k of ELITES) this.eliteMat.set(k, new MeshBasicMaterial({ color: ELITE_COL[k], transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false, toneMapped: false }));
+    this.bubbleGeo = new SphereGeometry(1, 24, 14);
+    this.bubbleMat = new MeshBasicMaterial({ color: 0x7ff6ff, transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false, toneMapped: false });
+    for (const m of this.eliteMat.values()) warmKeep(new Mesh(this.eliteRing, m));
+    warmKeep(new Mesh(this.bubbleGeo, this.bubbleMat));
     this.physics = this.world.getSystem(PhysicsSystem)!;
     // el suelo: una caja estática de 60 × 60 m (su cara de arriba, a ras del suelo que se ve)
     const floor = this.world.createTransformEntity(new Group());
@@ -234,6 +264,7 @@ export class EnemySystem extends createSystem(
   aliveCount(): number {
     let n = (this.flyers?.aliveCount() ?? 0) + (this.hatches?.aliveCount() ?? 0);
     for (const e of this.queries.foes.entities) if (e.getValue(Foe, 'state') !== FoeState.Dead) n++;
+    n += this.splitQ.length; // (los pequeños del que se dividió, que salen en el siguiente fotograma)
     return n;
   }
 
@@ -350,8 +381,9 @@ export class EnemySystem extends createSystem(
   }
 
   /** Saca uno de la tabla (kind: zgreen, raptor, captain…) en (x, z), mirando hacia ti, con hp de vida; boss: su jefe. */
-  spawn(kind: string, x: number, z: number, hp: number, boss = false): FoeTarget | null {
-    const d = FOE_DEF[kind] && boss ? bossDef(kind) : FOE_DEF[kind];
+  spawn(kind: string, x: number, z: number, hp: number, boss = false, elite: Elite | '' = '', mini = false): FoeTarget | null {
+    if (boss) elite = '';
+    const d = FOE_DEF[kind] && (boss ? bossDef(kind) : this.eliteDef(kind, mini ? 'mini' : elite));
     const gltf = d && this.gltfOf(d);
     if (!d || !gltf) return null;
     const root = new Group();
@@ -373,14 +405,29 @@ export class EnemySystem extends createSystem(
     const sf: SlotFoe = { pos: new Vector3(x, 0, z), radius: d.r, stop: d.stop, slot: new Vector3(), slotOk: false, row: 0 };
     foeSlot(sf, this.slots, GAME.head);
     this.slots.push(sf);
-    const strength = devFoe('g:' + kind).str;
+    const strength = devFoe('g:' + kind).str + (elite === 'giant' ? 1 : 0); // (el gigante quita una vida más)
     // su marcha (RepArena: el constructor de Robot): la forma de moverse de su clase (una de las marcadas), la rapidez de
     // sus gestos y su ritmo, para llegar a su puesto cuando pide «Tiempo llegada»
-    const pace = paceOf(dv('pace_' + d.grp, GAME.ramp), boss), travel = travelOf(num('spd_' + d.grp));
+    const pace = paceOf(dv('pace_' + d.grp, GAME.ramp), boss) * (elite === 'fast' ? 1.35 : 1), travel = travelOf(num('spd_' + d.grp));
     const plan = gaitPlan(Math.hypot(sf.slot.x - x, sf.slot.z - z), dv('walkTime', GAME.ramp), d.speedF, d.heavy, travel);
     const gait = new Gait(Gait.pick(str('move_' + d.grp)), plan, pace);
     if (import.meta.env.DEV) console.info(`rxdbg marcha ${kind}: ${gait.style}, ${plan.vWalk.toFixed(2)} m/s andando, ${plan.vMove.toFixed(2)} desplazándose, gestos ×${pace.toFixed(2)}`); // (para probar en el emulador)
-    const rt: FoeRuntime = { kind, def: d, mass: massOf(d), maxHp: hp, str: strength, model, mixer, actions, current: '', yaw, charged: false, attackT: 0, throwCD: 0, struck: false, kick: false, stun: STAGGER, fade: null, target, sf, slotT: 0.6, slotAt: GAME.head.clone(), gait, pace, from: new Vector3(x, 0, z), out: false, hitNow: false };
+    const rt: FoeRuntime = { kind, def: d, mass: massOf(d), maxHp: hp, str: strength, model, mixer, actions, current: '', yaw, charged: false, attackT: 0, throwCD: 0, struck: false, kick: false, stun: STAGGER, fade: null, target, sf, slotT: 0.6, slotAt: GAME.head.clone(), gait, pace, from: new Vector3(x, 0, z), out: false, hitNow: false, elite, shield: elite === 'shield' ? SHIELD_HITS : 0, bubble: null, blinkT: 2.5 + Math.random() * 1.5, blinkOn: 0, mini };
+    if (elite) {
+      // su aro de color a los pies (y el escudo, su burbuja)
+      const ring = new Mesh(this.eliteRing, this.eliteMat.get(elite)!);
+      ring.position.y = -d.h / 2 + 0.04;
+      ring.scale.setScalar(d.r * 2.1);
+      ring.userData.noInk = true;
+      root.add(ring);
+      if (elite === 'shield') {
+        rt.bubble = new Mesh(this.bubbleGeo, this.bubbleMat);
+        rt.bubble.position.y = d.h * (d.ctr - 0.5);
+        rt.bubble.scale.set(d.r * 2.2, d.h * 0.62, d.r * 2.2);
+        rt.bubble.userData.noInk = true;
+        root.add(rt.bubble);
+      }
+    }
     root.userData.rt = rt;
     this.targets.push(target);
     e.addComponent(Foe, { hp, speed: plan.vWalk, state: FoeState.Walk, timer: 0, side: Math.random() < 0.5 ? -1 : 1, radius: d.r });
@@ -389,6 +436,19 @@ export class EnemySystem extends createSystem(
     this.anim(rt, 'walk', 0);
     if (d.heavy || hp >= 3 || Math.random() < 0.5) roar(root.position, d.voice, boss ? 0.65 : 1);
     return target; // (al salir: la mitad de las veces; los fuertes, siempre)
+  }
+
+  /** Su fila de la tabla según su rasgo: el gigante, más grande, lento y pesado; el rápido, más veloz; los pequeños del que se
+   * divide, menudos y ligeros. Una vez por clase (se reutiliza). */
+  private eliteDef(kind: string, e: Elite | 'mini' | ''): FoeDef {
+    const d = FOE_DEF[kind];
+    if (!d || !(e === 'giant' || e === 'fast' || e === 'mini')) return d;
+    const key = kind + ':' + e, have = this.eliteDefs.get(key);
+    if (have) return have;
+    const k = e === 'giant' ? 1.6 : e === 'mini' ? 0.6 : 1, v = e === 'fast' ? 1.5 : e === 'giant' ? 0.85 : 1.15;
+    const out: FoeDef = { ...d, k: d.k * k, h: d.h * k, r: d.r * (e === 'giant' ? 1.45 : e === 'mini' ? 0.7 : 1), stop: d.stop * (e === 'giant' ? 1.25 : 1), walk: d.walk * v * (e === 'giant' ? 1.3 : 1), run: d.run * v * (e === 'giant' ? 1.3 : 1), speedF: d.speedF * v, heavy: e === 'giant' || d.heavy };
+    this.eliteDefs.set(key, out);
+    return out;
   }
 
   /** Al acabar la ronda: los que quedan en pie se desvanecen (no tapan el resumen). */
@@ -462,6 +522,23 @@ export class EnemySystem extends createSystem(
     const rt = e.object3D?.userData.rt as FoeRuntime | undefined;
     if (!rt || e.getValue(Foe, 'state') === FoeState.Dead) return;
     power = Math.max(1, Math.min(4, power));
+    // el escudo: para el disparo (y se agrieta); con tres, o de golpe con una carga ×3, se rompe
+    if (rt.shield > 0) {
+      const o = e.object3D!, at = this.tmp.set(o.position.x, o.position.y + rt.def.h * (rt.def.ctr - 0.5), o.position.z);
+      rt.shield = power >= SHIELD_POW ? 0 : rt.shield - 1;
+      HOOKS.sparks(at, rt.shield ? 10 : 34, 0x7ff6ff);
+      SND.metalHit(at, !rt.shield);
+      if (rt.bubble) rt.bubble.scale.multiplyScalar(1.12); // (tiembla; vuelve a su tamaño sola)
+      if (!rt.shield) {
+        if (rt.bubble) rt.bubble.visible = false;
+        SND.pop(at, true);
+        if (power < SHIELD_POW) return; // (roto a disparos: este disparo se lo ha llevado el escudo)
+      } else {
+        if (!this.shieldTold) HOOKS.toast('Escudo: ×3 o 3 disparos', '#3cf0ff', 2.5);
+        this.shieldTold = true;
+        return;
+      }
+    }
     const hp = Math.max(0, (e.getValue(Foe, 'hp') ?? 1) - dmg); // (el campo no admite negativos: lanzaría un error)
     e.setValue(Foe, 'hp', hp);
     const mass = rt.mass;
@@ -484,6 +561,12 @@ export class EnemySystem extends createSystem(
     roar(e.object3D!.position, rt.def.voice, 0.8);
     SND.squish(e.object3D!.position);
     HOOKS.foeDown(rt.kind, !!rt.def.boss, rt.target);
+    // el que se divide: al caer, salen dos pequeños a sus lados (en el siguiente fotograma)
+    if (rt.elite === 'split' && !rt.mini) {
+      const o = e.object3D!, sx = -dir.z, sz = dir.x;
+      for (const s of [-1, 1]) this.splitQ.push({ kind: rt.kind, x: o.position.x + sx * 0.7 * s, z: o.position.z + sz * 0.7 * s });
+      HOOKS.sparks(this.tmp.set(o.position.x, o.position.y, o.position.z), 30, ELITE_COL.split);
+    }
     this.toCorpse(e, rt, dir, power, mass);
     this.remove(e, true);
   }
@@ -507,6 +590,7 @@ export class EnemySystem extends createSystem(
     C.g.quaternion.setFromAxisAngle(this.up.set(0, 1, 0), C.yaw);
     C.g.updateMatrixWorld(true);
     root.updateMatrixWorld(true);
+    rt.model.visible = true; // (si caía parpadeando)
     C.g.attach(rt.model);
     C.g.visible = true;
     C.model = rt.model;
@@ -610,6 +694,43 @@ export class EnemySystem extends createSystem(
     this.anim(rt, 'hit', 0.08, true, 1.4);
   }
 
+  /** Los élites en cada fotograma: los pequeños de los que se dividieron, el aro que late, la burbuja que vuelve a su tamaño y el
+   * parpadeo (desaparece un instante y reaparece a un lado). */
+  private stepElites(dt: number): void {
+    while (this.splitQ.length) {
+      const q = this.splitQ.pop()!;
+      if (this.ready(q.kind)) this.spawn(q.kind, q.x, q.z, 1, false, '', true);
+    }
+    this.eliteClock += dt;
+    for (const [k, m] of this.eliteMat) m.opacity = 0.55 + 0.35 * Math.sin(this.eliteClock * (k === 'fast' ? 9 : 4));
+    if (GAME.phase !== 'playing') return;
+    for (const e of this.queries.foes.entities) {
+      const rt = e.object3D?.userData.rt as FoeRuntime | undefined;
+      if (!rt || !rt.elite || e.getValue(Foe, 'state') === FoeState.Dead) continue;
+      if (rt.bubble && rt.bubble.visible) {
+        const d = rt.def, kx = d.r * 2.2;
+        rt.bubble.scale.x += (kx - rt.bubble.scale.x) * Math.min(1, dt * 6);
+        rt.bubble.scale.z = rt.bubble.scale.x;
+        rt.bubble.scale.y += (d.h * 0.62 - rt.bubble.scale.y) * Math.min(1, dt * 6);
+      }
+      if (rt.elite !== 'blink') continue;
+      if (rt.blinkOn > 0) {
+        rt.blinkOn -= dt;
+        rt.model.visible = rt.blinkOn <= 0 || Math.floor(rt.blinkOn * 22) % 2 === 0;
+        continue;
+      }
+      rt.blinkT -= dt;
+      if (rt.blinkT > 0 || e.getValue(Foe, 'state') !== FoeState.Walk) continue;
+      // parpadea: se esfuma un instante y aparece a un lado (con un empujón de lado, sin aturdirlo)
+      rt.blinkT = 2.6 + Math.random() * 1.8;
+      rt.blinkOn = 0.4;
+      const o = e.object3D!, tx = GAME.head.x - o.position.x, tz = GAME.head.z - o.position.z, l = Math.hypot(tx, tz) || 1, s = Math.random() < 0.5 ? -1 : 1;
+      HOOKS.sparks(this.tmp.set(o.position.x, o.position.y, o.position.z), 16, ELITE_COL.blink);
+      this.setVel(e, (-tz / l) * 5.5 * s, 0.3, (tx / l) * 5.5 * s, null);
+      rt.kick = true;
+    }
+  }
+
   // pide a la física una velocidad (y un giro) para el siguiente paso; vx NaN: la velocidad no se toca (empujado, la
   // física lo frena sola)
   private setVel(e: Entity, vx: number, vy: number, vz: number, ang: Vector3 | null): void {
@@ -692,6 +813,7 @@ export class EnemySystem extends createSystem(
       return;
     }
     this.stepCorpses(dt);
+    this.stepElites(dt);
     // tu cápsula, donde estás (solo si te has movido algo)
     if (this.playerBody?.object3D) {
       const pp = this.playerPose.position;

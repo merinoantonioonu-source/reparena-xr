@@ -184,6 +184,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/gait.ts` | Cómo andan los de tierra (de RepArena): el ritmo de la marcha, recto, zigzag, rachas, la amenaza y las esquivas, sin IWSDK |
 | `src/combat/flight.ts` | El vuelo de los voladores (el de RepArena: acercarse, bandazos, lanzarse a morder, empujones, salir por la compuerta), sin IWSDK |
 | `src/combat/journey.ts`, `src/combat/travel-system.ts` | El viaje por portales de Combate y Toques: el orden de los entornos de cada partida, cuándo se cruza un portal y la fauna de cada entorno (lógica pura, con pruebas); y el aro de luz que te pasa por encima con su destello |
+| `src/combat/elite.ts` | Los enemigos de élite (rápido, gigante, con escudo, que se divide, que parpadea) y el jefe errante: cuántos, cuáles y dónde en la cola de la oleada (lógica pura, con pruebas); los hace `enemies.ts` (su aro, la burbuja, los pequeños y el parpadeo) |
 | `src/combat/robots.ts` | Los robots de RepArena (el Segador, el Destructor y el Coloso): su cuerpo hecho de piezas en código, su esqueleto y las animaciones de la biblioteca pasadas a él (`robotGltf`); también los lanzadores de cuchillas de Arcos |
 | `src/combat/flyers.ts` | Los voladores: su modelo, el aleteo, el mordisco, el zumbido y la caída al morir |
 | `src/combat/life.ts` | Las cuentas de vida sobre cada enemigo (bolitas doradas, en un solo dibujo) |
