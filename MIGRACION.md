@@ -413,6 +413,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **El vuelo hay que afinarlo** (el usuario lo probó: no se entienden los controles y son poco finos): el plan, con las
+  causas medidas y los bloques en orden, en `docs/PLAN-VUELO.md`. Empieza por su bloque 1 (grabar el vuelo).
+
 - **El vuelo de la Travesía** («Volando», `trekFly`; con tabla, `flyBoard`): el planeador es `Glider` (`plat/fly.ts`, lógica
   pura: lado, altura, picado, aletazo, pica, corriente, posarse); `Runner.fly`, `flyStep` (lo que manda el cuerpo, con
   `boardTilt` de las muñecas) y `judgeFly`; el recorrido, `CourseEnv.fly` (solo `FLY_KINDS`, sin premios del suelo ni jefe);
