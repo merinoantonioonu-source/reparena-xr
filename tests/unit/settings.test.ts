@@ -32,10 +32,10 @@ beforeEach(() => {
 });
 
 describe('el esquema', () => {
-  it('tiene los 186 ajustes de RepArena y los 18 nuevos (las manos, el tamaño del menú, los 6 de la Travesía de plataformas, los tramos por mundo, el avance solo, las bajadas con cada pierna, el filtro nuevo de las manos, el descanso del superman, las cuestas y los 4 de los glúteos), sin claves repetidas', () => {
-    expect(SCHEMA.length).toBe(204);
-    expect(new Set(SCHEMA.map((f) => f.key)).size).toBe(204);
-    expect(SCHEMA.filter((f) => f.xr).length).toBe(18);
+  it('tiene los 186 ajustes de RepArena y los 19 nuevos (las manos, el tamaño del menú, los 6 de la Travesía de plataformas, los tramos por mundo, el avance solo, las bajadas con cada pierna, el filtro nuevo de las manos, el descanso del superman, las cuestas, los 4 de los glúteos y la hora y el tiempo), sin claves repetidas', () => {
+    expect(SCHEMA.length).toBe(205);
+    expect(new Set(SCHEMA.map((f) => f.key)).size).toBe(205);
+    expect(SCHEMA.filter((f) => f.xr).length).toBe(19);
     expect(SCHEMA.filter((f) => f.key === 'handLook' || f.key === 'menuSize').length).toBe(2);
   });
   it('cada valor de serie está dentro de sus límites', () => {
@@ -199,7 +199,7 @@ describe('guardar', () => {
     // los de RepArena XR, aparte (RepArena no los conoce)
     expect(s).not.toHaveProperty('handLook');
     // (los de la Travesía de plataformas, los del rango de serie: el cabo)
-    expect(saved(XR_STORE_KEY)).toEqual({ handLook: 'glove', menuSize: 75, platSpace: 100, platGap: 90, platDuck: 24, platHigh: 86, platTunnel: 3.3, platFoeV: 0.9, trekWorld: 3, trekAuto: 0, trekLegReps: 10, handsNew: 0, supRest: 5, trekHills: 0, slungeDepth: 18, slungeSide: 30, skaterWidth: 50, skaterDip: 8 });
+    expect(saved(XR_STORE_KEY)).toEqual({ handLook: 'glove', menuSize: 75, platSpace: 100, platGap: 90, platDuck: 24, platHigh: 86, platTunnel: 3.3, platFoeV: 0.9, trekWorld: 3, trekAuto: 0, trekLegReps: 10, handsNew: 0, supRest: 5, trekHills: 0, slungeDepth: 18, slungeSide: 30, skaterWidth: 50, skaterDip: 8, envCycle: 1 });
     expect(s.mode).toBe('combat');
     expect(store(STORE_KEY)).toEqual(s);
   });

@@ -227,6 +227,14 @@ No las cambies sin preguntarle.
 - El paisaje se dibuja todo junto, una pieza por modelo: que no pida más a la gráfica que el bosque de Combate.
 - El agua, realista (no una mancha azul): ondas que el viento eriza a rachas, reflejo del cielo y destellos; en el río,
   corriente con espuma y estelas en las piedras.
+- **Entornos de Combate** (elegidos por el usuario de las propuestas: «1 y 2»): además de la fortaleza, el bosque y la isla
+  pirata, **los mundos de la Travesía**: el **risco** (una meseta de roca con la pared y los pinos a un lado y, al borde, el
+  mar de nubes con agujas de roca), las **islas en el cielo** (una isla de hierba que flota, con su borde de rocas y otras islas
+  a lo lejos) y **la aldea** (una plaza con casas alrededor, barriles a su puerta y el bosque detrás), con los kits que ya hay;
+  «Alternar» pasa por todos. Y **la hora y el tiempo cambian con las oleadas** («Hora y tiempo con las oleadas», de serie): de
+  día, por la tarde, al ocaso, de noche (con estrellas) y al alba, por turnos; a veces niebla, lluvia o (en el risco y la aldea)
+  nieve; la oleada del jefe, con **tormenta** (relámpagos y truenos). El cielo, la luz y la niebla cambian suave entre oleadas.
+  La lluvia y la tormenta, también en la fortaleza; con fondo realista, solo el tiempo (la foto no cambia de hora).
 - Fondos realistas (fotos de Poly Haven en `models/fondos/`, ver su `LEEME.md`): en la Travesía, uno por tramo; en los
   demás modos, «Fondo realista» (Opciones → Entorno, 7 para elegir). Solo paisajes abiertos, al fondo con el bosque de cómic
   delante: los de bosque por dentro, ciudad y playa se quitaron (lo cercano se veía plano, de cartón). En Arcos, con

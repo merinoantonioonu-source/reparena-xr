@@ -413,6 +413,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Los entornos de Combate nuevos** (`scenery`: `cliff`, `sky`, `village`, marcados en `xrOpts` para que las comparaciones se
+  los salten): su colocación en `placement.ts` (`cliffLayout`, `skyLayout`, `villageLayout`; los peñascos del kit miden 6-7 m a
+  escala 1: lejos de ti), los dos kits juntos en `Scenery.load` y el mar de nubes de la Travesía (`CloudSea`) en el risco y
+  las islas. **La hora y el tiempo**: el plan, `src/env/sky-plan.ts` (`wavePlan`, `skyLook`, `lerpLook`); lo aplica
+  `EnvSystem.stepSky` (el cielo con `Scenery.setLook`, las luces con `tintLights` —la Travesía tiñe las suyas—, la lluvia y la
+  nieve con `Weather`, `src/env/weather.ts`, y el relámpago); se apaga con «Hora y tiempo con las oleadas» (`envCycle`).
+
 - **Los de glúteos** (`slunge`, `skater`): en `StandingDetector` (`slungeStep`, con su `VertDetector` `sl` y lo que se aparta
   la cabeza, `lateral`; `skaterStep`, con su altura de pie `sk.ref`), sus ajustes `xr` (`slungeDepth`, `slungeSide`,
   `skaterWidth`, `skaterDip`), en `XR_ONLY_EX.combat` (las comparaciones con RepArena se los saltan: `RA_MODE_EX` y
