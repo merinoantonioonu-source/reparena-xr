@@ -239,3 +239,133 @@ de lo que viene.
 3. **Prueba de visibilidad y de tiempos** [S] (apartado 4.2): `src/modes/trek/plat/ergo.ts` (tabla pura) y
    `tests/unit/plat-ergo.test.ts`.
 4. **Las indicaciones**: ver el apartado 3.E, que va en este mismo PR o en el siguiente según su tamaño.
+
+### 3.F Travesía con cuestas (dos PR: F1 la lógica con el bosque y el risco; F2 las islas y la costa)
+
+Lo que se nota (decisión 4): el sendero sube y baja con el terreno. Cuesta arriba cada repetición te lleva menos lejos:
+hay que hacerlas más seguidas o más hondas para no perder ritmo. Cuesta abajo cada una te lleva más lejos y la inercia
+dura más. El horizonte no se inclina nunca y la plataforma bajo los pies sigue quieta: es el mundo el que sube y baja
+despacio, como ya hace en los saltos y en las plataformas altas.
+
+1. **El perfil** [O], lógica pura nueva `src/modes/trek/plat/grade.ts`:
+   - `buildGrade(curso, mundo, rango, azar)` → una lista de rampas suaves (sin esquinas: la pendiente empieza y acaba en
+     cero) y `heightAt(s)`, `slopeAt(s)`; determinista con la semilla del tramo (el fantasma y las pruebas la repiten);
+   - **llano obligatorio** en: los primeros 12 m, el cofre y su frenada, la pelea con el jefe, el portal, el trampolín y la
+     bifurcación; un hueco o un barranco empieza y acaba a la misma altura o **más abajo** al otro lado (planear cuesta
+     abajo queda bien), nunca más arriba;
+   - pendiente máxima por mundo y por rango (ajuste nuevo `platHill`, `xr: true`, en `RANK_VALS_XR` y en la tabla del
+     desarrollador): bosque, colinas suaves (hasta un 6–8 %); **risco, lo escarpado** (hasta un 12–14 %, con subidas largas
+     y una bajada antes del cofre); islas, cada islote a su altura (escalones entre islotes de hasta 35 cm hacia arriba, que
+     se salvan con el salto de siempre, y más hacia abajo) y poca pendiente dentro; costa, el mar no puede inclinarse: solo
+     **rampas del muelle** que suben a tramos elevados sobre postes más largos y vuelven a bajar (hasta un 6 %);
+   - **equilibrado**: en cada tramo, lo que se pierde subiendo se recupera bajando (el tiempo del tramo a ritmo constante
+     no cambia más de un 5 % respecto al llano): las rondas no se alargan.
+2. **El esfuerzo** [O], en `Runner` (sin tocar `path.ts`): al avance que da el impulso se le aplica `gradeK(pendiente)`:
+   cuesta arriba, de 1 a 0,65 en la pendiente máxima; cuesta abajo, de 1 a 1,25; y cuesta abajo la inercia se apaga un 30 %
+   más despacio. **Sin repeticiones te sigues parando**, también cuesta abajo (regla del usuario). En las formas con
+   «Avance solo» (plancha suave, zancada estática) el avance automático también nota la cuesta. El turbo, la racha y los
+   puntos, igual. Los números, constantes con nombre para ajustarlos con el usuario.
+   - Las separaciones mínimas entre retos (`minGap`) se calculan con la velocidad que puede haber **en ese punto** (cuesta
+     abajo, hasta un 25 % más): `plat-course.test.ts` lo comprueba.
+3. **Lo que se pinta** [O] (`trek-system.ts`, `pieces.ts`): todo lo que va sobre el sendero (suelo, piezas, enemigos,
+   frutas, paisaje, sombras, el fantasma) recibe `heightAt(su sitio) − heightAt(donde estás)`, sumado a lo que ya hay
+   (`dip`, `lev`, `islandY`); las piezas del suelo, además, cabecean con la pendiente (`rx`) para que no haya escalones (ni
+   uno de más de 3 cm entre dos trozos seguidos). El césped del bosque deja de ser un plano: ondula con el mismo perfil (en
+   su sombreador, con el perfil en una textura de datos o como malla en tira). El mar de nubes y el mar se quedan a su
+   altura absoluta (se ven más abajo cuanto más subes). El fondo realista, quieto. Con `LITE.on`, como ahora.
+4. **Avisos**: ninguno que anuncie la cuesta (decisión 5: se ve venir). Solo si el ritmo cae cuesta arriba, la corrección
+   de siempre («¡Baja más!»).
+5. **El ajuste** [S]: «Sendero con cuestas» (Sí/No, `xr: true`, de serie Sí; en Ajustes junto a «Sendero con curvas»), con
+   su explicación; apagado, todo como hoy (la prueba lo comprueba: mismos números que antes del PR).
+6. **Pruebas** [S, con los guiones de Opus]: `grade.test.ts` (continuidad, llanos obligatorios, máximos por mundo y rango,
+   equilibrio, misma semilla = mismo perfil); `plat-runner.test.ts` con `plat-sim.ts` (el mismo guion de repeticiones
+   avanza menos cuesta arriba y más cuesta abajo; sin repeticiones se para también bajando); `plat-pieces.test.ts` (sin
+   escalones; los postes llegan al suelo); e2e con capturas de una subida y una bajada en cada mundo, de pie y en plancha.
+7. **Reglas y documentos** [S]: `REGLAS.md` (la Travesía con cuestas, con lo decidido), `PLAN-TRAVESIA-PLATAFORMAS.md`,
+   `AGENTS.md`, `MIGRACION.md`.
+8. Antes de fusionar F1, **capturas al usuario** de cómo queda una subida fuerte del risco y una colina del bosque [O].
+
+### 3.G Luciérnagas y luces de las compuertas (un PR)
+
+**Luciérnagas** (`src/env/env-system.ts:24-104`, `src/core/beat.ts:97-134`) [O el sombreador; S las pruebas y las reglas]
+
+Hoy: 180, repartidas en un anillo completo de 1,3 a 13,3 m y de 0,25 a 3,25 m de alto; solo se apartan de una esfera de
+0,8 m alrededor de la cabeza; se apagan pasados 7 m; al compás, un vaivén de 22 cm (que de lejos no se nota) y un destello.
+
+- **Cuántas**: 480 (2,7 veces más). Las 180 primeras no cambian de semilla (para no mover las de siempre) pero sí de sitio
+  si caen en zona vedada.
+- **Dónde**: en la periferia. Nada a menos de 4,5 m del jugador (el «entorno inmediato»); nada en el **pasillo de juego**:
+  el sector del frente por donde salen y vienen los enemigos (±35°, hasta las compuertas, a 11 m) por debajo de 4,5 m de
+  alto, ni delante de las tres compuertas. Sí por encima de ese pasillo, a los lados, detrás del jugador y más allá de las
+  compuertas, de 6 a 20 m y de 0,3 a 7 m de alto. En la Travesía y en Arcos, el pasillo vedado es el del sendero o la pista.
+  La zona vedada, en una función pura (`moteAllowed(x, y, z, modo)`) con su prueba.
+- **Que se vean de lejos**: se apagan entre 20 y 26 m (no a 7), con un tamaño mínimo en pantalla.
+- **El compás, que se sienta** (lo importante del encargo): el movimiento al compás tiene que leerse desde lejos y **en
+  conjunto**, no luciérnaga a luciérnaga:
+  - el vaivén al compás crece con la distancia (de 22 cm a unos 60–80 cm a 15 m: el mismo ángulo visto desde el jugador);
+  - se mueven **por grupos** (por sectores del anillo): cada sector se columpia a la vez, con los vecinos en contrafase,
+    de modo que el anillo entero «respira» con cada pulso;
+  - en el primer pulso de cada compás, una **ola de luz** recorre el anillo (un destello que da la vuelta en un compás);
+  - el destello de cada pulso, más marcado; a medio tiempo si la canción pasa de 135 pulsos por minuto (como ahora);
+  - sin música ni ritmo marcado, el vuelo sereno de siempre (regla del usuario: sin sacudidas ni retrocesos).
+- Los momentos especiales (fiebre, relámpago, turbo, supervelocidad), como ahora.
+- Rendimiento: son puntos en la gráfica; comprobar en las gafas que no baja de 72 imágenes por segundo (si baja, menos
+  halo, no menos luciérnagas). Capturas: desde el centro, con las tres compuertas a la vista, ninguna luciérnaga delante.
+- `REGLAS.md`: «Luciérnagas: 480, en la periferia…» (sustituye a «el doble que en RepArena (180)»).
+
+**Luces giratorias de las compuertas** (`src/scene-assets/gate.scene-asset.ts:138-155`, `src/combat/gates.ts:207-210`) [O,
+con la habilidad `iwsdk-build-model`: es un objeto de escena]
+
+Hoy: dos conos huecos de 12 caras (4 m de largo, 70 cm de radio), aditivos, girando a 6 rad/s; no iluminan nada.
+
+- **El haz**, sin geometría de cono a la vista: un haz volumétrico de bordes blandos (brillante en el eje y desvanecido
+  hacia fuera y con la distancia, con algo de polvo en suspensión), que se vea bien desde cualquier ángulo (no se le ven
+  caras ni la «boca» del cono).
+- **Lo que proyecta** (lo irreal de hoy es que no proyecta nada): una mancha de luz roja alargada que **barre el suelo**
+  delante de la compuerta en sincronía con el giro, y un barrido tenue sobre el marco de la propia compuerta. Fingido (una
+  calcomanía aditiva que gira), no una luz de verdad: las gafas no llegan.
+- **El destello de la lámpara**: cuando el haz pasa apuntando al jugador, la lámpara deslumbra un instante (lo que hace
+  reconocible una sirena). Si es un `Sprite`, sin rayo (`spriteRayFix` ya lo cubre).
+- Giro algo más lento (unas 0,7 vueltas por segundo) para que el barrido se lea.
+- No tapa lo que sale de la compuerta; sin contorno de tinta. Capturas de noche y de día, con la compuerta abierta y
+  cerrada. Antes de darlo por bueno, **dos o tres capturas al usuario**.
+
+### 3.H Arcos: el láser y la pared de los inclinados (un PR, tras elegir el usuario el modelo)
+
+**El láser vertical** (`src/modes/arcs/obstacles.ts:118-133, 166-171`) [O]
+
+Hoy el láser sí barre de lado, pero **se queda quieto los últimos 1,3–1,6 s** (regla anterior del usuario: «quieto en su
+sitio el último segundo y medio») y se para en un punto al azar a entre 5 y 35 cm del centro; como solo da si pasa a menos
+de 28 cm de la cabeza, **muchas veces se para donde no molesta** y basta con no moverse. Eso es lo que el usuario ve como
+«no se mueven y no obligan a esquivar nada».
+
+- **Siempre amenaza**: el punto donde acaba se elige respecto a **donde está tu cabeza** cuando empieza a frenarse (a menos
+  de 12 cm de ella, dentro del carril), no respecto al centro: quedarse quieto ya no vale nunca.
+- **Sigue moviéndose**: en el último tramo ya no se clava: frena hasta un vaivén corto y lento (unos ±10 cm) alrededor de
+  ese punto y solo se queda quieto del todo los últimos 0,6 s. La velocidad de lado sigue sin pasar de 2,5 m/s.
+- Cambia una regla de `REGLAS.md` (Arcos: «…quieto en su sitio el último segundo y medio»): reescribirla con lo nuevo.
+- Pruebas [S]: en mil láseres simulados con un jugador quieto en cualquier punto del carril, todos le dan; con un paso de
+  40 cm al lado bueno en el último segundo, ninguno.
+
+**La pared del lado bajo de los arcos inclinados** (`src/modes/arcs/arcs-system.ts:288-300`) [O]
+
+Hoy: un cuadrilátero rojo liso casi opaco (0,9) del lado bajo hasta pasado el centro, con un canto verde. (Las paredes con
+franjas son las de los obstáculos con hueco, `arc-extras.scene-asset.ts:88-103`.) El usuario lo ve tosco. **Cuatro modelos
+para elegir**; en todos, el hueco bueno queda marcado en verde (el canto, un marco de luz y, en el suelo, la huella
+iluminada de dónde poner el cuerpo) y la parte tapada se ve claramente infranqueable:
+
+1. **Reja de láseres**: en vez de una pared, barrotes finos de luz roja que cuelgan de la barra hasta el suelo cada 12 cm,
+   con sus emisores arriba y abajo y un temblor leve; entre barrotes se ve el fondo. Es el mismo lenguaje que la barra y el
+   láser vertical: lo más coherente con «láseres».
+2. **Campo de fuerza**: una lámina de energía translúcida con panal de hexágonos, el borde encendido y una onda que la
+   recorre; más densa junto a la barra y deshecha en chispas cerca del suelo. Al acercarte, se intensifica.
+3. **Cortina de plasma**: energía roja y naranja que cae de la barra como una cascada (humo de luz con relieve y movimiento,
+   como los proyectiles realistas), con salpicaduras en el suelo.
+4. **Compuerta blindada**: algo físico: una persiana de acero de cómic que baja de la barra, con franjas de peligro
+   pintadas, remaches y pilotos rojos; sólida de verdad, con su luz y su tinta.
+
+- Opus prepara **una captura de cada modelo en el juego** (en Cómic, desde los ojos del jugador a 6 m y a 2 m, inclinado a
+  un lado y al otro) y el usuario elige. No se fusiona nada de esto sin su elección.
+- Preguntarle también si el modelo elegido se aplica a las paredes de los obstáculos con hueco (hoy, franjas rojas).
+- Al elegir, cambiar la regla de `REGLAS.md` («Arcos: las paredes… rojas casi opacas con franjas…»).
+- Sin lienzos repintados cada fotograma, materiales creados al empezar y calentados en `warmKeep`.
