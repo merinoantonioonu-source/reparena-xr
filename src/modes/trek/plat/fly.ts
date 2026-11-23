@@ -2,69 +2,140 @@
  * El vuelo de la Travesía (RepArena XR, pedido del usuario: «un modo de travesía que sea vuelo», en plancha; las formas A, B y
  * C de la propuesta): vuelas por encima del recorrido y lo manejas con el cuerpo, como un planeador.
  *
- * - **A, en plancha** (la base): escorarte lleva el vuelo a ese lado (más cuanto más te escoras); bajar en la flexión y
- *   aguantar abajo es el **picado** (bajas deprisa y aceleras); una **flexión explosiva**, un **aletazo** (subes); dos
- *   seguidas, un gran remonte; arriba con los brazos estirados, **planeas**; de canto (el giro abierto), un **tonel**.
- * - **B, con la tabla de equilibrio** (las manos en la tabla): además, inclinar la tabla a un lado (una muñeca más baja que
- *   la otra) lleva el vuelo a ese lado, y echar el peso adelante es picar.
- * - **C, la pica**: subir la cadera (la cabeza va atrás) **frena** en el aire y remonta, como abrir las alas.
+ * Afinado con docs/PLAN-VUELO.md (el usuario lo probó y no se entendían los controles): **la cabeza es la palanca**. El vuelo
+ * va donde va tu cabeza, en proporción y sin memoria, respecto a un centro que no se mueve mientras vuelas (`FlyBody`: se toma
+ * al calibrar y, posado en cada cofre, en plancha arriba):
+ * - **A los lados** (escorarte): la **posición** de lado. Tanto te escoras, tanto te apartas; vuelves al centro y el vuelo
+ *   vuelve (zona muerta de 1,5 cm; el recorrido entero, «Vuelo: recorrido de lado» o lo que midió la práctica).
+ * - **Abajo** (bajar el pecho) y **atrás** (subir la cadera, la pica): la altura, según el mando de altura (`FlyModel`):
+ *   - **P, posición** («el cuerpo es el avión»): tu altura sale de tu cabeza. Bajar el pecho baja el vuelo en proporción
+ *     (la flexión entera, 3,5 m); la pica lo sube (hasta 3 m) y frena. En la dura, cada flexión sube el crucero y sin
+ *     flexiones baja despacio.
+ *   - **A, aleteo** («cada flexión, un aletazo»): cada flexión sube un poco (perfecta, más; explosiva, mucho); aguantar abajo
+ *     es el picado, en proporción a lo hondo; la pica remonta y frena.
+ *   De serie, P en la suave (el recorrido viene solo) y A en la dura (cada flexión te empuja): «Vuelo: mando de altura».
+ *   **La pica manda sobre el picado** (en pica también baja la cabeza: no es picar).
+ * - **De canto** (giro abierto): un tonel, para pasar las grietas (lo juzga el corredor).
+ * - **Con la tabla de equilibrio**: su inclinación (las muñecas) se suma a escorarse y echar el peso adelante, a bajar.
  *
- * En la dura, sin aletear (sin flexiones) un rato vas perdiendo altura poco a poco (nunca te caes: como poco, `FLY.altMin`);
- * en la suave, el vuelo mantiene la altura. Al acercarte al cofre del tramo bajas solo hasta posarte en él.
- * Lógica pura, sin IWSDK (se prueba en tests/unit/plat-fly.test.ts).
+ * Nunca te caes (como poco, `FLY.altMin`). Al acercarte al cofre del tramo bajas solo hasta posarte en él y luego despegas.
+ * Lógica pura, sin IWSDK (se prueba en tests/unit/plat-fly.test.ts; la caja negra del vuelo, src/core/flybox.ts).
  */
 
-/** Los números del vuelo (m, m/s y s). */
+/** Los números del vuelo (m, m/s y s; de partida: se afinan con la caja negra del vuelo del usuario). */
 export const FLY = {
   /** La altura de vuelo: la de salida, la mínima y la máxima (sobre el sendero). */
   alt0: 6,
   altMin: 2,
   altMax: 11,
-  /** Lo que te puedes apartar del centro (a cada lado) y lo deprisa, con la cabeza escorada `lean` m o más. */
+  /** Lo que te puedes apartar del centro (a cada lado). */
   uMax: 2.4,
-  uV: 3,
-  lean: 0.12,
-  /** El picado (bajando, m/s), el aletazo y el gran remonte (m/s de subida que dan) y lo que se pierde sin aletear en la
-   * dura (m/s, pasados `idle` s sin flexiones). */
-  diveV: 3.2,
-  flap: 2.4,
-  pair: 4.5,
-  sink: 0.45,
-  idle: 2.5,
-  /** Lo que tarda en apagarse la subida o la bajada (s) y la corriente de aire (m/s de subida). */
-  tau: 0.6,
-  lift: 3.2,
-  /** La pica: lo que frena (× la velocidad por segundo) y lo que sube (m/s). */
+  /** El lado: la zona muerta (m de cabeza), el recorrido de serie (m), la curva (exponente: sin escalón tras la zona muerta),
+   * lo que tarda en llegar (s, sin rebote) y su tope de velocidad (m/s). */
+  sideDead: 0.015,
+  sideRange: 0.12,
+  sideCurve: 0.8,
+  uTau: 0.2,
+  uV: 4,
+  /** P: la zona muerta de bajar el pecho (m) y lo que baja la flexión entera (m de vuelo). */
+  downDead: 0.02,
+  downAlt: 3.5,
+  /** La pica: desde cuánto atrás manda (m; y hasta cuánto sigue mandando, para no parpadear) y de dónde a dónde sube y frena
+   * (m de cabeza → `pikeAlt` m de vuelo en P; en A, hasta `pikeV` m/s de subida). */
+  pikeOn: 0.04,
+  pikeOff: 0.025,
+  pikeFrom: 0.06,
+  pikeTo: 0.18,
+  pikeAlt: 3,
+  pikeV: 2.4,
+  /** Lo que frena la pica entera (× la velocidad por segundo). */
   brake: 1.4,
-  brakeUp: 1.2,
-  /** Lo deprisa que se sube hasta la altura mínima (al despegar, m/s). */
+  /** P, el crucero: en la dura, lo que sube cada flexión (m), su tope, su suelo, cuánto sin flexiones para bajar (s) y a cuánto
+   * baja (m/s); en la suave, a cuánto vuelve a la altura de salida (m/s). La explosiva lo sube `burst` m (dos, el doble). */
+  cruiseRep: 0.6,
+  cruiseMax: 9,
+  cruiseMin: 3,
+  cruiseIdle: 2,
+  cruiseSink: 0.3,
+  cruiseBack: 0.3,
+  burst: 1.2,
+  /** P: el muelle de la altura (s) y sus topes de velocidad (m/s) y de aceleración (m/s²), por comodidad. */
+  altTau: 0.35,
+  altV: 2.5,
+  altA: 6,
+  /** A: el aletazo de cada flexión (m/s de subida: ×`tau` es lo que sube; 1,2 m), la perfecta (1,6 m), la explosiva (2,5 m) y
+   * dos seguidas (3,6 m); sin aletear en la dura, lo que se pierde (m/s, pasados `idle` s); en la suave, la vuelta a la altura
+   * de salida (m/s); y lo que tarda en apagarse la subida o la bajada (s). */
+  flap: 2,
+  flapPerfect: 2.67,
+  flapBurst: 4.2,
+  pair: 6,
+  sink: 0.45,
+  idle: 2,
+  tau: 0.6,
+  /** A: el techo de los aletazos de las flexiones (m: por encima de la altura de salida, cada uno sube menos y aquí ya nada; las
+   * explosivas, hasta la máxima). */
+  flapCeil: 9,
+  /** El picado (en A, aguantar abajo; en los dos, para acelerar y para las alas): cuánto hay que aguantar quieto (s; quieto: la
+   * cabeza, a menos de `holdV` m/s: lo de abajo de una flexión normal no llega) y su bajada en A (m/s, justo en el umbral y
+   * abajo del todo). */
+  diveHold: 0.35,
+  holdV: 0.035,
+  diveMin: 1,
+  diveMax: 3.5,
+  /** La corriente de aire (m/s de subida) y lo deprisa que se sube hasta la altura de salida al despegar (m/s). */
+  lift: 3.2,
   takeoff: 1.6,
-  /** La tabla: lo que pesa su inclinación (la diferencia de altura de las muñecas / su separación) en el lado. */
-  tilt: 4,
+  /** La tabla: su zona muerta (la diferencia de altura de las muñecas / su separación: unos 2°) y lo que vale en m de escora. */
+  tiltDead: 0.035,
+  tilt: 0.4,
 } as const;
 
-/** Lo que manda el cuerpo en este fotograma (de `BodyMoves` y las muñecas). */
+/** El mando de altura: P (posición) o A (aleteo). */
+export type FlyModel = 'pos' | 'flap';
+
+/** El mando de altura del ajuste «Vuelo: mando de altura» (0: P en la suave y A en la dura; 1: P; 2: A). */
+export function flyModel(setting: number, auto: boolean): FlyModel {
+  return setting === 1 ? 'pos' : setting === 2 ? 'flap' : auto ? 'pos' : 'flap';
+}
+
+/** Lo que manda el cuerpo en este fotograma (de `FlyBody`, la marcha y las muñecas). */
 export interface FlyIn {
-  /** Lo que se escora la cabeza (m, + derecha). */
-  dx: number;
-  /** Abajo en la flexión (el picado). */
-  low: boolean;
-  /** Este fotograma: una explosiva (aletazo) y dos seguidas (gran remonte). */
+  /** Lo que te escoras respecto al centro (m, + derecha; con la tabla, más su inclinación). */
+  side: number;
+  /** Lo que baja la cabeza bajo arriba de la plancha (m; con la tabla, también el peso adelante) y lo que va atrás (m: la pica). */
+  down: number;
+  back: number;
+  /** Lo que baja una flexión entera («Bajada en la flexión», m) y, en A, desde cuánto se pica (m). */
+  depth: number;
+  lowNeed: number;
+  /** El recorrido de lado entero y el de la pica (m de cabeza: hasta dónde atrás sube del todo). */
+  range: number;
+  backTo: number;
+  /** Este fotograma: una flexión hecha (1; 2, perfecta), una explosiva y dos seguidas. */
+  rep: number;
   flap: boolean;
   pair: boolean;
-  /** La pica (la cabeza atrás): frenar y remontar. */
-  pike: boolean;
-  /** Con la tabla de equilibrio: su inclinación de lado (+ derecha; 0 sin ella o sin ver las dos muñecas) y si se echa el peso
-   * adelante (picar). */
-  tilt: number;
-  tiltDive: boolean;
-  /** La forma suave (el vuelo mantiene la altura) y si has hecho una flexión hace poco (s). */
+  /** La forma suave (el recorrido viene solo) y cuánto hace de la última flexión que empujó (s). */
   auto: boolean;
   sinceRep: number;
   /** Dentro de una corriente de aire. */
   updraft: boolean;
   /** Posarse (de 0 a 1: al acercarte al cofre, la altura va a 0). */
   land: number;
+  /** El mando de altura. */
+  model: FlyModel;
+}
+
+/** Un `FlyIn` vacío (para reservarlo una vez). */
+export const flyIn = (): FlyIn => ({ side: 0, down: 0, back: 0, depth: 0.13, lowNeed: 0.078, range: FLY.sideRange, backTo: FLY.pikeTo, rep: 0, flap: false, pair: false, auto: true, sinceRep: 0, updraft: false, land: 0, model: 'pos' });
+
+const clamp = (v: number, a: number, b: number): number => (v < a ? a : v > b ? b : v);
+
+/** El lado que pide la cabeza (m de vuelo, + derecha): `side` m escorado con un recorrido entero de `range` m. */
+export function sideTarget(side: number, range: number): number {
+  const r = Math.max(FLY.sideDead + 0.02, range), n = clamp((Math.abs(side) - FLY.sideDead) / (r - FLY.sideDead), 0, 1);
+  return Math.sign(side) * Math.pow(n, FLY.sideCurve) * FLY.uMax;
 }
 
 export class Glider {
@@ -73,65 +144,183 @@ export class Glider {
   alt: number = FLY.alt0;
   vU = 0;
   vAlt = 0;
-  /** En picado o frenando (en pica) este fotograma: la marcha lo usa para acelerar o frenar. */
+  /** Lo que piden el cuerpo y el aire ahora: el lado y (en P) la altura (para las reglillas). */
+  tgtU = 0;
+  tgtAlt: number = FLY.alt0;
+  /** P: la altura de crucero (la de los brazos estirados). */
+  cruise: number = FLY.alt0;
+  /** En picado (bajando y aguantado `diveHold` s: la marcha acelera), en pica (frenando: lo que frena, de 0 a 1) y cuánto lleva
+   * la cabeza abajo (s). */
   diving = false;
-  braking = false;
+  pike = false;
+  brakeK = 0;
+  private lowT = 0;
+  private lastDown = NaN;
+  private vDown = 0;
+  /** Lo que se baja ahora (de 0 a 1 de la flexión entera; para las alas) y si este fotograma hubo un aletazo. */
+  dip = 0;
+  flapped = false;
   /** Despegando (al empezar y tras posarte en un cofre): sube solo hasta la altura de salida. */
   rising = false;
 
+  get braking(): boolean {
+    return this.brakeK > 0;
+  }
+
   reset(alt: number = FLY.alt0): void {
-    this.u = this.vU = this.vAlt = 0;
+    this.u = this.vU = this.vAlt = this.tgtU = 0;
     this.alt = alt;
-    this.diving = this.braking = false;
+    this.tgtAlt = this.cruise = FLY.alt0;
+    this.diving = this.pike = this.flapped = false;
+    this.brakeK = this.lowT = this.dip = this.vDown = 0;
+    this.lastDown = NaN;
     this.rising = alt < FLY.alt0;
   }
 
   /** Un fotograma. */
   step(dt: number, I: FlyIn): void {
     if (dt <= 0) return;
-    // el lado: escorarse (y la tabla) da la velocidad de lado; se suaviza para que no dé tirones
-    const lean = Math.max(-1, Math.min(1, I.dx / FLY.lean + I.tilt * FLY.tilt));
-    this.vU += (lean * FLY.uV - this.vU) * Math.min(1, dt / 0.25);
-    this.u = Math.max(-FLY.uMax, Math.min(FLY.uMax, this.u + this.vU * dt));
-    // la altura
-    this.diving = (I.low || I.tiltDive) && I.land <= 0;
-    this.braking = I.pike && !this.diving && I.land <= 0;
-    if (I.flap) this.vAlt = Math.max(this.vAlt, 0) + FLY.flap;
-    if (I.pair) this.vAlt = Math.max(this.vAlt, 0) + FLY.pair;
-    let want = 0;
-    if (this.diving) want = -FLY.diveV;
-    else if (this.braking) want = FLY.brakeUp;
-    else if (I.updraft) want = FLY.lift;
-    else if (!I.auto && I.sinceRep > FLY.idle) want = -FLY.sink;
-    // (lo que ya subía o bajaba se va apagando hacia lo que piden el cuerpo y el aire)
-    this.vAlt += (want - this.vAlt) * Math.min(1, dt / FLY.tau);
-    this.alt += this.vAlt * dt;
+    this.flapped = false;
+    // el lado: la posición que pide la cabeza, con un muelle sin rebote y su tope de velocidad
+    this.tgtU = sideTarget(I.side, I.range);
+    const wantU = clamp((this.tgtU - this.u) / FLY.uTau, -FLY.uV, FLY.uV);
+    this.vU += (wantU - this.vU) * Math.min(1, dt / 0.06);
+    this.u = clamp(this.u + this.vU * dt, -FLY.uMax, FLY.uMax);
+    // la pica (la cabeza atrás) manda sobre el picado, con su margen para no parpadear entre los dos
+    if (this.pike) this.pike = I.back >= FLY.pikeOff;
+    else this.pike = I.back >= FLY.pikeOn;
+    const b = this.pike ? clamp((I.back - FLY.pikeFrom) / Math.max(0.03, I.backTo - FLY.pikeFrom), 0, 1) : 0;
+    const depth = Math.max(0.04, I.depth);
+    this.dip = this.pike ? 0 : clamp((I.down - FLY.downDead) / (depth - FLY.downDead), 0, 1);
+    // el picado: abajo y aguantando quieto (la velocidad de la cabeza, suavizada); ya picando, sigue mientras estés abajo
+    const v = Number.isNaN(this.lastDown) ? 0 : (I.down - this.lastDown) / dt;
+    this.lastDown = I.down;
+    this.vDown += (v - this.vDown) * Math.min(1, dt / 0.1);
+    const low = !this.pike && I.down >= I.lowNeed;
+    if (!low) this.lowT = 0;
+    else if (Math.abs(this.vDown) < FLY.holdV) this.lowT += dt;
+    else if (this.lowT <= FLY.diveHold && Math.abs(this.vDown) > 2 * FLY.holdV) this.lowT = 0;
     if (I.land > 0) {
       // posarse: cada vez más cerca del suelo, hasta el cofre (luego, a despegar otra vez)
       this.alt += (0 - this.alt) * Math.min(1, I.land * dt * 3);
       if (I.land >= 1) this.alt = 0;
       this.u += (0 - this.u) * Math.min(1, I.land * dt * 3);
-      this.vAlt = 0;
+      this.vAlt = this.vU = 0;
+      this.tgtAlt = this.alt;
+      this.cruise = FLY.alt0;
+      this.diving = false;
+      this.brakeK = 0;
       this.rising = true;
       return;
     }
-    if (this.rising) {
-      // (al llegar a la altura de salida, se queda ahí: sin pasarse)
-      if (this.alt >= FLY.alt0) {
-        this.alt = FLY.alt0;
-        this.vAlt = 0;
-        this.rising = false;
-      } else if (this.diving || I.flap) this.rising = false;
-      else this.vAlt = Math.max(this.vAlt, FLY.takeoff);
-    }
+    this.brakeK = b;
+    this.diving = this.lowT > FLY.diveHold;
+    if (I.model === 'pos') this.stepPos(dt, I, b);
+    else this.stepFlap(dt, I, b);
     if (this.alt < FLY.altMin) {
-      // (por debajo de lo mínimo —al despegar del cofre, o picando—: subes suave hasta ella; nunca te caes)
+      // (por debajo de lo mínimo —al despegar del cofre—: subes suave hasta ella; nunca te caes)
       this.vAlt = Math.max(this.vAlt, FLY.takeoff);
       if (this.alt < 0) this.alt = 0;
     } else if (this.alt > FLY.altMax) {
       this.alt = FLY.altMax;
       this.vAlt = Math.min(0, this.vAlt);
     }
+  }
+
+  /** P: la altura sale de la cabeza (el crucero, menos lo que bajas el pecho, más la pica). */
+  private stepPos(dt: number, I: FlyIn, b: number): void {
+    this.rising = false; // (el muelle ya te sube al crucero)
+    if (I.auto) {
+      const d = FLY.alt0 - this.cruise, m = FLY.cruiseBack * dt;
+      this.cruise += clamp(d, -m, m);
+    } else {
+      if (I.rep) this.cruise = Math.min(FLY.cruiseMax, this.cruise + FLY.cruiseRep);
+      if (I.sinceRep > FLY.cruiseIdle) this.cruise = Math.max(FLY.cruiseMin, this.cruise - FLY.cruiseSink * dt);
+    }
+    if (I.flap) {
+      this.cruise = Math.min(FLY.cruiseMax, this.cruise + (I.pair ? 2 : 1) * FLY.burst);
+      this.flapped = true;
+    }
+    if (I.rep) this.flapped = true;
+    if (I.updraft) this.cruise = Math.min(FLY.altMax - 1, this.cruise + FLY.lift * dt);
+    this.tgtAlt = clamp(this.cruise - FLY.downAlt * this.dip + FLY.pikeAlt * b, FLY.altMin, FLY.altMax);
+    const wantV = clamp((this.tgtAlt - this.alt) / FLY.altTau, -FLY.altV, FLY.altV);
+    this.vAlt += clamp(wantV - this.vAlt, -FLY.altA * dt, FLY.altA * dt);
+    this.alt += this.vAlt * dt;
+  }
+
+  /** A: cada flexión, un aletazo; aguantar abajo, el picado en proporción; la pica remonta. */
+  private stepFlap(dt: number, I: FlyIn, b: number): void {
+    // (por encima de la altura de salida, cada aletazo sube menos: las flexiones a buen ritmo te mantienen, no te suben sin fin)
+    const over = (top: number): number => (this.alt <= FLY.alt0 ? 1 : clamp(1 - (this.alt - FLY.alt0) / (top - FLY.alt0), 0, 1));
+    if (I.rep) {
+      this.vAlt = Math.max(this.vAlt, (I.rep > 1 ? FLY.flapPerfect : FLY.flap) * over(FLY.flapCeil));
+      this.flapped = true;
+    }
+    if (I.flap) {
+      this.vAlt = Math.max(this.vAlt, (I.pair ? FLY.pair : FLY.flapBurst) * over(FLY.altMax));
+      this.flapped = true;
+    }
+    const k = clamp((I.down - I.lowNeed) / Math.max(0.01, I.depth - I.lowNeed), 0, 1);
+    let want = 0;
+    if (this.diving) want = -(FLY.diveMin + (FLY.diveMax - FLY.diveMin) * k);
+    else if (this.pike) want = 0.5 + (FLY.pikeV - 0.5) * b;
+    else if (I.updraft) want = FLY.lift;
+    else if (!I.auto && I.sinceRep > FLY.idle) want = -FLY.sink;
+    else if (I.auto && !this.rising && Math.abs(this.alt - FLY.alt0) > 0.05) want = Math.sign(FLY.alt0 - this.alt) * FLY.cruiseBack;
+    // (lo que ya subía o bajaba se va apagando hacia lo que piden el cuerpo y el aire)
+    this.vAlt += (want - this.vAlt) * Math.min(1, dt / FLY.tau);
+    if (this.rising) {
+      // (al llegar a la altura de salida, se queda ahí: sin pasarse)
+      if (this.alt >= FLY.alt0) {
+        this.alt = FLY.alt0;
+        this.vAlt = Math.max(0, this.vAlt - FLY.takeoff);
+        this.rising = false;
+      } else if (this.diving || this.flapped) this.rising = false;
+      else this.vAlt = Math.max(this.vAlt, FLY.takeoff);
+    }
+    this.alt += this.vAlt * dt;
+    this.tgtAlt = this.alt;
+  }
+}
+
+/**
+ * El cuerpo en el vuelo: lo que te escoras, bajas y vas atrás **respecto a un centro que no se mueve en el aire** (con el
+ * centro que sigue a la cabeza, escorado y quieto la lectura se iba a cero y, al volver, el juego leía que te habías ido al
+ * otro lado: PLAN-VUELO, causa 2). Los lados se miden en perpendicular a hacia donde mira el cuerpo al tomar el centro (si te
+ * pones en plancha algo girado, escorarte no se mezcla con ir adelante o atrás).
+ */
+export class FlyBody {
+  x0 = 0;
+  z0 = 0;
+  /** Hacia dónde mira el cuerpo (en horizontal, de largo 1; −z de serie). */
+  fx = 0;
+  fz = -1;
+  side = 0;
+  fwd = 0;
+
+  /** Toma el centro donde está la cabeza (y, si se sabe, hacia dónde mira el cuerpo: `yaw`, 0 hacia −z, + a la derecha). */
+  set(x: number, z: number, yaw?: number): void {
+    this.x0 = x;
+    this.z0 = z;
+    if (yaw !== undefined && Number.isFinite(yaw)) {
+      this.fx = Math.sin(yaw);
+      this.fz = -Math.cos(yaw);
+    }
+  }
+
+  /** Posado (en plancha arriba, ante el cofre): el centro se acerca a la cabeza (en `tau` s). */
+  follow(x: number, z: number, dt: number, tau: number): void {
+    const k = Math.min(1, dt / tau);
+    this.x0 += (x - this.x0) * k;
+    this.z0 += (z - this.z0) * k;
+  }
+
+  /** Lee la cabeza: `side` (+ derecha) y `fwd` (+ adelante), en m. */
+  read(x: number, z: number): void {
+    const dx = x - this.x0, dz = z - this.z0;
+    this.side = dx * -this.fz + dz * this.fx;
+    this.fwd = dx * this.fx + dz * this.fz;
   }
 }
 
@@ -141,4 +330,115 @@ export function boardTilt(l: { ok: boolean; x: number; y: number }, r: { ok: boo
   const w = Math.abs(r.x - l.x);
   if (w < 0.15) return 0; // (las manos juntas: no se sabe hacia dónde)
   return (l.y - r.y) / w;
+}
+
+/** Lo que suma la tabla a escorarse (m): sin su zona muerta (unos 2°) y por su peso. */
+export function boardSide(tilt: number): number {
+  const a = Math.abs(tilt) - FLY.tiltDead;
+  return a > 0 ? Math.sign(tilt) * a * FLY.tilt : 0;
+}
+
+/** Los pasos de la práctica de vuelo, en orden: lo que se pide y lo que lo marca como hecho. */
+export const PRACTICE: readonly { key: 'right' | 'left' | 'down' | 'rep' | 'pike' | 'roll'; text: string; done: string }[] = [
+  { key: 'right', text: 'Escórate a la derecha', done: 'A la derecha' },
+  { key: 'left', text: 'Escórate a la izquierda', done: 'A la izquierda' },
+  { key: 'down', text: 'Baja el pecho: bajas', done: 'Bajas' },
+  { key: 'rep', text: 'Haz una flexión: aletazo', done: 'Aletazo' },
+  { key: 'pike', text: 'Cadera arriba: frenas y subes', done: 'Frenas y subes' },
+  { key: 'roll', text: 'De canto: tonel', done: 'Tonel' },
+];
+/** La práctica: lo que hay que llegar a hacer en cada paso (m, rad), lo que dura cada paso como mucho (s: si no sale, se salta)
+ * y la pausa entre uno y otro (s). Lo medido se queda al 80 % (el recorrido entero de cada eje, cómodo). */
+export const PRACTICE_SIDE = 0.04, PRACTICE_DOWN = 0.05, PRACTICE_BACK = 0.07, PRACTICE_ROLL = 0.7, PRACTICE_MAX = 25, PRACTICE_GAP = 1.2, PRACTICE_FIT = 0.8;
+
+/**
+ * La práctica de vuelo (docs/PLAN-VUELO.md, 3.4): la primera vez que vuelas, antes del primer tramo, seis pasos sin retos.
+ * Cada uno espera a que lo hagas (y vuelvas), lo marca con ✓ y pasa al siguiente; de paso mide lo que te escoras a cada lado,
+ * lo que bajas y lo que vas atrás en la pica, y deja el vuelo a tu medida.
+ */
+export class FlyPractice {
+  /** El paso (−1: sin empezar; PRACTICE.length: acabada), cuánto lleva y la pausa tras el ✓ (s). */
+  step = -1;
+  t = 0;
+  wait = 0;
+  /** Lo hecho en este paso (ya llegó a lo pedido) y lo máximo de cada cosa. */
+  reached = false;
+  maxR = 0;
+  maxL = 0;
+  maxDown = 0;
+  maxBack = 0;
+  rollT = 0;
+
+  get active(): boolean {
+    return this.step >= 0 && this.step < PRACTICE.length;
+  }
+  get done(): boolean {
+    return this.step >= PRACTICE.length;
+  }
+
+  begin(): void {
+    this.step = 0;
+    this.t = this.wait = this.rollT = 0;
+    this.reached = false;
+    this.maxR = this.maxL = this.maxDown = this.maxBack = 0;
+  }
+
+  /**
+   * Un fotograma con lo que lee el vuelo (`side`, `down`, `back` en m; `roll` en rad; `rep`: una flexión). Devuelve lo que pasa:
+   * 'next' (empieza un paso: hay que decir el suyo), 'ok' (paso hecho), 'skip' (no salió a tiempo), 'end' (acabada) o ''.
+   */
+  update(dt: number, side: number, down: number, back: number, roll: number, rep: boolean): '' | 'next' | 'ok' | 'skip' | 'end' {
+    if (!this.active) return '';
+    if (this.wait > 0) {
+      this.wait -= dt;
+      if (this.wait > 0) return '';
+      this.step++;
+      this.t = this.rollT = 0;
+      this.reached = false;
+      return this.done ? 'end' : 'next';
+    }
+    if (this.t === 0 && this.step === 0 && !this.reached) {
+      this.t = 1e-6;
+      return 'next';
+    }
+    this.t += dt;
+    const k = PRACTICE[this.step].key;
+    let ok = false;
+    if (k === 'right') {
+      this.maxR = Math.max(this.maxR, side);
+      if (side >= PRACTICE_SIDE) this.reached = true;
+      ok = this.reached && side < 0.02;
+    } else if (k === 'left') {
+      this.maxL = Math.max(this.maxL, -side);
+      if (-side >= PRACTICE_SIDE) this.reached = true;
+      ok = this.reached && side > -0.02;
+    } else if (k === 'down') {
+      this.maxDown = Math.max(this.maxDown, down);
+      if (down >= PRACTICE_DOWN) this.reached = true;
+      ok = this.reached && down < 0.02;
+    } else if (k === 'rep') ok = rep;
+    else if (k === 'pike') {
+      this.maxBack = Math.max(this.maxBack, back);
+      if (back >= PRACTICE_BACK) this.reached = true;
+      ok = this.reached && back < 0.03;
+    } else {
+      this.rollT = roll >= PRACTICE_ROLL ? this.rollT + dt : 0;
+      ok = this.rollT > 0.3;
+    }
+    if (ok || this.t > PRACTICE_MAX) {
+      this.wait = PRACTICE_GAP;
+      return ok ? 'ok' : 'skip';
+    }
+    return '';
+  }
+
+  /** Lo medido, al 80 % (lo que no se midió, null en ese eje). */
+  fit(): { side: number | null; down: number | null; back: number | null } {
+    const c = (v: number, need: number, lo: number, hi: number): number | null => (v >= need ? Math.min(hi, Math.max(lo, v * PRACTICE_FIT)) : null);
+    return {
+      side: c(Math.min(this.maxR, this.maxL), PRACTICE_SIDE, 0.06, 0.2),
+      down: c(this.maxDown, PRACTICE_DOWN, 0.05, 0.35),
+      back: c(this.maxBack, PRACTICE_BACK, FLY.pikeFrom + 0.03, 0.3),
+    };
+  }
 }

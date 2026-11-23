@@ -413,8 +413,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
-- **El vuelo hay que afinarlo** (el usuario lo probó: no se entienden los controles y son poco finos): el plan, con las
-  causas medidas y los bloques en orden, en `docs/PLAN-VUELO.md`. Empieza por su bloque 1 (grabar el vuelo).
+- **El vuelo, afinado con `docs/PLAN-VUELO.md`** (el usuario: «aplica todas tus sugerencias»; los siete bloques hechos de
+  una vez): la caja negra del vuelo (`src/core/flybox.ts`, `reparenaxr-flybox`; su reproducción, `tests/replay/fly-replay.test.ts`:
+  las capturas del usuario, en `tests/replay/capturas/vuelo-*.txt`), el centro fijo en el aire (`FlyBody`), el lado por
+  posición (y **el mundo se desplaza a tu lado**: antes el lado no se veía, `uShift`), la pica sobre el picado, los dos mandos
+  de altura (`flyModel`: P en la suave, A en la dura), la práctica (`FlyPractice`; `reparenaxr-fly`, `reparenaxr-flytuto`), lo
+  que se ve (`src/modes/trek/fly-look.ts`: sombra, ventanas y reglillas; las alas, `Wings` con muñecas de mentira) y los retos
+  a medida (`FLY_GAP`, `FLY_FROM`, `platFlyGap`). **Pendiente con el usuario**: que lo pruebe y elija mando de altura (se quita
+  el otro), si las reglillas se quedan, si los recorridos le van (o los de la práctica) y si dedica más a la tabla. Si algo
+  no va, pídele la caja negra del vuelo (pausa › «Guardar diagnóstico»; la página la descarga) y afina con la reproducción.
 
 - **El vuelo de la Travesía** («Volando», `trekFly`; con tabla, `flyBoard`): el planeador es `Glider` (`plat/fly.ts`, lógica
   pura: lado, altura, picado, aletazo, pica, corriente, posarse); `Runner.fly`, `flyStep` (lo que manda el cuerpo, con

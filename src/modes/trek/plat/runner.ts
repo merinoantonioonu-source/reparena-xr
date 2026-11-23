@@ -39,8 +39,8 @@ import { PORTAL_AT, worldLenFor, worldNo, WORLD_LEN, WORLDS } from './worlds.js'
 import { formText } from './texts.js';
 import { buildGrade, gradeH, gradeK, gradeSlope, type Grade } from './grade.js';
 import { BodyMoves, WAVE_BACK, LUNGE_FWD, LUNGE_SIDE_K, moveCfg, PRONE_FWD, PRONE_SIDE_K, PRONE_SIDE_MIN, type MoveCfg } from './moves.js';
-import { boardTilt, FLY, Glider, type FlyIn } from './fly.js';
-import { ARCH_CLEAR, BERRY_R, CRACK_W, FLY_KINDS, LAND_D, PILLAR_W, RING_R, UPDRAFT_W, ASK_AHEAD, LANE_NEED, ARMS_KINDS, CLIMB_SLOPE, CLIMB_SWAY, GRIP_NARROW, GRIP_WIDE, PAW_R, PAW_U, REACH_NEED, SLAP_VY, SLIT_ROLL, TILT_NEED, WAVE_WIN, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { boardSide, boardTilt, FLY, FlyBody, flyIn, flyModel, FlyPractice, Glider, PRACTICE, PRACTICE_GAP, PRACTICE_MAX, type FlyIn } from './fly.js';
+import { ARCH_CLEAR, BERRY_R, CRACK_W, FLY_FIT, FLY_TUTO, type FlyFit, FLY_KINDS, LAND_D, PILLAR_W, RING_R, UPDRAFT_W, ASK_AHEAD, LANE_NEED, ARMS_KINDS, CLIMB_SLOPE, CLIMB_SWAY, GRIP_NARROW, GRIP_WIDE, PAW_R, PAW_U, REACH_NEED, SLAP_VY, SLIT_ROLL, TILT_NEED, WAVE_WIN, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -240,8 +240,18 @@ export class Runner {
   lane: -1 | 0 | 1 = 0;
   /** El planeador (el vuelo) y lo que manda el cuerpo en cada fotograma; desde cuándo no aleteas (s). */
   readonly glider = new Glider();
-  private readonly flyIn: FlyIn = { dx: 0, low: false, flap: false, pair: false, pike: false, tilt: 0, tiltDive: false, auto: false, sinceRep: 0, updraft: false, land: 0 };
+  readonly flyIn: FlyIn = flyIn();
   private sinceRep = 0;
+  /** El cuerpo en el vuelo (su centro, fijo en el aire), la flexión hecha que aún no ha leído el vuelo (1; 2, perfecta) y cuánto
+   * llevan a la vista las dos muñecas (s: la tabla solo cuenta si se ven estables). */
+  readonly flyBody = new FlyBody();
+  private flyRepN = 0;
+  private wristsT = 0;
+  /** Lo que midió la práctica de vuelo (FLY_FIT: los recorridos de cada eje, m) o null. */
+  flyFit: FlyFit | null = null;
+  /** La práctica de vuelo (la primera vez, antes del primer tramo: el mundo espera) y si ya se miró si toca. */
+  readonly practice = new FlyPractice();
+  private practiceSeen = false;
   /** Las muñecas: su altura del fotograma anterior y su velocidad vertical (m/s; NaN, no se ven). */
   private readonly wy = [NaN, NaN];
   private readonly wvy = [0, 0];
@@ -351,6 +361,13 @@ export class Runner {
     this.climbSaid = false;
     this.glider.reset(0);
     this.sinceRep = 0;
+    this.flyRepN = 0;
+    this.wristsT = 0;
+    this.practice.step = -1;
+    this.practiceSeen = false;
+    this.flyBody.set(this.env.head.x, this.env.head.z, this.env.head.yaw);
+    const F = this.env.store(FLY_FIT) as FlyFit | null;
+    this.flyFit = F && F.side > 0 && F.down > 0 && F.back > 0 ? F : null;
     this.uShift = 0;
     this.id = 1;
     const B = this.env.store(PLAT_GHOST) as PlatGhost | null;
@@ -363,6 +380,7 @@ export class Runner {
   /** Tu altura de pie y el centro, al calibrar. */
   calibrate(ref: number, x0: number, z0 = 0): void {
     this.moves.reset(ref, x0, z0);
+    this.flyBody.set(x0, z0, this.env.head.yaw);
   }
 
   /** Monta el tramo i detrás de lo que ya hay (si no está): `len`, lo que mide hasta su cofre. */
@@ -471,6 +489,7 @@ export class Runner {
   /** Una repetición del ejercicio. Empuja si vas en marcha; parado ante un paso, recuerda lo que toca (y no empuja); en
    * el aire, no empuja. Devuelve si ha empujado (las de una parada no cuentan para el tramo). */
   rep(perfect: boolean): boolean {
+    if (this.fly && this.env.state === 'play') this.flyRepN = Math.max(this.flyRepN, perfect ? 2 : 1); // (volando, un aletazo)
     if (this.env.state !== 'play' || (this.moves.plank && !this.prone)) return false; // (echado, no empujas: llevas la inercia)
     if (this.lunge) this.legRep();
     if (this.auto) return false; // (en la suave avanzas solo: las flexiones o las bajadas no empujan)
@@ -478,6 +497,7 @@ export class Runner {
       if (this.stop && this.stop.k !== 'boss') this.ask(this.stop, false);
       return false;
     }
+    if (this.practice.active) return false; // (en la práctica de vuelo, el mundo espera)
     this.tk.rep(perfect);
     this.pull();
     this.sinceRep = 0;
@@ -500,12 +520,15 @@ export class Runner {
     else if (this.lunge) this.cfg.sideNeed *= LUNGE_SIDE_K;
     if (this.lunge) this.legStep(dt, st);
     this.moves.prone = prone;
-    this.moves.hold = this.sideAhead() || !!this.hop?.glide; // (planeando, la cabeza a un lado coge las frutas)
+    this.moves.hold = this.sideAhead() || !!this.hop?.glide || this.fly; // (planeando, la cabeza a un lado coge las frutas; volando, el centro no se mueve)
     this.armsStep();
     this.moves.sway = CLIMB_SWAY;
     this.moves.update(dt, H, this.cfg);
     this.wristStep(dt);
-    if (this.fly) this.flyStep(dt, st);
+    if (this.fly) {
+      this.flyStep(dt, st);
+      this.uShift = this.glider.u; // (volando, el mundo se desplaza a tu lado: lo que te apartas se ve)
+    }
     // (en plancha, «abrir los brazos» para planear es aguantar abajo)
     if (prone) this.armsOpen = this.moves.plank;
     // trepar (en plancha, en la dura): en una cuesta empinada, cada vaivén de ir mano a mano empuja como una flexión
@@ -526,7 +549,7 @@ export class Runner {
     const d0 = tk.dist, push0 = tk.push, v0 = tk.v;
     if (this.stop || this.hop) tk.idle = 0; // (el turbo espera en las paradas y en el aire)
     tk.step(dt, env.now);
-    if (this.stop) {
+    if (this.stop || this.practice.active) {
       tk.dist = d0;
       tk.v = 0;
       tk.push = 0;
@@ -555,7 +578,7 @@ export class Runner {
     // el vuelo: en picado, como poco la máxima; frenando en pica, cada vez más despacio
     if (this.fly && st === 'play' && !this.stop) {
       if (this.glider.diving) tk.v = Math.max(tk.v, this.vmax);
-      else if (this.glider.braking) tk.v *= Math.max(0, 1 - FLY.brake * dt);
+      else if (this.glider.braking) tk.v *= Math.max(0, 1 - FLY.brake * this.glider.brakeK * dt);
     }
     // el acelerón (en plancha): como poco DASH_K la máxima, mientras dura
     if (this.dashT > 0 && st === 'play' && !this.stop && !this.hop) tk.v = Math.max(tk.v, this.vmax * DASH_K);
@@ -1177,27 +1200,85 @@ export class Runner {
   /** El vuelo, cada fotograma: lo que manda el cuerpo (y la tabla), al planeador; al acercarte al cofre, a posarte; tras él,
    * a despegar (en cuanto empieza el tramo siguiente). */
   private flyStep(dt: number, st: string): void {
-    const M = this.moves, I = this.flyIn, A = this.env.hands, board = this.env.s('flyBoard') > 0;
+    const M = this.moves, I = this.flyIn, A = this.env.hands, H = this.env.head, B = this.flyBody, G = this.glider, play = st === 'play';
+    const board = this.env.s('flyBoard') > 0, F = this.flyFit;
     this.sinceRep += dt;
-    I.dx = st === 'play' ? M.dx : 0;
-    I.low = st === 'play' && M.plank;
-    I.flap = st === 'play' && M.takeoff;
+    // posado (en plancha arriba, ante el cofre o antes de despegar): el centro se pone donde estás; en el aire, quieto
+    if (G.alt < 0.3 && (this.stop || !play) && Math.abs(H.y - M.ref) < 0.05) B.follow(H.x, H.z, dt, 0.6);
+    B.read(H.x, H.z);
+    // la tabla: las dos muñecas a la vista y estables un instante
+    this.wristsT = A.l.ok && A.r.ok ? this.wristsT + dt : 0;
+    const tilt = board && this.wristsT > 0.15 ? boardSide(boardTilt(A.l, A.r)) : 0;
+    I.side = play ? B.side + tilt : 0;
+    I.back = play ? -B.fwd : 0;
+    I.down = play ? Math.max(M.down, board ? B.fwd - 0.02 : 0) : 0;
+    I.depth = F ? F.down : Math.max(0.05, (this.env.s('pushDepth') || 13) / 100);
+    I.lowNeed = Math.min(this.cfg.lowNeed, I.depth * 0.6);
+    I.range = F ? F.side : Math.max(0.08, (this.env.s('flySide') || FLY.sideRange * 100) / 100);
+    I.backTo = F ? Math.max(FLY.pikeFrom + 0.03, F.back) : FLY.pikeTo;
+    I.rep = play ? this.flyRepN : 0;
+    this.flyRepN = 0;
+    I.flap = play && M.takeoff;
     I.pair = I.flap && M.deepT < 1e-6;
-    I.pike = st === 'play' && M.fwd <= -WAVE_BACK;
-    I.tilt = board && st === 'play' ? boardTilt(A.l, A.r) : 0;
-    I.tiltDive = board && st === 'play' && M.fwd >= 0.06;
     I.auto = this.auto;
-    I.sinceRep = this.sinceRep;
+    I.model = flyModel(this.env.s('flyAlt'), this.auto);
+    I.sinceRep = this.auto ? 0 : this.sinceRep;
     I.updraft = false;
     for (const p of this.live) {
       if (p.k !== 'updraft' || p.judged) continue;
       const z = p.at - this.tk.dist;
-      if (z < 0.5 && z > -p.len && Math.abs(this.glider.u - p.u) < UPDRAFT_W) I.updraft = true;
+      if (z < 0.5 && z > -p.len && Math.abs(G.u - p.u) < UPDRAFT_W) I.updraft = true;
     }
     // posarse ante el cofre (y quedarse en él hasta el tramo siguiente)
     const c = this.nextHalt(), room = c ? c.at - STOP_AT - this.tk.dist : Infinity;
     I.land = this.stop ? 1 : st !== 'play' && st !== 'rest' ? 0 : Math.max(0, Math.min(1, 1 - room / LAND_D));
-    this.glider.step(dt, I);
+    if (this.practice.active) I.land = 0;
+    if (play) this.practiceStep(dt);
+    G.step(dt, I);
+  }
+
+  /** La práctica de vuelo (fly.ts, `FlyPractice`): la primera vez que vuelas (o con «Vuelo: repetir la práctica»), al empezar;
+   * si no, lo que hay que hacer, en el aviso breve. */
+  private practiceStep(dt: number): void {
+    const P = this.practice, I = this.flyIn;
+    if (!this.practiceSeen) {
+      this.practiceSeen = true;
+      if (!this.env.store(FLY_TUTO) || this.env.s('flyPractice') > 0) P.begin();
+      else this.say(I.model === 'pos' ? 'Escórate: a un lado · Pecho abajo: bajas · Cadera arriba: subes' : 'Escórate: a un lado · Cada flexión, un aletazo · Abajo quieto: picas', COL_ASK, 4, false);
+    }
+    if (!P.active) return;
+    const r = P.update(dt, this.flyBody.side, I.down, I.back, this.moves.roll, I.rep > 0);
+    if (r === 'next') {
+      if (P.step === 0) this.cheer('Práctica de vuelo', COL_ASK, 2);
+      this.say(PRACTICE[P.step].text, COL_ASK, PRACTICE_MAX, false);
+    } else if (r === 'ok') {
+      this.say(`✓ ${PRACTICE[P.step].done}`, COL_OK, PRACTICE_GAP, false);
+      this.snd('perfect', null);
+    } else if (r === 'skip') this.say('Seguimos', COL_ASK, PRACTICE_GAP, false);
+    else if (r === 'end') {
+      // lo medido (al 80 %): el vuelo, a tu medida; lo que no se midió, como estaba
+      const f = P.fit(), F = this.flyFit;
+      const fit: FlyFit = {
+        side: f.side ?? F?.side ?? Math.max(0.08, (this.env.s('flySide') || FLY.sideRange * 100) / 100),
+        down: f.down ?? F?.down ?? Math.max(0.05, (this.env.s('pushDepth') || 13) / 100),
+        back: f.back ?? F?.back ?? FLY.pikeTo,
+      };
+      this.flyFit = fit;
+      this.ev.push({ t: 'store', key: FLY_FIT, val: fit });
+      this.ev.push({ t: 'store', key: FLY_TUTO, val: 1 });
+      this.say('¡A volar!', COL_OK, 2, false);
+      this.snd('victory', null);
+    }
+  }
+
+  /** El reto del aire que viene (o null) y lo que le falta para llegar (m): para las reglillas y la caja negra del vuelo. */
+  flyNext(): Piece | null {
+    let best: Piece | null = null;
+    for (const p of this.live) {
+      if (p.judged || !FLY_KINDS.includes(p.k)) continue;
+      if (!best || p.at < best.at) best = p;
+    }
+    return best;
   }
 
   /** Lo del vuelo, al pasar (z: lo que le falta para llegar a ti, m). */

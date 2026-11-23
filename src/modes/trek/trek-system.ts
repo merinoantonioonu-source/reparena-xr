@@ -13,6 +13,10 @@
  * `startWave`, `waveLeft`, `rep`, `hud`, `end` y `clear`.
  */
 import { AdditiveBlending, BackSide, BufferAttribute, DoubleSide, ShaderMaterial, SphereGeometry, TorusGeometry, CircleGeometry, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DataTexture, DomeTexture, Euler, Group, InstancedMesh, LinearFilter, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, RGBAFormat, Sprite, SpriteMaterial, UnsignedByteType, Vector3 } from '@iwsdk/core';
+import { bodyDir } from '../../input/body-dir.js';
+import { FB } from '../../core/flybox.js';
+import { FlyLook } from './fly-look.js';
+import { playSound } from '../../audio/sound.js';
 import type { AnimationAction, DirectionalLight, FogExp2, HemisphereLight, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { diagEvent } from '../../core/diag.js';
@@ -274,6 +278,13 @@ export class TrekSystem extends createSystem({}) {
   private readonly goldGlow: Sprite[] = [];
   /** Los aros de luz del vuelo. */
   private readonly flyRings: Mesh[] = [];
+  /** Lo que se ve del vuelo para orientarse (fly-look.ts) y, para el sonido y las alas: si picabas o ibas en pica, el batir del
+   * último aletazo (s) y las muñecas de mentira de las alas volando. */
+  private flyLook!: FlyLook;
+  private flyWas = { dive: false, pike: false };
+  private flapT = 9;
+  private readonly flyHand = { l: { ok: true, x: 0, y: 0, z: 0 }, r: { ok: true, x: 0, y: 0, z: 0 } };
+  private readonly flyFwd = new Vector3();
   /** Los escupitajos y las bolas de fuego (hechos al empezar y reutilizados) y las ondas del cíclope. */
   private readonly spits: SpitFx[] = [];
   private readonly fires: SpitFx[] = [];
@@ -325,6 +336,11 @@ export class TrekSystem extends createSystem({}) {
         get roll() {
           const f = self.rollF.set(0, 0, -1).applyQuaternion(head.q);
           return f.y < -0.05 || Math.abs(f.x) > 0.3 ? Math.abs(Math.atan2(f.x, -f.y)) : 0;
+        },
+        // hacia dónde mira el cuerpo (el vuelo mide escorarse en perpendicular a ella: src/input/body-dir.ts)
+        get yaw() {
+          const d = bodyDir(head.q, self.rollF);
+          return Math.atan2(d.x, -d.z);
         },
       },
       // las muñecas (las que se ven de verdad: una calculada al perderla, no)
@@ -508,6 +524,9 @@ export class TrekSystem extends createSystem({}) {
       this.flyRings.push(m);
     }
     warmKeep(new Mesh(flyGeo, flyMat));
+    this.flyLook = new FlyLook();
+    this.root.add(this.flyLook.inWorld);
+    this.world.createTransformEntity(this.flyLook.inRoom);
   }
 
   private get on(): boolean {
@@ -529,6 +548,7 @@ export class TrekSystem extends createSystem({}) {
     this.clearLooks();
     if (head.p.y > 1.1) this.calibRef = head.p.y;
     this.runner.reset();
+    FB.clear(this.clock);
     this.runner.addTramo(0, tramoLen(waveReps(0)));
     this.pendingBiome = -1;
     this.setBiome(0);
@@ -686,7 +706,11 @@ export class TrekSystem extends createSystem({}) {
     if (!this.foesReady) this.foesReady = this.buildFoes();
     if (!this.bossReady) this.bossReady = this.buildBoss();
     if (GAME.paused) return;
-    if (GAME.phase === 'playing') this.runner.step(dt);
+    if (GAME.phase === 'playing') {
+      this.runner.step(dt);
+      // la caja negra del vuelo (src/core/flybox.ts): para afinar los controles con tu vuelo de verdad
+      if (this.runner.fly) FB.rec(this.clock, dt, this.runner, this.env.head, this.env.hands, num('flyBoard') > 0);
+    }
     // echado (en plancha, bajo un túnel): los avisos, en el suelo bajo la cara (de pie, delante, no se leerían)
     VIEW.prone = GAME.phase === 'playing' && (this.runner.moves.plank || this.runner.prone); // (en plancha, siempre)
     this.applyEvents();
@@ -700,7 +724,36 @@ export class TrekSystem extends createSystem({}) {
     // planeando de verdad (con los brazos en cruz), las alas
     // (en plancha no hay brazos en cruz: sin alas, con las estelas de viento)
     const H = this.runner.hop, glide = GAME.phase === 'playing' && !GAME.paused && !!H?.glide && H.won && !H.bad && !this.runner.prone;
-    this.wings.update(GAME.paused ? 0 : dt, glide, head.p, headFwd(this.fwd), this.env.hands.l, this.env.hands.r);
+    if (this.runner.fly) this.flyWings(dt);
+    else this.wings.update(GAME.paused ? 0 : dt, glide, head.p, headFwd(this.fwd), this.env.hands.l, this.env.hands.r);
+  }
+
+  /** Volando: las alas a los lados (se ladean con la escora, se pliegan en el picado, se abren en la pica y baten en cada
+   * aletazo: la señal de que el juego ha leído tu gesto) y el sonido (el viento al picar, un golpe de aire al aletear, un siseo
+   * al frenar en pica). */
+  private flyWings(dt: number): void {
+    const R = this.runner, G = R.glider, B = R.flyBody, play = GAME.phase === 'playing' && !GAME.paused && !GAME.between;
+    const on = play && G.alt > 0.5;
+    if (G.flapped) this.flapT = 0;
+    this.flapT += dt;
+    if (on && !GAME.paused) {
+      if (G.diving && !this.flyWas.dive) playSound('arco-pasa', null, 0.9, 1.3);
+      if (G.pike && !this.flyWas.pike) playSound('arco-pasa', null, 0.55, 0.7);
+      if (this.flapT === 0) playSound('ataque-volador', null, 0.5, 0.75);
+    }
+    this.flyWas.dive = G.diving;
+    this.flyWas.pike = G.pike;
+    // las muñecas de mentira: en cruz, a la altura de los hombros (hacia donde mira el cuerpo, no la cabeza: en plancha miras al suelo)
+    const F = this.flyFwd.set(B.fx, 0, B.fz), rx = -F.z, rz = F.x;
+    const spread = G.diving ? 0.55 : G.pike ? 1.15 : 1, bank = Math.max(-1, Math.min(1, G.vU / 3));
+    const flap = this.flapT < 0.6 ? Math.sin((Math.PI * this.flapT) / 0.3) * (1 - this.flapT / 0.6) : 0;
+    for (const sd of [-1, 1] as const) {
+      const h = sd < 0 ? this.flyHand.l : this.flyHand.r, reach = 0.62 * spread;
+      h.x = head.p.x + rx * sd * reach - F.x * 0.1;
+      h.z = head.p.z + rz * sd * reach - F.z * 0.1;
+      h.y = head.p.y - 0.1 - sd * bank * 0.18 + 0.16 * flap;
+    }
+    this.wings.update(GAME.paused ? 0 : dt, on, head.p, F, this.flyHand.l, this.flyHand.r);
   }
 
   /** Al entrar en la Travesía: fuera la arena (compuertas, suelo, valle y nubes) y la niebla del bosque. */
@@ -747,6 +800,7 @@ export class TrekSystem extends createSystem({}) {
     this.pano = TREK_BIOMES[0].pano;
     this.wind.visible = false;
     (this.wind.material as MeshBasicMaterial).opacity = 0; // (al volver, sin estelas que se apagan)
+    if (this.flyLook) this.flyLook.inRoom.visible = false; // (las reglillas del vuelo van en la habitación)
   }
 
   /** Las instancias de cada modelo, en cuanto los kits estén cargados (y su sombreador, precompilado antes de la ronda). */
@@ -1215,6 +1269,7 @@ export class TrekSystem extends createSystem({}) {
     }
     for (let i = gi; i < this.goldGlow.length; i++) this.goldGlow[i].visible = false;
     this.drawFly(lite);
+    this.flyLook.update(R.fly && !lite && GAME.phase === 'playing', num('flyGauges') > 0, R, (s, u, out) => R.tk.bend(s, u, out), (s) => this.gy(s), this.calibRef, this.clock);
     for (const b of this.batches.values())
       for (const im of b.ims) {
         im.count = b.n;

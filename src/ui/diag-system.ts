@@ -10,6 +10,7 @@ import { createSystem, VisibilityState } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
 import { texUploads } from '../style/tex-upload.js';
 import { BB_KEY, bbSave, type BBCapture } from '../core/blackbox.js';
+import { FB_KEY, fbSave, type FBCapture } from '../core/flybox.js';
 import { DIAG, DIAG_KEY, DIAG_STEP, diagEvent, diagLine, diagSave, type DiagCapture } from '../core/diag.js';
 import { GAME, HOOKS } from '../core/state.js';
 import { store } from '../core/settings.js';
@@ -147,6 +148,7 @@ export class DiagSystem extends createSystem({}, {}) {
     const hdr = this.hdr || this.header(), now = Date.now();
     diagSave(reason, hdr, now, () => store<DiagCapture[]>(DIAG_KEY), (v) => store(DIAG_KEY, v));
     bbSave(reason, hdr, now, () => store<BBCapture[]>(BB_KEY), (v) => store(BB_KEY, v));
+    fbSave(reason, hdr, now, () => store<FBCapture[]>(FB_KEY), (v) => store(FB_KEY, v));
     this.page();
   }
 
@@ -155,7 +157,7 @@ export class DiagSystem extends createSystem({}, {}) {
     const el = document.getElementById('diagStatus');
     if (!el) return;
     el.textContent = '';
-    const list = store<DiagCapture[]>(DIAG_KEY) ?? [], bb = store<BBCapture[]>(BB_KEY) ?? [];
+    const list = store<DiagCapture[]>(DIAG_KEY) ?? [], bb = store<BBCapture[]>(BB_KEY) ?? [], fb = store<FBCapture[]>(FB_KEY) ?? [];
     const ago = (at: number): number => Math.max(0, Math.round((Date.now() - at) / 60000));
     const note = document.createElement('span');
     const btn = (label: string, fn: () => void): void => {
@@ -185,6 +187,7 @@ export class DiagSystem extends createSystem({}, {}) {
       btn('Borrar', () => {
         store(DIAG_KEY, []);
         store(BB_KEY, []);
+        store(FB_KEY, []);
         this.page();
       });
     }
@@ -193,6 +196,13 @@ export class DiagSystem extends createSystem({}, {}) {
       const last = bb[bb.length - 1];
       el.append(document.createElement('br'), `Caja negra del ejercicio (${bb.length}; la última, de ${last.ex}, hace ${ago(last.at)} min): `);
       btn('Descargar la caja negra', () => download(bb.map((c) => c.text), 'caja-negra', last.at));
+      btn('Copiar la última', () => copy(last.text));
+    }
+    if (fb.length) {
+      // la caja negra del vuelo de la Travesía (para afinar sus controles)
+      const last = fb[fb.length - 1];
+      el.append(document.createElement('br'), `Caja negra del vuelo (${fb.length}; la última, hace ${ago(last.at)} min): `);
+      btn('Descargar la del vuelo', () => download(fb.map((c) => c.text), 'caja-negra-vuelo', last.at));
       btn('Copiar la última', () => copy(last.text));
     }
     el.append(note);

@@ -1,72 +1,180 @@
 // El vuelo de la Travesía (src/modes/trek/plat/fly.ts y su juicio en el corredor): el planeador responde al cuerpo
 // (escorarse, picar, aletear, frenar en pica, la tabla) y los retos del aire se pasan como se espera.
 import { describe, expect, it } from 'vitest';
-import { boardTilt, FLY, Glider, type FlyIn } from '../../src/modes/trek/plat/fly.js';
+import { boardSide, boardTilt, FLY, FlyBody, flyIn, flyModel, Glider, sideTarget, type FlyIn } from '../../src/modes/trek/plat/fly.js';
 import { FLY_KINDS, type PieceKind } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece as mk, Sim } from './plat-sim.js';
 
-const IN = (o: Partial<FlyIn> = {}): FlyIn => ({ dx: 0, low: false, flap: false, pair: false, pike: false, tilt: 0, tiltDive: false, auto: true, sinceRep: 0, updraft: false, land: 0, ...o });
-const run = (g: Glider, secs: number, I: FlyIn): void => {
-  for (let t = 0; t < secs; t += DT) g.step(DT, I);
+const IN = (o: Partial<FlyIn> = {}): FlyIn => ({ ...flyIn(), ...o });
+const run = (g: Glider, secs: number, I: FlyIn | ((t: number) => FlyIn)): void => {
+  for (let t = 0; t < secs; t += DT) g.step(DT, typeof I === 'function' ? I(t) : I);
+};
+/** Una flexión de `d` m en `dur` s (la cabeza baja y vuelve; al acabar, la repetición). */
+const pushups = (g: Glider, n: number, base: Partial<FlyIn>, d = 0.11, dur = 1.3): number[] => {
+  const alts: number[] = [];
+  for (let i = 0; i < n; i++) {
+    let t = 0;
+    for (; t < dur; t += DT) g.step(DT, IN({ ...base, down: d * Math.sin((Math.PI * t) / dur), sinceRep: t + 0.3 }));
+    g.step(DT, IN({ ...base, rep: 1, sinceRep: 0 }));
+    alts.push(g.alt);
+  }
+  return alts;
 };
 
-describe('el planeador', () => {
-  it('escorarse lleva el vuelo a ese lado (más cuanto más), sin pasar del borde', () => {
-    const a = new Glider(), b = new Glider();
-    run(a, 0.5, IN({ dx: 0.12 }));
-    run(b, 0.5, IN({ dx: 0.05 }));
-    expect(a.u).toBeGreaterThan(b.u);
-    expect(b.u).toBeGreaterThan(0);
-    run(a, 5, IN({ dx: 0.2 }));
-    expect(a.u).toBeCloseTo(FLY.uMax, 6);
-    run(a, 4, IN({ dx: -0.2 }));
-    expect(a.u).toBeLessThan(0);
-  });
-  it('abajo en la flexión, picado: baja deprisa hasta lo mínimo (nunca se cae); una explosiva sube, dos más', () => {
+describe('el lado: tanto te escoras, tanto te apartas', () => {
+  it('5 cm de escora, 1 m de lado (±0,1); la zona muerta no mueve; el recorrido entero, el tope', () => {
+    expect(Math.abs(sideTarget(0.05, FLY.sideRange) - 1)).toBeLessThan(0.1);
+    expect(sideTarget(0.01, FLY.sideRange)).toBe(0);
+    expect(sideTarget(-0.2, FLY.sideRange)).toBeCloseTo(-FLY.uMax, 6);
     const g = new Glider();
-    run(g, 1, IN({ low: true }));
-    expect(g.diving).toBe(true);
-    expect(g.alt).toBeLessThan(FLY.alt0 - 1.5);
-    run(g, 5, IN({ low: true }));
-    expect(g.alt).toBeGreaterThanOrEqual(FLY.altMin - 0.3);
-    const one = new Glider(), two = new Glider();
-    one.step(DT, IN({ flap: true }));
-    two.step(DT, IN({ flap: true, pair: true }));
-    run(one, 0.6, IN());
-    run(two, 0.6, IN());
-    expect(one.alt).toBeGreaterThan(FLY.alt0 + 0.4);
-    expect(two.alt).toBeGreaterThan(one.alt);
+    run(g, 1.5, IN({ side: 0.05 }));
+    expect(Math.abs(g.u - 1)).toBeLessThan(0.1);
   });
-  it('en la dura, sin aletear un rato se va perdiendo altura; en la suave, no', () => {
+  it('escorado y quieto 10 s, el lado no cambia; al volver al centro, vuelve a 0 sin pasarse', () => {
+    const g = new Glider();
+    run(g, 1.5, IN({ side: 0.08 }));
+    const u1 = g.u;
+    run(g, 10, IN({ side: 0.08 }));
+    expect(Math.abs(g.u - u1)).toBeLessThan(0.01);
+    let min = Infinity;
+    run(g, 3, () => (min = Math.min(min, g.u), IN({ side: 0 })));
+    expect(Math.abs(g.u)).toBeLessThan(0.02);
+    expect(min).toBeGreaterThan(-0.05);
+  });
+  it('el centro del vuelo no sigue a la cabeza: escorado y quieto, la lectura no se va a cero', () => {
+    const B = new FlyBody();
+    B.set(0, 0);
+    B.read(0.08, 0);
+    expect(B.side).toBeCloseTo(0.08, 6);
+    // girado 30° en la habitación: escorarse a su derecha es su lado, no adelante
+    B.set(0, 0, Math.PI / 6);
+    B.read(0.08 * Math.cos(Math.PI / 6), 0.08 * Math.sin(Math.PI / 6));
+    expect(B.side).toBeCloseTo(0.08, 6);
+    expect(Math.abs(B.fwd)).toBeLessThan(1e-6);
+  });
+});
+
+describe('la altura, posición (P)', () => {
+  const P = { model: 'pos' as const };
+  it('bajar el pecho baja en proporción: media flexión aguantada, media bajada', () => {
+    const half = new Glider(), full = new Glider();
+    run(half, 4, IN({ ...P, down: 0.02 + (0.13 - 0.02) / 2 }));
+    run(full, 4, IN({ ...P, down: 0.13 }));
+    expect(half.alt).toBeCloseTo(FLY.alt0 - FLY.downAlt / 2, 1);
+    expect(full.alt).toBeCloseTo(FLY.alt0 - FLY.downAlt, 1);
+    run(half, 4, IN(P));
+    expect(half.alt).toBeCloseTo(FLY.alt0, 1);
+  });
+  it('la pica manda sobre el picado: con la cabeza 8 cm más baja, remonta y frena', () => {
+    const g = new Glider();
+    run(g, 3, IN({ ...P, back: 0.14, down: 0.08 }));
+    expect(g.pike).toBe(true);
+    expect(g.diving).toBe(false);
+    expect(g.braking).toBe(true);
+    expect(g.alt).toBeGreaterThan(FLY.alt0 + 1);
+  });
+  it('con tope de velocidad (por comodidad)', () => {
+    const g = new Glider();
+    let vmax = 0;
+    run(g, 3, () => (vmax = Math.max(vmax, Math.abs(g.vAlt)), IN({ ...P, down: 0.13 })));
+    expect(vmax).toBeLessThanOrEqual(FLY.altV + 1e-6);
+  });
+  it('en la dura, diez flexiones normales mantienen la altura entre 4 y 9 m; sin flexiones, baja despacio hasta el suelo del crucero', () => {
+    const g = new Glider();
+    const a = pushups(g, 10, { ...P, auto: false });
+    for (const x of a.slice(2)) {
+      expect(x).toBeGreaterThan(4);
+      expect(x).toBeLessThan(9.01);
+    }
+    run(g, 30, IN({ ...P, auto: false, sinceRep: 9 }));
+    expect(g.alt).toBeCloseTo(FLY.cruiseMin, 1);
+  });
+});
+
+describe('la altura, aleteo (A)', () => {
+  const A = { model: 'flap' as const };
+  it('una flexión normal no pica: sube un aletazo', () => {
+    const g = new Glider();
+    let dove = false;
+    let t = 0;
+    for (; t < 1.3; t += DT) {
+      g.step(DT, IN({ ...A, down: 0.11 * Math.sin((Math.PI * t) / 1.3) }));
+      dove ||= g.diving;
+    }
+    expect(dove).toBe(false);
+    const before = g.alt;
+    g.step(DT, IN({ ...A, auto: false, rep: 1 }));
+    run(g, 1.5, IN({ ...A, auto: false }));
+    expect(g.alt - before).toBeGreaterThan(1);
+  });
+  it('aguantar abajo sí pica, en proporción a lo hondo', () => {
+    const lo = new Glider(), hi = new Glider();
+    run(lo, 1.2, IN({ ...A, down: 0.08 }));
+    run(hi, 1.2, IN({ ...A, down: 0.13 }));
+    expect(lo.diving).toBe(true);
+    expect(hi.alt).toBeLessThan(lo.alt - 0.5);
+  });
+  it('la perfecta sube más que la normal; la explosiva, más; dos seguidas, más aún', () => {
+    const up = (o: Partial<FlyIn>): number => {
+      const g = new Glider();
+      g.step(DT, IN({ ...A, ...o }));
+      run(g, 2, IN(A));
+      return g.alt;
+    };
+    const n = up({ rep: 1 }), p = up({ rep: 2 }), x = up({ flap: true }), xx = up({ flap: true, pair: true });
+    expect(p).toBeGreaterThan(n);
+    expect(x).toBeGreaterThan(p);
+    expect(xx).toBeGreaterThan(x);
+  });
+  it('en la dura, diez flexiones normales mantienen la altura entre 4 y 9 m; sin aletear, se pierde', () => {
+    const g = new Glider();
+    const a = pushups(g, 10, { ...A, auto: false });
+    for (const x of a) {
+      expect(x).toBeGreaterThan(4);
+      expect(x).toBeLessThan(9.01);
+    }
     const hard = new Glider(), soft = new Glider();
-    run(hard, 3, IN({ auto: false, sinceRep: 5 }));
-    run(soft, 3, IN({ auto: true, sinceRep: 5 }));
+    run(hard, 3, IN({ ...A, auto: false, sinceRep: 5 }));
+    run(soft, 3, IN({ ...A, auto: true }));
     expect(hard.alt).toBeLessThan(FLY.alt0 - 0.5);
     expect(soft.alt).toBeCloseTo(FLY.alt0, 6);
   });
-  it('la pica frena y remonta; la corriente de aire sube sin aletear', () => {
+  it('la pica remonta y frena; la corriente de aire sube sin aletear', () => {
     const g = new Glider();
-    run(g, 1, IN({ pike: true }));
+    run(g, 1, IN({ ...A, back: 0.15 }));
     expect(g.braking).toBe(true);
     expect(g.alt).toBeGreaterThan(FLY.alt0);
     const u = new Glider();
-    run(u, 1, IN({ updraft: true }));
+    run(u, 1, IN({ ...A, updraft: true }));
     expect(u.alt).toBeGreaterThan(FLY.alt0 + 1);
   });
-  it('posarse ante el cofre baja hasta el suelo; luego despega solo hasta la altura de salida', () => {
-    const g = new Glider();
-    run(g, 2, IN({ land: 1 }));
-    expect(g.alt).toBe(0);
-    run(g, 6, IN());
-    expect(g.alt).toBeGreaterThanOrEqual(FLY.alt0 - 0.2);
+});
+
+describe('el planeador', () => {
+  it('el mando de serie: posición en la suave, aleteo en la dura; o el que se elija', () => {
+    expect(flyModel(0, true)).toBe('pos');
+    expect(flyModel(0, false)).toBe('flap');
+    expect(flyModel(1, false)).toBe('pos');
+    expect(flyModel(2, true)).toBe('flap');
   });
-  it('la tabla: la muñeca derecha más baja inclina a la derecha; sin ver las dos, nada', () => {
+  it('posarse ante el cofre baja hasta el suelo; luego despega solo hasta la altura de salida (con los dos mandos)', () => {
+    for (const model of ['pos', 'flap'] as const) {
+      const g = new Glider();
+      run(g, 2, IN({ model, land: 1 }));
+      expect(g.alt).toBe(0);
+      run(g, 6, IN({ model }));
+      expect(g.alt, model).toBeGreaterThanOrEqual(FLY.alt0 - 0.2);
+    }
+  });
+  it('la tabla: la muñeca derecha más baja inclina a la derecha; sin ver las dos o casi plana, nada', () => {
     expect(boardTilt({ ok: true, x: -0.2, y: 0.1 }, { ok: true, x: 0.2, y: 0.04 })).toBeGreaterThan(0.1);
     expect(boardTilt({ ok: true, x: -0.2, y: 0.04 }, { ok: true, x: 0.2, y: 0.1 })).toBeLessThan(-0.1);
     expect(boardTilt({ ok: false, x: 0, y: 0 }, { ok: true, x: 0.2, y: 0.1 })).toBe(0);
+    expect(boardSide(0.02)).toBe(0);
+    expect(boardSide(0.2)).toBeGreaterThan(0.05);
     const g = new Glider();
-    run(g, 0.6, IN({ tilt: 0.15 }));
-    expect(g.u).toBeGreaterThan(0.3);
+    run(g, 0.8, IN({ side: boardSide(0.2) }));
+    expect(g.u).toBeGreaterThan(0.8);
   });
 });
 
@@ -75,6 +183,7 @@ describe('la Travesía volando', () => {
   const fly = (): Sim => {
     const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });
     s.env.ex = 'pushup';
+    s.env.mem.set('reparenaxr-flytuto', 1); // (la práctica de vuelo, ya hecha)
     s.env.calibRef = TOP;
     s.head.y = TOP;
     s.r.calibrate(TOP, 0, 0);
@@ -159,5 +268,87 @@ describe('la Travesía volando', () => {
     expect(until(s, () => s.r.atChest(0))).toBe(true);
     s.until(() => false, 72 * 2);
     expect(s.r.flyAlt).toBeLessThan(0.05);
+  });
+
+  it('en la dura, con flexiones normales, vuelas a la altura de los retos (no te quedas pegado abajo)', () => {
+    const s = fly();
+    s.env.S.trekAuto = 0;
+    s.load(course([mk(1, 'chest', 2000, 0)]));
+    s.until(() => false, 72 * 5);
+    const alts: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      s.pushup(0.11, 1.4);
+      s.r.rep(false);
+      s.until(() => false, 20);
+      alts.push(s.r.flyAlt);
+    }
+    for (const a of alts.slice(2)) expect(a).toBeGreaterThan(4);
+  });
+
+  it('escorado y quieto 10 s, sigues a ese lado; al volver al centro, el vuelo vuelve (no se va al otro lado)', () => {
+    const s = fly();
+    s.load(course([mk(1, 'chest', 2000, 0)]));
+    s.until(() => false, 72 * 3);
+    s.head.x = 0.08;
+    s.until(() => false, 72 * 2);
+    const u1 = s.r.glider.u;
+    expect(u1).toBeGreaterThan(1.2);
+    s.until(() => false, 72 * 10);
+    expect(Math.abs(s.r.glider.u - u1)).toBeLessThan(0.05);
+    s.head.x = 0;
+    s.until(() => false, 72 * 3);
+    expect(Math.abs(s.r.glider.u)).toBeLessThan(0.05);
+  });
+});
+
+
+describe('la práctica de vuelo', () => {
+  it('la primera vez, seis pasos: cada uno espera a que lo hagas; el mundo espera; al acabar, el vuelo a tu medida', () => {
+    const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });
+    s.env.ex = 'pushup';
+    s.env.calibRef = 0.45;
+    s.head.y = 0.45;
+    s.r.calibrate(0.45, 0, 0);
+    s.load(course([mk(1, 'ring', 30, 0, { u: 0, h: 6 }), mk(2, 'chest', 300, 0)]));
+    s.until(() => false, 72);
+    const P = s.r.practice;
+    expect(P.active).toBe(true);
+    expect(s.of('say').some((e) => e.text === 'Escórate a la derecha')).toBe(true);
+    const d0 = s.r.dist;
+    // a la derecha 10 cm y vuelta; a la izquierda 9 cm y vuelta; bajar 12 cm; una flexión; la pica 15 cm; de canto
+    s.side(0.1, 0.5);
+    s.until(() => P.step === 1, 72 * 3);
+    s.side(-0.09, 0.5);
+    s.until(() => P.step === 2, 72 * 3);
+    s.pushup(0.12, 1.2);
+    s.until(() => P.step === 3, 72 * 3);
+    s.r.rep(false);
+    s.until(() => P.step === 4, 72 * 3);
+    for (let i = 0; i < 40; i++) ((s.head.z = 0.15 * Math.sin((Math.PI * i) / 40)), s.frame());
+    s.head.z = 0;
+    s.until(() => P.step === 5, 72 * 3);
+    s.head.roll = 1.2;
+    s.until(() => P.done, 72 * 3);
+    s.head.roll = 0;
+    expect(P.done).toBe(true);
+    expect(s.r.dist).toBeCloseTo(d0, 3); // (el mundo esperó)
+    const fit = s.r.flyFit!;
+    expect(fit.side).toBeCloseTo(0.09 * 0.8, 2);
+    expect(fit.down).toBeCloseTo(0.12 * 0.8, 2);
+    expect(fit.back).toBeCloseTo(0.15 * 0.8, 2);
+    expect(s.of('store').some((e) => e.key === 'reparenaxr-flytuto')).toBe(true);
+    // y luego sigue: el recorrido viene
+    s.until(() => false, 72 * 2);
+    expect(s.r.dist).toBeGreaterThan(d0 + 1);
+  });
+  it('hecha una vez, no vuelve a salir (salvo con «Vuelo: repetir la práctica»)', () => {
+    for (const again of [0, 1]) {
+      const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1, flyPractice: again });
+      s.env.ex = 'pushup';
+      s.env.mem.set('reparenaxr-flytuto', 1);
+      s.load(course([mk(1, 'chest', 300, 0)]));
+      s.until(() => false, 10);
+      expect(s.r.practice.active).toBe(!!again);
+    }
   });
 });
