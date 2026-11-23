@@ -327,6 +327,13 @@ No las cambies sin preguntarle.
   nuevo», en los dos curls): aguantando arriba, si las gafas pierden la mano, la carga se guarda y el rayo sale al volver a
   verla bajando o ya abajo (sustituye a «arriba, junto a la cara, también sale con la carga que llevaba»); perdida subiendo
   más de 1,5 s, cuenta —sale la bola— y el rayo, igual, al verla bajar. Así cada curl da un solo rayo y siempre al bajar.
+- **Press de pecho en el suelo** (elegido por el usuario de las propuestas: «solo press de pecho en el suelo»; solo RepArena
+  XR, en Combate): boca arriba con una mancuerna en cada mano. Se siguen **las manos** (boca arriba las cámaras las ven muy
+  bien), como la cabeza en la sentadilla: con los brazos estirados arriba (la postura de partida, donde se calibra), bajar las
+  pesas al pecho («Bajada en el press de pecho», 28 cm de serie) carga; aguantando abajo, ×2, ×3 y ×4; al subirlas, el rayo
+  sale hacia el cielo, al volador más cercano (los enemigos son los voladores, que llegan por arriba). Una mano que las gafas
+  pierden no se inventa. El marcador, en el techo, como en los abdominales. Su cortinilla, la de las flexiones hasta que el
+  usuario dé la suya.
 - **Glúteos** (elegidos por el usuario de las propuestas; solo RepArena XR, en Combate): la **zancada lateral** (paso largo a
   un lado y bajar sobre esa pierna: cuenta si la cabeza baja lo pedido y se aparta a un lado, con carga ×2-×4 aguantando
   abajo como la zancada; luego, al otro lado) y el **patinador** (saltos de lado de una pierna a la otra: al salir de un lado,

@@ -89,7 +89,7 @@ export function repTimeOf(ex: string, mode: string, get: (k: string) => number):
   return 2.4;
 }
 /** Los que solo tiene RepArena XR (los de glúteos). */
-const XR_REP_TIME: Record<string, number> = { slunge: 2.8, skater: 1.6 };
+const XR_REP_TIME: Record<string, number> = { slunge: 2.8, skater: 1.6, fpress: 2.6 };
 /** Los de suelo, sentado, en barras y los demás (RepArena: repTimeOf). */
 const FLOOR_REP_TIME: Record<string, number> = { pushup: 2.4, pike: 2.6, inchworm: 8, plank1: 2.2, plankrow: 2.4, row: 2.6, pullup: 3.2, hang: 1, jump: 2.2, abs: 2.6, combo: 2.4, dips: 2.4 };
 

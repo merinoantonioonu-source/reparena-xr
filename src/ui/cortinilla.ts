@@ -13,7 +13,7 @@ export const CORT_W = 1024, CORT_H = 572;
 /** Las que aún no tienen la suya y usan la de otro (la Travesía en plancha, la de las flexiones de Combate, hasta que el
  * usuario dé la suya: `public/cortinillas/LEEME.md`). */
 // (los de glúteos, con la de la zancada y la de la sentadilla con salto hasta que el usuario dé las suyas)
-const CORT_SAME: Record<string, string> = { 'trek-pushup': 'combat-pushup', 'combat-slunge': 'combat-lunge', 'combat-skater': 'combat-jsquat' };
+const CORT_SAME: Record<string, string> = { 'trek-pushup': 'combat-pushup', 'combat-slunge': 'combat-lunge', 'combat-skater': 'combat-jsquat', 'combat-fpress': 'combat-pushup' };
 const BADGE = { x0: 418, x1: 958, y0: 668, y1: 752, w: 1376, h: 768 } as const;
 
 /** La dirección de la cortinilla de un modo y ejercicio (o null si ese ejercicio no está en ese modo). */

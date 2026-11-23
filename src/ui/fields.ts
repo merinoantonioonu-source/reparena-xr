@@ -15,7 +15,7 @@ import { playableEx } from '../core/playable.js';
 /** El ejercicio que se juega: el elegido, si es de pie y en Combate (lo único que hay por ahora); si no, la sentadilla. */
 /** Los ejercicios que ya se pueden jugar aquí: los de pie y, desde el PR 11, los fondos, la plancha lateral, el superman,
  * las flexiones, la plancha con un brazo y el inchworm. */
-export const PLAY_EX = [...STAND_EX, 'dips', 'splank', 'superman', 'pushup', 'plank1', 'inchworm'];
+export const PLAY_EX = [...STAND_EX, 'dips', 'splank', 'superman', 'pushup', 'plank1', 'inchworm', 'fpress'];
 export const curEx = (): string => playableEx(settings.mode, settings.exercise);
 
 /** Opciones que caben en una fila de teclas; con más, se pasa de una a otra con − y +. */

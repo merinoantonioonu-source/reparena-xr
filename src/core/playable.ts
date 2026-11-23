@@ -5,7 +5,7 @@
 import { MODE_EX } from './catalog.js';
 
 /** Los ejercicios de Combate que ya hay (de pie y, desde el PR 11, los de suelo y sentado). */
-export const COMBAT_PLAY_EX = ['squat', 'lunge', 'jsquat', 'slunge', 'skater', 'curl', 'curl2', 'twist', 'fraise', 'thruster', 'frontsq', 'swing', 'dlrow', 'dips', 'splank', 'superman', 'pushup', 'plank1', 'inchworm'];
+export const COMBAT_PLAY_EX = ['squat', 'lunge', 'jsquat', 'slunge', 'skater', 'curl', 'curl2', 'twist', 'fraise', 'thruster', 'frontsq', 'swing', 'dlrow', 'dips', 'splank', 'superman', 'fpress', 'pushup', 'plank1', 'inchworm'];
 
 /** Los modos que ya se pueden jugar. Cada PR de modo (15 a 18) añade el suyo. */
 export const PLAY_MODES: string[] = ['combat', 'arcs', 'touch', 'bars', 'trek'];

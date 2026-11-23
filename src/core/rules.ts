@@ -9,7 +9,7 @@ import { num, settings, str } from './values.js';
 // De pie con las manos libres: sentadillas y zancadas (se apunta con las manos y valen las pistolas)
 export const handsFree = (): boolean => settings.exercise === 'squat' || settings.exercise === 'lunge' || settings.exercise === 'slunge' || settings.exercise === 'skater';
 // Con pesas en las manos (no se abre la pausa juntando los dedos)
-export const holdsWeights = (): boolean => ['curl', 'curl2', 'twist', 'press', 'press2', 'fraise', 'thruster', 'frontsq', 'swing', 'chop', 'dlrow'].includes(settings.exercise);
+export const holdsWeights = (): boolean => ['curl', 'curl2', 'twist', 'press', 'press2', 'fraise', 'thruster', 'frontsq', 'swing', 'chop', 'dlrow', 'fpress'].includes(settings.exercise);
 // En plancha sobre una mano: arañas por los dos costados, cada brazo dispara a su lado
 export const oneArm = (): boolean => settings.exercise === 'plank1';
 export const isCombat = (): boolean => settings.mode === 'combat';
@@ -17,11 +17,11 @@ export const deepOn = (): boolean => num('deepDrop') > 0 && DEEP_EX.includes(set
 export const pistolOn = (): boolean => !!settings.pistol && handsFree() && settings.mode === 'combat';
 export const isBars = (): boolean => settings.mode === 'bars';
 // Postura en el suelo (flexiones y plancha): arañas, trampillas, calibración y marcador bajos
-export const isFloor = (): boolean => ['pushup', 'pike', 'plank1', 'plankrow', 'superman', 'abs', 'splank'].includes(settings.exercise) || (settings.exercise === 'combo' && settings.comboBase !== 'stand');
+export const isFloor = (): boolean => ['pushup', 'pike', 'plank1', 'plankrow', 'superman', 'abs', 'splank', 'fpress'].includes(settings.exercise) || (settings.exercise === 'combo' && settings.comboBase !== 'stand');
 // Sentado en el borde de una silla (fondos): la cabeza, a media altura
 export const isSeated = (): boolean => settings.exercise === 'dips';
 // Tumbado boca arriba (abdominales)
-export const isSupine = (): boolean => settings.exercise === 'abs' || (settings.exercise === 'combo' && settings.comboBase === 'abs');
+export const isSupine = (): boolean => settings.exercise === 'abs' || settings.exercise === 'fpress' || (settings.exercise === 'combo' && settings.comboBase === 'abs');
 // Batalla diminuta bajo tu cara (flexiones y plancha); en el superman los bichos vuelan de frente a tamaño normal
 export const isTiny = (): boolean => settings.mode !== 'touch' && settings.mode !== 'trek' && (settings.exercise === 'pushup' || settings.exercise === 'pike' || settings.exercise === 'inchworm' || oneArm());
 
@@ -32,7 +32,7 @@ export function foeList(k: string): string[] {
   return String(settings[k] || '').split(',').filter(Boolean);
 }
 // «Qué enemigos salen» (foeKind) quita un grupo entero sin tocar lo marcado en él; si el que queda está vacío, los de siempre
-export const foeOnly = (): string => (oneArm() || settings.exercise === 'superman' ? 'both' : str('foeKind'));
+export const foeOnly = (): string => (oneArm() || settings.exercise === 'superman' || settings.exercise === 'fpress' ? 'both' : str('foeKind'));
 export const groundList = (): string[] => {
   const k = isTiny() ? 'foesHatch' : 'foesGate', l = foeList(k);
   if (foeOnly() === 'fly') return [];
@@ -41,11 +41,11 @@ export const groundList = (): string[] => {
 export const flyList = (): string[] => {
   const l = foeList('foesFly');
   if (foeOnly() === 'ground') return [];
-  return l.length ? l : settings.exercise === 'superman' || foeOnly() === 'fly' ? FOES_DEF.foesFly.split(',') : l;
+  return l.length ? l : settings.exercise === 'superman' || settings.exercise === 'fpress' || foeOnly() === 'fly' ? FOES_DEF.foesFly.split(',') : l;
 };
 export const foes = (): string => {
   if (oneArm()) return 'robots';
-  if (settings.exercise === 'superman') return 'flyers';
+  if (settings.exercise === 'superman' || settings.exercise === 'fpress') return 'flyers'; // (boca arriba, los voladores llegan desde el cielo)
   const g = groundList().length, f = flyList().length;
   return g && f ? 'mix' : f ? 'flyers' : 'robots';
 };
@@ -63,7 +63,7 @@ export function foeCatPatch(v: string): Record<string, string> {
 
 // Puntería: automática (cada repetición dispara sola al más cercano) o la tuya, con las manos o la mirada. En la plancha
 // con un brazo (cada brazo dispara a su lado) y en el superman (tumbado no se apunta) siempre es automática
-export const aimForced = (): boolean => oneArm() || settings.exercise === 'superman' || settings.exercise === 'inchworm' || settings.exercise === 'twist'; // (con la barra flexible las dos manos están ocupadas)
+export const aimForced = (): boolean => oneArm() || settings.exercise === 'superman' || settings.exercise === 'fpress' || settings.exercise === 'inchworm' || settings.exercise === 'twist'; // (con la barra flexible las dos manos están ocupadas)
 export const autoAim = (): boolean => isCombat() && !pistolOn() && (settings.aim === 'auto' || aimForced());
 export const aimManual = (): boolean => isCombat() && !pistolOn() && !autoAim();
 // Espadas: en Combate contra robots (sentadillas o zancadas) y en Toques de pie; solo se ven si llevas los mandos

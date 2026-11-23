@@ -23,6 +23,7 @@ export const HOW: Record<string, [string, string]> = {
   superman: ['1. Boca abajo con los brazos estirados: sube el tronco y las piernas.', '2. Aguanta arriba: la bola crece. Al bajar, dispara al más cercano.'],
   pushup: ['1. En plancha, baja el pecho casi al suelo: carga.', '2. Aguanta abajo: ×2, ×3 y ×4. Al subir, dispara.'],
   plank1: ['1. En plancha, levanta un brazo: dispara a ese lado.', '2. Una flexión aguantada abajo carga ×2, ×3 y ×4 para el siguiente.'],
+  fpress: ['1. Boca arriba, baja las mancuernas al pecho: carga.', '2. Aguanta abajo: ×2, ×3 y ×4. Al subirlas, dispara al cielo.'],
   inchworm: ['1. Camina con las manos hasta que la cabeza llegue a la línea: carga.', '2. Cada flexión allí, más fuerza. Vuelve y ponte de pie: la onda.'],
 };
 
@@ -34,6 +35,7 @@ export const PLACE: Record<string, string> = {
   pushup: 'Ponte en plancha, mirando al suelo',
   plank1: 'Ponte en plancha, mirando al suelo',
   inchworm: 'De pie, quieto: ahí empieza el inchworm',
+  fpress: 'Túmbate boca arriba, pesas arriba',
 };
 
 /** Lo que dice el aviso del centro mientras te colocas (RepArena: drawCenter, 'calib'), en dos líneas. */
@@ -62,6 +64,7 @@ export const CALIB_LINES: Record<string, [string, string]> = {
   dlrow: ['De pie, las pesas en las manos', 'con los brazos abajo. Quieto 2 s.'],
   splank: ['De lado sobre el antebrazo,', 'cuerpo recto, cadera arriba. Quieto 2 s.'],
   abs: ['Túmbate boca arriba, rodillas', 'dobladas, pies al frente. Quieto 2 s.'],
+  fpress: ['Boca arriba, las mancuernas arriba con', 'los brazos estirados. Quieto 2 s.'],
 };
 
 /** El recordatorio del marcador mientras no pasa nada. */
@@ -85,4 +88,5 @@ export const IDLE: Record<string, string> = {
   pushup: 'Baja el pecho para cargar',
   plank1: 'Levanta un brazo para disparar',
   inchworm: 'Camina con las manos hasta la línea',
+  fpress: 'Baja las pesas al pecho para cargar',
 };
