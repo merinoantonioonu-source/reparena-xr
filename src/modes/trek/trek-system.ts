@@ -311,10 +311,18 @@ export class TrekSystem extends createSystem({}) {
       get now() {
         return self.clock;
       },
-      rnd: Math.random,
+      rnd: () => self.rnd(),
       store: (k) => store(k),
     };
     this.runner = new Runner(this.env);
+  }
+
+  /** El azar de la marcha (el recorrido): el de siempre o, para la partida simulada, uno con semilla (`seedRnd`: la prueba
+   * no puede depender de que salga un reto que sepa pasar con el teclado). */
+  private rnd: () => number = Math.random;
+  seedRnd(seed: number | null): void {
+    let a = (seed ?? 0) >>> 0;
+    this.rnd = seed === null ? Math.random : () => ((a = (Math.imul(a, 1664525) + 1013904223) >>> 0) / 4294967296);
   }
 
   init(): void {
