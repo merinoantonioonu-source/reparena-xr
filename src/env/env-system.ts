@@ -20,7 +20,8 @@ import { BEAT, MOTES } from '../core/beat-hub.js';
 import { moteBpm } from '../core/beat.js';
 import { bpm as bpmSvc, spotify } from '../services/hub.js';
 import { settings } from '../core/values.js';
-import { GAME, LITE, SPECIAL } from '../core/state.js';
+import { GAME, LITE, SPECIAL, TRAVEL } from '../core/state.js';
+import { journeyRoute, type Place } from '../combat/journey.js';
 import { head } from '../input/hand-model.js';
 
 const TAU = Math.PI * 2;
@@ -172,7 +173,8 @@ export class EnvSystem extends createSystem({}) {
   private hidden: Object3D[] = [];
   private floor: Object3D[] = [];
   private scenery!: Scenery;
-  private pick: 'arena' | SceneKind = 'arena';
+  /** Con «Alternar», el de esta partida (cambia al acabar cada una). */
+  private pick: 'arena' | SceneKind = 'nature';
   /** La hora y el tiempo (src/env/sky-plan.ts): lo que se ve ahora y adonde va, la lluvia y la nieve, y el relámpago. */
   private look: SkyLook = skyLook('dia', 'claro');
   private readonly lookTo: SkyLook = skyLook('dia', 'claro');
@@ -205,13 +207,49 @@ export class EnvSystem extends createSystem({}) {
     return this.scenery.visible;
   }
 
-  /** El entorno que toca: el elegido o, con «Alternar», uno distinto en cada partida; con fondo realista, el bosque (con la foto detrás). */
-  private sceneryWanted(): 'arena' | SceneKind {
+  /** El entorno elegido (con «Alternar», uno distinto en cada partida); con fondo realista, el bosque (con la foto detrás). */
+  private sceneryChosen(): 'arena' | SceneKind {
     if (settings.mode === 'trek') return 'arena'; // (la Travesía pinta su propio bosque, que corre con el mundo)
     if (this.panoWanted()) return 'nature';
     const k = str('scenery');
     return k === 'mix' ? this.pick : (SCENE_KINDS as string[]).includes(k) ? (k as SceneKind) : 'arena';
   }
+
+  /** El que toca ahora: con el viaje por portales, el del tramo del viaje en que vas; si no, el elegido. */
+  private sceneryWanted(): 'arena' | SceneKind {
+    if (TRAVEL.on && GAME.phase === 'playing' && TRAVEL.route.length) return TRAVEL.route[TRAVEL.leg % TRAVEL.route.length] as 'arena' | SceneKind;
+    return this.sceneryChosen();
+  }
+
+  /** ¿Va el viaje por portales? (Combate y Toques, sin fondo realista) */
+  private travelOn(): boolean {
+    return on('cbTravel') && (settings.mode === 'combat' || settings.mode === 'touch') && !this.panoWanted();
+  }
+
+  /** En el menú: el orden del viaje de la partida que viene (con su semilla) y, de uno en uno, montar sus entornos (así cruzar
+   * un portal en plena ronda no da tirones). */
+  private stepTravel(D: number): void {
+    if (GAME.phase === 'playing') return;
+    TRAVEL.on = this.travelOn();
+    TRAVEL.per = Math.max(1, Math.round(num('cbTravelWaves') || 2));
+    TRAVEL.leg = TRAVEL.want = 0;
+    const start = this.sceneryChosen() as Place, key = `${start}:${this.seed}`;
+    if (key !== this.routeKey) {
+      this.routeKey = key;
+      TRAVEL.route = journeyRoute(start, this.seed || 1 + Math.floor(Math.random() * 9973));
+    }
+    if (!TRAVEL.on) return;
+    for (const p of TRAVEL.route) {
+      if (p === 'arena') continue;
+      if (!this.scenery.prepare(p as SceneKind, D, false, this.gateList(), this.seed)) return; // (aún cargando sus modelos)
+      if (!this.preped.has(p + key)) {
+        this.preped.add(p + key);
+        return; // (uno por fotograma)
+      }
+    }
+  }
+  private routeKey = '';
+  private readonly preped = new Set<string>();
 
   // dónde están las compuertas (las del bosque y la isla se apartan de ellas)
   private gateList(): { x: number; z: number }[] {
@@ -226,15 +264,17 @@ export class EnvSystem extends createSystem({}) {
 
   private stepScenery(dt: number, time: number): void {
     const playing = GAME.phase === 'playing';
-    // (con «Alternar», uno distinto en cada partida: fortaleza → bosque → isla → risco → islas en el cielo → aldea)
-    if (playing && !this.wasPlaying && str('scenery') === 'mix') this.pick = MIX_NEXT[this.pick] ?? 'arena';
+    // (con «Alternar», uno distinto en cada partida: fortaleza → bosque → isla → risco → islas en el cielo → aldea; cambia al
+    // acabar la partida, para montar en el menú el viaje de la siguiente)
+    if (!playing && this.wasPlaying && str('scenery') === 'mix') this.pick = MIX_NEXT[this.pick] ?? 'arena';
     // al acabar una partida (y al principio), la semilla de la siguiente
     if ((!playing && this.wasPlaying) || (this.seed === 0 && num('envVary') > 0)) this.seed = num('envVary') > 0 ? 1 + Math.floor(Math.random() * 999983) : 0;
     if (!(num('envVary') > 0)) this.seed = 0;
     this.wasPlaying = playing;
-    const night = this.world.getSystem(BarsSystem)?.nightForest ?? false, want = night ? 'arena' : this.sceneryWanted();
+    const night = this.world.getSystem(BarsSystem)?.nightForest ?? false, want = night ? 'arena' : this.sceneryWanted(), D = num('depth') > 0 ? num('depth') : 11;
     if (want === 'arena') this.scenery.hide();
-    else if (!this.scenery.show(want, num('depth') > 0 ? num('depth') : 11, !!this.panoWanted(), this.gateList(), this.seed)) this.scenery.hide();
+    else if (!this.scenery.show(want, D, !!this.panoWanted(), this.gateList(), this.seed)) this.scenery.hide();
+    this.stepTravel(D);
     if (!this.floor.length) this.floor = ['arena-floor', 'comic-valley', 'comic-clouds'].map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is Object3D => !!o);
     const on = this.scenery.visible;
     if (!night && settings.mode !== 'trek') for (const o of this.floor) o.visible = !on && !(this.panoWanted() && o !== this.floor[0]); // (la Travesía los esconde ella)

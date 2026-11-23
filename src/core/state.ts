@@ -82,6 +82,10 @@ export const LITE = { on: false };
 /** Un momento especial de la partida (la fiebre de Arcos, el relámpago de Combate, el turbo o la supervelocidad de la
  * Travesía): las luciérnagas destellan más vivas. Lo pone la partida en cada fotograma. */
 export const SPECIAL = { on: false };
+/** El viaje por portales de Combate y Toques (src/combat/journey.ts): si va, el orden de los sitios de esta partida, cuántas
+ * oleadas en cada uno, en qué tramo del viaje estás (lo que se ve) y al que vas (el portal lo cruza: src/combat/travel-system.ts).
+ * El orden lo pone EnvSystem en el menú (con la semilla de la partida); el tramo, la partida y el portal. */
+export const TRAVEL = { on: false, route: [] as string[], per: 2, leg: 0, want: 0 };
 
 export const HOOKS = {
   /** Un enemigo te ha dado (str: las vidas que quita, su fuerza). */

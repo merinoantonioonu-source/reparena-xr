@@ -15,14 +15,15 @@ import { keepInBlack } from './black-out.js';
 import { MW, UI } from './ra/menu-core.js';
 import { HITCH } from '../core/hitch.js';
 import { createSystem, BackSide, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, Vector3, VisibilityState } from '@iwsdk/core';
-import { GAME, HOOKS, VIEW, type CenterInfo } from '../core/state.js';
+import { GAME, HOOKS, TRAVEL, VIEW, type CenterInfo } from '../core/state.js';
 import { num, on, settings } from '../core/values.js';
 import { hands, head } from '../input/hand-model.js';
 import { padMask, thumbsUp } from '../input/thumbs.js';
 import { isFloor, isSupine, isTiny, foes, groundList, flyList, twoShots, isBars } from '../core/rules.js';
 import { dv, nLives, nWaves, rankName, store, waveReps } from '../core/settings.js';
 import { EnemySystem } from '../combat/enemies.js';
-import { devFoe } from '../combat/foes.js';
+import { devFoe, foeReady } from '../combat/foes.js';
+import { faunaOf, placeAt, type Place } from '../combat/journey.js';
 import { foeTierOf } from '../combat/waves.js';
 import { HIST_KEY } from '../core/run.js';
 import { SND } from '../audio/sound.js';
@@ -334,6 +335,9 @@ export class ViewSystem extends createSystem({}) {
   // ---------------------------------------------------------------- la carátula del duelo
 
   private duelEnv(): DuelEnv {
+    // (con «Enemigos de cada entorno», los del sitio de la oleada del jefe: la última o, al fallo, la quinta)
+    const R = TRAVEL.route as Place[], bossI = nWaves() > 0 ? nWaves() - 1 : 4;
+    const fauna = settings.mode === 'combat' && !isTiny() && on('cbFauna') && R.length ? faunaOf(TRAVEL.on ? placeAt(R, bossI, TRAVEL.per) : R[0], foeReady) : null;
     return {
       mode: settings.mode,
       exercise: settings.exercise,
@@ -343,8 +347,8 @@ export class ViewSystem extends createSystem({}) {
       twoShots: twoShots(),
       foes: foes(),
       tiny: isTiny(),
-      ground: groundList(),
-      fly: flyList(),
+      ground: fauna && groundList().length ? fauna.ground : groundList(),
+      fly: fauna && flyList().length ? fauna.fly : flyList(),
       devFoe,
       foeTier: (k: string) => foeTierOf((key) => devFoe(key).tier, k),
       dv: (k: string) => dv(k, GAME.ramp),

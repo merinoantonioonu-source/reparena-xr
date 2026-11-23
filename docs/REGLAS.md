@@ -280,6 +280,16 @@ No las cambies sin preguntarle.
   árboles, rocas, casas e islas, otros desniveles a lo lejos (colinas y hondonadas pasadas las compuertas; donde se juega,
   siempre llano), el sol por otro lado y otra hora para empezar. Se prepara al acabar la partida anterior (en el menú), no al
   empezar.
+- **Viaje por portales** (elegido por el usuario: «que nunca tenga la sensación de pasar siempre por el mismo entorno»; en
+  Combate y Toques, «Viaje por portales», de serie): cada **«Oleadas en cada entorno»** (2 de serie), al empezar la oleada, un
+  aro de luz con su remolino llega desde el frente, te pasa por encima y, con un destello blanco, estás en otro entorno (la
+  fortaleza, el bosque, la aldea, el risco, las islas del cielo y la isla pirata), en un orden distinto en cada partida y
+  empezando en el elegido; el panel de la oleada dice adónde llegas. Los entornos del viaje se montan en el menú (cruzar no
+  da tirones). Con fondo realista, no hay viaje.
+- **Enemigos de cada entorno** (elegido por el usuario; Combate, «Enemigos de cada entorno», de serie): cada entorno trae su
+  fauna en lugar de los marcados en Rivales: robots y diablillos en la fortaleza; zombis verdes, puglins, raptores y el
+  demonio verde en el bosque; piratas en la isla; calaveras, demonios, yetis y cíclopes en el risco; aliens y demonios en las
+  islas del cielo; zombis, calaveras y el lanzador en la aldea; y sus voladores. «Qué enemigos salen» sigue mandando.
 - Fondos realistas (fotos de Poly Haven en `models/fondos/`, ver su `LEEME.md`): en la Travesía, uno por tramo; en los
   demás modos, «Fondo realista» (Opciones → Entorno, 7 para elegir). Solo paisajes abiertos, al fondo con el bosque de cómic
   delante: los de bosque por dentro, ciudad y playa se quitaron (lo cercano se veía plano, de cartón). En Arcos, con
