@@ -413,6 +413,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Las cuestas** (bloque 3.F): el perfil de cada tramo sale de `buildGrade` (`plat/grade.ts`, al montar el tramo en
+  `Runner.addTramo`, con «Sendero con cuestas»); `Runner.heightAt`/`slopeAt` lo leen y el avance se multiplica por `gradeK`.
+  En `TrekSystem`, todo lo que va sobre el sendero suma `gy(s)` a su altura (algo nuevo que se pinte en el sendero, también),
+  el suelo cabecea (`put(…, pitch)`), el césped ondula (`groundHills`) y el mar se queda a su altura. Lo llano está siempre
+  a la altura 0.
+
 - **Arcos** (bloque 3.H): el láser de la partida te busca (`ArcObsCore.track`, lo pone `arcs-system`; sin él, el de RepArena
   que compara `arcs-extras.compare`; lo comprueba `arcs-laser.test.ts`). Los cuatro modelos propuestos para la pared de los
   inclinados están en `src/modes/arcs/wall-looks.ts` (`WALL.look`, de serie `solid`, la de siempre): cuando el usuario elija,

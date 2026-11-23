@@ -156,6 +156,12 @@ No las cambies sin preguntarle.
   bola alta del jefe): en plancha, lo que lanza el jefe **sale de abajo, de sus pies**, y da más tiempo para esquivar (1,7 s
   desde el aviso; en zancada, 1,45 s; de pie, 1,1 s); mareado, sus estrellas giran también a sus pies; el picado llega
   rasante todo el camino. Regla: en plancha, lo que hay que ver nace y viaja a ras de suelo, por delante de las manos.
+- Travesía de plataformas, **las cuestas** (elegido por el usuario: «el terreno entero ondula», para esforzarse más o menos):
+  el sendero, el suelo, el césped y el paisaje suben y bajan juntos entre los retos; **cuesta arriba cada repetición te lleva
+  menos lejos y cuesta abajo más**, con más inercia (sin repeticiones te sigues parando, también bajando). Lo que pide suelo
+  llano (el cofre, el jefe, los huecos, las plataformas, los túneles, los islotes, el trampolín, la bifurcación) queda llano
+  y a ras; cada colina sube y vuelve a bajar (la ronda no se alarga). El risco, lo más escarpado. El horizonte no se inclina
+  nunca. «Sendero con cuestas» (de serie, sí) las quita. *En pruebas*: a la espera de que el usuario lo vea en las gafas.
 - Travesía de plataformas, **en zancada** (pedido del usuario; elegido de las propuestas): se juega con «Zancada», de pie con
   una pierna delante, en los cuatro mundos y con sus jefes, con **dos formas** (el mismo ajuste «Avance solo»): la **dinámica**,
   en la que cada bajada (sin dar pasos) te empuja, y la **estática**, en la que el recorrido viene solo. Bajar, agacharse;

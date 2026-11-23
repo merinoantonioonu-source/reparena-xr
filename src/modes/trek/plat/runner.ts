@@ -37,6 +37,7 @@ import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { PORTAL_AT, worldLenFor, worldNo, WORLD_LEN, WORLDS } from './worlds.js';
 import { formText } from './texts.js';
+import { buildGrade, gradeH, gradeK, gradeSlope, type Grade } from './grade.js';
 import { BodyMoves, LUNGE_FWD, LUNGE_SIDE_K, moveCfg, PRONE_FWD, PRONE_SIDE_K, PRONE_SIDE_MIN, type MoveCfg } from './moves.js';
 import { ASK_AHEAD, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
@@ -204,6 +205,8 @@ export class Runner {
   onStep: Piece | null = null;
   /** Lo que baja el mundo ahora (m, negativo: el salto te eleva). */
   dip = 0;
+  /** Las cuestas de los tramos montados (grade.ts). */
+  readonly grades: Grade[] = [];
   /** Los tramos montados: dónde acaba cada uno (su cofre). */
   ends: number[] = [];
   /** Superadas y chocadas en la ronda, y las frutas cogidas (cuentan en `passed`). */
@@ -302,6 +305,7 @@ export class Runner {
 
   /** Al empezar una ronda: desde el principio, sin recorrido (lo que había se quita). */
   reset(): void {
+    this.grades.length = 0;
     for (const p of this.live) this.ev.push({ t: 'hide', p });
     this.tk.reset();
     this.tk.ev.length = 0;
@@ -354,6 +358,16 @@ export class Runner {
       for (const p of c.pieces) if (p.k === 'low' || p.k === 'dive' || (p.k === 'cannon' && !p.n)) p.h = this.cfg.lowNeed + 0.01;
     }
     this.addCourse(c);
+    // las cuestas del tramo (grade.ts; «Sendero con cuestas»: sin él, llano)
+    if (this.env.s('trekHills') > 0) this.grades.push(buildGrade(c.pieces, start, c.end, WORLDS[worldNo(i, this.worldLen) % WORLDS.length].key, Math.max(0, Math.min(1, this.env.rank / 6)), i));
+  }
+
+  /** Las cuestas: la altura del sendero en s (m; 0, lo llano) y su pendiente (subida por metro). */
+  heightAt(s: number): number {
+    return this.grades.length ? gradeH(this.grades, s) : 0;
+  }
+  slopeAt(s: number): number {
+    return this.grades.length ? gradeSlope(this.grades, s) : 0;
   }
 
   /** Lo que tarda el jefe en lanzar desde que avisa (s): de pie, BOSS_WIND; en plancha y en zancada, más (bajar una flexión
@@ -490,6 +504,13 @@ export class Runner {
       tk.push = push0;
       tk.dist = d0 + tk.v * dt;
     } else if (st === 'play' && tk.push > 0 && tk.v < tk.want) tk.v = Math.min(tk.want, tk.v + dt * PLAT_ACCEL); // (acelera antes)
+    // las cuestas: cuesta arriba cada repetición te lleva menos lejos, cuesta abajo más; y cuesta abajo, sin repeticiones, la
+    // inercia se gasta más despacio (sin repeticiones te sigues parando, también bajando)
+    if (this.grades.length && st === 'play' && !this.stop && !this.hop) {
+      const g = this.slopeAt(tk.dist);
+      tk.dist = d0 + (tk.dist - d0) * gradeK(g);
+      if (g < -0.01 && tk.push <= 0 && tk.v < v0) tk.v += (v0 - tk.v) * 0.3 * Math.min(1, -g / 0.08);
+    }
     // el acelerón (en plancha): como poco DASH_K la máxima, mientras dura
     if (this.dashT > 0 && st === 'play' && !this.stop && !this.hop) tk.v = Math.max(tk.v, this.vmax * DASH_K);
     // la supervelocidad: como poco SUPER_K la máxima, mientras dura
