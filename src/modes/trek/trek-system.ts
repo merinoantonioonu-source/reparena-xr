@@ -278,13 +278,9 @@ export class TrekSystem extends createSystem({}) {
   private readonly goldGlow: Sprite[] = [];
   /** Los aros de luz del vuelo. */
   private readonly flyRings: Mesh[] = [];
-  /** Lo que se ve del vuelo para orientarse (fly-look.ts) y, para el sonido y las alas: si picabas o ibas en pica, el batir del
-   * último aletazo (s) y las muñecas de mentira de las alas volando. */
+  /** Lo que se ve del vuelo para orientarse (fly-look.ts) y, para el sonido, si picabas o ibas en pica. */
   private flyLook!: FlyLook;
   private flyWas = { dive: false, pike: false };
-  private flapT = 9;
-  private readonly flyHand = { l: { ok: true, x: 0, y: 0, z: 0 }, r: { ok: true, x: 0, y: 0, z: 0 } };
-  private readonly flyFwd = new Vector3();
   /** Los escupitajos y las bolas de fuego (hechos al empezar y reutilizados) y las ondas del cíclope. */
   private readonly spits: SpitFx[] = [];
   private readonly fires: SpitFx[] = [];
@@ -728,32 +724,19 @@ export class TrekSystem extends createSystem({}) {
     else this.wings.update(GAME.paused ? 0 : dt, glide, head.p, headFwd(this.fwd), this.env.hands.l, this.env.hands.r);
   }
 
-  /** Volando: las alas a los lados (se ladean con la escora, se pliegan en el picado, se abren en la pica y baten en cada
-   * aletazo: la señal de que el juego ha leído tu gesto) y el sonido (el viento al picar, un golpe de aire al aletear, un siseo
-   * al frenar en pica). */
+  /** Volando: el sonido (el viento al picar, un golpe de aire al aletear, un siseo al frenar en pica). Sin alas: pegadas a la
+   * cabeza llenaban la vista y salían delante y detrás (lo vio el usuario en las gafas); lo que dice qué gesto se ha leído es
+   * la sombra, que se ladea, se pliega, se abre y bate. */
   private flyWings(dt: number): void {
-    const R = this.runner, G = R.glider, B = R.flyBody, play = GAME.phase === 'playing' && !GAME.paused && !GAME.between;
-    const on = play && G.alt > 0.5;
-    if (G.flapped) this.flapT = 0;
-    this.flapT += dt;
-    if (on && !GAME.paused) {
+    const G = this.runner.glider, on = GAME.phase === 'playing' && !GAME.paused && !GAME.between && G.alt > 0.5;
+    if (on) {
       if (G.diving && !this.flyWas.dive) playSound('arco-pasa', null, 0.9, 1.3);
       if (G.pike && !this.flyWas.pike) playSound('arco-pasa', null, 0.55, 0.7);
-      if (this.flapT === 0) playSound('ataque-volador', null, 0.5, 0.75);
+      if (G.flapped) playSound('ataque-volador', null, 0.5, 0.75);
     }
     this.flyWas.dive = G.diving;
     this.flyWas.pike = G.pike;
-    // las muñecas de mentira: en cruz, a la altura de los hombros (hacia donde mira el cuerpo, no la cabeza: en plancha miras al suelo)
-    const F = this.flyFwd.set(B.fx, 0, B.fz), rx = -F.z, rz = F.x;
-    const spread = G.diving ? 0.55 : G.pike ? 1.15 : 1, bank = Math.max(-1, Math.min(1, G.vU / 3));
-    const flap = this.flapT < 0.6 ? Math.sin((Math.PI * this.flapT) / 0.3) * (1 - this.flapT / 0.6) : 0;
-    for (const sd of [-1, 1] as const) {
-      const h = sd < 0 ? this.flyHand.l : this.flyHand.r, reach = 0.62 * spread;
-      h.x = head.p.x + rx * sd * reach - F.x * 0.1;
-      h.z = head.p.z + rz * sd * reach - F.z * 0.1;
-      h.y = head.p.y - 0.1 - sd * bank * 0.18 + 0.16 * flap;
-    }
-    this.wings.update(GAME.paused ? 0 : dt, on, head.p, F, this.flyHand.l, this.flyHand.r);
+    this.wings.update(GAME.paused ? 0 : dt, false, head.p, headFwd(this.fwd), this.env.hands.l, this.env.hands.r);
   }
 
   /** Al entrar en la Travesía: fuera la arena (compuertas, suelo, valle y nubes) y la niebla del bosque. */

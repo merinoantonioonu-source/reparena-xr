@@ -497,7 +497,6 @@ export class Runner {
       if (this.stop && this.stop.k !== 'boss') this.ask(this.stop, false);
       return false;
     }
-    if (this.practice.active) return false; // (en la práctica de vuelo, el mundo espera)
     this.tk.rep(perfect);
     this.pull();
     this.sinceRep = 0;
@@ -549,7 +548,7 @@ export class Runner {
     const d0 = tk.dist, push0 = tk.push, v0 = tk.v;
     if (this.stop || this.hop) tk.idle = 0; // (el turbo espera en las paradas y en el aire)
     tk.step(dt, env.now);
-    if (this.stop || this.practice.active) {
+    if (this.stop) {
       tk.dist = d0;
       tk.v = 0;
       tk.push = 0;
@@ -1202,7 +1201,9 @@ export class Runner {
   private flyStep(dt: number, st: string): void {
     const M = this.moves, I = this.flyIn, A = this.env.hands, H = this.env.head, B = this.flyBody, G = this.glider, play = st === 'play';
     const board = this.env.s('flyBoard') > 0, F = this.flyFit;
-    this.sinceRep += dt;
+    // (sin flexiones solo cuenta jugando y ya en el aire: antes de empezar, calibrando, despegando o entre tramos no se pierde
+    // altura; en la práctica, tampoco: sus pasos no son flexiones)
+    this.sinceRep = play && !this.practice.active && !G.rising ? this.sinceRep + dt : 0;
     // posado (en plancha arriba, ante el cofre o antes de despegar): el centro se pone donde estás; en el aire, quieto
     if (G.alt < 0.3 && (this.stop || !play) && Math.abs(H.y - M.ref) < 0.05) B.follow(H.x, H.z, dt, 0.6);
     B.read(H.x, H.z);
@@ -1231,7 +1232,8 @@ export class Runner {
     }
     // posarse ante el cofre (y quedarse en él hasta el tramo siguiente)
     const c = this.nextHalt(), room = c ? c.at - STOP_AT - this.tk.dist : Infinity;
-    I.land = this.stop ? 1 : st !== 'play' && st !== 'rest' ? 0 : Math.max(0, Math.min(1, 1 - room / LAND_D));
+    // (antes de empezar —colocándote y calibrando—, en el suelo: se despega al empezar el tramo)
+    I.land = this.stop || st === 'ready' ? 1 : st !== 'play' && st !== 'rest' ? 0 : Math.max(0, Math.min(1, 1 - room / LAND_D));
     if (this.practice.active) I.land = 0;
     if (play) this.practiceStep(dt);
     G.step(dt, I);
