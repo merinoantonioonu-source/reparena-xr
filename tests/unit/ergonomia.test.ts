@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { bodyDir } from '../../src/input/body-dir.js';
 import { mkHand } from '../../src/input/hand-model.js';
 import type { TouchEnv } from '../../src/modes/touch/env.js';
-import { moveSpec } from '../../src/modes/touch/targets.js';
+import { gateLead, moveSpec, TCH_GATE_K } from '../../src/modes/touch/targets.js';
 import { TCH_FLOOR_GAP, tchGapFor } from '../../src/modes/touch/wave.js';
 import { GUIDE_TOAST_EX, guideSpot, type GuideSpot } from '../../src/ui/guide-spot.js';
 
@@ -43,6 +43,34 @@ describe('Toques: donde cae la mirada', () => {
     expect(tchGapFor(env({ exercise: 'abs' }), 'crunch')).toBe(TCH_FLOOR_GAP);
     expect(tchGapFor(env({ exercise: 'slam' }), 'duck')).toBe(1);
     expect(tchGapFor(env({ exercise: 'pushup' }, true), 'push')).toBe(1);
+  });
+});
+
+describe('Toques: los objetivos salen de las compuertas (pedido del usuario: aparecían a medio camino)', () => {
+  // tres compuertas a 11 m: la del centro y dos a ±4,62 m
+  const gates = (e: TouchEnv): TouchEnv => {
+    e.gateFrom = (x, out) => {
+      out.set(x < -0.15 ? -4.62 : x > 0.15 ? 4.62 : 0, out.y, -10.6);
+      return true;
+    };
+    return e;
+  };
+  it('de pie y en plancha salen de la boca de la compuerta de su lado, antes (vienen de más lejos)', () => {
+    for (const [ex, move, S] of [['slam', 'duck', 1.6], ['pushup', 'push', 0.45]] as const) {
+      const e = gates(env({ exercise: ex })), o = moveSpec(e, S, move, 1);
+      expect(o.gate).toBe(true);
+      expect(o.from.z).toBeCloseTo(-10.6, 6);
+      expect(gateLead(e)).toBe(TCH_GATE_K);
+    }
+    const r = moveSpec(gates(env()), 1.6, 'lside', 1);
+    expect(r.from.x).toBe(4.62);
+  });
+  it('boca arriba siguen bajando del aire; sin compuertas o como en RepArena, como siempre', () => {
+    const a = moveSpec(gates(env({ exercise: 'abs' })), 0.2, 'crunch');
+    expect(a.gate).toBe(false);
+    expect(gateLead(gates(env({ exercise: 'abs' })))).toBe(1);
+    expect(moveSpec(env(), 1.6, 'duck').gate).toBe(false);
+    expect(moveSpec(gates(env({}, true)), 1.6, 'duck').gate).toBe(false);
   });
 });
 

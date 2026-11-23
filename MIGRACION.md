@@ -413,6 +413,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Toques desde las compuertas**: `TouchEnv.gateFrom` (lo da `TouchSystem` con las compuertas de delante) pone el `from` de
+  cada objetivo en su boca (`MoveSpec.gate`; suave, `smoothstep`) y salen `TCH_GATE_K` veces antes (`gateLead`); con
+  `classic`, como RepArena.
 - **Los premios de los cofres** salen flotando (`HOOKS.prize(boca, premios)`, `PrizeSystem`, `src/ui/prize-system.ts`; el
   vuelo, `prize-path.ts`; el dibujo, `prize-draw.ts`). El cofre de la Travesía dice lo que lleva en su suceso (`chest`: `key`,
   `gem`, `pts`, `treasure`); el del descanso de Combate, en `RewardSystem.chestOpen`. Un cofre nuevo, con su `HOOKS.prize`.

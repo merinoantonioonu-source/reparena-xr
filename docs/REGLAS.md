@@ -282,6 +282,9 @@ No las cambies sin preguntarle.
 - Superman: **con las manos apoyadas en el suelo no cuenta** (decidido por el usuario con su diagnóstico: el tronco tiene que
   subir solo): si las gafas ven una mano a menos de 9 cm del suelo, el aguante se para y avisa «Despega las manos». Sin ver
   las manos, solo cuenta el tronco.
+- En Toques, **los objetivos salen de las compuertas** (pedido del usuario: aparecían a medio camino, poco realista): de la boca
+  de la de su lado (en el centro, la del centro), arrancan despacio, cogen velocidad y llegan suaves, a su paso de siempre
+  (salen antes). Boca arriba siguen bajando del aire (las compuertas quedan hacia los pies).
 - En Toques, entre un toque y el siguiente hay que **volver a la postura de partida**. Un toque vale aunque el objetivo
   aún venga de camino. El oblicuo es un diamante a un lado, junto a la rodilla, que se toca con la mano contraria
   (cruzando: gira el tronco); «Manos a rodillas», un diamante delante de las rodillas (las gafas no ven las rodillas).

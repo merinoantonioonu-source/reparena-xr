@@ -41,6 +41,10 @@ export interface TouchEnv {
   swordCut(t: TouchTarget, hint: (text: string) => void): Side | null;
   /** Los objetivos de la oleada i (RepArena: waveReps). */
   waveReps(i: number): number;
+  /** La boca de la compuerta de delante por la que sale un objetivo que va a parar a `x` (la de su lado; en el centro, la del
+   * centro), en la arena, en `out` (sin tocar su altura). false si no hay compuertas (RepArena XR: los objetivos salen de las
+   * compuertas, pedido del usuario; antes aparecían a medio camino). */
+  gateFrom?(x: number, out: Vector3): boolean;
   /** Tal cual RepArena (solo para compararlo, tests/compare): sin lo cambiado en RepArena XR por la ergonomía
    * (docs/ERGONOMIA.md: lo alto más a la vista, las flexiones desde 2,5 m, los abdominales a la altura de la mirada y la
    * separación mínima en el suelo). */
