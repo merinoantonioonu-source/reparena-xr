@@ -13,6 +13,7 @@ const EXACT: Record<string, string> = {
   'Camina con las manos hasta la línea del suelo': 'Manos hasta la línea',
   'Levanta más el brazo, a la altura del hombro': 'Brazo más alto',
   'Mira la barra: no veo tus dos manos': 'No veo tus manos',
+  'Despega las manos del suelo': 'Despega las manos',
   'Sube hasta la altura de los hombros': 'Hasta los hombros',
   'Vuelve andando con las manos hasta la salida': 'Vuelve a la salida',
   '¡Cargado! Aguanta escurrida o gira al revés': '¡Cargado! Aguanta o gira',

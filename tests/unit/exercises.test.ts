@@ -251,6 +251,14 @@ describe('superman', () => {
     const r = play('superman', [{ s: 1.5 }, { y: 0.35, s: 0.6 }, { s: 9 }], og);
     expect(r.all.filter((e) => e.type === 'power').map((e) => (e as { level: number }).level)).toEqual([2, 3, 4]);
   });
+  it('aguante que protege: con las manos apoyadas en el suelo (y a la vista), el aguante no cuenta (y avisa)', () => {
+    const r = play('superman', [{ s: 1.5 }, { y: 0.35, l: [-0.2, 0.05, -0.6], r: [0.2, 0.05, -0.6], s: 0.6 }, { s: 3 }, { y: 0.2, s: 0.6 }, { s: 1 }], og);
+    expect(r.reps.length).toBe(0);
+    expect(msgs(r.all, 'say')).toContain('Despega las manos del suelo');
+    // (sin verse las manos, como siempre: solo cuenta el tronco)
+    const n = play('superman', [{ s: 1.5 }, { y: 0.35, l: null, r: null, s: 0.6 }, { s: 3 }, { y: 0.2, s: 0.6 }, { s: 1 }], og);
+    expect(n.reps.length).toBe(1);
+  });
   it('aguante que protege: bajar antes de cumplirlo no cuenta (y avisa)', () => {
     const r = play('superman', [{ s: 1.5 }, { y: 0.35, s: 0.6 }, { s: 0.6 }, { y: 0.2, s: 0.6 }, { s: 1.5 }], og);
     expect(r.reps.length).toBe(0);

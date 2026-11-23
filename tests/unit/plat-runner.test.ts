@@ -694,7 +694,7 @@ describe('la Travesía de plataformas: el cofre, la medalla y el fantasma (PR D)
     const c1 = piece(1, 'chest', 40, 0);
     s.load(course([c1]));
     expect(s.pass(c1)).toBe(true);
-    expect(s.of('say').some((e) => /dentro, una llave \(1 de 3/.test(e.text))).toBe(true);
+    expect(s.of('cheer').some((e) => /dentro, una llave \(1 de 3/.test(e.text))).toBe(true); // (al marcador: decidido por el usuario)
     expect(s.of('store').at(-1)).toMatchObject({ key: PLAT_GEMS, val: 5 });
     expect(s.of('trophy').at(-1)?.title).toBe('¡COFRE ABIERTO!');
     expect(s.of('score').some((e) => e.n === CHEST_PTS)).toBe(true);
@@ -1376,6 +1376,31 @@ describe('la Travesía de plataformas en plancha (con flexiones)', () => {
     s.head.x = -0.12;
     expect(s.until(() => C.judged, 72 * 10)).toBe(true);
     expect(C.ok).toBe(true);
+  });
+
+  it('el paso lateral: caminar con las manos al otro lado y aguantar ahí pasa las rocas; escorarse un poco o volver antes, no', () => {
+    for (const [x, back, ok] of [[-0.32, false, true], [-0.12, false, false], [-0.32, true, false]] as [number, boolean, boolean][]) {
+      const s = prone(true);
+      const L = mk(1, 'lane', 30, 0, { side: 1, len: 4 });
+      s.load(course([L, mk(2, 'chest', 200, 0)]));
+      expect(s.until(() => s.room(L) < 1.5, 72 * 60)).toBe(true);
+      s.head.x = x;
+      // (volviendo al centro a mitad de las rocas: chocas)
+      expect(s.until(() => {
+        if (back && s.room(L) < -2) s.head.x = 0;
+        return L.judged;
+      }, 72 * 20)).toBe(true);
+      expect(L.ok, `cabeza a ${x}${back ? ', volviendo' : ''}`).toBe(ok);
+    }
+  });
+
+  it('el paso lateral solo sale en plancha', () => {
+    const r = new Sim().r;
+    r.addTramo(0, 400);
+    expect(r.pieces.some((p) => p.k === 'lane')).toBe(false);
+    const s = prone(false);
+    s.r.addTramo(0, 400);
+    expect(s.r.pieces.some((p) => p.k === 'lane')).toBe(true);
   });
 
   it('dos flexiones explosivas seguidas suben a la plataforma alta (una sola, no)', () => {

@@ -12,7 +12,7 @@
  * vista (de 20 m detrás a 88 m delante), sin crear objetos. La partida (GameSystem) lo engancha como Arcos: `begin`,
  * `startWave`, `waveLeft`, `rep`, `hud`, `end` y `clear`.
  */
-import { AdditiveBlending, BackSide, DoubleSide, ShaderMaterial, SphereGeometry, TorusGeometry, CircleGeometry, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DataTexture, DomeTexture, Euler, Group, InstancedMesh, LinearFilter, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, RGBAFormat, Sprite, SpriteMaterial, UnsignedByteType, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, BackSide, BufferAttribute, DoubleSide, ShaderMaterial, SphereGeometry, TorusGeometry, CircleGeometry, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DataTexture, DomeTexture, Euler, Group, InstancedMesh, LinearFilter, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, RGBAFormat, Sprite, SpriteMaterial, UnsignedByteType, Vector3 } from '@iwsdk/core';
 import type { AnimationAction, DirectionalLight, FogExp2, HemisphereLight, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { diagEvent } from '../../core/diag.js';
@@ -278,6 +278,11 @@ export class TrekSystem extends createSystem({}) {
   private readonly q = new Quaternion();
   private readonly e = new Euler(0, 0, 0, 'XYZ');
   private readonly qy = new Quaternion();
+  private readonly qx = new Quaternion();
+  private readonly xAxis = new Vector3(1, 0, 0);
+  /** Las cuestas: lo alto del sendero bajo tus pies (m; ver gy), y dónde se ondulló el césped por última vez. */
+  private hNow = 0;
+  private groundD = NaN;
   private readonly up = new Vector3(0, 1, 0);
   private readonly v = new Vector3();
   private readonly sc = new Vector3();
@@ -331,7 +336,8 @@ export class TrekSystem extends createSystem({}) {
     // el césped de debajo de la pasarela: su dibujo corre y gira con el mundo (no patina bajo lo apoyado)
     this.groundTex = groundTexture('nature');
     this.groundTex.repeat.set(GROUND_SIZE / GROUND_CELL, GROUND_SIZE / GROUND_CELL);
-    const g = new PlaneGeometry(GROUND_SIZE, GROUND_SIZE);
+    // (en una rejilla de 4 m: con las cuestas, el césped ondula con el sendero; ver groundHills)
+    const g = new PlaneGeometry(GROUND_SIZE, GROUND_SIZE, GROUND_SIZE / GROUND_CELL, GROUND_SIZE / GROUND_CELL);
     g.rotateX(-Math.PI / 2);
     this.ground = new Mesh(g, new MeshStandardMaterial({ map: this.groundTex, roughness: 1, metalness: 0 }));
     this.ground.position.y = GROUND_Y;
@@ -990,7 +996,24 @@ export class TrekSystem extends createSystem({}) {
   /** Un punto del recorrido, en la arena. */
   private world3(at: PlatPos, out: Vector3): Vector3 {
     this.runner.tk.bend(at.s, at.u - this.runner.uShift, this.bp);
-    return out.set(this.bp.x, at.y + this.runner.dip, this.bp.z);
+    return out.set(this.bp.x, at.y + this.runner.dip + this.gy(at.s), this.bp.z);
+  }
+
+  /** El césped, con las cuestas: cada punto de su rejilla, a la altura del sendero a esa distancia por delante o por detrás
+   * (el césped gira con el sendero en tu punto: su −z es hacia delante). Solo si te has movido o ha cambiado algo. */
+  private groundHills(d: number): void {
+    const R = this.runner, on = R.grades.length > 0 && this.ground.visible;
+    if (!on && this.groundD !== this.groundD) return; // (llano y ya llano)
+    if (on && Math.abs(d - this.groundD) < 0.2) return;
+    const pos = this.ground.geometry.attributes.position as BufferAttribute;
+    for (let i = 0; i < pos.count; i++) pos.setY(i, on ? R.heightAt(d - pos.getZ(i)) - this.hNow : 0);
+    pos.needsUpdate = true;
+    this.groundD = on ? d : NaN;
+  }
+
+  /** Las cuestas (grade.ts): lo que está más alto o más bajo el sendero en s que bajo tus pies (m). */
+  private gy(s: number): number {
+    return this.runner.grades.length ? this.runner.heightAt(s) - this.hNow : 0;
   }
 
   private stepAnims(dt: number): void {
@@ -1011,6 +1034,7 @@ export class TrekSystem extends createSystem({}) {
     const R = this.runner, tk = R.tk, d = R.dist, lite = LITE.on;
     tk.frame();
     this.root.position.y = R.dip; // (el salto: el mundo baja y sube bajo los pies)
+    this.hNow = R.grades.length ? R.heightAt(d) : 0; // (las cuestas: lo alto del sendero bajo tus pies)
     for (const b of this.batches.values()) b.n = 0;
     // el muelle (recalculado al avanzar un tramo de tablas o al montar otro tramo del recorrido)
     const s0 = Math.floor((d - BACK) / DOCK_LEN) * DOCK_LEN;
@@ -1050,7 +1074,7 @@ export class TrekSystem extends createSystem({}) {
     const mv = this.movers;
     mv.length = 0;
     for (const p of R.live) if (p.k === 'bob' || (p.k === 'sink' && this.sinkAt.has(p.id))) mv.push(p);
-    for (const u of this.floor) this.put(u, u.ds, 0, 1, 0, undefined, 0, mv.length && u.seg !== undefined ? this.islandY(u.seg) : 0);
+    for (const u of this.floor) this.put(u, u.ds, 0, 1, 0, undefined, 0, mv.length && u.seg !== undefined ? this.islandY(u.seg) : 0, true);
     // el paisaje de los lados (cada trozo, calculado una vez mientras está a la vista); con un menú abierto, sin él
     const c0 = Math.floor((d - BACK) / TREK_CH), c1 = Math.floor((d + AHEAD) / TREK_CH);
     for (const k of this.deco.keys()) if (k < c0 || k > c1) this.deco.delete(k);
@@ -1084,7 +1108,7 @@ export class TrekSystem extends createSystem({}) {
       if (p.gold && gi < this.goldGlow.length && !(p.k === 'fruit' && p.judged) && !(p.k === 'step' && p.got > 0) && !lite) {
         const g = this.goldGlow[gi++], st = p.k === 'step';
         this.runner.tk.bend(p.at + (st ? p.len / 2 : 0), p.lane * FORK_U - this.runner.uShift, this.bp);
-        g.position.set(this.bp.x, (st ? p.h : GOLD_Y) + this.calibRef + bob, this.bp.z);
+        g.position.set(this.bp.x, (st ? p.h : GOLD_Y) + this.calibRef + bob + this.gy(p.at), this.bp.z);
         g.material.opacity = 0.55 + 0.25 * Math.sin(this.clock * 5 + p.id);
         g.visible = true;
       }
@@ -1102,6 +1126,9 @@ export class TrekSystem extends createSystem({}) {
     this.groundTex.offset.set(F.x / GROUND_CELL, -F.z / GROUND_CELL);
     const B = tramoBiome(this.biome, R.worldLen);
     this.ocean.update(!LITE.on && this.floorAt(d) === 'coast', this.clock, F.x, F.z, F.th, -R.uShift, B.fog, B.dens, B.dusk);
+    // (las cuestas: el mar, a su altura de siempre: subiendo, se ve más abajo; y el césped, ondulando con el sendero)
+    this.ocean.mesh.position.y = SEA_Y - this.hNow;
+    this.groundHills(d);
     this.turnPano(PANO_FOLLOW * F.th);
   }
 
@@ -1118,15 +1145,18 @@ export class TrekSystem extends createSystem({}) {
   }
 
   /** Una instancia: el modelo `u` en (s, u.u + du) del sendero, a su escala por `k`; `roll`, lo que vuelca (el barril). */
-  private put(u: Put, s: number, du: number, k: number, roll = 0, p?: Piece, spin = 0, bob = 0): void {
+  private put(u: Put, s: number, du: number, k: number, roll = 0, p?: Piece, spin = 0, bob = 0, pitch = false): void {
     const b = this.batches.get(`${u.kit}:${u.n}`);
     if (!b || b.n >= b.cap) return;
     // (el giro propio del modelo, en el orden de pieces.ts, y encima el del sendero en ese punto)
     // (en una bifurcación, todo se desplaza a un lado para que tu rama quede bajo tus pies)
     const ry = this.runner.tk.bend(s, u.u + du - this.runner.uShift, this.bp);
     this.e.set(u.rx, u.ry + spin, u.rz + roll * (p && p.side ? -p.side : 1) * 1.4);
-    this.q.setFromEuler(this.e).premultiply(this.qy.setFromAxisAngle(this.up, ry));
-    this.m4.compose(this.v.set(this.bp.x, u.y + bob, this.bp.z), this.q, this.sc.set(u.sx * k, u.sy * k, u.sz * k));
+    this.q.setFromEuler(this.e);
+    // (el suelo, en una cuesta, cabecea con ella: sin escalones entre un trozo y el siguiente)
+    if (pitch && this.runner.grades.length) this.q.premultiply(this.qx.setFromAxisAngle(this.xAxis, Math.atan(this.runner.slopeAt(s))));
+    this.q.premultiply(this.qy.setFromAxisAngle(this.up, ry));
+    this.m4.compose(this.v.set(this.bp.x, u.y + bob + this.gy(s), this.bp.z), this.q, this.sc.set(u.sx * k, u.sy * k, u.sz * k));
     for (const im of b.ims) im.setMatrixAt(b.n, this.m4);
     b.n++;
   }
@@ -1266,7 +1296,7 @@ export class TrekSystem extends createSystem({}) {
       r.root.visible = !lite;
       const u = (p.k === 'side' ? p.side * CRAB_U : p.k === 'quake' || p.k === 'fire' ? p.side * ASIDE_U : 0) + r.dir * r.off + p.lane * FORK_U - this.runner.uShift;
       const ry = this.runner.tk.bend(p.at + p.walk, u, this.bp);
-      r.root.position.set(this.bp.x, y, this.bp.z);
+      r.root.position.set(this.bp.x, y + this.gy(p.at + p.walk), this.bp.z);
       r.root.quaternion.setFromAxisAngle(this.up, ry);
       if (!lite) r.mixer.update(dt);
     }
@@ -1408,14 +1438,14 @@ export class TrekSystem extends createSystem({}) {
           b.starT = 0;
           const a = this.clock * 4;
           this.runner.tk.bend(s, 0.35 * Math.cos(a) - this.runner.uShift, this.bp);
-          HOOKS.sparks(this.at.set(this.bp.x, BOSS_H + 0.25 + this.runner.dip, this.bp.z + 0.35 * Math.sin(a)), 4, 0xffe14a);
+          HOOKS.sparks(this.at.set(this.bp.x, BOSS_H + 0.25 + this.runner.dip + this.gy(s), this.bp.z + 0.35 * Math.sin(a)), 4, 0xffe14a);
           // (en plancha, también a sus pies: es lo que se ve con la cabeza hacia el suelo)
-          if (this.runner.prone) HOOKS.sparks(this.at.set(this.bp.x, 0.15 + this.runner.dip, this.bp.z + 0.35 * Math.sin(a)), 4, 0xffe14a);
+          if (this.runner.prone) HOOKS.sparks(this.at.set(this.bp.x, 0.15 + this.runner.dip + this.gy(s), this.bp.z + 0.35 * Math.sin(a)), 4, 0xffe14a);
         }
       }
       b.root.visible = !lite;
       const ry = this.runner.tk.bend(s, -this.runner.uShift, this.bp);
-      b.root.position.set(this.bp.x, y, this.bp.z);
+      b.root.position.set(this.bp.x, y + this.gy(s), this.bp.z);
       b.root.quaternion.setFromAxisAngle(this.up, ry);
       if (!lite) b.mixer.update(dt);
     }
@@ -1530,7 +1560,7 @@ export class TrekSystem extends createSystem({}) {
         R.tk.bend(ss, u, this.bp);
         const jump = back ? 0.03 + 0.02 * Math.sin(this.clock * 9 + i) : WAVE_UP * (0.75 + 0.25 * Math.sin(this.clock * 23 + i * 1.9));
         const sc = (back ? 0.08 : 0.13) * (0.85 + 0.3 * ((i * 0.618 + p.id * 0.13) % 1));
-        m.position.set(this.bp.x, jump * 0.6, this.bp.z);
+        m.position.set(this.bp.x, jump * 0.6 + this.gy(ss), this.bp.z);
         m.scale.setScalar(sc);
         m.rotation.x += dt * (4 + i);
         m.rotation.z += dt * (3 + i * 0.5);
@@ -1618,14 +1648,14 @@ export class TrekSystem extends createSystem({}) {
       const P = R.ends[j] + PORTAL_AT;
       if (P < R.dist - BACK || P > R.dist + AHEAD) continue;
       const g = this.portals[n++], ry = R.tk.bend(P, -R.uShift, this.bp);
-      g.position.set(this.bp.x, PORTAL_R + 0.05, this.bp.z);
+      g.position.set(this.bp.x, PORTAL_R + 0.05 + this.gy(P), this.bp.z);
       g.rotation.set(0, ry, 0);
       g.visible = !lite;
       // (chispas que suben por el aro)
       if (playing && !GAME.paused && !lite && Math.random() < dt * 30) {
         const a = Math.random() * 6.283;
         R.tk.bend(P, Math.cos(a) * PORTAL_R - R.uShift, this.bp);
-        HOOKS.sparks(this.at.set(this.bp.x, PORTAL_R + 0.05 + Math.sin(a) * PORTAL_R + R.dip, this.bp.z), 2, Math.random() < 0.5 ? 0x8ff0ff : 0xff9cf0);
+        HOOKS.sparks(this.at.set(this.bp.x, PORTAL_R + 0.05 + Math.sin(a) * PORTAL_R + R.dip + this.gy(P), this.bp.z), 2, Math.random() < 0.5 ? 0x8ff0ff : 0xff9cf0);
       }
     }
     for (let i = n; i < this.portals.length; i++) this.portals[i].visible = false;
@@ -1672,7 +1702,7 @@ export class TrekSystem extends createSystem({}) {
       for (let j = 0; j < F.rocks.length; j++) {
         const m = F.rocks[j], u0 = -2.2 - j * 0.3, u1 = p.side * (0.45 + 0.2 * j) - 0.1 * j;
         const ry = R.tk.bend(p.at + j * 0.5 - 0.5, u0 + (u1 - u0) * k - R.uShift, this.bp);
-        m.position.set(this.bp.x, 0.25 + (7 + j) * (1 - k * k), this.bp.z);
+        m.position.set(this.bp.x, 0.25 + (7 + j) * (1 - k * k) + this.gy(p.at), this.bp.z);
         m.rotation.set(F.t * (5 + j), ry, F.t * (3 + j));
         m.scale.setScalar(0.22 + 0.06 * j);
         m.visible = !lite && k < 1;
