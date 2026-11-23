@@ -413,6 +413,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Las indicaciones** (bloque 3.E): `message(…, true)` (y con él `HOOKS.say(…, true)`) va, de pie, al **panel de
+  indicaciones** (`guideSpot`, `src/ui/guide-spot.ts`; `drawGuide`; `GameSystem.stepGuide`), y tumbado al aviso breve. No se
+  avisa de lo que viene: en la Travesía, `ASK_AHEAD` (types.ts) a `false` (`ask()` solo habla en la pelea con el jefe); en
+  Arcos, la ráfaga de vallas sin texto. Los avisos de la Travesía pasan por `formText` (`texts.ts`): en plancha y en zancada
+  dicen lo de esa forma (lo comprueba `trek-texts.test.ts`, que lee los literales de `runner.ts`). Pendiente del usuario: los
+  avisos grandes del arco de plancha, el burpee y el semipuente, el lanzador y los cofres.
+
 - **El vuelo suave** (bloque 3.C): `Flight` vuela de serie sin bandazos (`wander`: una elipse que se recorre sin parar con un
   muelle amortiguado, velocidad y aceleración limitadas; `turnCap`: visto desde la cabeza, no más de 40°/s; ya cerca, se
   pone delante). El vuelo de RepArena (a saltos, `dartT`) sigue tras `Flight.classic`, solo para `flight.compare.test.ts`.

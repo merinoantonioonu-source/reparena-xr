@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { BEHIND, BOUNCE_LIFT, CHEST_PTS, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, STOMP_PTS, SUPER_K, TREASURE_PTS } from '../../src/modes/trek/plat/runner.js';
 import { PORTAL_AT, worldLenFor } from '../../src/modes/trek/plat/worlds.js';
-import { BOB_T, FIRE_AT, QUAKE_AT, BOSS_HP, BOSS_LEN, BOSS_STEP, BOSS_THROWS, BOSS_WIND, glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
+import { BOB_T, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, FIRE_AT, QUAKE_AT, BOSS_HP, BOSS_LEN, BOSS_STEP, BOSS_THROWS, BOSS_WIND, glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece as mk, Sim } from './plat-sim.js';
 import type { Piece } from '../../src/modes/trek/plat/types.js';
 
@@ -182,8 +182,8 @@ describe('la Travesía de plataformas: el hueco (se salta en marcha)', () => {
     expect(s.of('combo0')).toHaveLength(1);
     expect(s.of('say').filter((e) => e.warn).map((e) => e.text)).toContain('¡Salta el hueco!');
     expect(s.of('pass')).toHaveLength(0);
-    // y avisó antes de llegar
-    expect(s.of('say').some((e) => /hueco/i.test(e.text) && !e.warn)).toBe(true);
+    // y no avisó antes de llegar
+    expect(s.of('say').some((e) => /hueco/i.test(e.text) && !e.warn)).toBe(false); // (no se avisa de lo que viene: lo decidió el usuario)
   });
 
   it('saltar al llegar al borde: el mundo te lleva al otro lado con tu velocidad (inercia), bajando y subiendo bajo los pies', () => {
@@ -516,7 +516,7 @@ describe('la Travesía de plataformas: el túnel (en plancha, con la inercia)', 
     const tn = piece(1, 'crawl', 50, 2, { len: 5 });
     s.load(course([tn, piece(2, 'chest', 150, 2)]));
     expect(s.squatsTo(tn, 9)).toBe(true);
-    expect(s.of('say').some((e) => /Túnel/.test(e.text))).toBe(true); // (avisa con tiempo)
+    expect(s.of('say').some((e) => /Túnel/.test(e.text))).toBe(false); // (no se avisa de lo que viene: lo decidió el usuario)
     const v0 = s.r.v;
     const vs = crawlThrough(s, tn);
     expect(tn.ok).toBe(true);
@@ -525,7 +525,7 @@ describe('la Travesía de plataformas: el túnel (en plancha, con la inercia)', 
     expect(s.of('hit')).toHaveLength(0);
     expect(s.of('halt')).toHaveLength(0);
     expect(s.r.rep(false)).toBe(false); // (echado, no empujas)
-    expect(s.of('say').some((e) => e.text === '¡De pie!')).toBe(true);
+    expect(s.of('say').some((e) => e.text === '¡De pie!')).toBe(false);
     s.getUp();
     expect(s.r.moves.plank).toBe(false);
   });
@@ -676,7 +676,7 @@ describe('la Travesía de plataformas: los enemigos (PR D)', () => {
       expect(s.of('say').length).toBeGreaterThanOrEqual(0);
       expect(s.pass(crab)).toBe(true);
       expect(crab.ok, `lado ${lado}`).toBe(true);
-      expect(s.of('say').some((e) => /cangrejo/.test(e.text))).toBe(true);
+      expect(s.of('say').some((e) => /cangrejo/.test(e.text))).toBe(false); // (sin aviso: se ve venir)
       const m = new Sim();
       const c2 = piece(1, 'side', 50, 2, { side: lado });
       m.load(course([c2, piece(2, 'chest', 140, 2)]));
@@ -1512,5 +1512,17 @@ describe('los mundos en una partida corta (opción A del usuario)', () => {
       expect(bosses).toEqual([1, 0, 2]); // (el Demonio verde, el Yeti y el Alien alto)
       expect(s.r.pieces.some((p) => p.tramo === 1 && (p.k === 'ledge' || p.k === 'gust' || p.k === 'rockfall'))).toBe(true);
     }
+  });
+});
+
+describe('el jefe, según la forma', () => {
+  it('en plancha y en zancada da más tiempo para esquivar (bajar una flexión o una zancada lleva más que agacharse)', () => {
+    const s = new Sim();
+    expect(s.r.bossWind).toBe(BOSS_WIND);
+    s.env.ex = 'pushup';
+    expect(s.r.bossWind).toBe(BOSS_WIND_PRONE);
+    s.env.ex = 'lunge';
+    expect(s.r.bossWind).toBe(BOSS_WIND_LUNGE);
+    expect(BOSS_WIND_PRONE).toBeGreaterThan(0.8 * 1.5 + 0.4 - 1e-9); // (el gesto × 1,5 más la reacción)
   });
 });

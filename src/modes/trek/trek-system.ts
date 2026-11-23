@@ -774,7 +774,10 @@ export class TrekSystem extends createSystem({}) {
         F.wind = e.wind;
         F.dur = e.dur;
         F.to.set(e.aim.x, e.aim.y, e.aim.z);
-        this.world3({ s: e.p.at + BOSS_Z - 0.5, u: low ? 0 : 0.35, y: low ? ROLL_D / 2 : BOSS_H * 0.8 }, F.from);
+        // (en plancha, todo sale de abajo, de sus pies: con la cabeza hacia el suelo no se veía salir lo que lanzaba desde
+        // la mano; pedido del usuario)
+        const pr = this.runner.prone;
+        this.world3({ s: e.p.at + BOSS_Z - 0.5, u: low || pr ? 0 : 0.35, y: low ? ROLL_D / 2 : pr ? 0.35 : BOSS_H * 0.8 }, F.from);
         // (cada jefe, lo suyo: el Yeti, nieve; el Demonio verde, fuego verde; el Alien alto, plasma)
         this.bossFx.setLook(LOOK_BOSS[e.p.n % LOOK_BOSS.length]);
         const b = this.bossRigs.find((x) => x.p === e.p);
@@ -1228,7 +1231,8 @@ export class TrekSystem extends createSystem({}) {
       if (fly) {
         // en picado: baja desde lo alto mientras se acerca, hasta la altura de tu cabeza al llegar; pasado (o tras picarte),
         // sigue de largo hacia arriba y se esfuma
-        y = this.calibRef - 0.35 + 1.6 * Math.min(1, p.walk / FOE_WALK);
+        // (en plancha llega rasante todo el camino: bajando desde lo alto no se le veía con la cabeza hacia el suelo)
+        y = this.calibRef - 0.35 + (this.runner.prone ? 0.3 : 1.6) * Math.min(1, p.walk / FOE_WALK);
         if (p.judged) {
           y += 2.2 * r.t;
           k = Math.max(0, 1 - r.t / 0.6);
@@ -1397,6 +1401,8 @@ export class TrekSystem extends createSystem({}) {
           const a = this.clock * 4;
           this.runner.tk.bend(s, 0.35 * Math.cos(a) - this.runner.uShift, this.bp);
           HOOKS.sparks(this.at.set(this.bp.x, BOSS_H + 0.25 + this.runner.dip, this.bp.z + 0.35 * Math.sin(a)), 4, 0xffe14a);
+          // (en plancha, también a sus pies: es lo que se ve con la cabeza hacia el suelo)
+          if (this.runner.prone) HOOKS.sparks(this.at.set(this.bp.x, 0.15 + this.runner.dip, this.bp.z + 0.35 * Math.sin(a)), 4, 0xffe14a);
         }
       }
       b.root.visible = !lite;

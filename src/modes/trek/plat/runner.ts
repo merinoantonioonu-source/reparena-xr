@@ -36,8 +36,9 @@ import { HEAD_TOP, type TrekEnv, type TrekEv } from '../env.js';
 import { Trek, TREK_TURBO_V, TREK_VMAX, trekK } from '../path.js';
 import { buildCourse } from './course.js';
 import { PORTAL_AT, worldLenFor, worldNo, WORLD_LEN, WORLDS } from './worlds.js';
+import { formText } from './texts.js';
 import { BodyMoves, LUNGE_FWD, LUNGE_SIDE_K, moveCfg, PRONE_FWD, PRONE_SIDE_K, PRONE_SIDE_MIN, type MoveCfg } from './moves.js';
-import { CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { ASK_AHEAD, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -355,6 +356,11 @@ export class Runner {
     this.addCourse(c);
   }
 
+  /** Lo que tarda el jefe en lanzar desde que avisa (s): de pie, BOSS_WIND; en plancha y en zancada, más (bajar una flexión
+   * o una zancada lleva más que agacharse: docs/PLAN-ERGONOMIA-Y-CUESTAS.md, 4.2). */
+  get bossWind(): number {
+    return this.prone ? BOSS_WIND_PRONE : this.lunge ? BOSS_WIND_LUNGE : BOSS_WIND;
+  }
   /** ¿En plancha? (la Travesía con flexiones: elegido por el usuario, en sus dos formas) */
   get prone(): boolean {
     return this.env.ex === 'pushup';
@@ -582,7 +588,7 @@ export class Runner {
       const dur = z / (SPIT_V + v);
       this.spits.push({ p, t: 0, end: SPIT_WIND + dur, x: H.x, y: H.y });
       this.ev.push({ t: 'spit', p, wind: SPIT_WIND, dur, aim: { x: H.x, y: H.y, z: H.z } });
-      this.say('¡El cangrejo escupe! Aparta la cabeza', COL_ASK, 1.2, false);
+      if (ASK_AHEAD) this.say('¡El cangrejo escupe! Aparta la cabeza', COL_ASK, 1.2, false);
     }
     for (let i = this.spits.length - 1; i >= 0; i--) {
       const S = this.spits[i];
@@ -626,7 +632,7 @@ export class Runner {
           p.spat = true;
           p.fx = -QUAKE_WIND * QUAKE_V; // (sale cuando el puño llega al suelo)
           this.ev.push({ t: 'slam', p, wind: QUAKE_WIND });
-          this.say('¡Salta la onda!', COL_ASK, 1.2, false);
+          if (ASK_AHEAD) this.say('¡Salta la onda!', COL_ASK, 1.2, false);
         }
         continue;
       }
@@ -634,7 +640,7 @@ export class Runner {
       p.spat = true;
       this.spits.push({ p, t: 0, end: FIRE_WIND + FIRE_DUR, x: H.x, y: H.y });
       this.ev.push({ t: 'spit', p, wind: FIRE_WIND, dur: FIRE_DUR, aim: { x: H.x, y: Math.max(0.3, H.y - 0.7), z: H.z } });
-      this.say('¡Bola de fuego! Un paso a un lado', COL_ASK, 1.4, false);
+      if (ASK_AHEAD) this.say('¡Bola de fuego! Un paso a un lado', COL_ASK, 1.4, false);
     }
   }
 
@@ -864,7 +870,7 @@ export class Runner {
       if (!p.woke && z < CANNON_AT) {
         p.woke = true;
         this.ev.push({ t: 'cannon', p });
-        this.say(p.n ? '¡Bala baja! Sáltala' : '¡Bala alta! Agáchate', COL_ASK, 1.4, false);
+        if (ASK_AHEAD) this.say(p.n ? '¡Bala baja! Sáltala' : '¡Bala alta! Agáchate', COL_ASK, 1.4, false);
       }
       if (!p.n) {
         if (z < 0.1) this.result(p, M.under(p.h));
@@ -958,7 +964,7 @@ export class Runner {
           this.score(200);
           this.cheer('¡Túnel superado!', COL_OK, 1.0);
         }
-        this.say('¡De pie!', COL_ASK, 1.2, false);
+        if (ASK_AHEAD) this.say('¡De pie!', COL_ASK, 1.2, false);
       }
       return;
     }
@@ -1425,6 +1431,8 @@ export class Runner {
 
   /** Lo que pide cada pieza (al avisar de ella, al pararte o si tardas). */
   private ask(p: Piece, first: boolean): void {
+    // (no se avisa de lo que viene: se entrenan los reflejos —decidido por el usuario—; solo la pelea con el jefe)
+    if (!ASK_AHEAD && p.k !== 'boss') return;
     if (p.k === 'gap') this.say('¡Un hueco! Salta al llegar al borde', COL_ASK, 1.6, false);
     else if (p.k === 'step') this.say(p.burpee ? '¡Arriba y salta a la plataforma!' : '¡Plataforma alta! Sentadilla honda y salta', COL_ASK, 1.8, false);
     else if (p.k === 'crawl') this.say('¡Túnel! Al suelo, en plancha', COL_ASK, 2.6, false);
@@ -1513,13 +1521,14 @@ export class Runner {
       F.air = false;
       F.aim.x = H.x;
       F.aim.y = H.y;
-      this.ev.push({ t: 'bthrow', p: F.p, shot: s, wind: BOSS_WIND, dur: BOSS_FLY, aim: { x: H.x, y: s === 'low' ? 0.25 : s === 'high' ? this.env.calibRef + 0.05 : H.y - 0.35, z: H.z } });
+      // (en plancha, la del cuerpo va a la cabeza, que es lo que se aparta escorándose)
+      this.ev.push({ t: 'bthrow', p: F.p, shot: s, wind: this.bossWind, dur: BOSS_FLY, aim: { x: H.x, y: s === 'low' ? 0.25 : s === 'high' ? this.env.calibRef + 0.05 : this.prone ? H.y : H.y - 0.35, z: H.z } });
       this.say(s === 'high' ? '¡Alta! Agáchate' : s === 'low' ? '¡Baja! Salta' : '¡Al cuerpo! Apártate', COL_ASK, 1.1, false);
       return;
     }
     // la baja: vale si te ves en el aire mientras llega (desde un poco antes de soltarla)
-    if (F.shot === 'low' && F.t > BOSS_WIND - 0.25 && M.air) F.air = true;
-    if (F.t < BOSS_WIND + BOSS_FLY) return;
+    if (F.shot === 'low' && F.t > this.bossWind - 0.25 && M.air) F.air = true;
+    if (F.t < this.bossWind + BOSS_FLY) return;
     const s = F.shot, ok = s === 'high' ? M.down >= BOSS_DUCK : s === 'low' ? F.air : Math.abs(H.x - F.aim.x) >= BOSS_AWAY;
     F.shot = null;
     F.shots++;
@@ -1635,7 +1644,8 @@ export class Runner {
     return { s: p.at + ds, u: p.side * (p.k === 'side' ? CRAB_U : p.k === 'quake' || p.k === 'fire' ? ASIDE_U : 0.45) + p.lane * FORK_U, y };
   }
   private say(text: string, col: string, dur: number, warn: boolean): void {
-    this.ev.push({ t: 'say', text, col, dur, warn });
+    // (dicho para la forma en que juegas: en plancha, nada de sentadillas ni brazos en cruz; texts.ts)
+    this.ev.push({ t: 'say', text: formText(text, this.prone ? 'prone' : this.lunge ? 'lunge' : 'stand'), col, dur, warn });
   }
   private cheer(text: string, col: string, dur: number): void {
     this.ev.push({ t: 'cheer', text, col, dur });

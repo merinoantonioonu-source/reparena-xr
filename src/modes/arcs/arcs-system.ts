@@ -269,7 +269,10 @@ export class ArcsSystem extends createSystem({}) {
       this.addObs(kind as 'laser' | 'walls' | 'mace');
     });
     for (const a of plan.arcs) this.addArc(a);
-    if (plan.notice) HOOKS.say(`${plan.notice[0]} ${plan.notice[1]}`, plan.notice[2], 2.6, true);
+    // (no se avisa de lo que viene —decidido por el usuario: se entrenan los reflejos—; la ráfaga de vallas, solo con su
+    // bocina. El arco de plancha, el burpee y el de semipuente siguen con su aviso grande: una regla anterior del usuario,
+    // pendiente de que diga si se quita)
+    if (plan.notice && !spec.note) HOOKS.say(`${plan.notice[0]} ${plan.notice[1]}`, plan.notice[2], 2.6, true);
     if (plan.horn) SND.horn();
     arx.minNext = plan.minNext;
     arx.nextGap = plan.nextGap;
