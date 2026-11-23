@@ -10,7 +10,9 @@ import * as D from '../../src/core/dev.js';
 import { FIELD, SCHEMA } from '../../src/core/schema.js';
 import * as P from '../../src/core/settings.js';
 import { settings as PS } from '../../src/core/values.js';
-import { Mem, RA_DIR, raRun, raSlice } from './ra.js';
+import { Mem, RA_DIR, RA_MODE_EX, raRun, raSlice, xrOnlyEx } from './ra.js';
+/** Los ejercicios que también tiene RepArena (los nombres). */
+const RA_EX = Object.keys(EX_NAMES).filter((x) => !xrOnlyEx(x));
 
 type Api = Record<string, (...a: never[]) => unknown> & { DEV: { on: boolean; t: unknown }; settings: Record<string, unknown> };
 const clock = { t: 0 };
@@ -32,7 +34,7 @@ function original(mem: Mem): Api {
 }
 
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
-const COMBOS = Object.keys(MODE_EX).flatMap((m) => MODE_EX[m].map((x) => m + '|' + x));
+const COMBOS = Object.keys(RA_MODE_EX).flatMap((m) => RA_MODE_EX[m].map((x) => m + '|' + x));
 // (sin las filas que solo tiene RepArena XR: RepArena no las conoce)
 const DEVROW = SCHEMA.filter((f) => P.devRowOk(f) && !f.xr);
 const XRK = new Set(SCHEMA.filter((f) => f.xr).map((f) => f.key));
@@ -69,7 +71,7 @@ function randomTable(r: () => number, junk: boolean): Record<string, unknown> {
     for (let n = Math.floor(r() * 5); n > 0; n--) F[junk && r() < 0.2 ? 'g:nadie' : pick(r, FOES)] = { hp: r() < 0.7 ? Math.floor(r() * 16) : undefined, str: r() < 0.5 ? (r() * 7).toFixed(1) : undefined, tier: r() < 0.5 ? Math.floor(r() * 6) : 'x' };
     t.foes = F;
   }
-  if (junk && r() < 0.5) t.songs = { [pick(r, [...Object.keys(EX_NAMES), 'nada'])]: randomSongs(r) };
+  if (junk && r() < 0.5) t.songs = { [pick(r, [...RA_EX, 'nada'])]: randomSongs(r) };
   return t;
 }
 function randomSongs(r: () => number): unknown {
@@ -82,7 +84,7 @@ function randomSongs(r: () => number): unknown {
 function randomOp(r: () => number): [string, unknown[]] {
   const x = r();
   if (x < 0.08) return ['mode', [pick(r, Object.keys(MODE_NAMES))]];
-  if (x < 0.18) return ['exercise', [pick(r, [...new Set(Object.values(MODE_EX).flat())])]];
+  if (x < 0.18) return ['exercise', [pick(r, [...new Set(Object.values(RA_MODE_EX).flat())])]];
   if (x < 0.24) return ['rank', [pick(r, RANKS.map((o) => o[0]))]];
   if (x < 0.36) {
     const k = pick(r, DEVROW).key;
@@ -95,7 +97,7 @@ function randomOp(r: () => number): [string, unknown[]] {
   if (x < 0.72) return ['devTap', [pick(r, [300, 400, 700, 900, 2900, 3100])]]; // (cerca del límite de 3 s)
   if (x < 0.75) return ['devToggle', [r() < 0.3 ? undefined : r() < 0.5]];
   if (x < 0.78) return ['menuLevel', [pick(r, ['full', 'simple'])]];
-  if (x < 0.84) return ['exSongsSet', [randomSongs(r), r() < 0.5 ? undefined : pick(r, Object.keys(EX_NAMES))]];
+  if (x < 0.84) return ['exSongsSet', [randomSongs(r), r() < 0.5 ? undefined : pick(r, RA_EX)]];
   if (x < 0.92) return ['devImport', [r() < 0.1 ? pick(r, ['{nope', '[1,2]', 'null', '"x"']) : JSON.stringify(randomTable(r, true))]];
   return ['reimport', []];
 }
@@ -108,7 +110,7 @@ describe.skipIf(!RA_DIR)('el modo desarrollador, igual que RepArena', { timeout:
         'reparena3-dev': randomTable(r, false),
         'reparena3-devon': r() < 0.5,
         'reparena3-exsongs': { squat: randomSongs(r) },
-        'reparena3-settings': { mode: 'combat', exercise: pick(r, MODE_EX.combat), rank: pick(r, RANKS.map((o) => o[0])), menuLevel: 'simple' },
+        'reparena3-settings': { mode: 'combat', exercise: pick(r, RA_MODE_EX.combat), rank: pick(r, RANKS.map((o) => o[0])), menuLevel: 'simple' },
       };
       const mo = new Mem(), mp = new Mem();
       for (const m of [mo, mp]) for (const k in init) m.setItem(k, JSON.stringify(init[k]));

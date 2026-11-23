@@ -1210,6 +1210,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       power: true, // (sin pistolas ni espadas todavía: PR 9)
       robust: on('handsNew'), // («Manos: filtro nuevo», en pruebas: solo el curl con barra)
       legSay: settings.mode !== 'trek', // (en la Travesía, el cambio de pierna lo avisa ella, cada «bajadas con cada pierna»)
+      slungeDepth: num('slungeDepth'),
+      slungeSide: num('slungeSide'),
+      skaterWidth: num('skaterWidth'),
+      skaterDip: num('skaterDip'),
     };
   }
 

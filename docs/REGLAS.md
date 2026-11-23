@@ -264,6 +264,11 @@ No las cambies sin preguntarle.
   nuevo», en los dos curls): aguantando arriba, si las gafas pierden la mano, la carga se guarda y el rayo sale al volver a
   verla bajando o ya abajo (sustituye a «arriba, junto a la cara, también sale con la carga que llevaba»); perdida subiendo
   más de 1,5 s, cuenta —sale la bola— y el rayo, igual, al verla bajar. Así cada curl da un solo rayo y siempre al bajar.
+- **Glúteos** (elegidos por el usuario de las propuestas; solo RepArena XR, en Combate): la **zancada lateral** (paso largo a
+  un lado y bajar sobre esa pierna: cuenta si la cabeza baja lo pedido y se aparta a un lado, con carga ×2-×4 aguantando
+  abajo como la zancada; luego, al otro lado) y el **patinador** (saltos de lado de una pierna a la otra: al salir de un lado,
+  la carga; al caer en el otro flexionando la pierna, el disparo; andando o cayendo tieso no cuenta). Sus cortinillas, las de
+  la zancada y la sentadilla con salto hasta que el usuario dé las suyas.
 - El press de hombro, el press con barra y la flexión en pica se quitaron (no se detectaban bien en las gafas); el leñador,
   porque no aportaba nada.
 - Cargas ×2/×3/×4 aguantando la postura más dura, como en la sentadilla: fondos (abajo, codos a 90°), elevación frontal

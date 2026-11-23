@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DEEP_EX, EX_NAMES, MODE_NAMES } from '../../src/core/catalog.js';
 import { FB, FD, TAU, clamp, fitFont, lerp, rr, smooth } from '../../src/ui/canvas-kit.js';
 import { DEMO, demoDraw, demoInfo, demoJoints, demoPose, demoTips, type DemoDef, type DemoOpts, type Joints } from '../../src/ui/demo-art.js';
-import { RA_DIR, raRun, raSlice } from './ra.js';
+import { RA_DIR, raRun, raSlice, xrOnlyEx } from './ra.js';
 
 interface RA {
   DEMO: Record<string, DemoDef>;
@@ -40,7 +40,9 @@ for (const perfectTime of [0, 1.5, 2]) for (const perks of [false, true]) for (c
  * bajar y su texto lo dice) y la Travesía en zancada y en plancha (sus formas propias). Sus textos y su dibujo ya no son
  * los de RepArena (su postura, sí). */
 const XR_CHANGED = new Set(['superman', 'lunge|trek', 'pushup|trek']);
-const xrChanged = (ex: string, mode: string): boolean => XR_CHANGED.has(ex) || XR_CHANGED.has(`${ex}|${mode}`);
+const xrChanged = (ex: string, mode: string): boolean => XR_CHANGED.has(ex) || XR_CHANGED.has(`${ex}|${mode}`) || xrOnlyEx(ex);
+/** Los de la caricatura que también tiene RepArena. */
+const RA_DEMO = (): string[] => Object.keys(DEMO).filter((x) => !xrOnlyEx(x));
 
 describe.skipIf(!RA_DIR)('la caricatura del ejercicio, como en RepArena', () => {
   let ra: RA;
@@ -56,10 +58,10 @@ describe.skipIf(!RA_DIR)('la caricatura del ejercicio, como en RepArena', () => 
   afterAll(() => { vi.unstubAllGlobals(); });
 
   it('los mismos ejercicios y las mismas articulaciones en cada fase', () => {
-    expect(Object.keys(DEMO)).toEqual(Object.keys(ra.DEMO));
+    expect(RA_DEMO()).toEqual(Object.keys(ra.DEMO));
     const flat = (J: Joints) => [J.hip, J.neck, J.sh, J.head, ...J.legF, ...J.legB, ...J.armF, ...J.armB].flat();
     let n = 0;
-    for (const ex of Object.keys(DEMO)) for (let i = 0; i <= 400; i++) {
+    for (const ex of RA_DEMO()) for (let i = 0; i <= 400; i++) {
       const u = i / 400, a = flat(demoJoints(demoPose(DEMO[ex], u))), b = flat(ra.demoJoints(ra.demoPose(ra.DEMO[ex], u)));
       expect(a.length).toBe(b.length);
       a.forEach((v, k) => expect(Math.abs(v - b[k]), `${ex}, u = ${u}`).toBeLessThan(1e-9));
