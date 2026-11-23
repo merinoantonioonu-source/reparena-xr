@@ -43,6 +43,9 @@ const DUEL_DUR = 7;
 /** El marco de los avisos de la vista (lo usan también el marcador, los logros y el panel entre oleadas). */
 export const VIEW_FRAME = new ViewFrame();
 /** Tumbado (los de suelo, sentado y boca arriba): los avisos, en el suelo bajo la cara o en el techo. */
+/** Antes de empezar, lo que puede apartarse el aviso del centro de tu mirada antes de venir a ella (rad: 20°). */
+const PRE_ANG = (20 * Math.PI) / 180;
+
 export const lyingEx = (): boolean => isFloor() || isSupine() || settings.exercise === 'row' || VIEW.prone;
 
 /** El aviso breve (lo que pide hacer algo ya): de tamaño medio, entre el enorme del suelo en plancha y el pequeño de antes
@@ -219,9 +222,14 @@ export class ViewSystem extends createSystem({}) {
     }
     // con un menú abierto, por encima para no taparlo
     const slots: [number, number][] = GAME.menu === 'pause' ? [[0, 0.3]] : this.C.slots;
-    const L = lazyAt(VIEW_FRAME, this.lzC, hudSlot(VIEW_FRAME, this.C, slots, head, lying, this.threats, n, dt, this.at), VIEW_FRAME.hudQ(head, lying), head, dt);
+    // (antes de empezar —colocarse, prepararte—, sigue tu mirada antes: si no, se quedaba hacia donde estaba el menú, a un
+    // lado, y no se podía leer; lo vio el usuario en la Travesía)
+    const pre = c.kind === 'calib' || c.kind === 'ready';
+    const L = lazyAt(VIEW_FRAME, this.lzC, hudSlot(VIEW_FRAME, this.C, slots, head, lying, this.threats, n, dt, this.at), VIEW_FRAME.hudQ(head, lying), head, dt, pre ? PRE_ANG : undefined);
     o.position.copy(L.at);
     o.quaternion.copy(L.q);
+    // con la caricatura al lado, los dos centrados delante de ti (antes la caricatura quedaba 70 cm a la derecha)
+    if (on('demo') && GAME.phase === 'playing' && GAME.menu === 'none') o.position.addScaledVector(this.v.set(1, 0, 0).applyQuaternion(L.q), -((DEMO_W * DEMO_HS) / 2 + 0.02));
     // si tapa algo que viene, se aparta y, mientras, se aclara
     const vis = this.C.fade * lazyClear(L, o, 0.75, 0.3, head.p, this.threats, n, dt);
     (o.material as MeshBasicMaterial).opacity = vis;

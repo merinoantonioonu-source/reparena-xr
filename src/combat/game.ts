@@ -51,7 +51,8 @@ import { PAUSE_INFO } from '../ui/ra/menu-system.js';
 import { bodyYaw, UI } from '../ui/ra/menu-core.js';
 import { menuBusy } from '../ui/ra/poke.js';
 import { comicOn, makePanel, type RaPanel } from '../ui/ra/kit.js';
-import { drawCharge, drawTrophy, drawWarn, drawWave } from '../ui/info-draw.js';
+import { drawCharge, drawGuide, drawTrophy, drawWarn, drawWave } from '../ui/info-draw.js';
+import { GUIDE_H, GUIDE_W, guideSpot, type GuideSpot } from '../ui/guide-spot.js';
 import { BOARD_PX, drawBoard, type BoardView } from '../ui/board-draw.js';
 import { diagEvent } from '../core/diag.js';
 import { BB } from '../core/blackbox.js';
@@ -143,6 +144,11 @@ const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
 
 /** El radio del fundido entre oleadas (m): por detrás del panel de la oleada (a 1,6 m), alrededor de tu cabeza. */
 const VEIL_R = 1.75;
+
+/** Lo menos que se queda una indicación en su panel (s): que dé tiempo a leerla (pedido del usuario). */
+const GUIDE_SECS = 4;
+/** Los modos con compuertas (de pie, el panel de indicaciones va sobre la del centro). */
+const GATE_MODES = ['combat', 'touch', 'arcs'];
 
 /** El radio de la esfera negra del final (m): de fondo, por detrás de todo lo que queda a la vista. */
 const BLACK_R = 25;
@@ -248,6 +254,15 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // (en el ordenador, la Travesía: el salto con Espacio y el paso a un lado con A/D)
   private desktopHop = 0;
   private desktopSide = 0;
+  /** El panel de indicaciones: lo que dice, su color, lo que le queda (s) y lo que tiene pintado. */
+  private guideP!: RaPanel;
+  private readonly guideS: GuideSpot = { x: 0, y: 0, z: 0, rx: 0, w: 0 };
+  private guideText = '';
+  private guideCol = '#ffffff';
+  private guideT = 0;
+  private guideIdleD = '';
+  private guideTextD = '';
+  private guideColD = '';
   /** Hacia dónde mira el cuerpo (src/input/body-dir.ts). */
   private readonly bodyD = new Vector3();
   /** Superman: lo que llevas tumbado sin subir el tronco (s): pasado el descanso de «Superman: descanso», pican. */
@@ -329,6 +344,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       if (o) o.visible = false;
     }
     this.warnP = this.infoPanel(1.6, 0.42, 1024, 32);
+    // el panel de indicaciones (src/ui/guide-spot.ts): fijo, grande, con prueba de profundidad (no tapa lo que viene)
+    this.guideP = makePanel(GUIDE_W, GUIDE_H, 1400);
+    this.guideP.mesh.visible = false;
+    this.world.createTransformEntity(this.guideP.mesh);
     this.chargeP = this.infoPanel(1.1, 0.3, 768, 33);
     this.waveP = this.infoPanel(1.2, 0.5, 1024, 19);
     this.trophyP = this.infoPanel(1.25, 0.42, 1024, 55, 1.5);
@@ -475,13 +494,66 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private message(text: string, secs = 2.5, color = '#3cf0c6', toast = false): void {
     text = shortMsg(text); // (cortos: pedido del usuario; src/ui/short-msg.ts)
     if (toast && on('toasts') && GAME.phase === 'playing') {
-      HOOKS.toast(text, color, secs);
-      return;
+      // (lo que pide hacer algo ya, en el panel de indicaciones, donde da tiempo a leerlo; tumbado, en el aviso breve, que
+      // sale en el suelo bajo la cara; con el marcador sobre las compuertas, en su hueco de mensajes)
+      const g = this.guideAt();
+      if (g) {
+        this.guideShow(text, color, Math.max(secs, GUIDE_SECS));
+        return;
+      }
+      if (!(str('board') === 'gate' && !lyingEx() && GATE_MODES.includes(settings.mode))) {
+        HOOKS.toast(text, color, secs);
+        return;
+      }
+      secs = Math.max(secs, GUIDE_SECS);
     }
     this.msgText = text;
     this.msgCol = color;
     this.msgT = secs;
     this.boardT = 0;
+  }
+
+  // ---------------------------------------------------------------- el panel de indicaciones
+
+  /** Dónde va ahora el panel de indicaciones (null: no hay; ver src/ui/guide-spot.ts). */
+  private guideAt(): GuideSpot | null {
+    return guideSpot(settings.mode, lyingEx() || VIEW.prone, str('board'), -11, this.guideS);
+  }
+
+  private guideShow(text: string, color: string, secs: number): void {
+    this.guideText = text;
+    this.guideCol = color;
+    this.guideT = secs;
+  }
+
+  // Lo de arriba del panel: lo que hay que hacer en ese ejercicio (en la Travesía, según la forma)
+  private guideIdle(): string {
+    const ex = settings.exercise;
+    if (settings.mode === 'trek') return ex === 'pushup' ? (num('trekAuto') ? 'Esquiva con el cuerpo, en plancha' : 'Cada flexión te empuja') : ex === 'lunge' ? (num('trekAuto') ? 'Esquiva con el cuerpo, en zancada' : 'Cada bajada te empuja') : 'Cada repetición te empuja';
+    if (settings.mode === 'combat') return IDLE[ex] ?? '';
+    return '';
+  }
+
+  private stepGuide(dt: number): void {
+    const o = this.guideP.mesh, g = GAME.phase === 'playing' && GAME.menu === 'none' && !GAME.paused && !VIEW.duel && this.calibT < 0 ? this.guideAt() : null;
+    this.guideT = Math.max(0, this.guideT - dt);
+    if (!g) {
+      o.visible = false;
+      return;
+    }
+    const idle = this.guideIdle(), text = this.guideT > 0 ? this.guideText : '';
+    if (idle !== this.guideIdleD || text !== this.guideTextD || this.guideCol !== this.guideColD) {
+      // (se repinta solo si cambia lo que enseña)
+      drawGuide(this.guideP.ctx, this.guideP.W, this.guideP.H, idle, text, this.guideCol);
+      this.guideP.tex.needsUpdate = true;
+      this.guideIdleD = idle;
+      this.guideTextD = text;
+      this.guideColD = this.guideCol;
+    }
+    o.visible = !!(idle || text);
+    o.position.set(g.x, g.y, g.z);
+    o.rotation.set(-g.rx, 0, 0);
+    o.scale.setScalar(g.w / GUIDE_W);
   }
 
   // ---------------------------------------------------------------- avisos en el suelo
@@ -1947,6 +2019,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.fx.flashes.update(dt);
     this.cfx.update(dt);
     this.stepFloor(dt);
+    this.stepGuide(dt);
     // el velo rojo de un golpe
     if (this.hurtT > 0) {
       this.hurtT -= dt;

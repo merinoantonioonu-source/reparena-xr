@@ -216,3 +216,32 @@ export function drawCenter(c: Ctx, W: number, H: number, d: CenterDraw): void {
   }
   centerBar(c, W, H, d.bar);
 }
+
+/**
+ * El panel de indicaciones (RepArena XR; pedido del usuario: los avisos de lo que hay que hacer salían y se iban sin dar
+ * tiempo a leerlos): arriba, tenue, lo que hay que hacer en ese ejercicio («Baja en sentadilla para cargar»); abajo, grande
+ * y de su color, la corrección o la orden del momento («¡Baja más!», «¡Alta! Agáchate»). Sin orden, solo lo de arriba.
+ */
+export function drawGuide(c: Ctx, W: number, H: number, idle: string, text: string, color: string): void {
+  c.clearRect(0, 0, W, H);
+  if (!idle && !text) return;
+  rr(c, 6, 6, W - 12, H - 12, Math.min(60, H * 0.25));
+  c.fillStyle = 'rgba(14,10,28,0.78)';
+  c.fill();
+  c.lineWidth = 8;
+  c.strokeStyle = text ? color : 'rgba(255,255,255,0.25)';
+  c.stroke();
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  const top = text ? H * 0.27 : H / 2;
+  if (idle) {
+    c.fillStyle = 'rgba(255,255,255,0.72)';
+    fitFont(c, idle, W - 120, Math.round(H * (text ? 0.2 : 0.3)), '%px ' + FB);
+    c.fillText(idle, W / 2, top);
+  }
+  if (text) {
+    c.fillStyle = color;
+    fitFont(c, text, W - 120, Math.round(H * (idle ? 0.42 : 0.55)), '%px ' + FD);
+    c.fillText(text, W / 2, idle ? H * 0.66 : H / 2 + 4);
+  }
+}

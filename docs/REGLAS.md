@@ -152,6 +152,10 @@ No las cambies sin preguntarle.
   explosivas seguidas**, el supersalto (plataformas altas, trampolín y el jefe mareado); y **el peso adelante**, un acelerón
   corto (cada 4 s como mucho). Lo que pasa por encima de la cabeza sale a la altura de la flexión. Se calibra en plancha, con
   los brazos estirados. Su cortinilla, la de las flexiones de Combate hasta que el usuario dé la suya.
+- Travesía de plataformas, **lo que se ve en plancha** (pedido del usuario: con la cabeza hacia el suelo no se veía salir la
+  bola alta del jefe): en plancha, lo que lanza el jefe **sale de abajo, de sus pies**, y da más tiempo para esquivar (1,7 s
+  desde el aviso; en zancada, 1,45 s; de pie, 1,1 s); mareado, sus estrellas giran también a sus pies; el picado llega
+  rasante todo el camino. Regla: en plancha, lo que hay que ver nace y viaja a ras de suelo, por delante de las manos.
 - Travesía de plataformas, **en zancada** (pedido del usuario; elegido de las propuestas): se juega con «Zancada», de pie con
   una pierna delante, en los cuatro mundos y con sus jefes, con **dos formas** (el mismo ajuste «Avance solo»): la **dinámica**,
   en la que cada bajada (sin dar pasos) te empuja, y la **estática**, en la que el recorrido viene solo. Bajar, agacharse;
@@ -403,6 +407,20 @@ No las cambies sin preguntarle.
 - **Los avisos, cortos y de tamaño medio** (pedido del usuario): lo que pide hacer algo ya, en dos a cuatro palabras
   («¡Barranco! Brazos en cruz», «Apoya la otra mano»), con el aviso breve de la vista algo más grande que antes (los de la
   Travesía se leían mal). Los detectores dicen lo mismo que RepArena; se acortan al enseñarlos (`src/ui/short-msg.ts`).
+- **No se avisa de lo que viene** (decidido por el usuario: se entrenan los reflejos, como en Arcos): ni en la Travesía (el
+  hueco, la seta, el cañonazo, el túnel…) ni la ráfaga de vallas de Arcos; lo que viene se entiende por su forma, su gesto y
+  su sonido. Sí se dice **cómo hacer bien el ejercicio** (bajar más, estirar los brazos…), **lo que hiciste mal ante un reto**
+  («¡Te ha mordido! Písala»: sin avisos previos, es como se aprende) y las órdenes de **la pelea con el jefe**. Siguen, a la
+  espera de que el usuario diga si se quitan, el aviso grande del arco de plancha, del burpee y del semipuente de Arcos, el
+  del lanzador de Combate y lo que hay dentro de los cofres.
+- **El panel de indicaciones** (pedido del usuario: los avisos de lo que hay que hacer salían y se iban sin dar tiempo a
+  leerlos): de pie, lo que pide hacer algo ya sale en un panel grande y fijo, al menos 4 s: con compuertas, encima de la del
+  centro (con el marcador en «Compuertas», en su hueco de mensajes); en la Travesía, un letrero sobre el sendero, alto y lejos.
+  Arriba, tenue, lo que hay que hacer en ese ejercicio; abajo, grande, la corrección o la orden. Tumbado y en plancha, en el
+  aviso breve de la vista (en el suelo bajo la cara). En plancha y en zancada, los textos dicen lo de esa forma (nada de
+  sentadillas ni brazos en cruz en plancha).
+- **Antes de empezar**, la colocación y la caricatura van juntas y centradas delante de ti, y vienen a tu mirada enseguida
+  (antes quedaban a un lado, hacia donde estaba el menú).
 - **Con un menú abierto, nada lo tapa**: ni los avisos del suelo ni el breve ni la carga del suelo (pedido del usuario).
 - Al empezar cada ronda, la **carátula del duelo** (`src/64_intro.js`, modelo 3 de los propuestos; en RepArena XR, con la cortinilla del ejercicio): 7 s, grande, a 2,5 m,
   con todo lo demás en negro; tú (rango y récord) contra el jefe de la ronda, sin la caricatura (sale después, hasta

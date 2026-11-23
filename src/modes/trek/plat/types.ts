@@ -82,6 +82,9 @@ export const FORK_U = 1.5, FORK_RAMP = 4, FORK_PICK = 0.18;
 export const BOSS_EVERY = WORLD_LEN, BOSS_HP = 3, BOSS_Z = 3, BOSS_LIFT = 1.7, BOSS_HOP_T = 1.6, BOSS_THROWS = 3, BOSS_WIND = 1.1, BOSS_FLY = 0.55, BOSS_GAP = 0.7, BOSS_DIZZY = 5, BOSS_PTS = 1500;
 /** Para esquivar lo que lanza: la alta, la coronilla bajada (m); la que va al cuerpo, la cabeza apartada de donde estaba (m). */
 export const BOSS_DUCK = 0.2, BOSS_AWAY = 0.3;
+/** Lo que tarda el jefe en lanzar desde que avisa, en plancha y en zancada (s): bajar una flexión lleva unos 0,8 s y una
+ * zancada 0,9 (de pie, agacharse, 0,4): el tiempo del gesto × 1,5 más la reacción. */
+export const BOSS_WIND_PRONE = 1.7, BOSS_WIND_LUNGE = 1.45;
 /** Los jefes (uno por mundo, por turno): el modelo, su nombre y su voz. */
 export const BOSSES = [
   { asset: 'foe-yeti', name: 'el Yeti', voice: 'yeti', nat: 1.67 },
@@ -379,5 +382,8 @@ export type PlatEv =
 
 /** Los colores de los avisos (los de la Travesía): pedir algo, lo que se ha hecho mal y lo conseguido. */
 export const COL_ASK = '#ffd166';
+/** ¿Se avisa de lo que viene (el hueco, la seta, el cañonazo…)? No: decidido por el usuario (se entrenan los reflejos; lo que
+ * viene se entiende por su forma y su sonido). Solo la pelea con el jefe sigue diciendo qué hacer. Queda para volver atrás. */
+export const ASK_AHEAD = false;
 export const COL_WARN = '#ff8a3d';
 export const COL_OK = '#3cf0c6';
