@@ -28,7 +28,7 @@ function birdTex(): DataTexture {
   const N = 64, d = new Uint8Array(N * N * 4);
   for (let j = 0; j < N; j++)
     for (let i = 0; i < N; i++) {
-      const x = ((i + 0.5) / N) * 2 - 1, y = 1 - ((j + 0.5) / N) * 2, ax = Math.abs(x);
+      const x = ((i + 0.5) / N) * 2 - 1, y = ((j + 0.5) / N) * 2 - 1, ax = Math.abs(x); // (la fila 0 es la de abajo de la textura: la cola; el pico, hacia delante)
       // el cuerpo, las alas (barridas hacia atrás, más finas en la punta) y la cola
       const body = (x / 0.12) ** 2 + (y / 0.55) ** 2;
       const wc = 0.12 - 0.3 * ax, wt = 0.2 * (1 - Math.pow(ax, 1.6));

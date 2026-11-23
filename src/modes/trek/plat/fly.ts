@@ -30,13 +30,14 @@ export const FLY = {
   altMax: 11,
   /** Lo que te puedes apartar del centro (a cada lado). */
   uMax: 2.4,
-  /** El lado: la zona muerta (m de cabeza), el recorrido de serie (m), la curva (exponente: sin escalón tras la zona muerta),
-   * lo que tarda en llegar (s, sin rebote) y su tope de velocidad (m/s). */
-  sideDead: 0.015,
-  sideRange: 0.12,
-  sideCurve: 0.8,
-  uTau: 0.2,
-  uV: 4,
+  /** El lado: la zona muerta (m de cabeza), el recorrido de serie (m), la curva (exponente: más de 1, suave cerca del centro y
+   * más fuerte hacia el borde; el usuario lo notaba hipersensible), lo que tarda en llegar (s, sin rebote) y su tope de
+   * velocidad (m/s). */
+  sideDead: 0.025,
+  sideRange: 0.15,
+  sideCurve: 1.4,
+  uTau: 0.35,
+  uV: 3,
   /** P: la zona muerta de bajar el pecho (m) y lo que baja la flexión entera (m de vuelo). */
   downDead: 0.02,
   downAlt: 3.5,
@@ -92,12 +93,16 @@ export const FLY = {
 } as const;
 
 /** El mando de altura: P (posición) o A (aleteo). */
-export type FlyModel = 'pos' | 'flap';
+export type FlyModel = 'mid' | 'pos' | 'flap';
 
-/** El mando de altura del ajuste «Vuelo: mando de altura» (0: P en la suave y A en la dura; 1: P; 2: A). */
-export function flyModel(setting: number, auto: boolean): FlyModel {
-  return setting === 1 ? 'pos' : setting === 2 ? 'flap' : auto ? 'pos' : 'flap';
+/** El mando de altura del ajuste «Vuelo: mando de altura» (0: media flexión, elegido por el usuario; 1: P; 2: A). */
+export function flyModel(setting: number, _auto: boolean): FlyModel {
+  return setting === 1 ? 'pos' : setting === 2 ? 'flap' : 'mid';
 }
+
+/** El mando de media flexión (elegido por el usuario: «media flexión = recto»): la zona muerta alrededor de la mitad (× media
+ * bajada) y lo deprisa que se sube y se baja del todo (m/s: con los brazos estirados y con el pecho abajo del todo). */
+export const MID = { dead: 0.15, up: 2.2, down: 3, tau: 0.3 } as const;
 
 /** Lo que manda el cuerpo en este fotograma (de `FlyBody`, la marcha y las muñecas). */
 export interface FlyIn {
@@ -112,6 +117,10 @@ export interface FlyIn {
   /** El recorrido de lado entero y el de la pica (m de cabeza: hasta dónde atrás sube del todo). */
   range: number;
   backTo: number;
+  /** Lo que sube cada aletazo (× lo de serie: «Vuelo: fuerza del aletazo») y, con media flexión, lo deprisa que se sube y se
+   * baja (× lo de serie: «Vuelo: velocidad al subir y bajar»). */
+  flapK: number;
+  rateK: number;
   /** Este fotograma: una flexión hecha (1; 2, perfecta), una explosiva y dos seguidas. */
   rep: number;
   flap: boolean;
@@ -128,7 +137,7 @@ export interface FlyIn {
 }
 
 /** Un `FlyIn` vacío (para reservarlo una vez). */
-export const flyIn = (): FlyIn => ({ side: 0, down: 0, back: 0, depth: 0.13, lowNeed: 0.078, range: FLY.sideRange, backTo: FLY.pikeTo, rep: 0, flap: false, pair: false, auto: true, sinceRep: 0, updraft: false, land: 0, model: 'pos' });
+export const flyIn = (): FlyIn => ({ side: 0, down: 0, back: 0, depth: 0.13, lowNeed: 0.078, range: FLY.sideRange, backTo: FLY.pikeTo, flapK: 1, rateK: 1, rep: 0, flap: false, pair: false, auto: true, sinceRep: 0, updraft: false, land: 0, model: 'pos' });
 
 const clamp = (v: number, a: number, b: number): number => (v < a ? a : v > b ? b : v);
 
@@ -215,7 +224,8 @@ export class Glider {
     }
     this.brakeK = b;
     this.diving = this.lowT > FLY.diveHold;
-    if (I.model === 'pos') this.stepPos(dt, I, b);
+    if (I.model === 'mid') this.stepMid(dt, I);
+    else if (I.model === 'pos') this.stepPos(dt, I, b);
     else this.stepFlap(dt, I, b);
     if (this.alt < FLY.altMin) {
       // (por debajo de lo mínimo —al despegar del cofre—: subes suave hasta ella; nunca te caes)
@@ -227,6 +237,43 @@ export class Glider {
     }
   }
 
+  /** Media flexión: aguantar a media bajada, recto; más arriba (los brazos estirados), subes; más abajo, bajas; más deprisa
+   * cuanto más lejos de la mitad. La pica frena (lo pone `brakeK`); la explosiva, un empujón hacia arriba. */
+  private stepMid(dt: number, I: FlyIn): void {
+    // (al despegar —al empezar y tras posarte en un cofre— sube solo hasta la altura de vuelo; luego mandas tú)
+    if (this.rising) {
+      if (this.alt >= FLY.alt0) {
+        this.alt = FLY.alt0;
+        this.vAlt = 0;
+        this.rising = false;
+      } else {
+        this.vAlt = Math.max(this.vAlt, FLY.takeoff);
+        this.alt += this.vAlt * dt;
+        this.tgtAlt = FLY.alt0;
+        this.diving = false;
+        return;
+      }
+    }
+    const half = Math.max(0.02, I.depth / 2);
+    // (+1 arriba del todo, 0 en la mitad, −1 abajo del todo; en la pica no se sube ni se baja: la cabeza va atrás, no arriba)
+    let e = this.pike ? 0 : clamp((half - I.down) / half, -1, 1);
+    e = Math.abs(e) < MID.dead ? 0 : Math.sign(e) * (Math.abs(e) - MID.dead) / (1 - MID.dead);
+    this.dip = e < 0 ? -e : 0;
+    this.diving = e < -0.3;
+    let want = (e > 0 ? MID.up : MID.down) * e * I.rateK;
+    if (I.updraft) want += FLY.lift;
+    if (I.flap) {
+      this.vAlt = Math.max(this.vAlt, (I.pair ? FLY.pair : FLY.flapBurst) * I.flapK);
+      this.flapped = true;
+    }
+    if (I.rep) this.flapped = true;
+    this.vAlt += (want - this.vAlt) * Math.min(1, dt / MID.tau);
+    this.alt += this.vAlt * dt;
+    if (this.alt > FLY.altMax) this.vAlt = Math.min(0, this.vAlt);
+    // (para la reglilla: dónde estarás en un segundo y medio si sigues así)
+    this.tgtAlt = clamp(this.alt + this.vAlt * 1.5, FLY.altMin, FLY.altMax);
+  }
+
   /** P: la altura sale de la cabeza (el crucero, menos lo que bajas el pecho, más la pica). */
   private stepPos(dt: number, I: FlyIn, b: number): void {
     this.rising = false; // (el muelle ya te sube al crucero)
@@ -234,11 +281,11 @@ export class Glider {
       const d = FLY.alt0 - this.cruise, m = FLY.cruiseBack * dt;
       this.cruise += clamp(d, -m, m);
     } else {
-      if (I.rep) this.cruise = Math.min(FLY.cruiseMax, this.cruise + FLY.cruiseRep);
+      if (I.rep) this.cruise = Math.min(FLY.cruiseMax, this.cruise + FLY.cruiseRep * I.flapK);
       if (I.sinceRep > FLY.cruiseIdle) this.cruise = Math.max(FLY.cruiseMin, this.cruise - FLY.cruiseSink * dt);
     }
     if (I.flap) {
-      this.cruise = Math.min(FLY.cruiseMax, this.cruise + (I.pair ? 2 : 1) * FLY.burst);
+      this.cruise = Math.min(FLY.cruiseMax, this.cruise + (I.pair ? 2 : 1) * FLY.burst * I.flapK);
       this.flapped = true;
     }
     if (I.rep) this.flapped = true;
@@ -254,11 +301,11 @@ export class Glider {
     // (por encima de la altura de salida, cada aletazo sube menos: las flexiones a buen ritmo te mantienen, no te suben sin fin)
     const over = (top: number): number => (this.alt <= FLY.alt0 ? 1 : clamp(1 - (this.alt - FLY.alt0) / (top - FLY.alt0), 0, 1));
     if (I.rep) {
-      this.vAlt = Math.max(this.vAlt, (I.rep > 1 ? FLY.flapPerfect : FLY.flap) * over(FLY.flapCeil));
+      this.vAlt = Math.max(this.vAlt, (I.rep > 1 ? FLY.flapPerfect : FLY.flap) * I.flapK * over(FLY.flapCeil));
       this.flapped = true;
     }
     if (I.flap) {
-      this.vAlt = Math.max(this.vAlt, (I.pair ? FLY.pair : FLY.flapBurst) * over(FLY.altMax));
+      this.vAlt = Math.max(this.vAlt, (I.pair ? FLY.pair : FLY.flapBurst) * I.flapK * over(FLY.altMax));
       this.flapped = true;
     }
     const k = clamp((I.down - I.lowNeed) / Math.max(0.01, I.depth - I.lowNeed), 0, 1);
@@ -343,8 +390,8 @@ export const PRACTICE: readonly { key: 'right' | 'left' | 'down' | 'rep' | 'pike
   { key: 'right', text: 'Escórate a la derecha', done: 'A la derecha' },
   { key: 'left', text: 'Escórate a la izquierda', done: 'A la izquierda' },
   { key: 'down', text: 'Baja el pecho: bajas', done: 'Bajas' },
-  { key: 'rep', text: 'Haz una flexión: aletazo', done: 'Aletazo' },
-  { key: 'pike', text: 'Cadera arriba: frenas y subes', done: 'Frenas y subes' },
+  { key: 'rep', text: 'Haz una flexión', done: 'Flexión' },
+  { key: 'pike', text: 'Cadera arriba: frenas', done: 'Frenas' },
   { key: 'roll', text: 'De canto: tonel', done: 'Tonel' },
 ];
 /** La práctica: lo que hay que llegar a hacer en cada paso (m, rad), lo que se sigue midiendo al llegar (s: lo más que te

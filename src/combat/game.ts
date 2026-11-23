@@ -531,7 +531,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // Lo de arriba del panel: lo que hay que hacer en ese ejercicio (en la Travesía, según la forma)
   private guideIdle(): string {
     const ex = settings.exercise;
-    if (settings.mode === 'trek' && ex === 'pushup' && num('trekFly')) return num('flyBoard') ? 'Vuela: inclina la tabla, pecho abajo, cadera arriba' : 'Vuela: escórate, pecho abajo, cadera arriba';
+    if (settings.mode === 'trek' && ex === 'pushup' && num('trekFly')) return num('flyBoard') ? 'Vuela: inclina la tabla; media flexión, recto' : 'Vuela: escórate; media flexión, recto';
     if (settings.mode === 'trek') return ex === 'pushup' ? (num('trekAuto') ? 'Esquiva con el cuerpo, en plancha' : 'Cada flexión te empuja') : ex === 'lunge' ? (num('trekAuto') ? 'Esquiva con el cuerpo, en zancada' : 'Cada bajada te empuja') : 'Cada repetición te empuja';
     if (settings.mode === 'combat') return IDLE[ex] ?? '';
     return '';

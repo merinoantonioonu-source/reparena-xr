@@ -181,12 +181,19 @@ No las cambies sin preguntarle.
   donde te posas. Lo que hay que ver va **por debajo de ti o sube desde abajo** (en plancha se mira al suelo).
   - **A, en plancha** (la base; afinado con `docs/PLAN-VUELO.md`, «aplica todas tus sugerencias»): **la cabeza es la palanca**,
     respecto a un centro que no se mueve en el aire. **Escorarte es la posición de lado**: tanto te escoras, tanto te apartas
-    (5 cm, 1 m; «Vuelo: recorrido de lado») y, al volver al centro, el vuelo vuelve; el mundo se desplaza a tu lado. La altura,
-    con el **mando de altura** (en pruebas, «Vuelo: mando de altura»): **posición** en la suave (bajar el pecho baja en
-    proporción; la cadera arriba sube) y **aleteo** en la dura (cada flexión, un aletazo; aguantar abajo quieto, el
-    **picado**, más hondo, más deprisa). **La pica manda sobre el picado**. Una explosiva sube más (nunca hace falta); de
-    canto, un **tonel**.
-  - **Que se vea lo que haces**: tu **sombra** de ave en el suelo (se ladea con la escora, se pliega al picar, se abre en pica
+    y, al volver al centro, el vuelo vuelve; el mundo se desplaza a tu lado. **Suave cerca del centro** (corregido por el usuario:
+    «hipersensible»): 2,5 cm sin efecto y del todo a un lado con lo que diga «Vuelo: recorrido de lado» (15 cm de serie, de 8
+    a 30: más, menos sensible); la práctica nunca lo acorta. **La sensibilidad de cada eje, en los ajustes** (pedido del
+    usuario como desarrollador): «Vuelo: recorrido de lado», «Vuelo: recorrido para bajar» (13 cm de serie), «Vuelo: recorrido
+    para subir» (la pica, 18 cm), «Vuelo: fuerza del aletazo» (100 %) y «Vuelo: velocidad al subir y bajar» (100 %).
+    **La altura, con media flexión** (elegido por el usuario entre tres: la reglilla de altura no respondía a la cabeza con el
+    aleteo): **aguantando a media flexión vuelas recto**; con los brazos estirados (la cabeza arriba), **subes**; con el pecho
+    más abajo de la mitad, **bajas**, más deprisa cuanto más lejos (la mitad, la de «Vuelo: recorrido para bajar»). Al
+    despegar subes solo hasta la altura de vuelo. **La pica frena** (y manda: en pica ni subes ni bajas). Una explosiva, un
+    empujón hacia arriba (nunca hace falta); de canto, un **tonel**. Los otros mandos, para comparar en «Vuelo: mando de
+    altura»: **posición** (tu altura sale de tu pecho; la pica sube) y **aleteo** (cada flexión, un aletazo; abajo quieto,
+    el picado).
+  - **Que se vea lo que haces**: tu **sombra** de ave en el suelo, con el pico hacia delante (se ladea con la escora, se pliega al picar, se abre en pica
     y bate en cada aletazo); **sin alas** (corregido por el usuario con su vídeo: pegadas a la cabeza salían delante y detrás
     y tapaban la vista); el viento al picar, un golpe de aire al aletear y un siseo al frenar; la **ventana de cada reto**, con luz verde (el canto de abajo del puente, el lado
     libre de la columna, la raja de la grieta); y **dos reglillas** en el suelo, por delante de las manos (dónde vas de lado y
@@ -195,7 +202,7 @@ No las cambies sin preguntarle.
     premios), seis pasos (escórate a la derecha y a la izquierda, baja el pecho, una flexión, cadera arriba, de canto): cada uno
     se marca con ✓ **en cuanto lo haces** (sin volver al centro) y, si no sale en 12 s, se salta. **El mundo no espera** y las
     flexiones empujan como siempre (corregido por el usuario con su vídeo: parado, sin avanzar, parecía roto). De paso mide lo
-    que te escoras, bajas y vas atrás, y pone el vuelo a tu medida (al 80 %). Antes de empezar (colocándote y calibrando)
+    que bajas y vas atrás y, solo si es más que lo de serie, alarga esos recorridos (al 80 %); el de lado lo pone el ajuste. Antes de empezar (colocándote y calibrando)
     estás posado en el suelo; al empezar el tramo despegas, y sin flexiones solo se pierde altura ya en el aire y jugando.
   - **Los retos, a la medida de los gestos**: el tiempo antes de cada uno es el de su gesto (la grieta, 4 s; el puente y el
     aro, 3 s; lo demás, 2,4 s; en el primer tramo, un 40 % más; «Volando: tiempo entre retos» y el rango); dos seguidos que

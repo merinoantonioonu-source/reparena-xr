@@ -22,13 +22,17 @@ const pushups = (g: Glider, n: number, base: Partial<FlyIn>, d = 0.11, dur = 1.3
 };
 
 describe('el lado: tanto te escoras, tanto te apartas', () => {
-  it('5 cm de escora, 1 m de lado (±0,1); la zona muerta no mueve; el recorrido entero, el tope', () => {
-    expect(Math.abs(sideTarget(0.05, FLY.sideRange) - 1)).toBeLessThan(0.1);
-    expect(sideTarget(0.01, FLY.sideRange)).toBe(0);
-    expect(sideTarget(-0.2, FLY.sideRange)).toBeCloseTo(-FLY.uMax, 6);
+  it('la zona muerta no mueve; cerca del centro, suave (no hipersensible); el recorrido entero, el tope; y el ajuste lo cambia', () => {
+    expect(sideTarget(0.02, FLY.sideRange)).toBe(0);
+    // (a medio recorrido, menos de medio lado: suave cerca del centro)
+    expect(sideTarget(FLY.sideRange / 2, FLY.sideRange)).toBeLessThan(FLY.uMax / 2);
+    expect(sideTarget(FLY.sideRange / 2, FLY.sideRange)).toBeGreaterThan(0.3);
+    expect(sideTarget(-0.4, FLY.sideRange)).toBeCloseTo(-FLY.uMax, 6);
+    // (más recorrido en el ajuste, menos sensible)
+    expect(sideTarget(0.06, 0.25)).toBeLessThan(sideTarget(0.06, 0.12));
     const g = new Glider();
-    run(g, 1.5, IN({ side: 0.05 }));
-    expect(Math.abs(g.u - 1)).toBeLessThan(0.1);
+    run(g, 2, IN({ side: 0.08 }));
+    expect(g.u).toBeCloseTo(sideTarget(0.08, FLY.sideRange), 1);
   });
   it('escorado y quieto 10 s, el lado no cambia; al volver al centro, vuelve a 0 sin pasarse', () => {
     const g = new Glider();
@@ -88,6 +92,84 @@ describe('la altura, posición (P)', () => {
     }
     run(g, 30, IN({ ...P, auto: false, sinceRep: 9 }));
     expect(g.alt).toBeCloseTo(FLY.cruiseMin, 1);
+  });
+});
+
+describe('la sensibilidad, en los ajustes del desarrollador', () => {
+  it('más recorrido para bajar o para subir, menos sensible; más fuerza del aletazo, sube más', () => {
+    const P = { model: 'pos' as const };
+    const corto = new Glider(), largo = new Glider();
+    run(corto, 4, IN({ ...P, down: 0.08, depth: 0.1 }));
+    run(largo, 4, IN({ ...P, down: 0.08, depth: 0.3 }));
+    expect(largo.alt).toBeGreaterThan(corto.alt + 1);
+    const a = new Glider(), b = new Glider();
+    run(a, 3, IN({ ...P, back: 0.12, backTo: 0.14 }));
+    run(b, 3, IN({ ...P, back: 0.12, backTo: 0.4 }));
+    expect(a.alt).toBeGreaterThan(b.alt + 1);
+    const up = (k: number): number => {
+      const g = new Glider();
+      g.step(DT, IN({ model: 'flap', auto: false, rep: 1, flapK: k }));
+      run(g, 1.5, IN({ model: 'flap', auto: false }));
+      return g.alt;
+    };
+    expect(up(2)).toBeGreaterThan(up(1) + 0.5);
+  });
+});
+
+describe('la altura, media flexión (de serie, elegido por el usuario)', () => {
+  const M = { model: 'mid' as const, depth: 0.13 };
+  it('aguantando a media flexión, recto; con los brazos estirados, subes; más abajo, bajas (más deprisa cuanto más lejos)', () => {
+    const mid = new Glider(), top = new Glider(), low = new Glider(), deep = new Glider();
+    run(mid, 3, IN({ ...M, down: 0.065 }));
+    run(top, 1.5, IN({ ...M, down: 0 }));
+    run(low, 1, IN({ ...M, down: 0.1 }));
+    run(deep, 1, IN({ ...M, down: 0.13 }));
+    expect(mid.alt).toBeCloseTo(FLY.alt0, 6);
+    expect(top.alt).toBeGreaterThan(FLY.alt0 + 1.5);
+    expect(low.alt).toBeLessThan(FLY.alt0 - 0.5);
+    expect(deep.alt).toBeLessThan(low.alt - 0.5);
+    expect(deep.diving).toBe(true);
+  });
+  it('cerca de la mitad, nada (su zona muerta); la reglilla dice adónde vas', () => {
+    const g = new Glider();
+    run(g, 2, IN({ ...M, down: 0.065 + 0.005 }));
+    expect(g.alt).toBeCloseTo(FLY.alt0, 6);
+    const t = new Glider();
+    run(t, 0.5, IN({ ...M, down: 0 }));
+    expect(t.tgtAlt).toBeGreaterThan(t.alt);
+  });
+  it('la pica frena y no sube ni baja; «Vuelo: velocidad al subir y bajar» la cambia', () => {
+    const p = new Glider();
+    run(p, 2, IN({ ...M, down: 0.13, back: 0.14 }));
+    expect(p.braking).toBe(true);
+    expect(p.alt).toBeCloseTo(FLY.alt0, 6);
+    const a = new Glider(), b = new Glider();
+    run(a, 1, IN({ ...M, down: 0, rateK: 1 }));
+    run(b, 1, IN({ ...M, down: 0, rateK: 2 }));
+    expect(b.alt - FLY.alt0).toBeGreaterThan(1.5 * (a.alt - FLY.alt0));
+  });
+});
+
+describe('la Travesía volando con media flexión', () => {
+  it('despega solo; a media flexión, recto; y el aro se pasa bajando un poco más hasta su altura', () => {
+    const TOP = 0.45, HALF = 0.065, s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });
+    s.env.ex = 'pushup';
+    s.env.mem.set('reparenaxr-flytuto', 1);
+    s.env.calibRef = TOP;
+    s.head.y = TOP - HALF;
+    s.r.calibrate(TOP, 0, 0);
+    const R = mk(1, 'ring', 60, 0, { u: 0, h: 4.5 });
+    s.load(course([R, mk(2, 'chest', 300, 0)]));
+    expect(s.until(() => s.r.flyAlt >= FLY.alt0 - 0.01, 72 * 8)).toBe(true);
+    s.until(() => false, 72 * 2);
+    expect(s.r.flyAlt).toBeCloseTo(FLY.alt0, 1); // (a media flexión, recto)
+    // como un jugador: cerca del aro, más abajo hasta su altura; luego, otra vez a la mitad
+    const each = (): void => {
+      const want = R.at - s.r.dist < 25 ? R.h : FLY.alt0, err = s.r.flyAlt - want;
+      s.head.y = TOP - HALF - Math.max(-0.06, Math.min(0.06, err * 0.04));
+    };
+    expect(s.until(() => (each(), R.judged), 72 * 60)).toBe(true);
+    expect(R.ok).toBe(true);
   });
 });
 
@@ -151,9 +233,9 @@ describe('la altura, aleteo (A)', () => {
 });
 
 describe('el planeador', () => {
-  it('el mando de serie: posición en la suave, aleteo en la dura; o el que se elija', () => {
-    expect(flyModel(0, true)).toBe('pos');
-    expect(flyModel(0, false)).toBe('flap');
+  it('el mando de serie: media flexión (elegido por el usuario), en la suave y en la dura; o el que se elija', () => {
+    expect(flyModel(0, true)).toBe('mid');
+    expect(flyModel(0, false)).toBe('mid');
     expect(flyModel(1, false)).toBe('pos');
     expect(flyModel(2, true)).toBe('flap');
   });
@@ -173,15 +255,16 @@ describe('el planeador', () => {
     expect(boardSide(0.02)).toBe(0);
     expect(boardSide(0.2)).toBeGreaterThan(0.05);
     const g = new Glider();
-    run(g, 0.8, IN({ side: boardSide(0.2) }));
-    expect(g.u).toBeGreaterThan(0.8);
+    run(g, 1.5, IN({ side: boardSide(0.2) }));
+    expect(g.u).toBeGreaterThan(0.3);
   });
 });
 
 describe('la Travesía volando', () => {
   const TOP = 0.45;
   const fly = (): Sim => {
-    const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });
+    // (con el mando de posición: los retos se juzgan igual con cualquiera)
+    const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1, flyAlt: 1 });
     s.env.ex = 'pushup';
     s.env.mem.set('reparenaxr-flytuto', 1); // (la práctica de vuelo, ya hecha)
     s.env.calibRef = TOP;
@@ -292,7 +375,7 @@ describe('la Travesía volando', () => {
     s.head.x = 0.08;
     s.until(() => false, 72 * 2);
     const u1 = s.r.glider.u;
-    expect(u1).toBeGreaterThan(1.2);
+    expect(u1).toBeGreaterThan(0.6);
     s.until(() => false, 72 * 10);
     expect(Math.abs(s.r.glider.u - u1)).toBeLessThan(0.05);
     s.head.x = 0;
