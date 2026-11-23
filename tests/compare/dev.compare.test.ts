@@ -4,7 +4,7 @@
 // guardadas al azar; tienen que quedar iguales lo exportado, lo guardado en el navegador y lo que se lee (el ojo, las
 // filas, la dureza, cada enemigo). (Se salta sin RA_DIR: ver tests/compare/ra.ts.)
 import { describe, expect, it } from 'vitest';
-import { EX_NAMES, MODE_EX, MODE_NAMES, RANKS } from '../../src/core/catalog.js';
+import { EX_NAMES, exFor, MODE_EX, MODE_NAMES, RANKS, XR_ONLY_EX } from '../../src/core/catalog.js';
 import { DEV } from '../../src/core/dev-state.js';
 import * as D from '../../src/core/dev.js';
 import { FIELD, SCHEMA } from '../../src/core/schema.js';
@@ -119,6 +119,11 @@ describe.skipIf(!RA_DIR)('el modo desarrollador, igual que RepArena', { timeout:
       D.devInit();
       for (let i = 0; i < 250; i++) {
         const [op, args] = randomOp(r), where = `paso ${i}: ${op} ${JSON.stringify(args).slice(0, 200)}`;
+        // (lo que solo tiene RepArena XR —la Travesía con flexiones—, fuera: RepArena no lo conoce)
+        if (op === 'mode' || op === 'exercise') {
+          const m = op === 'mode' ? String(args[0]) : PS.mode;
+          if (XR_ONLY_EX[m]?.includes(exFor(m, op === 'exercise' ? String(args[0]) : PS.exercise))) continue;
+        }
         let a: unknown, b: unknown;
         const call = (api: Record<string, unknown>, name: string, xs: unknown[]) => (api[name] as (...z: unknown[]) => unknown)(...xs);
         // (los parámetros que faltan, como en RepArena: sin pasarlos)

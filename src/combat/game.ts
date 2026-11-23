@@ -59,6 +59,7 @@ import { PROBE, probeSide } from '../input/hand-probe.js';
 import { floorOrigin, recenterPose } from './recenter.js';
 import { lyingEx, VIEW_FRAME } from '../ui/view-panels.js';
 import { blackOutHook, keepInBlack } from '../ui/black-out.js';
+import { bodyDir } from '../input/body-dir.js';
 import { HIST_KEY, kcalOf, runRecord, summaryOf, type RunStats } from '../core/run.js';
 import { career, history, progressNow } from './career-hub.js';
 import { CAMP, campBegin, campEnd, campLeave } from '../core/campaign.js';
@@ -83,7 +84,7 @@ import { dv, onSettingsChange, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setS
 import { EX_NAMES, EX_SHORT, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
-import { GAME, HOOKS, LITE, SPECIAL, VIEW, type CenterInfo } from '../core/state.js';
+import { GAME, HOOKS, LITE, SPECIAL, VIEW, type CenterInfo, type SupEnv } from '../core/state.js';
 import { hands, head, headFwd, SIDES, type Side } from '../input/hand-model.js';
 import { BODY, haptic } from '../input/hand-system.js';
 import { HTH, throwCharge, throwReset, throwStep, type Charge, type ThrowEnv } from '../input/throw.js';
@@ -169,6 +170,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private flIn!: FloorInput;
   private calibT = -1;
   private supNext = { t: 0 };
+  private readonly supEnv: SupEnv = { hold: 2, up: false, time: 0, next: this.supNext, rest: 0, restMax: 5 };
   private rampLvl = 0; // (oleadas superadas: la dificultad creciente de RepArena)
   private maxAlive = 5;
   // los avisos en el suelo: lo que se hace mal (4 s) y la carga ×2-×4 mientras se aguanta
@@ -211,6 +213,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private readonly cOut: CenterInfo = { kind: 'ready', title: '', lines: [], note: null, status: null, count: '', bar: 0 };
   private outTitle = false;
   private outFade = 0.8;
+  /** Dónde estalló la bola en el último disparo (de ahí sale la onda del superman con ×4). */
+  private readonly obp = new Vector3();
   private workT = 0;
   private warnLog: string[] = [];
   // los premios (cartas de mejora, dorado, relámpago, cofre y carrera contra tu récord) y si se está descansando
@@ -244,6 +248,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // (en el ordenador, la Travesía: el salto con Espacio y el paso a un lado con A/D)
   private desktopHop = 0;
   private desktopSide = 0;
+  /** Hacia dónde mira el cuerpo (src/input/body-dir.ts). */
+  private readonly bodyD = new Vector3();
+  /** Superman: lo que llevas tumbado sin subir el tronco (s): pasado el descanso de «Superman: descanso», pican. */
+  private supRest = 0;
   /** El mundo de la Travesía en el que está el marcador (cambia en cada portal: en el risco, a la derecha). */
   private boardWorld: WorldKey = 'forest';
   private readonly boardSpotT: BoardSpot = { side: -1, x: 0, y: 0, z: 0, rx: 0, ry: 0, w: 0 };
@@ -875,6 +883,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     BB.markCfg(this.clock, this.stCfg);
     this.flCfg = this.readFloorCfg(0);
     this.supNext.t = 0;
+    this.supRest = 0;
     if (FLOOR_EX.includes(settings.exercise)) {
       this.calibT = 0;
       this.restT = 0;
@@ -1007,7 +1016,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   // lo que piden los de suelo y sentado en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
   private readFloorCfg(lvl: number): FloorCfg {
-    return { ex: settings.exercise, dipDepth: dv('dipDepth', lvl), pushDepth: dv('pushDepth', lvl), splDrop: num('splDrop'), splHold: num('splHold'), supRange: num('supRange'), supHold: num('supHold'), supArms: str('supArms') || 'yes', iwReach: num('iwReach'), perfectTime: num('perfectTime'), powHold: num('powHold'), powHoldInc: num('powHoldInc'), deepDrop: 0, power: true };
+    return { ex: settings.exercise, dipDepth: dv('dipDepth', lvl), pushDepth: dv('pushDepth', lvl), splDrop: num('splDrop'), splHold: num('splHold'), supRange: num('supRange'), supHold: num('supHold'), supArms: str('supArms') || 'yes', iwReach: num('iwReach'), perfectTime: num('perfectTime'), powHold: num('powHold'), powHoldInc: num('powHoldInc'), deepDrop: 0, power: true, supGuard: true };
   }
 
   // El aviso del centro de la vista (RepArena: drawCenter): colocarse (la calibración, con su barra de quieto) o
@@ -1244,6 +1253,26 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (black) this.black.position.copy(head.p);
   }
 
+  // La bola del superman: entre las manos (tumbado se mira al suelo, por delante de ellas: a un metro de la cabeza no se
+  // veía), 6 cm por encima; con una sola mano a la vista, junto a ella; sin manos, a 45 cm de la cabeza hacia donde mira
+  // el cuerpo, a 12 cm del suelo
+  private supBallAt(out: Vector3): void {
+    const L = hands.left, R = hands.right, l = L.ok && !L.est, r = R.ok && !R.est;
+    if (l && r) out.copy(L.wrist).lerp(R.wrist, 0.5);
+    else if (l || r) out.copy((l ? L : R).wrist);
+    else {
+      out.copy(head.p).addScaledVector(GAME.fwd, 0.45).setY(0.06);
+    }
+    out.y = Math.max(0.12, out.y + 0.06);
+  }
+
+  // Lo llena que se ve la bola del superman: crece mientras aguantas y, cumplido el aguante, con la carga (×2-×4)
+  private supBallK(): number {
+    const S = this.fl.su;
+    if (S.state !== 'up') return -1;
+    return S.full ? [0.46, 0.66, 0.84, 1][Math.max(1, Math.min(4, S.pow)) - 1] : 0.1 + 0.36 * S.k;
+  }
+
   // Un arco pasado (Arcos): cuenta una repetición, sin disparo (RepArena: registerRep(perfect, false))
   private arcRep(perfect: boolean): void {
     GAME.reps++;
@@ -1422,6 +1451,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         diagEvent(`repetición${e.perfect ? ' perfecta' : ''}${e.pow > 1 ? ` ×${e.pow}` : ''}${e.side ? ` (${e.side === 'left' ? 'izquierda' : 'derecha'})` : ''}`);
         this.onRep(e.perfect, e.fast, e.pow, e.side);
         if (this.flCfg.ex === 'inchworm' && FLOOR_EX.includes(this.flCfg.ex)) this.shockwave(e.pow);
+        if (this.flCfg.ex === 'superman' && e.pow >= 4 && settings.mode === 'combat') this.supWave(this.obp);
       }
       else if (e.type === 'partial') {
         diagEvent(`a medias: ${e.msg}`);
@@ -1474,6 +1504,27 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     haptic('left', 1, 160 + 40 * pow);
     haptic('right', 1, 160 + 40 * pow);
     this.message(n ? `¡ONDA EXPANSIVA${pow > 1 ? ' ×' + pow : ''}! Vuelven a su trampilla` : `¡Onda expansiva${pow > 1 ? ' ×' + pow : ''}!`, 1.4, pow > 1 ? '#ff6ae0' : '#40fff0', true);
+  }
+
+  // El superman con ×4 (aguantando arriba de más): al bajar, además del rayo, una onda desde la bola alcanza a los que estén
+  // cerca y los echa atrás (como la del remo y las dominadas en RepArena: con ×4 revienta también a los cercanos)
+  private supWave(at: Vector3): void {
+    const reach = 3.5, dmg = POW_DMG[3] || 1;
+    let n = 0;
+    for (const e of [...this.enemies.targets]) {
+      if (!e.alive) continue;
+      const c = e.center(this.tmpA);
+      if (c.distanceTo(at) > reach) continue;
+      n++;
+      const dir = this.tmpC.subVectors(c, at).setY(0).normalize();
+      this.enemies.hit(e.entity, dmg, 4, dir);
+      if (e.alive) this.enemies.shove(e.entity, 1.5, 0.5, dir);
+    }
+    this.fx.sparks.burst(at, 70, 0xff4d70, 4, 0.035);
+    SND.shock(at);
+    haptic('left', 1, 260);
+    haptic('right', 1, 260);
+    this.message(n ? '¡ONDA ×4!' : '¡Onda ×4!', 1.3, '#ff6ae0', false);
   }
 
   // Arriba del todo en el curl, la elevación frontal o el curl con barra la repetición ya vale; el disparo sale al empezar
@@ -1542,6 +1593,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const pow = Math.max(1, Math.min(4, powIn || 1)), dmg = (perfect ? 2 : 1) + POW_DMG[pow - 1];
     if (pow > 1) this.message(`¡DISPARO ×${pow}!`, 1.1);
     this.chargePow = 0;
+    this.obp.copy(this.fx.ball.pos); // (dónde estalló: de ahí sale la onda del superman con ×4)
     const bp = this.fx.ball.fire() ? this.tmpD.copy(this.fx.ball.pos) : null;
     if (bp) {
       this.fx.sparks.burst(bp, 18 + 6 * pow, 0xff5a78, 2.4, 0.03);
@@ -1788,7 +1840,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.head.copy(head.p);
     // hacia dónde mira el cuerpo: la cabeza en horizontal, girando despacio (la bola no da latigazos)
     headFwd(this.gaze);
-    const want = Math.atan2(this.gaze.x, this.gaze.z);
+    // (mirando al suelo —tumbado, en plancha— manda la coronilla, no la mirada: src/input/body-dir.ts)
+    bodyDir(head.q, this.bodyD);
+    const want = Math.atan2(this.bodyD.x, this.bodyD.z);
     let dy = want - this.bodyYaw;
     while (dy > Math.PI) dy -= Math.PI * 2;
     while (dy < -Math.PI) dy += Math.PI * 2;
@@ -1810,7 +1864,17 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       // tumbado, los voladores vienen bajos, a la altura de la cabeza (RepArena: lowFly, lowFlyY, SUP_ATK)
       const ex = this.flCfg.ex, cl = (v: number): number => Math.max(0.3, Math.min(0.8, v));
       GAME.lowFly = ex === 'splank' ? cl(this.fl.sp.ref + 0.03) : ex === 'superman' ? cl(this.fl.su.ref + this.flCfg.supRange / 100 + 0.08) : 0;
-      GAME.sup = ex === 'superman' ? { hold: this.flCfg.supHold, up: this.fl.su.state === 'up', time: this.clock - GAME.startTime, next: this.supNext } : null;
+      // el superman, «aguante que protege»: arriba no te tocan; tumbado, pican pasado el descanso (src/combat/flight.ts)
+      if (ex === 'superman') {
+        const E = this.supEnv, up = this.fl.su.state === 'up';
+        this.supRest = up || GAME.between ? 0 : this.supRest + dt;
+        E.hold = this.flCfg.supHold;
+        E.up = up;
+        E.time = this.clock - GAME.startTime;
+        E.rest = this.supRest;
+        E.restMax = num('supRest') || 5;
+        GAME.sup = E;
+      } else GAME.sup = null;
       if (this.calibT >= 0) this.calibStep(dt);
       else if (this.resting || this.restT > 0) {
         // el descanso (o los 3 s antes de la primera): las cartas, que hacen esperar; el cofre
@@ -1865,9 +1929,16 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // (tumbado o en plancha, el pecho va casi a ras de la cabeza; en la plancha con un brazo, en cuanto levantas uno, la bola
     // se va a esa mano: el rayo sale de ella, no de la bola. RepArena: sorbAt)
     const lift: Side | null = oneArm() && settings.exercise === 'plank1' ? (this.fl.pl.left.state === 'up' && hands.left.ok ? 'left' : this.fl.pl.right.state === 'up' && hands.right.ok ? 'right' : null) : null;
+    const sup = settings.exercise === 'superman' && settings.mode === 'combat';
     if (lift) this.ballTarget.copy(hands[lift].wrist).setY(hands[lift].wrist.y + 0.06);
+    else if (sup) this.supBallAt(this.ballTarget);
     else this.ballTarget.set(GAME.head.x + GAME.fwd.x * 1.0, (GAME.head.y < 1.0 ? Math.max(0.22, GAME.head.y - 0.12) : GAME.head.y - 0.32) + 0.012 * Math.sin(time * 1.7), GAME.head.z + GAME.fwd.z * 1.0);
-    this.fx.ball.update(dt, this.ballTarget, playing ? this.chargePow : 0);
+    this.fx.ball.update(dt, this.ballTarget, playing ? this.chargePow : 0, sup ? this.supBallK() : -1);
+    if (this.fx.ball.visible !== GAME.ballOn && this.fx.ball.visible) {
+      // (al diagnóstico, dónde sale la bola: si no se ve, ¿estaba lejos de la mirada?)
+      const to = this.tmpA.subVectors(this.ballTarget, head.p), d = to.length(), f = headFwd(this.tmpC);
+      diagEvent(`bola: a ${Math.round(d * 100)} cm de la cabeza, a ${Math.round((Math.acos(Math.max(-1, Math.min(1, to.dot(f) / Math.max(d, 1e-6)))) * 180) / Math.PI)}° de la mirada`);
+    }
     GAME.ballOn = this.fx.ball.visible;
     GAME.ballPos.copy(this.fx.ball.pos);
     this.stepProjs(dt);

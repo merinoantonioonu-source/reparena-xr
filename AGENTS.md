@@ -121,7 +121,7 @@ tabla de `README.md` dice qué hace cada archivo.
   (`foe(...)`, que IWSDK carga después de arrancar) y en `public/models/` con su licencia, y su retrato en
   `public/retratos/`. La prueba `tests/unit/foes.test.ts` comprueba que sus animaciones están en el modelo. Los voladores, con `fly` en su
   fila: los saca `FlyerSystem` (`src/combat/flyers.ts`) con su vuelo (`Flight`, `src/combat/flight.ts`, de RepArena) y su
-  número en `FLYER_KIND`; sin cuerpo de física mientras vuelan. Los blancos (`EnemySystem.targets`) son de todos.
+  número en `FLYER_KIND`; sin cuerpo de física mientras vuelan; su vuelo es el suave (sin bandazos: `wander` y `turnCap`), y el de RepArena queda tras `classic` solo para compararlo. Los blancos (`EnemySystem.targets`) son de todos.
   Los de tierra andan con su marcha (`Gait`, `src/combat/gait.ts`: forma de moverse, velocidades, amenaza y esquivas, de
   RepArena) pidiendo velocidad a la física; su reloj de gestos va a su `pace`; sin contorno de tinta, `noInk` en su fila.
 - **Oleadas** (`src/combat/waves.ts`, de RepArena): `buildWave` da la cola de cada oleada con los nombres de RepArena

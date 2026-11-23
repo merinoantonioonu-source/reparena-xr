@@ -3,7 +3,7 @@
 // partiendo de varios estados guardados; tienen que quedar iguales los ajustes y lo guardado en el navegador.
 // (Se salta sin RA_DIR: ver tests/compare/ra.ts.)
 import { describe, expect, it } from 'vitest';
-import { MODE_EX, RANKS } from '../../src/core/catalog.js';
+import { exFor, MODE_EX, RANKS, XR_ONLY_EX } from '../../src/core/catalog.js';
 import { SCHEMA } from '../../src/core/schema.js';
 import * as P from '../../src/core/settings.js';
 import { settings as PS } from '../../src/core/values.js';
@@ -89,6 +89,9 @@ describe.skipIf(!RA_DIR)('los ajustes, igual que RepArena', () => {
         const r = rng(seed * 7919 + name.length);
         for (let i = 0; i < STEPS; i++) {
           const [k, v] = randomOp(r);
+          // (lo que solo tiene RepArena XR —la Travesía con flexiones—, fuera: RepArena no lo conoce)
+          const m = k === 'mode' ? String(v) : PS.mode, e = k === 'exercise' ? String(v) : PS.exercise;
+          if (XR_ONLY_EX[m]?.includes(exFor(m, e))) continue;
           O.api.setSetting(k, v);
           P.setSetting(k, v);
           const d = setDiff();

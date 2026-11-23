@@ -232,6 +232,13 @@ No las cambies sin preguntarle.
   (arriba), antebrazos (la barra escurrida), dominadas y remo (arriba; al bajar, onda que con ×4 revienta también a los
   cercanos) y la plancha con un brazo (una flexión aguantada abajo carga ×2/×3/×4, con la bola a la vista; el brazo que se
   levanta después lanza esa carga: la bola se va a esa mano y el rayo sale siempre de la mano levantada, nunca de la bola).
+- **Superman, «aguante que protege»** (elegido por el usuario: no le daba tiempo a hacer las repeticiones antes de que
+  llegaran los voladores): el mismo movimiento. Al subir el tronco, la bola sale **entre las manos** (tumbado se mira al
+  suelo) y crece mientras aguantas; cumplido el aguante, la bola se llena y, si sigues arriba, carga ×2, ×3 y ×4; **el rayo
+  sale al bajar** (con ×4, además, una onda que alcanza a los cercanos). **Mientras aguantas arriba no te pueden tocar**: el
+  que ya venía rebota. Tumbado, los voladores esperan a la vista el descanso («Superman: descanso antes de que piquen», de
+  6 s en Recluta a 3,5 s en el rango más alto) y, si sigues sin subir, pican de uno en uno. Los voladores salen al ritmo de
+  una repetición (lo que se aguanta más 3 s).
 - En Toques, entre un toque y el siguiente hay que **volver a la postura de partida**. Un toque vale aunque el objetivo
   aún venga de camino. El oblicuo es un diamante a un lado, junto a la rodilla, que se toca con la mano contraria
   (cruzando: gira el tronco); «Manos a rodillas», un diamante delante de las rodillas (las gafas no ven las rodillas).
@@ -348,6 +355,11 @@ No las cambies sin preguntarle.
   hombro, sigue el brazo hasta pasada la mano y se tiende hacia atrás, **casi paralelo al suelo** como un ave que planea
   (colgando en vertical parecía que frenaban), ondeando; aparece y se apaga suave.
 - Los voladores baten las alas siempre rápido, a su ritmo, sin depender de lo deprisa que avancen.
+- **El vuelo de los voladores, suave** (pedido del usuario: se paraban y, de golpe, hacían una diagonal rapidísima hacia un
+  lado y se perdían de vista): se mueven siempre, en curvas amplias y continuas, sin parones ni bandazos; vistos desde tu
+  cabeza nunca giran más de 40° por segundo mientras van a su aire (solo al lanzarse a morder, al huir y al recibir un
+  golpe), y ya cerca se van poniendo delante de ti. Lo errático manda en lo lejos que se desvían y lo vivos que son. Su
+  mordisco se sigue anunciando igual (se echan atrás y se lanzan).
 - Cada enemigo tiene resistencia, fuerza y dureza en la tabla del desarrollador; los nuevos entran solos en ella.
 - En el menú, cada enemigo es una ficha con su retrato (de su modelo), su nombre, su resistencia y su fuerza. Un enemigo
   nuevo: añádelo a `FOE_PIC` (`src/00_core.js`) y rehaz `models/retratos.png` con `node tests/retratos.js`.

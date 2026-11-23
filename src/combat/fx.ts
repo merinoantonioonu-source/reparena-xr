@@ -189,12 +189,13 @@ export class EnergyBall {
   }
 
   /**
-   * Cada fotograma. target: dónde debe estar; pow: la carga (0: no hay carga; 1 a 4).
+   * Cada fotograma. target: dónde debe estar; pow: la carga (0: no hay carga; 1 a 4); size: lo llena que se ve (0-1; sin él,
+   * el de la carga: en el superman crece con el aguante, como en RepArena: sorbCharge).
    */
-  update(dt: number, target: Vector3, pow: number): void {
+  update(dt: number, target: Vector3, pow: number, size = -1): void {
     this.t += dt;
     const want = pow > 0;
-    const lvl = [0, 0.18, 0.46, 0.72, 1][Math.min(4, Math.max(0, pow))];
+    const lvl = size >= 0 ? size : [0, 0.18, 0.46, 0.72, 1][Math.min(4, Math.max(0, pow))];
     if (want && this.burst <= 0) {
       this.k += (lvl - this.k) * Math.min(1, dt * 8);
       this.vis = Math.min(1, this.vis + dt * 6);

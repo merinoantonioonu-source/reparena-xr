@@ -413,6 +413,19 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **El vuelo suave** (bloque 3.C): `Flight` vuela de serie sin bandazos (`wander`: una elipse que se recorre sin parar con un
+  muelle amortiguado, velocidad y aceleración limitadas; `turnCap`: visto desde la cabeza, no más de 40°/s; ya cerca, se
+  pone delante). El vuelo de RepArena (a saltos, `dartT`) sigue tras `Flight.classic`, solo para `flight.compare.test.ts`.
+  Lo comprueba `tests/unit/flight-smooth.test.ts`.
+
+- **Superman, «aguante que protege»** (bloque 3.B del plan): el detector lo hace con `FloorCfg.supGuard` (encendido en la
+  partida; apagado, el de RepArena, que es el que compara `floor.compare.test.ts`); los voladores, con `FlyEnv.sup.rest` y
+  `restMax` (sin ellos, los de RepArena, que compara `flight.compare.test.ts`). La bola del superman va entre las manos
+  (`supBallAt`) y crece con el aguante (`EnergyBall.update`, su `size`). **Hacia dónde mira el cuerpo** sale de `bodyDir`
+  (`src/input/body-dir.ts`: mirando al suelo manda la coronilla): lo usa `GAME.fwd`. Lo que solo tiene RepArena XR (la
+  Travesía con flexiones) va en `XR_ONLY_EX` y las comparaciones de ajustes se lo saltan; la caricatura del superman,
+  cambiada a propósito, en `XR_CHANGED` de `demo.compare.test.ts`.
+
 - **Plan de ergonomía y cuestas, bloque 3.A** (`docs/PLAN-ERGONOMIA-Y-CUESTAS.md`): **el negro del final** ya no es una esfera
   con radio (lo cercano quedaba dentro y el resumen, fuera): mientras está en negro, del nivel solo se pinta lo que lleve
   `keepInBlack` (`src/ui/black-out.ts`: el menú, los guantes, los avisos del centro y breve, el logro dorado); lo nuevo que

@@ -36,6 +36,12 @@ const OPTS: DemoOpts[] = [];
 for (const perfectTime of [0, 1.5, 2]) for (const perks of [false, true]) for (const foes of ['robots', 'flyers', 'mix']) for (const [sword, pistol, swordKind] of [[false, false, ''], [false, true, ''], [true, false, 'laser'], [true, false, 'saber']] as const)
   OPTS.push({ perfectTime, perks, foes, sword, pistol, swordKind });
 
+/** Lo que RepArena XR ha cambiado a propósito: el superman («aguante que protege», elegido por el usuario: el disparo sale al
+ * bajar y su texto lo dice) y la Travesía en zancada y en plancha (sus formas propias). Sus textos y su dibujo ya no son
+ * los de RepArena (su postura, sí). */
+const XR_CHANGED = new Set(['superman', 'lunge|trek', 'pushup|trek']);
+const xrChanged = (ex: string, mode: string): boolean => XR_CHANGED.has(ex) || XR_CHANGED.has(`${ex}|${mode}`);
+
 describe.skipIf(!RA_DIR)('la caricatura del ejercicio, como en RepArena', () => {
   let ra: RA;
   const cur: { o: DemoOpts } = { o: OPTS[0] };
@@ -66,6 +72,7 @@ describe.skipIf(!RA_DIR)('la caricatura del ejercicio, como en RepArena', () => 
     for (const o of OPTS) {
       cur.o = o;
       for (const ex of [...Object.keys(DEMO), 'zzz']) for (const mode of MODES) {
+        if (xrChanged(ex, mode)) continue;
         const msg = `${ex} · ${mode} · ${JSON.stringify(o)}`;
         expect(demoTips(ex, mode, o), msg).toEqual({ ...ra.demoTips(ex, mode) });
         const a = demoInfo(ex, mode, o), b = ra.demoInfo(ex, mode);
@@ -80,6 +87,7 @@ describe.skipIf(!RA_DIR)('la caricatura del ejercicio, como en RepArena', () => 
       if (i % 5) continue; // (unas cuantas combinaciones de ajustes: el dibujo es largo)
       cur.o = o;
       for (const ex of [...Object.keys(DEMO), 'zzz']) for (const mode of MODES) for (let t = 0; t < 10; t += 0.17) {
+        if (xrChanged(ex, mode)) continue;
         const la: string[] = [], lb: string[] = [];
         demoDraw(recCtx(la), 640, 384, ex, mode, t, o);
         ra.demoDraw(recCtx(lb), 640, 384, ex, mode, t);
