@@ -111,3 +111,131 @@ cuando haya varias formas, lógica pura con pruebas, nada de crear objetos en `u
 6. **Luciérnagas**: al menos 2,5 veces más, en la periferia, sin tapar compuertas, enemigos ni el entorno inmediato; su
    movimiento tiene que hacer sentir el compás de la música.
 7. **Vuelo de los voladores**: suave, sin parones ni diagonales rapidísimas; que se puedan seguir con la cabeza.
+8. **Luces giratorias de las compuertas**: hoy son conos; su proyección es irreal. Hay que rehacerlas.
+9. **Arcos, el láser vertical**: tiene que moverse a los lados de forma que obligue a esquivar.
+10. **Arcos, la pared roja de los arcos inclinados**: rediseñarla (cuatro modelos para elegir, apartado 3.H): que quede muy
+    claro el hueco por el que hay que meter el tronco y que la parte tapada sea más realista y menos tosca.
+11. **Travesía en plancha**: un plan de ideas de más movimientos de brazos, tipo «animal flow» (apartado 5), para elegir.
+
+## 3. Los bloques, en orden (un PR cada uno)
+
+### 3.A Arreglos rápidos (un PR, primero)
+
+Lo que se nota en las gafas: el negro del final es negro del todo se mueva uno como se mueva, con el resumen siempre a la
+vista; el marcador de la Travesía se lee en todos los mundos; los enemigos de los ejercicios de suelo salen a su ritmo.
+
+1. **El negro del final** [O] (`game.ts`, `stepOutcome`). La esfera con radio no puede funcionar: lo cercano siempre queda
+   dentro. Hacerlo por lo que se pinta, no por distancia: mientras `black` esté puesto, **esconder todo menos lo que debe
+   verse** (el menú abierto, las manos y los guantes, el logro dorado, el aviso del centro) y dejar el fondo negro. Forma
+   recomendada: recorrer solo los hijos directos de la escena y de la raíz del nivel, guardar cuáles estaban a la vista,
+   ponerles `visible = false` salvo a los marcados (`userData.keepInBlack`, que se pone al crear el grupo de los menús,
+   las manos, `trophyP` y los avisos de la vista), y restaurarlos al salir del negro (también si se sale de la VR o empieza
+   otra ronda). Sin crear listas cada fotograma (una lista fija que se rellena al entrar en negro; lo que nazca después se
+   comprueba con un contador de hijos). El aro turquesa (`createPlayerPad`) queda escondido con lo demás. Quitar la
+   búsqueda de `'summary-panel'`. Comprobar que el fundido de antes (`outVeil`) y la vuelta al menú principal siguen igual.
+   - Prueba e2e [S]: tras acabar una ronda, con el resumen abierto, mover la cámara 2 m atrás, a un lado y a 30 cm del
+     suelo; en las tres capturas, fuera del menú todos los píxeles son negros (tolerancia) y el menú está entero. En Combate
+     y en la Travesía.
+   - Al usuario: explicarle que la línea azul fina es el límite de las gafas (1.3).
+2. **El marcador de la Travesía** [S] (decisión 3). Una función pura nueva (`src/modes/trek/board-spot.ts`:
+   `trekBoardSpot(mundo, lado)` → posición, giro y tamaño) que usa `placeBoard` cuando el modo es la Travesía:
+   - risco (`cliff`): siempre a la derecha (sobre el vacío), diga lo que diga el ajuste;
+   - los demás: en el lado elegido, con el borde de abajo a ≥ 2,0 m (por encima de arbustos y rocas) e inclinado hacia el
+     jugador; algo más cerca si hace falta para que se lea;
+   - `decoPuts`/`skyDecoPuts`/`coastDecoPuts` reciben el lado del marcador y no ponen árboles, islotes ni barcos en su
+     franja (entre 1,5 y 6,5 m de ese lado) por encima de 1,8 m. Sin tocar el otro lado.
+   - `placeBoard` se vuelve a llamar al cambiar de mundo (suceso `world`) y al empezar.
+   - Pruebas [S]: unitaria de `trekBoardSpot` (los cuatro mundos, los dos lados) y otra que recorre los `Put` de 40 trozos
+     de cada mundo y comprueba que ninguna caja (`BOX` de `pieces.ts`) toca el volumen del marcador. Captura por mundo.
+3. **El ritmo de los enemigos en los ejercicios de suelo** [S]. Una sola función pura `repTimeOf(ex, ajustes)` (en
+   `src/combat/waves.ts` o `src/core/rep-time.ts`) con todos los ejercicios, igual que RepArena (`00_core.js:586`: el
+   superman, `supHold + 3`; el inchworm, 8; flexiones, 2,4; plancha con un brazo, 2,2…). La usan `game.ts:890` y
+   `src/page/pick.ts:18` (que deja de tener su copia). Comparación con RepArena en `tests/compare/waves.compare.test.ts`.
+4. **La fruta en la cara** [S] (si el usuario lo confirma, 1.7): las frutas y los trozos de barril se encogen y se apagan a
+   menos de 45 cm de los ojos, como las chispas.
+
+### 3.B Superman: «aguante que protege» (un PR)
+
+Lo que se nota: la bola roja está entre las manos y crece mientras aguantas; mientras aguantas arriba ningún bicho te toca;
+solo te pican si te quedas tumbado demasiado rato; aguantar de más carga ×2, ×3, ×4 y al bajar sale el rayo (con ×4, una
+onda que alcanza a los cercanos).
+
+1. **Antes de nada, apuntar la bola en el diagnóstico** [S]: `diagEvent` al aparecer («bola: a N cm de la cabeza, a N° de la
+   mirada») y al estallar. Así el usuario puede confirmar la causa de 1.2 con un registro si el arreglo no bastara.
+2. **Hacia dónde mira el cuerpo, tumbado** [O]. Una función pura (`src/input/body-dir.ts`, con pruebas): de pie, la mirada
+   en horizontal (como ahora); cuanto más mira la cabeza hacia abajo, más peso tiene la coronilla (el «arriba» de la
+   cabeza, que tumbado boca abajo apunta hacia delante del cuerpo), como ya hace `armsBack` en `floor.ts:219-222`. La usa
+   `game.ts:1766-1772` (`bodyYaw`). Pruebas: boca abajo mirando al suelo, al frente y con la barbilla metida, la dirección
+   sale siempre hacia las manos; de pie no cambia nada (mismos números que ahora).
+3. **Dónde va la bola en el superman** [O] (`game.ts:1843-1845`): entre las dos muñecas si se ven las dos (o junto a la que
+   se vea), 6 cm por encima; si no se ve ninguna, a 45 cm de la cabeza en la dirección del cuerpo y a 12 cm del suelo. Y
+   **crece con el aguante**: `EnergyBall.update` recibe la carga de 0 a 1 de `fl.supK` mientras se aguanta (como
+   `sorbCharge` de RepArena). El rayo sale de la bola.
+4. **El detector** [O] (`floor.ts`, `superman`), camino nuevo detrás de `FloorCfg.supGuard` (encendido en el juego;
+   apagado en `tests/compare/floor.compare.test.ts`, que sigue comparando el de RepArena):
+   - al cumplir `supHold` arriba: la bola llena, chasquido (`topCue`) y carga ×1; **no dispara todavía**;
+   - si sigues arriba: ×2 a los `powHold` s, ×3 y ×4 con `powHoldInc` (los ajustes de carga de los demás ejercicios, que hoy
+     excluyen al superman en `schema.ts:84-85`);
+   - **al bajar**, la repetición con su carga (`rep(perfecta, false, pow)`); con ×4, la onda a los cercanos (la de las
+     dominadas y el remo de las reglas: reutilizar lo que ya haya para el inchworm, `HatchSystem.wave`, o `fx`);
+   - bajar antes de `supHold`: como ahora («¡Aguanta N s arriba!»).
+5. **Los voladores** [O] (`flight.ts`, `FlyEnv.sup`): el reloj de picar deja de ser «lo que lleva esperando cerca» y pasa a
+   ser **lo que llevas tumbado sin subir** (`rest`, que la partida pone a 0 cada vez que subes el tronco): solo se lanza si
+   `rest > descanso permitido`; mientras estás arriba no se lanza ninguno y el que ya venía rebota (como parado por la
+   guardia: `parryT`). El descanso permitido, por rango (de serie 6 s en Recluta a 3,5 s en el más alto), en `RANK_VALS_XR`
+   y en la tabla del desarrollador, con su ajuste `xr: true` («Superman: descanso antes de que piquen»). Se mantiene «nunca
+   dos seguidos». El camino antiguo, tras el parámetro, para la comparación.
+6. **Textos** [S]: `how.ts` (paso 2: «Aguanta arriba: la bola crece. Al bajar, dispara»), `demo-art.ts` (la caricatura),
+   `short-msg.ts`, la explicación de los ajustes, `REGLAS.md` («Cargas ×2/×3/×4 aguantando…»: añadir el superman y la
+   regla del descanso) y `MIGRACION.md`.
+7. **Pruebas** [S, con el guion de Opus]: `tests/unit/exercises.test.ts` (superman: aguante justo = ×1 al bajar; largo = ×4
+   y onda; corto = a medias), `tests/unit/flight.test.ts` (arriba no pica nadie; tumbado 2 s, tampoco; tumbado más del
+   descanso, sí; uno cada vez) y una simulación de oleada entera: a un ritmo de una repetición cada `supHold + 3` s no se
+   recibe ningún golpe en ningún rango.
+8. **Preguntar al usuario** [O]: lo de las manos apoyadas (1.2). Si quiere que se exija despegarlas, es otro cambio.
+
+### 3.C El vuelo de los voladores, suave (un PR)
+
+Lo que se nota: los voladores se mueven siempre, en curvas amplias y continuas; se les sigue con la cabeza sin perderlos;
+siguen siendo imprevisibles y su mordisco se sigue anunciando igual (se echan atrás y se lanzan).
+
+1. **Vuelo nuevo** [O] (`flight.ts`), de serie; el de RepArena queda tras `classic` solo para `flight.compare.test.ts`:
+   - fuera los saltos de objetivo (`dartT` al azar + acercamiento exponencial). En su lugar, un **deambular continuo**: el
+     desvío respecto a su sitio es la suma de dos o tres vaivenes de frecuencias que no casan (por eje), con la amplitud que
+     hoy da «Vuelo errático» y la distancia, y un objetivo que se desplaza despacio; el volador lo sigue con aceleración
+     limitada (nada de cambiar de velocidad de golpe);
+   - **límites que mandan** (constantes con nombre, a ajustar en las gafas): velocidad lateral ≤ 1,6 m/s y aceleración
+     ≤ 3 m/s² a «Vuelo errático» 100 %; **vista desde tu cabeza, nunca gira más de 40°/s** en crucero; nunca se queda
+     quieto más de 0,3 s; se mantiene dentro de ±35° del frente y sin pasar por detrás (lo de `FRONT_MIN`), y los de las
+     compuertas siguen saliendo por su hueco (`gateKeep`);
+   - el aleteo y la inclinación al virar (`bank`) salen del movimiento nuevo (ya dependen de la velocidad lateral);
+   - tumbado (superman, plancha lateral) y en la batalla diminuta, lo mismo a su escala.
+2. **Pruebas** [S]: simular 60 s de cada volador a 72 pasos por segundo con «Vuelo errático» 50, 100 y 200 %: la velocidad
+   angular vista desde la cabeza, la aceleración y el tiempo quieto no pasan de sus límites; nunca hay «quieto y, en 0,3 s,
+   más de 3 m/s»; no se salen del frente. La comparación con RepArena, con `classic`.
+3. **Reglas** [S]: en `REGLAS.md` › Enemigos y física, «el vuelo de los voladores, suave: sin parones ni diagonales bruscas;
+   se les puede seguir con la cabeza (pedido del usuario)»; `AGENTS.md` (la frase de `Flight`).
+
+### 3.D Lo que se ve desde cada postura (un PR; ver el análisis del apartado 4)
+
+Lo que se nota: en plancha, todo lo que hay que esquivar nace y viene a ras de suelo, donde miras; las indicaciones de antes
+de empezar están delante, no a un lado; las instrucciones que se mantienen están en un panel grande y fijo; ya no se avisa
+de lo que viene.
+
+1. **El jefe en plancha** [O] (decisión 2; `trek-system.ts:768-784`, `runner.ts:1505-1541`): con `Runner.prone`,
+   - lo que lanza **sale de abajo**: de sus pies, a 25–40 cm de las tablas (lo patea, lo lanza a ras o golpea el suelo; con
+     la animación que tenga el modelo: no se crean animaciones). El aviso (el brillo que crece mientras coge impulso) se ve
+     ahí, en el suelo, no en su mano;
+   - los tres tiros se distinguen **vistos desde el suelo**: la alta vuela recta a la altura de la cabeza en plancha con una
+     estela encima; la baja rueda y bota por las tablas; la del cuerpo viene por un lado, con su sombra marcando el carril;
+   - más tiempo: el impulso pasa de 1,1 s a lo que pida la tabla de gestos de 4.2 para una bajada de flexión (≈ 1,7 s);
+   - el jefe mareado (las estrellas) también tiene que verse desde el suelo: estrellas y brillo a sus pies y el aviso en las
+     tablas (`VIEW.prone`).
+2. **Lo demás que viene de arriba, en plancha** [O]: el mismo principio para el picado (abeja, murciélago: llega rasante
+   todo el camino, no bajando desde lo alto), la bala alta del cañón y el tajo del tiburón (su aviso, en las tablas), el
+   desprendimiento (la sombra de las rocas crece en el suelo antes de caer), la bola de fuego en arco (su sombra) y los
+   barriles y frutas de arriba (que se vean llegar de frente). Regla nueva en `REGLAS.md`: «En plancha, todo lo que hay que
+   ver nace y viaja a ras de suelo, por delante de las manos».
+3. **Prueba de visibilidad y de tiempos** [S] (apartado 4.2): `src/modes/trek/plat/ergo.ts` (tabla pura) y
+   `tests/unit/plat-ergo.test.ts`.
+4. **Las indicaciones**: ver el apartado 3.E, que va en este mismo PR o en el siguiente según su tamaño.
