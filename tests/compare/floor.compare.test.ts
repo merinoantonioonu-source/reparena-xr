@@ -164,7 +164,7 @@ function scenario(ex: string, seed: number, frames: number): { ra: string[]; por
 
 describe.skipIf(!RA_DIR)('los ejercicios de suelo y sentado, como en RepArena', () => {
   const SEEDS = Number(process.env.SEEDS || 40);
-  for (const ex of FLOOR_EX)
+  for (const ex of FLOOR_EX.filter((e) => e !== 'fpress')) // (el press de pecho en el suelo es solo de RepArena XR)
     it(`${ex}: lo mismo en ${SEEDS} partidas al azar`, () => {
       const n: Record<string, number> = {};
       for (let s = 1; s <= SEEDS; s++) {

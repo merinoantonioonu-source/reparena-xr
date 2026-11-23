@@ -3,8 +3,8 @@
  * (src/00_core.js), con los mismos nombres y claves: los ajustes guardados se comparten con él.
  */
 
-export const EX_NAMES: Record<string, string> = { squat: 'Sentadillas', lunge: 'Zancadas', slunge: 'Zancadas laterales', skater: 'Patinador', pushup: 'Flexiones', pike: 'Flexiones en pica', inchworm: 'Flexiones inchworm', dips: 'Fondos en silla', curl: 'Curl de bíceps', curl2: 'Curl con barra o kettlebell', twist: 'Antebrazos (barra flexible)', press: 'Press de hombro', press2: 'Press con barra', fraise: 'Elevaciones frontales (una pesa)', thruster: 'Sentadilla con press', frontsq: 'Sentadilla con elevación frontal', jsquat: 'Sentadilla con salto', swing: 'Swing con kettlebell', chop: 'Leñador', dlrow: 'Peso muerto', plank1: 'Plancha con un brazo', plankrow: 'Remo en plancha', splank: 'Plancha lateral', superman: 'Superman', row: 'Remo invertido', pullup: 'Dominadas', hang: 'Colgado', jump: 'Saltos', abs: 'Abdominales', combo: 'Combinado', slam: 'Slam' };
-export const EX_SHORT: Record<string, string> = { squat: 'Sentadillas', lunge: 'Zancadas', slunge: 'Zanc. lateral', skater: 'Patinador', pushup: 'Flexiones', pike: 'Pica', inchworm: 'Inchworm', dips: 'Fondos silla', curl: 'Curl', curl2: 'Curl barra', twist: 'Antebrazos', press: 'Press hombro', press2: 'Press barra', fraise: 'Elev. frontal', thruster: 'Sent. + press', frontsq: 'Sent. + elev.', jsquat: 'Sent. + salto', swing: 'Swing', chop: 'Leñador', dlrow: 'Peso muerto', plank1: 'Plancha 1 brazo', plankrow: 'Remo plancha', splank: 'Plancha lateral', superman: 'Superman', row: 'Remo invertido', pullup: 'Dominadas', hang: 'Colgado', jump: 'Saltos', abs: 'Abdominales', combo: 'Combinado', slam: 'Slam' };
+export const EX_NAMES: Record<string, string> = { squat: 'Sentadillas', lunge: 'Zancadas', slunge: 'Zancadas laterales', skater: 'Patinador', pushup: 'Flexiones', pike: 'Flexiones en pica', inchworm: 'Flexiones inchworm', dips: 'Fondos en silla', curl: 'Curl de bíceps', curl2: 'Curl con barra o kettlebell', twist: 'Antebrazos (barra flexible)', press: 'Press de hombro', press2: 'Press con barra', fraise: 'Elevaciones frontales (una pesa)', thruster: 'Sentadilla con press', frontsq: 'Sentadilla con elevación frontal', jsquat: 'Sentadilla con salto', swing: 'Swing con kettlebell', chop: 'Leñador', dlrow: 'Peso muerto', plank1: 'Plancha con un brazo', plankrow: 'Remo en plancha', splank: 'Plancha lateral', superman: 'Superman', fpress: 'Press de pecho en el suelo', row: 'Remo invertido', pullup: 'Dominadas', hang: 'Colgado', jump: 'Saltos', abs: 'Abdominales', combo: 'Combinado', slam: 'Slam' };
+export const EX_SHORT: Record<string, string> = { squat: 'Sentadillas', lunge: 'Zancadas', slunge: 'Zanc. lateral', skater: 'Patinador', pushup: 'Flexiones', pike: 'Pica', inchworm: 'Inchworm', dips: 'Fondos silla', curl: 'Curl', curl2: 'Curl barra', twist: 'Antebrazos', press: 'Press hombro', press2: 'Press barra', fraise: 'Elev. frontal', thruster: 'Sent. + press', frontsq: 'Sent. + elev.', jsquat: 'Sent. + salto', swing: 'Swing', chop: 'Leñador', dlrow: 'Peso muerto', plank1: 'Plancha 1 brazo', plankrow: 'Remo plancha', splank: 'Plancha lateral', superman: 'Superman', fpress: 'Press suelo', row: 'Remo invertido', pullup: 'Dominadas', hang: 'Colgado', jump: 'Saltos', abs: 'Abdominales', combo: 'Combinado', slam: 'Slam' };
 export const MODE_NAMES: Record<string, string> = { combat: 'Combate', arcs: 'Arcos', bars: 'Barras', touch: 'Toques', trek: 'Travesía' };
 
 export const LEGACY_MODES: Record<string, { foes: string; aim: string }> = { walkers: { foes: 'robots', aim: 'auto' }, flyers: { foes: 'flyers', aim: 'hands' } }; // (foes: ver foeCatPatch)
@@ -32,19 +32,19 @@ export const BODY_NOTE = 'No es la dificultad (esa es el rango): es lo que se mu
 export const MODE_EX: Record<string, string[]> = {
   // (se quitaron el press de hombro, el press con barra y la flexión en pica, que en las gafas no se detectaban bien, y el
   // leñador, que no aportaba nada; su código sigue, por si vuelven, y su historial se sigue viendo)
-  combat: ['squat', 'lunge', 'jsquat', 'slunge', 'skater', 'pushup', 'inchworm', 'dips', 'curl', 'curl2', 'twist', 'fraise', 'thruster', 'frontsq', 'swing', 'dlrow', 'plank1', 'splank', 'superman'], arcs: ['squat'],
+  combat: ['squat', 'lunge', 'jsquat', 'slunge', 'skater', 'pushup', 'inchworm', 'dips', 'curl', 'curl2', 'twist', 'fraise', 'thruster', 'frontsq', 'swing', 'dlrow', 'plank1', 'splank', 'superman', 'fpress'], arcs: ['squat'],
   bars: ['row', 'pullup', 'hang'], touch: ['slam', 'jump', 'abs', 'pushup', 'combo'], // (en Toques, sentadillas y zancadas pasan a ser el Slam)
   trek: ['squat', 'lunge', 'jsquat', 'frontsq', 'curl', 'curl2', 'pushup'] // (de pie se avanza por el sendero; con flexiones, en plancha: RepArena XR)
 };/** Lo que solo tiene RepArena XR (los modos y ejercicios que RepArena no ofrece): la Travesía con flexiones (en plancha).
  * Las comparaciones con RepArena se lo saltan (tests/compare). */
-export const XR_ONLY_EX: Record<string, string[]> = { trek: ['pushup'], combat: ['slunge', 'skater'] };
+export const XR_ONLY_EX: Record<string, string[]> = { trek: ['pushup'], combat: ['slunge', 'skater', 'fpress'] };
 
 // Zonas del cuerpo, para ordenar los ejercicios por lo que trabajan (opcional)
 export const BODY_ZONES: [string, string[]][] = [
   ['Piernas', ['squat', 'lunge', 'jsquat', 'jump', 'slam']],
   ['Glúteos', ['slunge', 'skater']],
   ['Brazos y hombros', ['curl', 'curl2', 'twist', 'fraise', 'dips']],
-  ['Pecho', ['pushup', 'inchworm']],
+  ['Pecho', ['pushup', 'inchworm', 'fpress']],
   ['Abdomen y espalda baja', ['abs', 'plank1', 'splank', 'superman']],
   ['Espalda y agarre', ['row', 'pullup', 'hang']],
   ['Cuerpo entero', ['thruster', 'frontsq', 'swing', 'dlrow', 'combo']]

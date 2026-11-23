@@ -327,10 +327,37 @@ describe('inchworm', () => {
 
 // ---------------------------------------------------------------- que no se quede ninguno sin probar
 
+describe('press de pecho en el suelo', () => {
+  // boca arriba, la cabeza a 15 cm del suelo y las mancuernas arriba con los brazos estirados (la postura de partida)
+  const o: Opts = { floor: true, y0: 0.15, l0: [-0.18, 0.75, -0.25], r0: [0.18, 0.75, -0.25] };
+  const DN: Seg = { l: [-0.2, 0.42, -0.25], r: [0.2, 0.42, -0.25], s: 1.0 }, UP2: Seg = { l: [-0.18, 0.75, -0.25], r: [0.18, 0.75, -0.25], s: 0.9 };
+  it('cinco bajando las pesas al pecho y subiéndolas cuentan cinco (y disparan al subir)', () => {
+    const r = play('fpress', [{ s: 0.6 }, ...times(5, [DN, UP2, PAUSE])], o);
+    expect(r.reps.length).toBe(5);
+    expect(r.charges).toBe(5);
+  });
+  it('aguantando abajo, carga ×2 y más', () => {
+    const r = play('fpress', [{ s: 0.6 }, DN, { s: 2.6 }, UP2, PAUSE], o);
+    expect(r.reps.length).toBe(1);
+    expect(r.reps[0].pow).toBeGreaterThanOrEqual(2);
+  });
+  it('bajar poco no cuenta (y avisa); quieto con los brazos arriba, nada', () => {
+    const r = play('fpress', [{ s: 0.6 }, { l: [-0.18, 0.6, -0.25], r: [0.18, 0.6, -0.25], s: 0.8 }, UP2, PAUSE], o);
+    expect(r.reps.length).toBe(0);
+    expect(msgs(r.all, 'partial')).toEqual(['¡Baja las pesas al pecho!']);
+    expect(play('fpress', [{ s: 12 }], { ...o, wobble: 0.01 }).charges).toBe(0);
+  });
+  it('con las manos perdidas no se inventa nada (y lo dice)', () => {
+    const r = play('fpress', [{ s: 0.6 }, { l: null, r: null, s: 3 }], o);
+    expect(r.reps.length).toBe(0);
+    expect(msgs(r.all, 'say')).toContain('Sube las pesas a la vista');
+  });
+});
+
 describe('todos los que se pueden jugar', () => {
   // los de Toques y Barras se prueban en su modo (touch.test.ts y bars.test.ts)
   const ELSEWHERE = new Set(['slam', 'jump', 'pushup', 'abs', 'combo', 'row', 'pullup', 'hang']);
-  const HERE = new Set([...STAND_EX, 'dips', 'pushup', 'splank', 'superman', 'plank1', 'inchworm']);
+  const HERE = new Set([...STAND_EX, 'dips', 'pushup', 'splank', 'superman', 'plank1', 'inchworm', 'fpress']);
   it('tienen aquí (o en su modo) su prueba con movimientos de persona', () => {
     const all = new Set(Object.values(PLAY_MODE_EX).flat());
     const missing = [...all].filter((x) => !HERE.has(x) && !ELSEWHERE.has(x));

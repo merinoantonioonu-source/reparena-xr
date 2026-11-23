@@ -195,7 +195,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/components.ts`, `src/components.ts` | Los componentes `Foe` (un enemigo), `Flyer` (vuela), `Obstacle` (lo que rodean) y `Gate`, y su catálogo |
 | `src/exercise/vertical.ts` | El detector de bajar y subir con la cabeza (carga, ×2-×4, PERFECTA), sin IWSDK |
 | `src/exercise/standing.ts` | Los ejercicios de pie de RepArena (zancada, en dos tiempos, peso muerto, curl, curl con barra, elevación frontal, antebrazos), sin IWSDK |
-| `src/exercise/floor.ts` | Los ejercicios de suelo y sentado de RepArena (fondos, flexiones, plancha lateral, superman, plancha con un brazo), sin IWSDK |
+| `src/exercise/floor.ts` | Los ejercicios de suelo y sentado de RepArena (fondos, flexiones, plancha lateral, superman, plancha con un brazo) y el press de pecho en el suelo (solo RepArena XR: sigue las manos), sin IWSDK |
 | `src/exercise/how.ts` | Cómo se hace cada ejercicio de pie (lo que dice el menú principal y el recordatorio del marcador) |
 | `src/core/run.ts` | Al acabar la ronda: lo que se guarda en el historial (el formato de RepArena), las calorías y el resumen |
 | `src/core/career.ts`, `src/core/days.ts`, `src/core/today.ts` | Tu carrera (de RepArena, con su guardado `reparena3-career`): experiencia, nivel y título, colores que se desbloquean, las tres misiones del día con su cofre y escudos de racha, récords en plena ronda; los días, la racha y lo de hoy. Sin IWSDK |

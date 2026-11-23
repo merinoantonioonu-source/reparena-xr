@@ -12,6 +12,9 @@
  *  - Inchworm (inchworm): se sigue la cabeza. De pie, te doblas y caminas con las manos hasta que la cabeza llega a la
  *    línea del suelo (carga); cada flexión allí da más fuerza a la onda (×2-×4); vuelves andando con las manos y, de pie
  *    cerca de la salida, dispara y sale la onda (RepArena: iwStep).
+ *  - Press de pecho en el suelo (fpress; solo RepArena XR, elegido por el usuario): boca arriba con mancuernas. Se siguen
+ *    las manos (boca arriba se ven muy bien): con los brazos estirados arriba (la postura de partida), bajar las pesas al
+ *    pecho carga; aguantando abajo, ×2, ×3 y ×4; al subirlas, dispara. Una mano que las gafas pierden no se inventa.
  */
 import { Vector3 } from 'three';
 import type { Side } from '../input/hand-model.js';
@@ -20,7 +23,7 @@ import type { StandEvent, StandInput } from './standing.js';
 import { WARN_COL } from './standing.js';
 
 /** Los de este detector. */
-export const FLOOR_EX = ['dips', 'pushup', 'splank', 'superman', 'plank1', 'inchworm'];
+export const FLOOR_EX = ['dips', 'pushup', 'splank', 'superman', 'plank1', 'inchworm', 'fpress'];
 
 /** El inchworm: la línea vale con la cabeza a 15 cm de ella (RepArena: IW_LINE). */
 export const IW_LINE = 0.15;
@@ -51,6 +54,8 @@ export interface FloorCfg {
    * bajar**. Sin él, como en RepArena: dispara al cumplir el aguante (lo compara tests/compare/floor.compare.test.ts).
    */
   supGuard?: boolean;
+  /** Press de pecho en el suelo: lo que bajan las pesas desde los brazos estirados (cm; RepArena XR). */
+  fpDepth?: number;
 }
 
 export const floorDefaults = (ex = 'pushup'): FloorCfg => ({ ex, dipDepth: 15, pushDepth: 13, splDrop: 9, splHold: 3, supRange: 8, supHold: 2, supArms: 'yes', iwReach: 0, perfectTime: 1.2, powHold: 1.5, powHoldInc: 0.5, deepDrop: 0, power: true });
@@ -82,6 +87,9 @@ export class FloorDetector {
   readonly su = { state: 'down' as 'down' | 'up' | 'top', ref: 0.2, t0: 0, awayT: 0, sec: 0, warnT: 0, peak: 0, lift: 0, armT: 0, handT: 0, stillT: 0, lo: 0.2, k: 0, full: false, pow: 0 };
   readonly pl = { ref: 0, awayT: 0, boost: 0, left: mkPl(), right: mkPl() };
   readonly plp = new VertDetector();
+  /** El press de pecho en el suelo: la altura de las manos (como la de la cabeza en la sentadilla), su rapidez y lo que
+   * llevan perdidas. */
+  readonly fp = Object.assign(new VertDetector(), { lostT: 0, awayT: 0, v: 0, sp: 0 });
   readonly iw = { phase: 'stand' as 'stand' | 'out' | 'back', g: 0, max: 0, t0: 0, pu: 0, pow: 1, pst: 'up' as 'up' | 'down', ref: 0, flash: 0 };
   /** Lo que lleva de carga la bola del superman (0-1: el aguante arriba). */
   get supK(): number {
@@ -103,6 +111,10 @@ export class FloorDetector {
     Object.assign(this.pl, { ref: y, awayT: 0, boost: 0 });
     for (const s of ['left', 'right'] as const) Object.assign(this.pl[s], mkPl(), wrists[s] !== null ? { floor: wrists[s] } : {});
     this.plp.state = 'up';
+    // (el press de pecho: la altura de las manos con los brazos estirados; sin verlas, por encima de la cabeza)
+    const ws = [wrists.left, wrists.right].filter((w): w is number => w !== null), hy = ws.length ? ws.reduce((a, b) => a + b, 0) / ws.length : y + 0.5;
+    this.fp.reset(hy);
+    Object.assign(this.fp, { lostT: 0, awayT: 0, v: hy, sp: 0 });
     Object.assign(this.iw, { phase: 'stand', g: 0, max: 0, t0: 0, pu: 0, pow: 1, pst: 'up', ref: 0, flash: 0 });
     this.charged = false;
   }
@@ -125,6 +137,7 @@ export class FloorDetector {
     else if (ex === 'superman') this.superman(t, dt, I, c);
     else if (ex === 'plank1') this.plank1(t, dt, I, c);
     else if (ex === 'inchworm') this.inchworm(t, dt, I, c);
+    else if (ex === 'fpress') this.fpress(t, dt, I, c);
     else {
       const d = this.pu, req = c.pushDepth / 100;
       if (y > d.ref + 0.35) {
@@ -157,11 +170,12 @@ export class FloorDetector {
   }
 
   // la bajada y subida de la cabeza (RepArena: vertDetector); defer: lo que hace la repetición en vez de disparar
-  private vert(d: VertDetector, I: FloorInput, t: number, dt: number, req: number, start: number, back: number, partial: number, pt: number, msg: string, c: FloorCfg, power: boolean, defer: ((pow: number) => void) | null): void {
+  // (yv y sp: lo que se mide y su rapidez; de serie, la cabeza)
+  private vert(d: VertDetector, I: FloorInput, t: number, dt: number, req: number, start: number, back: number, partial: number, pt: number, msg: string, c: FloorCfg, power: boolean, defer: ((pow: number) => void) | null, yv = I.head.p.y, sp = I.head.speed): void {
     const v = this.v, ev = this.vEv;
     Object.assign(v, { req, start, back, partial, perfectDur: pt, power, powHold: c.powHold, powHoldInc: c.powHoldInc, deepDrop: 0 });
     ev.length = 0;
-    d.update(I.head.p.y, t, dt, I.head.speed, v, ev);
+    d.update(yv, t, dt, sp, v, ev);
     for (const e of ev) {
       if (e.type === 'charge') this.charge();
       else if (e.type === 'power') {
@@ -172,6 +186,38 @@ export class FloorDetector {
         defer(e.pow);
       } else this.rep(e.perfect, e.fast, e.pow);
     }
+  }
+
+  // press de pecho en el suelo: boca arriba, las manos suben y bajan como la cabeza en la sentadilla (los brazos estirados
+  // arriba son la referencia); bajarlas al pecho carga, aguantar abajo da ×2-×4 y subirlas dispara
+  private fpress(t: number, dt: number, I: FloorInput, c: FloorCfg): void {
+    const P = this.fp, req = (c.fpDepth ?? 28) / 100;
+    // (de pie o sentado: no es el press)
+    if (I.head.p.y > 0.75) {
+      P.awayT += dt;
+      if (P.awayT > 1.5 && I.play) this.say('Túmbate boca arriba');
+      P.state = 'up';
+      return;
+    }
+    P.awayT = 0;
+    // las manos que se ven de verdad (una perdida no se inventa); con las dos, su altura media
+    let n = 0, s = 0;
+    for (const side of ['left', 'right'] as const) {
+      const h = I.hands[side];
+      if (!h.ok || h.est) continue;
+      s += h.wrist.y;
+      n++;
+    }
+    if (!n) {
+      P.lostT += dt;
+      if (P.lostT > 1.5 && I.play) this.say('Sube las pesas a la vista');
+      return;
+    }
+    P.lostT = 0;
+    const y = s / n;
+    P.sp += (Math.abs(y - P.v) / Math.max(dt, 1e-3) - P.sp) * Math.min(1, dt * 8);
+    P.v = y;
+    this.vert(P, I, t, dt, req, Math.min(0.06, req * 0.4), 0.05, req * 0.5, c.perfectTime, '¡Baja las pesas al pecho!', c, c.power, null, y, P.sp);
   }
 
   // plancha lateral: aguantar con la cadera arriba; cada splHold segundos seguidos, un disparo. Si la cabeza baja splDrop

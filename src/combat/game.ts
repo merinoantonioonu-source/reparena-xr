@@ -1140,7 +1140,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   // lo que piden los de suelo y sentado en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
   private readFloorCfg(lvl: number): FloorCfg {
-    return { ex: settings.exercise, dipDepth: dv('dipDepth', lvl), pushDepth: dv('pushDepth', lvl), splDrop: num('splDrop'), splHold: num('splHold'), supRange: num('supRange'), supHold: num('supHold'), supArms: str('supArms') || 'yes', iwReach: num('iwReach'), perfectTime: num('perfectTime'), powHold: num('powHold'), powHoldInc: num('powHoldInc'), deepDrop: 0, power: true, supGuard: true };
+    return { ex: settings.exercise, dipDepth: dv('dipDepth', lvl), pushDepth: dv('pushDepth', lvl), splDrop: num('splDrop'), splHold: num('splHold'), supRange: num('supRange'), supHold: num('supHold'), supArms: str('supArms') || 'yes', iwReach: num('iwReach'), perfectTime: num('perfectTime'), powHold: num('powHold'), powHoldInc: num('powHoldInc'), deepDrop: 0, power: true, supGuard: true, fpDepth: num('fpDepth') || 28 };
   }
 
   // El aviso del centro de la vista (RepArena: drawCenter): colocarse (la calibración, con su barra de quieto) o
