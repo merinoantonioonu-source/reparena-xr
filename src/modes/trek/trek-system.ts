@@ -13,6 +13,8 @@
  * `startWave`, `waveLeft`, `rep`, `hud`, `end` y `clear`.
  */
 import { AdditiveBlending, BackSide, BufferAttribute, DoubleSide, ShaderMaterial, SphereGeometry, TorusGeometry, CircleGeometry, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DataTexture, DomeTexture, Euler, Group, InstancedMesh, LinearFilter, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, RGBAFormat, Sprite, SpriteMaterial, UnsignedByteType, Vector3 } from '@iwsdk/core';
+import { bodyDir } from '../../input/body-dir.js';
+import { FB } from '../../core/flybox.js';
 import type { AnimationAction, DirectionalLight, FogExp2, HemisphereLight, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { diagEvent } from '../../core/diag.js';
@@ -326,6 +328,11 @@ export class TrekSystem extends createSystem({}) {
           const f = self.rollF.set(0, 0, -1).applyQuaternion(head.q);
           return f.y < -0.05 || Math.abs(f.x) > 0.3 ? Math.abs(Math.atan2(f.x, -f.y)) : 0;
         },
+        // hacia dónde mira el cuerpo (el vuelo mide escorarse en perpendicular a ella: src/input/body-dir.ts)
+        get yaw() {
+          const d = bodyDir(head.q, self.rollF);
+          return Math.atan2(d.x, -d.z);
+        },
       },
       // las muñecas (las que se ven de verdad: una calculada al perderla, no)
       hands: { l: armOf(hands.left), r: armOf(hands.right) },
@@ -529,6 +536,7 @@ export class TrekSystem extends createSystem({}) {
     this.clearLooks();
     if (head.p.y > 1.1) this.calibRef = head.p.y;
     this.runner.reset();
+    FB.clear(this.clock);
     this.runner.addTramo(0, tramoLen(waveReps(0)));
     this.pendingBiome = -1;
     this.setBiome(0);
@@ -686,7 +694,11 @@ export class TrekSystem extends createSystem({}) {
     if (!this.foesReady) this.foesReady = this.buildFoes();
     if (!this.bossReady) this.bossReady = this.buildBoss();
     if (GAME.paused) return;
-    if (GAME.phase === 'playing') this.runner.step(dt);
+    if (GAME.phase === 'playing') {
+      this.runner.step(dt);
+      // la caja negra del vuelo (src/core/flybox.ts): para afinar los controles con tu vuelo de verdad
+      if (this.runner.fly) FB.rec(this.clock, dt, this.runner, this.env.head, this.env.hands, num('flyBoard') > 0);
+    }
     // echado (en plancha, bajo un túnel): los avisos, en el suelo bajo la cara (de pie, delante, no se leerían)
     VIEW.prone = GAME.phase === 'playing' && (this.runner.moves.plank || this.runner.prone); // (en plancha, siempre)
     this.applyEvents();

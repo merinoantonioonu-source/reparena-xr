@@ -19,7 +19,7 @@
  * Lógica pura, sin IWSDK.
  */
 import { worldOf, WORLDS, type World } from './worlds.js';
-import { FLY_GAP_S, FLY_KINDS, isPirate, LANE_MAX, LANE_MIN, REACH_N, SLIT_MAX, SLIT_MIN, GRIP_LEN, BOB_CRACK, BOB_ISLE, SINK_MAX, SINK_MIN, CLIFF_WALL, GUST_MAX, GUST_MIN, LEDGE_MAX, LEDGE_MIN, ROCKFALL_AT, FIRE_AT, QUAKE_AT, WALKERS, BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
+import { FLY_FIRST, FLY_FROM, FLY_GAP, FLY_LO, FLY_HI, ARCH_LO, ARCH_HI, FLY_GAP_S, FLY_KINDS, isPirate, LANE_MAX, LANE_MIN, REACH_N, SLIT_MAX, SLIT_MIN, GRIP_LEN, BOB_CRACK, BOB_ISLE, SINK_MAX, SINK_MIN, CLIFF_WALL, GUST_MAX, GUST_MIN, LEDGE_MAX, LEDGE_MIN, ROCKFALL_AT, FIRE_AT, QUAKE_AT, WALKERS, BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
 
 /** Las clases de la lista de cada tramo: la primera, lo básico (el tronco, la viga y el hueco); desde el segundo, también
  * la fruta, la plataforma alta y la seta (que se pisa); desde el tercero, el túnel, el burpee y el cangrejo (que se esquiva
@@ -43,7 +43,15 @@ const CRAWL_WARN_S = 3.5, GLIDE_WARN_S = 2.5;
 const SPECIAL_P = 0.15;
 
 /** Lo mínimo (m) entre el final de `prev` (su `at + len`) y el principio de `next` (su `at`), con velocidad máxima `vmax`. */
-export function minGap(prev: Piece, next: Piece, vmax: number): number {
+/** ¿Pide el reto del vuelo ir arriba (1), abajo (−1) o ninguna de las dos (0)? (Dos seguidos opuestos piden el doble de sitio.) */
+function flyLevel(p: Piece): number {
+  if (p.k === 'arch') return -1;
+  if (p.k === 'ring' || p.k === 'berries') return p.h > 6.5 ? 1 : p.h < 5.5 ? -1 : 0;
+  return 0;
+}
+
+/** El sitio que pide `next` tras `prev` (m); `flyK`, × el tiempo de los retos del vuelo (el primer tramo y el rango). */
+export function minGap(prev: Piece, next: Piece, vmax: number, flyK = 1): number {
   // La plataforma de su burpee llega a un hueco fijo del túnel (sin azar ni nada más).
   if (prev.k === 'crawl' && next.k === 'step' && next.burpee) return BURPEE_GAP_S * vmax;
   let g = MIN_GAP;
@@ -64,8 +72,11 @@ export function minGap(prev: Piece, next: Piece, vmax: number): number {
   if (next.k === 'crawl') g = Math.max(g, CRAWL_WARN_S * vmax); // (echarse al suelo con tiempo)
   if (next.k === 'glide') g = Math.max(g, GLIDE_WARN_S * vmax); // (abrir los brazos con tiempo)
   if (prev.k === 'step') g += DROP_ROOM; // (lo último, encima de todo lo demás: se baja de la plataforma al acabarla)
-  // (en el vuelo, tiempo para cambiar de lado y de altura entre uno y otro)
-  if (FLY_KINDS.includes(prev.k) || FLY_KINDS.includes(next.k)) g = Math.max(g, FLY_GAP_S * vmax);
+  // (en el vuelo, tiempo para el gesto del reto que viene: el suyo; y el doble si pasa de arriba a abajo o al revés)
+  if (FLY_KINDS.includes(next.k)) {
+    const opp = flyLevel(prev) * flyLevel(next) < 0 ? 2 : 1;
+    g = Math.max(g, (FLY_GAP[next.k] ?? FLY_GAP_S) * flyK * opp * vmax);
+  } else if (FLY_KINDS.includes(prev.k)) g = Math.max(g, FLY_GAP_S * vmax);
   return g;
 }
 
@@ -92,7 +103,8 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
   const rand = (a: number, b: number): number => a + (b - a) * env.rnd();
   const T = env.tune ?? TUNE_DEF;
   const clamp = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
-  const W = worldOf(tramo, env.worldLen), kinds = env.fly ? [...FLY_KINDS] : [...courseKinds(tramo, W), ...(env.extra ?? [])].filter((k) => !env.skip?.includes(k));
+  const fk = env.fly ? T.flyGap * (tramo === 0 ? FLY_FIRST : 1) : 1; // (volando: el tiempo entre retos)
+  const W = worldOf(tramo, env.worldLen), kinds = env.fly ? FLY_KINDS.filter((k) => (FLY_FROM[k] ?? 0) <= tramo) : [...courseKinds(tramo, W), ...(env.extra ?? [])].filter((k) => !env.skip?.includes(k));
   let end = start + env.len;
   // (el cofre se prueba con id 0 solo para medir el sitio que pide: su id verdadero va al final, tras la última pieza)
   const probe = piece(0, 'chest', end, tramo);
@@ -206,20 +218,20 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
       seg.push(piece(id, k, 0, tramo, { len: GRIP_LEN, n: env.rnd() < 0.5 ? 0 : 1 }));
     } else if (k === 'ring') {
       // el aro: flota bajo (por debajo de la altura de salida: hay que picar), a un lado o al centro
-      seg.push(piece(id, k, 0, tramo, { u: rand(-1.6, 1.6), h: rand(2.6, 5.4) }));
+      seg.push(piece(id, k, 0, tramo, { u: rand(-1.6, 1.6), h: rand(FLY_LO, FLY_HI) }));
     } else if (k === 'pillar') {
       // la columna: a un lado, más alta que lo más alto del vuelo
       const side: -1 | 1 = env.rnd() < 0.5 ? -1 : 1;
       seg.push(piece(id, k, 0, tramo, { side, u: side * rand(0.6, 1.4), h: 14, len: 1.2 }));
     } else if (k === 'arch') {
       // el puente: de lado a lado, con su cara de abajo entre 4 y 6 m
-      seg.push(piece(id, k, 0, tramo, { h: rand(4, 6), len: 2 }));
+      seg.push(piece(id, k, 0, tramo, { h: rand(ARCH_LO, ARCH_HI), len: 2 }));
     } else if (k === 'crack') {
       seg.push(piece(id, k, 0, tramo, { u: rand(-1, 1), len: rand(1.2, 2) }));
     } else if (k === 'updraft') {
       seg.push(piece(id, k, 0, tramo, { u: rand(-1.5, 1.5), len: 6 }));
     } else if (k === 'berries') {
-      seg.push(piece(id, k, 0, tramo, { u: rand(-1.6, 1.6), h: rand(2.6, 6), n: 4, len: 3 }));
+      seg.push(piece(id, k, 0, tramo, { u: rand(-1.6, 1.6), h: rand(FLY_LO, FLY_HI), n: 4, len: 3 }));
     } else if (k === 'gust') {
       // la racha: sopla desde un lado (side: desde dónde) y empuja hacia el otro
       seg.push(piece(id, k, 0, tramo, { len: rand(GUST_MIN, GUST_MAX), side: env.rnd() < 0.5 ? -1 : 1 }));
@@ -272,7 +284,7 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     if (prev) {
       // Sitio de más al azar, algo menos en los tramos altos: más piezas, más apretado (nunca bajo el mínimo).
       const extra = intro ? rand(0.5, 2) : (rand(4, 10) - Math.min(2, 0.4 * tramo)) * T.space;
-      first.at = prev.at + prev.len + minGap(prev, first, env.vmax) + extra;
+      first.at = prev.at + prev.len + minGap(prev, first, env.vmax, fk) + extra;
     } else {
       // (hasta 3 m de más, no 4: con el sitio de frenada ante el cofre, el peor azar del tramo de 40 m a vmax 4,8 ya no cabía)
       first.at = start + RUN_UP + rand(0, 3);
@@ -282,7 +294,7 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     else for (let i = 1; i < seg.length; i++) seg[i]!.at = seg[i - 1]!.at + seg[i - 1]!.len + minGap(seg[i - 1]!, seg[i]!, env.vmax);
     // Si tras la última no cabe el sitio que pide el cofre, el tramo ya está lleno.
     const tail = k === 'fork' ? first : seg[seg.length - 1]!;
-    if (tail.at + tail.len + minGap(tail, lim, env.vmax) > lim.at) break;
+    if (tail.at + tail.len + minGap(tail, lim, env.vmax, fk) > lim.at) break;
     pieces.push(...seg);
   }
   if (boss) {
@@ -388,7 +400,7 @@ export function courseRules(pieces: Piece[], vmax: number, tune: PlatTune = TUNE
       continue; // (sin orden no tiene sentido medir el sitio entre ellas)
     }
     const room = p.at - (prev.at + prev.len);
-    const need = minGap(prev, p, vmax);
+    const need = minGap(prev, p, vmax, T.flyGap);
     if (room < need - eps) out.push(`Las piezas ${prev.id} (${prev.k}) y ${p.id} (${p.k}) están demasiado juntas: ${room.toFixed(2)} m de sitio y piden ${need.toFixed(2)} m`);
   }
   for (const [tramo, n] of especiales) if (n > 1) out.push(`El tramo ${tramo} tiene ${n} frutas especiales: como mucho una`);

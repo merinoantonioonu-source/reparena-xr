@@ -73,6 +73,8 @@ export const RANK_VALS: Record<string, (number | string)[]> = {
 export const RANK_VALS_XR: Record<string, (number | string)[]> = {
   platSpace: [140, 120, 100, 95, 90, 85, 80], platGap: [80, 85, 90, 95, 100, 105, 110], platDuck: [22, 23, 24, 25, 26, 27, 28],
   platHigh: [80, 83, 86, 89, 92, 95, 98], platTunnel: [3, 3.1, 3.3, 3.4, 3.6, 3.7, 3.9], platFoeV: [0.6, 0.75, 0.9, 1, 1.1, 1.25, 1.4],
+  // volando: el tiempo entre retos (%), más holgado en los rangos bajos
+  platFlyGap: [120, 110, 100, 95, 90, 85, 80],
   // el superman, «aguante que protege»: lo que esperan los voladores mientras estás tumbado sin subir (s)
   supRest: [6, 5.5, 5, 4.5, 4.2, 3.8, 3.5],
 };

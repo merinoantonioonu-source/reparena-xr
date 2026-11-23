@@ -9,12 +9,12 @@ import { describe, expect, it } from 'vitest';
 import { worldOf } from '../../src/modes/trek/plat/worlds.js';
 import { buildCourse, courseKinds, courseRules, minGap } from '../../src/modes/trek/plat/course.js';
 import { proneExtra } from '../../src/modes/trek/plat/runner.js';
-import { ARC_MAX, ARC_MIN, bossTramo, WALKERS, GOLD_N, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece, type PlatTune, platTune, TUNE_DEF } from '../../src/modes/trek/plat/types.js';
+import { FLY_GAP, FLY_KINDS, FLY_LO, FLY_HI, ARCH_LO, ARCH_HI, ARC_MAX, ARC_MIN, bossTramo, WALKERS, GOLD_N, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece, type PlatTune, platTune, TUNE_DEF } from '../../src/modes/trek/plat/types.js';
 
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
 /** La tabla de dificultad más fácil (la del recluta salvo la separación: lo mínimo de cada medida) y una difícil. */
-const T0: PlatTune = { space: 1, gap: 0.8, duck: 0.22, high: 0.8, tunnel: 3, foeV: 0.9 };
-const T6: PlatTune = { space: 0.8, gap: 1.1, duck: 0.28, high: 0.98, tunnel: 3.9, foeV: 1.4 };
+const T0: PlatTune = { space: 1, gap: 0.8, duck: 0.22, high: 0.8, tunnel: 3, foeV: 0.9, flyGap: 1 };
+const T6: PlatTune = { space: 0.8, gap: 1.1, duck: 0.28, high: 0.98, tunnel: 3.9, foeV: 1.4, flyGap: 0.8 };
 const env = (seed: number, vmax: number, len: number, tune: PlatTune = T0): CourseEnv => ({ vmax, len, rnd: rng(seed), tune });
 /** ¿Hay en el recorrido la clase `k`? El burpee no es una pieza: es un túnel con, justo detrás, una plataforma de burpee. */
 const hay = (ps: Piece[], k: string): boolean => (k === 'burpee' ? ps.some((p) => p.k === 'step' && p.burpee) : k === 'fruit' ? ps.some((p) => p.k === 'fruit' && !p.gold) : ps.some((p) => p.k === k));
@@ -531,4 +531,26 @@ describe('courseRules detecta lo que incumple', () => {
     expect(frenar(6.61, 4.8)).toEqual([]);
     expect(frenar(5, 3)).toEqual([]);
   });
+
+  it('volando: 2.000 recorridos cumplen las reglas; cada reto, con el tiempo de su gesto; el primer tramo, solo premios; las grietas, desde el tercero', () => {
+    const r = rng(4242);
+    for (let n = 0; n < 2000; n++) {
+      const vmax = 1.2 + 3.6 * r(), tramo = n % 4, T = n % 2 ? T6 : T0;
+      // (volando no hay jefe: con 10 tramos por mundo, ninguno de estos es el suyo)
+      const c = buildCourse({ ...env(n + 3, vmax, 120 + 200 * r(), T), fly: true, worldLen: 10 }, tramo, n % 7, 0, 0);
+      expect(courseRules(c.pieces, vmax, T, 10), `#${n}`).toEqual([]);
+      const ps = c.pieces.filter((p) => FLY_KINDS.includes(p.k));
+      for (let i = 1; i < ps.length; i++) {
+        const p = ps[i], q = ps[i - 1], need = FLY_GAP[p.k]! * T.flyGap * (tramo === 0 ? 1.4 : 1) * vmax;
+        expect(p.at - q.at - q.len, `#${n} ${q.k}→${p.k}`).toBeGreaterThanOrEqual(need - 1e-9);
+      }
+      if (tramo === 0) for (const p of ps) expect(['ring', 'updraft', 'berries'], `#${n}`).toContain(p.k);
+      if (tramo < 2) expect(ps.some((p) => p.k === 'crack'), `#${n}`).toBe(false);
+      for (const p of ps) {
+        if (p.k === 'ring' || p.k === 'berries') expect(p.h >= FLY_LO && p.h <= FLY_HI, `#${n} ${p.k} ${p.h}`).toBe(true);
+        if (p.k === 'arch') expect(p.h >= ARCH_LO && p.h <= ARCH_HI, `#${n} arch ${p.h}`).toBe(true);
+      }
+    }
+  });
 });
+

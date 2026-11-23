@@ -64,12 +64,33 @@ export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side
 /** El paso lateral en plancha (elegido por el usuario: caminar con las manos, no con los pies, a un lado): lo que mide (m) y
  * lo que hay que llevar la cabeza al otro lado mientras dura (m, desde el centro: más que escorarse). */
 export const LANE_MIN = 3, LANE_MAX = 5, LANE_NEED = 0.26;
+/** Lo que midió la práctica de vuelo (docs/PLAN-VUELO.md, 3.4): el recorrido entero de cada eje (m de cabeza: escorarte,
+ * bajar el pecho y la pica), al 80 % de lo que hiciste. */
+export const FLY_FIT = 'reparenaxr-fly';
+export interface FlyFit {
+  side: number;
+  down: number;
+  back: number;
+}
+/** Ya hiciste la práctica de vuelo (no sale más, salvo con «Vuelo: repetir la práctica»). */
+export const FLY_TUTO = 'reparenaxr-flytuto';
 /** Lo que hay en el vuelo (`CourseEnv.fly`). */
 export const FLY_KINDS: readonly PieceKind[] = ['ring', 'pillar', 'arch', 'crack', 'updraft', 'berries'];
 /** El vuelo: el radio del aro (m: lo cerca de su centro que hay que pasar), el ancho de la columna (m), lo que hay que pasar
  * por debajo del puente (m), lo cerca de la grieta (m), el ancho de la corriente (m), lo cerca de cada fruta (m), a cuánto
  * del cofre se empieza a bajar para posarse (m) y la separación entre retos (s a velocidad máxima). */
 export const RING_R = 0.9, PILLAR_W = 1.4, ARCH_CLEAR = 0.6, CRACK_W = 0.7, UPDRAFT_W = 1.2, BERRY_R = 0.7, LAND_D = 22, FLY_GAP_S = 2.4;
+/** Volando, el tiempo antes de cada reto (s a velocidad máxima: entre que se distingue y llega, 1,5 × lo que tarda su gesto y
+ * 0,4 s; docs/PLAN-VUELO.md, 3.5): la grieta (ponerse de canto), el puente y el aro (bajar o subir), lo demás (escorarse).
+ * En el primer tramo, `FLY_FIRST` × más. */
+export const FLY_GAP: Partial<Record<PieceKind, number>> = { crack: 4, arch: 3, ring: 3, pillar: 2.4, updraft: 2.4, berries: 2.4 };
+export const FLY_FIRST = 1.4;
+/** Los retos del vuelo que salen desde cada tramo de la primera partida (los premios desde el primero; columnas y puentes
+ * desde el segundo; las grietas desde el tercero). */
+export const FLY_FROM: Partial<Record<PieceKind, number>> = { pillar: 1, arch: 1, crack: 2 };
+/** La altura de cada reto del vuelo que pide un gesto (m), para que se alcance con medio recorrido: el aro y las frutas, de
+ * `alt0 − 1,8` a `alt0 + 1,5`; el puente, su cara de abajo de `alt0 − 1,1` a `alt0 − 0,4` (con medio pecho abajo se pasa). */
+export const FLY_LO = 4.2, FLY_HI = 7.5, ARCH_LO = 4.9, ARCH_HI = 5.6;
 /** Los demás movimientos de brazos en plancha (docs/PLAN-ERGONOMIA-Y-CUESTAS.md, apartado 5), de los que salen tres por tramo
  * (además del paso lateral), cada tramo otros, para no llenarlo. */
 export const ARMS_KINDS: readonly PieceKind[] = ['tilt', 'wave', 'slit', 'reach', 'paw', 'slap', 'grip'];
@@ -293,16 +314,18 @@ export interface PlatTune {
   high: number;
   tunnel: number;
   foeV: number;
+  /** Volando, × el tiempo entre retos (`FLY_GAP`). */
+  flyGap: number;
 }
 /** Los de serie (los del cabo, el rango de serie: como antes de la tabla). */
-export const TUNE_DEF: PlatTune = { space: 1, gap: 0.9, duck: 0.24, high: 0.86, tunnel: 3.3, foeV: FOE_V };
+export const TUNE_DEF: PlatTune = { space: 1, gap: 0.9, duck: 0.24, high: 0.86, tunnel: 3.3, foeV: FOE_V, flyGap: 1 };
 /** Lo que más crece cada medida sobre la de la tabla, tramo a tramo (m). */
 export const TUNE_UP = { gap: 0.8, duck: 0.12, high: 0.7, tunnel: 3 } as const;
 /** Los ajustes de la tabla, de los valores de los ajustes (`s`: platSpace en %, platGap/platDuck/platHigh en cm,
  * platTunnel en m, platFoeV en m/s; 0 o sin ellos, los de serie). */
 export function platTune(s: (k: string) => number): PlatTune {
   const v = (k: string, k2: number, d: number): number => (s(k) > 0 ? s(k) * k2 : d);
-  return { space: v('platSpace', 0.01, TUNE_DEF.space), gap: v('platGap', 0.01, TUNE_DEF.gap), duck: v('platDuck', 0.01, TUNE_DEF.duck), high: v('platHigh', 0.01, TUNE_DEF.high), tunnel: v('platTunnel', 1, TUNE_DEF.tunnel), foeV: v('platFoeV', 1, TUNE_DEF.foeV) };
+  return { space: v('platSpace', 0.01, TUNE_DEF.space), gap: v('platGap', 0.01, TUNE_DEF.gap), duck: v('platDuck', 0.01, TUNE_DEF.duck), high: v('platHigh', 0.01, TUNE_DEF.high), tunnel: v('platTunnel', 1, TUNE_DEF.tunnel), foeV: v('platFoeV', 1, TUNE_DEF.foeV), flyGap: v('platFlyGap', 0.01, TUNE_DEF.flyGap) };
 }
 
 /** Lo que `buildCourse` necesita para hacer un tramo. */
@@ -344,8 +367,8 @@ export interface PlatEnv {
   /** El estado de la partida: 'play' (en el tramo), 'rest' (entre tramos), 'ready' (antes del primero), 'paused', 'end'. */
   state: string;
   /** La cabeza en la arena y tu altura de pie (calibrada); `roll`, lo que se gira de canto mirando al suelo (rad, sin signo:
-   * 0 en plancha, unos 90° en la plancha lateral). */
-  head: { x: number; y: number; z: number; roll?: number };
+   * 0 en plancha, unos 90° en la plancha lateral); `yaw`, hacia dónde mira el cuerpo (rad, 0 hacia −z, + a la derecha). */
+  head: { x: number; y: number; z: number; roll?: number; yaw?: number };
   /** Las muñecas (en la arena) y si se ven de verdad (una calculada al perderla, no): para planear con los brazos en cruz. */
   hands: { l: { ok: boolean; x: number; y: number; z: number }; r: { ok: boolean; x: number; y: number; z: number } };
   calibRef: number;
