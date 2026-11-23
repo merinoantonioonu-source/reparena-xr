@@ -24,8 +24,9 @@ const animsOf = (file: string): string[] => {
 describe('la tabla', () => {
   it('cada enemigo de la tabla es de las compuertas (o vuela) y tiene su modelo con sus animaciones', () => {
     for (const [k, d] of Object.entries(FOE_DEF)) {
-      expect((d.fly ? FOE_FLY : FOE_GATE).some((o) => o[0] === k), k).toBe(true);
-      const anims = animsOf(fileOf(d.ual ? 'foe-anims' : d.asset)); // (el diablillo y el puglin: las de la biblioteca)
+      // (los robots pesado y titán son del grupo «Robots»)
+      expect((d.fly ? FOE_FLY : FOE_GATE).some((o) => o[0] === (d.robot ? 'robot' : k)), k).toBe(true);
+      const anims = animsOf(fileOf(d.ual || d.robot ? 'foe-anims' : d.asset)); // (el diablillo, el puglin y los robots: las de la biblioteca)
       for (const [what, name] of Object.entries(d.clips)) if (name) expect(anims, `${k}: ${what} (${name})`).toContain(name);
       for (const need of ['idle', 'walk', 'attack'] as const) expect(d.clips[need], `${k}: ${need}`).toBeTruthy();
       expect(d.atk[0]).toBeLessThan(d.atk[1]);
@@ -40,10 +41,12 @@ describe('la tabla', () => {
     expect(devFoe('g:raptor')).toEqual({ hp: 5, str: 2, tier: 0 });
     DEV.t.foes = {};
   });
-  it('los robots (geométricos) por ahora no salen: si solo están ellos, zombis verdes', () => {
-    expect(gateFoes(['robot'])).toEqual(['zgreen']);
-    expect(gateFoes(['robot', 'imp', 'thrower'])).toEqual(['imp', 'thrower']);
-    expect(gateFoes(['robot', 'raptor', 'captain'])).toEqual(['raptor', 'captain']);
+  it('los robots de RepArena vuelven (pedido del usuario): se sacan como los demás', () => {
+    expect(gateFoes(['robot'])).toEqual(['robot']);
+    expect(gateFoes(['robot', 'imp', 'thrower'])).toEqual(['robot', 'imp', 'thrower']);
+    expect(FOE_DEF.robot.robot).toBe('ripper');
+    expect(FOE_DEF.robotheavy.robot).toBe('destroyer');
+    expect(FOE_DEF.robottitan.robot).toBe('colossus');
   });
   it('los voladores: los elegidos con modelo, sin el dragón (solo de jefe); si ninguno, abeja y murciélago', () => {
     expect(flyFoes(['drone', 'hornet'])).toEqual(['bee', 'bat']);

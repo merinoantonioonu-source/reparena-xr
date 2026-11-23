@@ -58,6 +58,8 @@ export class BladeCore {
   private maxUp = -9;
   private warnT = 0;
   private spinDir = 1;
+  /** De qué lado sale (−1 izquierda, 1 derecha): el robot de ese lado la lanza. */
+  from: -1 | 1 = 1;
   readonly frame: ObsFrame = { danger: false, beep: 0, whoosh: false, outcome: null };
 
   /** Sale al fondo de la pista a la velocidad de ahora; `hard`, lo difícil de la partida (de 0 a 1: `arxHard`). */
@@ -73,6 +75,7 @@ export class BladeCore {
     this.spinDir = env.rnd() < 0.5 ? -1 : 1;
     // entra desde un lado (más abierto cuanto más difícil) y describe una curva hasta su sitio
     this.x0 = side * rand(0.6, 0.9 + 0.3 * hard);
+    this.from = side < 0 ? -1 : 1;
     if (kind === 'spin') {
       const d = SPIN_DROP[0] + (SPIN_DROP[1] - SPIN_DROP[0]) * clamp(hard + rand(-0.2, 0.2), 0, 1);
       this.yf = env.calibRef + HEAD_TOP - d;

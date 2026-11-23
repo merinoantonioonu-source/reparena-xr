@@ -48,16 +48,18 @@ export const FOE_TIER: Record<string, number> = { zombie: 1, zgreen: 1, puglin: 
 export const foeTierOf = (devTier: (key: string) => number, k: string): number => devTier('g:' + k) || devTier('h:' + k) || devTier('f:' + k) || FOE_TIER[k] || 2;
 
 /** Lo que sale aquí de cada uno de RepArena: el lanzador es «thrower»; los jefes («…boss»), el mismo a lo grande; la
- * nodriza (geométrica), el dragón; los robots, drones y avispones (geométricos, por ahora no: decisión del usuario), un
- * zombi verde o una abeja. */
+ * nodriza (geométrica), el dragón; los robots, los de RepArena (vuelven: pedido del usuario); los drones y avispones
+ * (geométricos, por ahora no: decisión del usuario), una abeja. */
 export function xrFoe(kind: string, tiny = false): { k: string; boss: boolean } {
   // la batalla diminuta: los de las trampillas («hcrab», «hcrabboss»…); las arañas (geométricas), un cangrejo
   if (tiny && (kind === 'scout' || kind === 'heavy')) return { k: 'hcrab', boss: false };
   if (tiny && kind === 'titan') return { k: 'hcrab', boss: true };
   if (kind === 'impthrow') return { k: 'thrower', boss: false };
   if (kind === 'dragon' || kind === 'carrier') return { k: 'dragon', boss: true };
-  if (kind === 'titan') return { k: 'zgreen', boss: true };
-  if (kind === 'scout' || kind === 'heavy') return { k: 'zgreen', boss: false };
+  // los robots de RepArena (vuelven: pedido del usuario): el Segador, el Destructor y el Coloso, su titán
+  if (kind === 'titan') return { k: 'robottitan', boss: true };
+  if (kind === 'scout') return { k: 'robot', boss: false };
+  if (kind === 'heavy') return { k: 'robotheavy', boss: false };
   if (kind === 'drone' || kind === 'hornet' || kind === 'bomber') return { k: 'bee', boss: false };
   if (kind.endsWith('boss')) return { k: kind.slice(0, -4), boss: true };
   return { k: kind, boss: false };

@@ -6,7 +6,7 @@
  *
  * Los de las compuertas con modelo de Quaternius: zombis, velociraptor, piratas, monstruitos (PR 8a), y el diablillo, el
  * puglin y el lanzador (PR 8b; sus animaciones, las de la biblioteca pasadas a su esqueleto: src/combat/retarget.ts). Los
- * robots, que en RepArena eran geométricos, por ahora no (decisión del usuario): si solo están elegidos esos, zombis verdes.
+ * robots, geométricos como en RepArena (src/combat/robots.ts), vuelven (pedido del usuario).
  */
 import { Vector3 } from 'three';
 import { DEV, DEV_FACTORY } from '../core/dev-state.js';
@@ -65,6 +65,8 @@ export interface FoeDef {
   fly?: boolean;
   /** El jefe de la ronda (bossDef). */
   boss?: boolean;
+  /** Un robot de RepArena (geométrico, hecho en código: src/combat/robots.ts), con las animaciones de la biblioteca. */
+  robot?: 'ripper' | 'destroyer' | 'colossus';
 }
 
 const ZOMBIE2_CLIPS: FoeClips = { idle: 'Idle', walk: 'Walk', run: 'Run', attack: 'Punch', hit: 'HitReact', death: 'Death', dance: 'Idle_Attack' };
@@ -106,7 +108,13 @@ const UAL_CLIPS: FoeClips = { idle: 'Idle_Loop', walk: 'Walk_Loop', run: 'Jog_Fw
 // (el diablillo amenaza con un hechizo; el puglin, bailando: RepArena, pickAnim)
 const IMP_CLIPS: FoeClips = { ...UAL_CLIPS, taunt: 'Spell_Simple_Shoot' };
 const texOf = (k: string): string[] => [1, 2, 3].map((v) => `foe-${k}-color${v}`);
+// los robots de RepArena (pedido del usuario: «vuelve a traer a los robots»): el Segador (el de siempre), el Destructor (el
+// pesado, una de cada tres) y el Coloso (el titán, su jefe); sus animaciones, las de la biblioteca pasadas a su esqueleto
+const robot = (kind: 'ripper' | 'destroyer' | 'colossus', h: number, r: number, stop: number, speedF: number, heavy: boolean): FoeDef => ({ asset: 'robot:' + kind, robot: kind, h, k: 1, r, stop, speedF, heavy, walk: 1.15, run: 2.6, minTs: 0.5, maxTs: 1.8, clips: UAL_CLIPS, atk: [0.15, 0.3], voice: 'robot', grp: 'robot', ctr: 0.6 });
 Object.assign(FOE_DEF, {
+  robot: robot('ripper', 2.15, 0.4, 1.15, 1, false),
+  robotheavy: robot('destroyer', 2.0, 0.5, 1.3, 0.85, true),
+  robottitan: robot('colossus', 2.0, 0.55, 1.5, 0.75, true),
   imp: { asset: 'foe-imp', h: 1.68, k: 1, r: 0.4, stop: 1.2, speedF: 1, heavy: false, walk: 1.25, run: 2.9, minTs: 0.5, maxTs: 1.8, clips: IMP_CLIPS, atk: [0.15, 0.3], voice: 'imp', grp: 'beast', ctr: 0.62, ual: true, tex: texOf('imp'), noInk: true },
   puglin: { asset: 'foe-puglin', h: 1.07, k: 1.15, r: 0.4, stop: 1.0, speedF: 1.25, heavy: false, walk: 0.92, run: 2.2, minTs: 0.5, maxTs: 1.8, clips: UAL_CLIPS, atk: [0.15, 0.3], voice: 'puglin', grp: 'beast', ctr: 0.6, ual: true, tex: texOf('puglin') },
   // el lanzador: un diablillo algo más pequeño que se queda lejos (a 4,2 m) y te tira piedras (RepArena: impthrow)
@@ -143,7 +151,7 @@ export function bossDef(k: string): FoeDef {
   return (bossDefs[k] = { ...d, k: d.k * sc, h: d.h * sc, r: d.r * sc, walk: d.walk * sc, run: d.run * sc, speedF, stop, heavy: true, boss: true });
 }
 
-/** ¿Ya se puede sacar? (los robots, que eran geométricos, por ahora no: decisión del usuario en el PR 8b) */
+/** ¿Ya se puede sacar? (los robots, geométricos, también: pedido del usuario, que los había aplazado en el PR 8b) */
 export const foeReady = (k: string): boolean => !!FOE_DEF[k];
 
 /** Su nombre (el de Rivales). */
