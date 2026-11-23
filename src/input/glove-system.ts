@@ -6,6 +6,7 @@
  * IWSDK. Las puntas de los dedos, del color que llevas (en Toques, el de los diamantes de esa mano).
  */
 import { createSystem, InstancedMesh, Matrix4, Quaternion, Vector3, VisibilityState } from '@iwsdk/core';
+import { keepInBlack } from '../ui/black-out.js';
 import type { BufferGeometry, Group, Material, Object3D } from '@iwsdk/core';
 import { LOOK } from '../combat/fx.js';
 import { settings, str } from '../core/values.js';
@@ -98,6 +99,7 @@ export class GloveSystem extends createSystem({}, {}) {
     palm.visible = false;
     for (const m of [G.seg, G.ridge, G.joint, G.tip, G.guard]) this.world.createTransformEntity(m);
     this.world.createTransformEntity(palm);
+    for (const m of [G.seg, G.ridge, G.joint, G.tip, G.guard, palm]) keepInBlack(m); // (tus manos, sobre el negro del final)
     return G;
   }
 

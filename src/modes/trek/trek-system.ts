@@ -19,7 +19,7 @@ import { diagEvent } from '../../core/diag.js';
 import { dv, store, waveReps, nWaves, rankIdx } from '../../core/settings.js';
 import { CAMP } from '../../core/campaign.js';
 import { GAME, HOOKS, LITE, VIEW } from '../../core/state.js';
-import { num, settings } from '../../core/values.js';
+import { num, settings, str } from '../../core/values.js';
 import { haptic } from '../../input/hand-system.js';
 import { hands, head, headFwd, type Hand } from '../../input/hand-model.js';
 import { Wings } from './wings.js';
@@ -1048,7 +1048,9 @@ export class TrekSystem extends createSystem({}) {
         let L = this.deco.get(c);
         if (!L) {
           const fl = this.floorAt((c + 0.5) * TREK_CH);
-          L = fl === 'cliff' ? cliffDecoPuts(c, []) : fl === 'sky' ? skyDecoPuts(c, []) : fl === 'coast' ? coastDecoPuts(c, []) : decoPuts(c, [], this.biomeAt(c * TREK_CH));
+          // (del lado del marcador, nada alto que lo atraviese: board-spot.ts)
+          const bs = str('board'), cl: -1 | 0 | 1 = bs === 'right' ? 1 : bs === 'left' ? -1 : 0;
+          L = fl === 'cliff' ? cliffDecoPuts(c, []) : fl === 'sky' ? skyDecoPuts(c, [], cl) : fl === 'coast' ? coastDecoPuts(c, [], cl) : decoPuts(c, [], this.biomeAt(c * TREK_CH), cl);
           this.deco.set(c, L);
         }
         for (const u of L) this.put(u, u.ds, 0, 1);

@@ -23,6 +23,7 @@
  */
 import { trekRng, TREK_CH } from '../path.js';
 import { HEAD_TOP } from '../env.js';
+import { BOARD_CLEAR_U } from '../board-spot.js';
 import { SHIP_U, LEDGE_W, BOX_CLEAR, FORK_RAMP, FORK_U, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, SPRING_LIFT, type Piece } from './types.js';
 
 export type Kit = 'island' | 'nature' | 'food';
@@ -233,12 +234,15 @@ export function skyFloorPuts(s0: number, s1: number, holes: ReadonlyArray<readon
 
 /** El paisaje de las islas en el trozo `chunk`: otras islas flotando a los lados, a distintas alturas y tamaños, algunas
  * con un árbol encima (las de muy lejos, sin él: no se distinguiría). */
-export function skyDecoPuts(chunk: number, out: Put[]): Put[] {
+export function skyDecoPuts(chunk: number, out: Put[], clear: -1 | 0 | 1 = 0): Put[] {
   const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ 0x7f4a7c15) >>> 0), s0 = chunk * TREK_CH;
   const between = (a: number, b: number): number => a + R() * (b - a);
   const n = 1 + Math.floor(R() * 3);
   for (let i = 0; i < n; i++) {
-    const side = R() < 0.5 ? -1 : 1, near = R() < 0.5, w = near ? between(4, 7) : between(8, 16), u = side * (near ? between(7, 14) : between(18, 45));
+    const side = R() < 0.5 ? -1 : 1, near = R() < 0.5, w = near ? between(4, 7) : between(8, 16);
+    let u = side * (near ? between(7, 14) : between(18, 45));
+    // (del lado del marcador, el islote cercano, más allá de él: si no, lo atravesaba)
+    if (side === clear) u = side * Math.max(Math.abs(u), BOARD_CLEAR_U + w / 2 + 1);
     const ds = between(s0, s0 + TREK_CH), y = near ? between(-6, 3) : between(-14, 14), deep = w * between(0.6, 1.1);
     out.push(rockFit('island', 'Cliff1', u - w / 2, u + w / 2, y - w * 0.12, y, ds - w / 2, ds + w / 2, R() < 0.5));
     out.push(hangFit('Cliff3', u - w * 0.42, u + w * 0.42, y - w * 0.08, y - w * 0.08 - deep, ds - w * 0.4, ds + w * 0.4, { ry: R() * 6.28 }));
@@ -294,14 +298,16 @@ export function coastFloorPuts(s0: number, s1: number, holes: ReadonlyArray<read
 
 /** El paisaje de la costa en el trozo `chunk`: islotes de roca con palmeras (alguno con huesos de ballena o calaveras),
  * barriles y botellas flotando junto al muelle, postes de un muelle viejo y, de vez en cuando, un barco pirata a lo lejos. */
-export function coastDecoPuts(chunk: number, out: Put[]): Put[] {
+export function coastDecoPuts(chunk: number, out: Put[], clear: -1 | 0 | 1 = 0): Put[] {
   const R = trekRng((Math.imul(chunk | 0, 0x2545f491) ^ 0x6a09e667) >>> 0), s0 = chunk * TREK_CH;
   const between = (a: number, b: number): number => a + R() * (b - a);
   const side = (): -1 | 1 => (R() < 0.5 ? -1 : 1);
   // los islotes con palmeras
   const n = 1 + Math.floor(R() * 2);
   for (let i = 0; i < n; i++) {
-    const u = side() * between(7, 22), ds = s0 + ((i + R()) / n) * TREK_CH, w = between(4, 8), top = SEA_Y + between(0.3, 0.7);
+    const sd = side(), w0 = between(7, 22), ds = s0 + ((i + R()) / n) * TREK_CH, w = between(4, 8), top = SEA_Y + between(0.3, 0.7);
+    // (del lado del marcador, el islote y sus palmeras, más allá de él)
+    const u = sd * (sd === clear ? Math.max(w0, BOARD_CLEAR_U + w / 2) : w0);
     out.push(rockFit('island', 'Rock_1', u - w / 2, u + w / 2, SEA_Y - 1.2, top, ds - w / 2, ds + w / 2, R() < 0.5));
     const palms = 1 + Math.floor(R() * 3);
     for (let j = 0; j < palms; j++) {
@@ -335,6 +341,21 @@ function layPole(ds: number, u: number, bottom: number, len: number, th: number)
   const sy = len / PL_LEN;
   // (con rz = π/2, su x pasa a ser y —de ahí el borde de abajo— y su y pasa a ser −x —de ahí el centrado—)
   return put('island', 'Dock_Pole', ds, u + ((PL.y0 + PL.y1) / 2) * sy, bottom - PL.x0 * th, { rz: Math.PI / 2, sx: th, sy, sz: th });
+}
+
+/** Lo que ocupa a lo ancho una roca del paisaje (m, [desde, hasta] en u; null si no es una roca de `BOX`): exacto sin girar
+ * (o girada media vuelta, como las de `rockFit`); girada de otra forma, lo más que puede ocupar. Para comprobar que nada
+ * atraviesa el marcador (tests/unit/trek-board.test.ts). */
+export function putSpanU(P: Put): [number, number] | null {
+  const b = BOX[P.n];
+  if (!b) return null;
+  const turn = Math.abs(Math.sin(P.ry)) < 1e-6;
+  if (turn && Math.abs(P.rx) < 1e-6) {
+    const f = Math.cos(P.ry) > 0 ? 1 : -1, p = P.u + f * b[0] * P.sx, q = P.u + f * b[3] * P.sx;
+    return [Math.min(p, q), Math.max(p, q)];
+  }
+  const r = Math.hypot(Math.max(Math.abs(b[0]), Math.abs(b[3])), Math.max(Math.abs(b[2]), Math.abs(b[5]))) * Math.max(Math.abs(P.sx), Math.abs(P.sz));
+  return [P.u - r, P.u + r];
 }
 
 /** Cajas de los modelos (a escala 1; vértices del .glb, con la escala y el giro de su nodo): [x0, y0, z0, x1, y1, z1]. */
@@ -546,6 +567,9 @@ export function chestPuts(open: boolean, out: Put[]): Put[] {
 
 /* ------------------------------------------------------------------ el paisaje */
 
+/** Del lado del marcador, lo más cerca del sendero que sale un árbol (m): con su copa, por fuera de él (board-spot.ts). */
+const TREE_CLEAR = BOARD_CLEAR_U + 1.4;
+
 const TREES = ['CommonTree_3', 'CommonTree_4', 'CommonTree_5', 'Pine_2', 'Pine_4', 'Pine_5'];
 
 /** El paisaje de cada tramo (los biomas de la Travesía, `TREK_BIOMES`, por orden: bosque, aldea, pradera del lago y pinar al
@@ -572,7 +596,7 @@ const PLANTS: ReadonlyArray<readonly [string, number, number, number]> = [
 
 /** El paisaje a los lados de la pasarela en el trozo `chunk` (ds de chunk·24 a (chunk+1)·24), con el bioma `biome` (de
  * `DECO_BIOMES`; 0, el bosque): siempre el mismo para el mismo trozo y bioma. */
-export function decoPuts(chunk: number, out: Put[], biome = 0): Put[] {
+export function decoPuts(chunk: number, out: Put[], biome = 0, clear: -1 | 0 | 1 = 0): Put[] {
   const B = DECO_BIOMES[((biome % DECO_N) + DECO_N) % DECO_N], cnt = (base: number, k: number): number => Math.max(k < 1 ? 1 : 0, Math.round(base * k));
   const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ 0x5bd1e995) >>> 0), s0 = chunk * TREK_CH;
   const between = (a: number, b: number): number => a + R() * (b - a);
@@ -582,8 +606,10 @@ export function decoPuts(chunk: number, out: Put[], biome = 0): Put[] {
     for (let i = 0; i < n; i++) add(s0 + ((i + R()) / n) * TREK_CH, (R() < 0.5 ? -1 : 1) * between(umin, umax));
   };
   // árboles: más lejos (el follaje de un árbol ancho no entra en la pasarela)
-  scatter(cnt(5, B.kT) + Math.floor(R() * 3), 5, 14, (ds, u) => {
+  scatter(cnt(5, B.kT) + Math.floor(R() * 3), 5, 14, (ds, u0) => {
     const s = between(0.7, 1.1);
+    // (del lado del marcador, más allá de él: de 5–14 m pasan a 8–14)
+    const u = Math.sign(u0) === clear ? clear * (TREE_CLEAR + ((Math.abs(u0) - 5) / 9) * (14 - TREE_CLEAR)) : u0;
     out.push(put('nature', pick(R() < 0.1 ? DEAD : B.trees), ds, u, GROUND_Y, { ry: R() * Math.PI * 2, sx: s, sy: s * between(0.95, 1.05), sz: s }));
   });
   scatter(cnt(3, B.kB) + Math.floor(R() * 2), 2.5, 10, (ds, u) => {

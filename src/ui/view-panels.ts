@@ -11,6 +11,7 @@
  * en un lienzo (como en RepArena).
  */
 import { shortMsg } from './short-msg.js';
+import { keepInBlack } from './black-out.js';
 import { MW, UI } from './ra/menu-core.js';
 import { HITCH } from '../core/hitch.js';
 import { createSystem, BackSide, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, Vector3, VisibilityState } from '@iwsdk/core';
@@ -95,6 +96,7 @@ export class ViewSystem extends createSystem({}) {
       p.mesh.renderOrder = 50;
       p.mesh.visible = false;
       this.world.createTransformEntity(p.mesh);
+      keepInBlack(p.mesh); // («¡VICTORIA!», «DERROTA»: sobre el negro del final)
     }
     void loadCanvasFonts().then(() => {
       this.art.key = ''; // (la ilustración, otra vez con las letras buenas)

@@ -8,6 +8,7 @@
  *  - El menú se recoge con la palma izquierda hacia abajo o con el puño, y con «✕ Cerrar»; vuelve con el botón MENÚ.
  */
 import { createSystem, Group, RayInteractable, Vector3, VisibilityState } from '@iwsdk/core';
+import { keepInBlack } from '../black-out.js';
 import type { Object3D } from '@iwsdk/core';
 import { GAME, HOOKS, LITE } from '../../core/state.js';
 import { onSettingsChange } from '../../core/settings.js';
@@ -67,6 +68,7 @@ export class RaMenuSystem extends createSystem({}, {}) {
     this.root = new Group();
     this.root.name = 'Menús';
     const e = this.world.createTransformEntity(this.root);
+    keepInBlack(this.root); // (el resumen, sobre el negro del final)
     e.addComponent(RayInteractable); // (el rayo de IWSDK sobre los menús: ilumina y, pellizcando, pulsa)
     ENV.root = this.root;
     ENV.inXR = () => this.inXR();

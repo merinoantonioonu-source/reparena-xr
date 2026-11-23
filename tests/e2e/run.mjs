@@ -53,6 +53,34 @@ const port = server.address().port;
 const browser = await chromium.launch({ channel: 'chromium', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 400, height: 250 } });
 const errors = [];
+// lo oscura que está la imagen de `from` (fracción del alto) hacia abajo, y cuánto de toda ella está iluminado
+async function blackShare(from) {
+  // (sin la barra de ayuda de la prueba, que en esta ventana tan pequeña tapa media imagen)
+  await page.evaluate(() => document.querySelector('.pbar')?.setAttribute('style', 'display:none'));
+  const b64 = (await page.locator('#scene-container canvas').first().screenshot()).toString('base64');
+  await page.evaluate(() => document.querySelector('.pbar')?.removeAttribute('style'));
+  return page.evaluate(async ([b64, from]) => {
+    const im = new Image();
+    im.src = 'data:image/png;base64,' + b64;
+    await im.decode();
+    const c = document.createElement('canvas');
+    c.width = im.width;
+    c.height = im.height;
+    const x = c.getContext('2d');
+    x.drawImage(im, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height).data;
+    let dark = 0, n = 0, lit = 0;
+    for (let y = 0; y < c.height; y++)
+      for (let k = 0; k < c.width; k++) {
+        const i = (y * c.width + k) * 4, m = Math.max(d[i], d[i + 1], d[i + 2]);
+        if (m > 80) lit++;
+        if (y < from * c.height) continue;
+        n++;
+        if (m < 30) dark++;
+      }
+    return { dark: dark / n, lit: lit / (c.width * c.height) };
+  }, [b64, from]);
+}
 page.on('pageerror', (e) => errors.push('página: ' + e.message));
 page.on('console', (m) => {
   if (m.type() === 'error') errors.push('consola: ' + m.text().slice(0, 300));
@@ -205,6 +233,16 @@ try {
   // RepArena: las dos versiones lo comparten)
   await page.evaluate(() => window.__rx.game.endRound(false, true));
   await until('el resumen de la ronda', (s) => s.menu === 'summary' && s.phase === 'over', 20);
+  // el negro del final, negro del todo (lo grabó el usuario: al agacharse se veía el suelo y el aro turquesa y, al apartarse,
+  // el resumen desaparecía): con la cabeza a 40 cm del suelo y 2 m atrás, abajo todo es negro y el resumen sigue a la vista
+  await page.waitForTimeout(800);
+  await page.evaluate(() => window.__rx.game.world.player.position.set(0, -1.2, 2));
+  await page.waitForTimeout(600);
+  const dark = await blackShare(0.7);
+  await shot('9-negro');
+  await page.evaluate(() => window.__rx.game.world.player.position.set(0, 0, 0));
+  if (!(dark.dark > 0.97 && dark.lit > 0.01)) throw new Error('el negro del final deja ver la escena o esconde el resumen: ' + JSON.stringify(dark));
+  console.log(`  ✓ el negro del final: agachado y apartado, abajo negro (${(dark.dark * 100).toFixed(1)} %) y el resumen a la vista`);
   const hist = await page.evaluate(() => JSON.parse(localStorage.getItem('reparena3-history') || '[]'));
   const lastRun = hist[hist.length - 1];
   if (!lastRun || lastRun.ex !== 'squat' || !(lastRun.reps > 0) || typeof lastRun.kcal !== 'number') throw new Error('la ronda no está en el historial: ' + JSON.stringify(lastRun));

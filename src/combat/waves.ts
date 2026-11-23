@@ -69,6 +69,23 @@ export const rampK = (ramp: number, lvl: number, cap: number): number => (ramp >
 /** Lo que tarda una repetición de cada ejercicio de pie (s) (RepArena: repTimeOf). */
 export const REP_TIME: Record<string, number> = { squat: 2.3, curl: 1.3, curl2: 2.0, twist: 1.6, press2: 2.0, fraise: 2.4, thruster: 3.4, frontsq: 3.0, jsquat: 2.6, swing: 2.0, chop: 2.4, dlrow: 3.0, lunge: 2.6, press: 1.6 };
 
+/**
+ * Lo que tarda una repetición de cualquier ejercicio (s) (RepArena: repTimeOf, src/00_core.js), con los ajustes que la
+ * alargan (`get`: el superman, lo que se aguanta arriba; la plancha lateral, lo que se aguanta). Antes la partida solo
+ * conocía los de pie (`REP_TIME`) y los de suelo caían en 2,4 s: en el superman (unos 5 s) los voladores salían al doble
+ * de ritmo del que se podían derribar (lo vio el usuario en su diagnóstico). En Toques, el ritmo es el de sus objetivos.
+ */
+export function repTimeOf(ex: string, mode: string, get: (k: string) => number): number {
+  if (mode === 'touch') return get('tchGap');
+  const t = REP_TIME[ex] ?? FLOOR_REP_TIME[ex];
+  if (t !== undefined) return t;
+  if (ex === 'superman') return get('supHold') + 3;
+  if (ex === 'splank') return get('splHold') + 0.5;
+  return 2.4;
+}
+/** Los de suelo, sentado, en barras y los demás (RepArena: repTimeOf). */
+const FLOOR_REP_TIME: Record<string, number> = { pushup: 2.4, pike: 2.6, inchworm: 8, plank1: 2.2, plankrow: 2.4, row: 2.6, pullup: 3.2, hang: 1, jump: 2.2, abs: 2.6, combo: 2.4, dips: 2.4 };
+
 /** ¿Es la oleada del jefe? La última (o, al fallo, cada quinta). */
 export const isBossWave = (i: number, waves: number): boolean => (waves ? i === waves - 1 : (i + 1) % 5 === 0);
 
