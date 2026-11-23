@@ -468,6 +468,12 @@ No las cambies sin preguntarle.
 - **Jefe errante** (elegido por el usuario; Combate, «Jefe errante», de serie): desde la tercera oleada, a veces sale un jefe
   de los de esa oleada a mitad de una oleada normal (nunca en la del jefe), con el aviso «¡JEFE ERRANTE!»; su vida sale de
   los que quedaban por salir al final: la oleada pide las mismas repeticiones.
+- **Sucesos en las oleadas** (elegidos por el usuario; Combate, «Sucesos en las oleadas», de serie): desde la segunda oleada,
+  a veces una oleada trae uno (nunca dos oleadas seguidas ni en la del jefe), y su panel lo dice: **eclipse** (todo a oscuras,
+  con estrellas: se ve lo que brilla, las cuentas de vida, los aros y los rayos), **lluvia de meteoritos** (rocas en llamas
+  que caen desde lo alto hacia donde estás: apartarse o pararlas con la mano, como las del lanzador), **niebla cerrada** (los
+  enemigos aparecen de golpe) y **lluvia de oro** (al empezar la oleada, orbes de oro bajan flotando a tu alcance: se cogen
+  con la mano o la cabeza y dan puntos). Tumbado, en plancha o sentado, solo el eclipse y la niebla.
 - Travesía: la roca del derrumbe se queda quieta del todo al embestirla (el golpe se ve en su cara). Una zancada hacia
   delante empuja a los bandidos y hace recular a los lobos cercanos. Los bandidos no se quedan plantados: cambian de
   sitio entre lanzamientos y a veces provocan.

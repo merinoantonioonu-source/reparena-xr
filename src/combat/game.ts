@@ -46,6 +46,7 @@ import { HatchSystem, hatchFoes } from './hatch-foes.js';
 import { devFoe, flyFoes, FOE_DEF, foeName, foeReady, gateFoes } from './foes.js';
 import { faunaOf, legOf, PLACE_NAME, placeAt, travelsAt, type Place } from './journey.js';
 import { spiceWave, type Elite } from './elite.js';
+import { pickWaveEvent, WAVE_EVENT_NAME, type WaveEvent } from './wave-events.js';
 import { Rewards } from './rewards.js';
 import { RUSH_SECS } from './perks.js';
 import { BoardRing } from '../ui/board-ring.js';
@@ -87,7 +88,7 @@ import { dv, onSettingsChange, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setS
 import { EX_NAMES, EX_SHORT, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
-import { GAME, HOOKS, LITE, SPECIAL, TRAVEL, VIEW, type CenterInfo, type SupEnv } from '../core/state.js';
+import { GAME, HOOKS, LITE, SPECIAL, TRAVEL, VIEW, WAVE_EV, type CenterInfo, type SupEnv } from '../core/state.js';
 import { hands, head, headFwd, SIDES, type Side } from '../input/hand-model.js';
 import { BODY, haptic } from '../input/hand-system.js';
 import { HTH, throwCharge, throwReset, throwStep, type Charge, type ThrowEnv } from '../input/throw.js';
@@ -252,6 +253,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0, kind: '', boss: false, hp: 1, elite: '' as Elite | '' }));
   private fg: FlyGate = { x: 0, z: 0, ry: 0, scale: 1 };
   private spawnT = 0;
+  /** El suceso de la oleada anterior (nunca dos seguidas). */
+  private prevEv: WaveEvent | '' = '';
   private msgT = 0;
   private clock = 0;
   private desktopDrop = 0;
@@ -452,7 +455,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     };
     HOOKS.sparks = (p, n, c) => this.fx.sparks.burst(p, n, c, 2.4, 0.04);
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
-    (window as unknown as { __rx: unknown }).__rx = { GAME, TRAVEL, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS, spotify, sceneryOn: () => this.world.getSystem(EnvSystem)?.sceneryOn ?? false, fitLog: FIT_LOG };
+    (window as unknown as { __rx: unknown }).__rx = { GAME, TRAVEL, WAVE_EV, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS, spotify, sceneryOn: () => this.world.getSystem(EnvSystem)?.sceneryOn ?? false, fitLog: FIT_LOG };
     // la letra de la ×N de la bola (Bungee, para el lienzo)
     try {
       const face = new FontFace('Bungee', `url(${import.meta.env.BASE_URL}fonts/Bungee-Regular.ttf)`);
@@ -1020,6 +1023,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (!tiny && w.list.length && settings.mode === 'combat') spiceWave(w.list, { i, rank: rankIdx(), elites: on('cbElite'), roam: on('cbRoam'), bossWave: isBossWave(i, nWaves()), ground: env.foes === 'flyers' ? [] : ground, isGround: (k) => { const x = xrFoe(k); return !x.boss && !!FOE_DEF[x.k] && !FOE_DEF[x.k].fly; }, rnd: Math.random });
     this.queue = w.list;
     this.waveTarget = env.reps;
+    // (RepArena XR: a veces, un suceso en la oleada: eclipse, meteoritos, niebla cerrada o lluvia de oro)
+    const evCan: WaveEvent[] = ['eclipse', 'fog'];
+    if (!isFloor() && !tiny && settings.exercise !== 'dips') evCan.push('meteors', 'gold');
+    WAVE_EV.kind = settings.mode === 'combat' && on('cbEvents') ? pickWaveEvent(i, i > 0 ? this.prevEv : '', isBossWave(i, nWaves()), evCan, Math.random) : '';
+    this.prevEv = WAVE_EV.kind as WaveEvent | '';
     if (arcsMode) this.arcs()?.startWave(env.reps); // (en Arcos, la oleada son los obstáculos que van saliendo)
     if (barsMode) this.bars()?.startWave(i); // (en Barras, las pompas o los segundos colgado)
     if (trekMode) this.trek()?.startWave(i); // (en la Travesía, el tramo del recorrido hasta su cofre)
@@ -1060,9 +1068,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const trek = settings.mode === 'trek', wl = worldLenFor(num('trekWorld') || 3, nWaves()), newWorld = trek && i > 0 && worldStart(i, wl);
     // (la Travesía, al empezar un mundo nuevo: su nombre y que hay que cruzar el portal)
     const travel = !trek && TRAVEL.on && travelsAt(TRAVEL.route as Place[], i, TRAVEL.per);
-    const t3 = newWorld ? `¡MUNDO ${worldNo(i, wl) + 1}: ${worldOf(i, wl).name}! Cruza el portal` : travel ? `¡Portal! Llegas a ${PLACE_NAME[this.placeOf(i)].toLowerCase()}` : nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
+    const evName = !trek && WAVE_EV.kind ? WAVE_EVENT_NAME[WAVE_EV.kind as WaveEvent] : '';
+    const t3 = newWorld ? `¡MUNDO ${worldNo(i, wl) + 1}: ${worldOf(i, wl).name}! Cruza el portal` : travel ? `¡Portal! Llegas a ${PLACE_NAME[this.placeOf(i)].toLowerCase()}${evName ? ' · ' + evName : ''}` : evName ? evName : nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
     const W = trek ? 'TRAMO' : 'OLEADA', place = trek ? ` · ${tramoBiome(i, wl).name}` : '';
-    drawWave(p.ctx, p.W, p.H, (last ? (trek ? '¡ÚLTIMO TRAMO!' : '¡ÚLTIMA OLEADA!') : N ? `${W} ${i + 1} DE ${N}` : `${W} ${i + 1}`) + place, `${GAME.score} puntos`, t3, newWorld || travel ? '#bff4ff' : nw ? '#ff8a3d' : '#3cf0c6');
+    drawWave(p.ctx, p.W, p.H, (last ? (trek ? '¡ÚLTIMO TRAMO!' : '¡ÚLTIMA OLEADA!') : N ? `${W} ${i + 1} DE ${N}` : `${W} ${i + 1}`) + place, `${GAME.score} puntos`, t3, newWorld || travel ? '#bff4ff' : evName ? '#ffd166' : nw ? '#ff8a3d' : '#3cf0c6');
     p.tex.needsUpdate = true;
     // delante de ti y de cara, derecho (nunca se ladea con la cabeza); tumbado, en el suelo bajo la cara
     const V = VIEW_FRAME, ly = lyingEx();
@@ -1111,6 +1120,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       return;
     }
     GAME.between = true;
+    WAVE_EV.kind = ''; // (el suceso se acaba con su oleada)
     this.restT = num('rest');
     this.resting = true;
     this.rw.waveCleared();
@@ -1235,6 +1245,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   // Se acaba la ronda: al perder todas las vidas (win: false) o al superar la última oleada (RepArena: endRun)
   private endRound(win: boolean, manual = false): void {
+    WAVE_EV.kind = '';
     if (GAME.phase !== 'playing') return;
     spotify().roundEnd(); // (la música se pausa al acabar la ronda y vuelve en la siguiente)
     GAME.paused = false;
