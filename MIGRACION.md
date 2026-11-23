@@ -413,6 +413,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **El vuelo de la Travesía** («Volando», `trekFly`; con tabla, `flyBoard`): el planeador es `Glider` (`plat/fly.ts`, lógica
+  pura: lado, altura, picado, aletazo, pica, corriente, posarse); `Runner.fly`, `flyStep` (lo que manda el cuerpo, con
+  `boardTilt` de las muñecas) y `judgeFly`; el recorrido, `CourseEnv.fly` (solo `FLY_KINDS`, sin premios del suelo ni jefe);
+  `TrekSystem` baja el mundo `Runner.flyAlt`, quita la pasarela salvo junto a los cofres (`FLY_PAD`) y pinta los aros
+  (`flyRings`) y las corrientes (`drawFly`); lo demás, en `pieces.ts`. Lo prueba `plat-fly.test.ts`. Los umbrales, una
+  primera estimación: con las gafas se ajustan (y la tabla, con su caja negra).
+
 - **El manotazo** (plancha con un brazo): `HatchFoe.slap` (`hatch.ts`: contacto, `SLAP_R`; golpe, `SLAP_V` y hacia él) y las
   palmas de las manos de verdad en `HatchSystem.palms` (`hatch-foes.ts`). Lo prueba `hatch-slap.test.ts`.
 - **Un entorno distinto en cada partida** («Entorno distinto en cada partida», `envVary`): la semilla (`EnvSystem.seed`, se

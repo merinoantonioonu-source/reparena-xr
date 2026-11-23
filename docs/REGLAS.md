@@ -176,6 +176,20 @@ No las cambies sin preguntarle.
     empuja como una flexión.
   Los retos (viga, valla, rendija, manos), si fallas: frenas a la mitad y se rompe la racha, sin vidas; los premios (frutas,
   uvas, seta), no frenan.
+- Travesía de plataformas, **volando** (elegido por el usuario de las propuestas: A, B y C; «Volando», con «Flexiones»): vuelas
+  por encima del recorrido (unos 6 m; los árboles, debajo) como un planeador, sin pasarela salvo al salir y ante cada cofre,
+  donde te posas. Lo que hay que ver va **por debajo de ti o sube desde abajo** (en plancha se mira al suelo).
+  - **A, en plancha** (la base): escorarte lleva el vuelo a ese lado (más cuanto más te escoras); abajo en la flexión, el
+    **picado** (bajas deprisa y aceleras); una explosiva, un **aletazo** (subes; dos seguidas, un gran remonte); arriba,
+    planeas; de canto, un **tonel**.
+  - **B, con la tabla de equilibrio** («Volando: con tabla de equilibrio»): inclinarla a un lado (una muñeca más baja) lleva el
+    vuelo a ese lado y echar el peso adelante es picar.
+  - **C, la pica**: subir la cadera (la cabeza atrás) frena en el aire y remonta.
+  - Los retos: **aros de luz** que flotan bajos (por dentro, en picado), **columnas** de roca (escorarse al otro lado),
+    **puentes** de roca (picar para pasar por debajo), **grietas** en una pared de roca (de canto, por la raja), **corrientes
+    de aire** (te suben sin aletear) y **frutas en fila**. Las columnas, los puentes y las grietas, si fallas: frenas a la mitad
+    y se rompe la racha, sin vidas; los aros, las corrientes y las frutas son premios. Sin jefe ni barriles.
+  - En la dura, sin flexiones un rato vas perdiendo altura poco a poco (nunca te caes); en la suave, el vuelo la mantiene.
 - Travesía de plataformas, **el desprendimiento** (pedido del usuario, para la plancha: mirando al suelo no se veían las rocas):
   donde van a caer, una **sombra en el suelo** que crece y se oscurece mientras caen. Y **lo que se coge con la cabeza**
   (frutas, barriles) se encoge al llegar a los ojos y desaparece a menos de 12 cm, como las chispas.

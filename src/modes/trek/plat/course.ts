@@ -19,7 +19,7 @@
  * Lógica pura, sin IWSDK.
  */
 import { worldOf, WORLDS, type World } from './worlds.js';
-import { isPirate, LANE_MAX, LANE_MIN, REACH_N, SLIT_MAX, SLIT_MIN, GRIP_LEN, BOB_CRACK, BOB_ISLE, SINK_MAX, SINK_MIN, CLIFF_WALL, GUST_MAX, GUST_MIN, LEDGE_MAX, LEDGE_MIN, ROCKFALL_AT, FIRE_AT, QUAKE_AT, WALKERS, BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
+import { FLY_GAP_S, FLY_KINDS, isPirate, LANE_MAX, LANE_MIN, REACH_N, SLIT_MAX, SLIT_MIN, GRIP_LEN, BOB_CRACK, BOB_ISLE, SINK_MAX, SINK_MIN, CLIFF_WALL, GUST_MAX, GUST_MIN, LEDGE_MAX, LEDGE_MIN, ROCKFALL_AT, FIRE_AT, QUAKE_AT, WALKERS, BOSS_LEN, bossOf, bossTramo, FORK_RAMP, SPRING_MAX, SPRING_MIN, SPRING_N, ARC_MAX, ARC_MIN, GLIDE_MAX, GLIDE_MIN, GLIDE_NMAX, GLIDE_NMIN, GOLD_N, isJump, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, TUNE_DEF, TUNE_UP, type PlatTune, FLOOR_UP_S, FLOORS, HALT_BRAKE, JUMP_GAP_S, JUMPS, MIN_GAP, RUN_UP, SIDE_BACK_S, STOP_AT, HALT, LAND_PAST, piece, type Course, type CourseEnv, type Piece, type PieceKind } from './types.js';
 
 /** Las clases de la lista de cada tramo: la primera, lo básico (el tronco, la viga y el hueco); desde el segundo, también
  * la fruta, la plataforma alta y la seta (que se pisa); desde el tercero, el túnel, el burpee y el cangrejo (que se esquiva
@@ -64,6 +64,8 @@ export function minGap(prev: Piece, next: Piece, vmax: number): number {
   if (next.k === 'crawl') g = Math.max(g, CRAWL_WARN_S * vmax); // (echarse al suelo con tiempo)
   if (next.k === 'glide') g = Math.max(g, GLIDE_WARN_S * vmax); // (abrir los brazos con tiempo)
   if (prev.k === 'step') g += DROP_ROOM; // (lo último, encima de todo lo demás: se baja de la plataforma al acabarla)
+  // (en el vuelo, tiempo para cambiar de lado y de altura entre uno y otro)
+  if (FLY_KINDS.includes(prev.k) || FLY_KINDS.includes(next.k)) g = Math.max(g, FLY_GAP_S * vmax);
   return g;
 }
 
@@ -90,13 +92,13 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
   const rand = (a: number, b: number): number => a + (b - a) * env.rnd();
   const T = env.tune ?? TUNE_DEF;
   const clamp = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
-  const W = worldOf(tramo, env.worldLen), kinds = [...courseKinds(tramo, W), ...(env.extra ?? [])].filter((k) => !env.skip?.includes(k));
+  const W = worldOf(tramo, env.worldLen), kinds = env.fly ? [...FLY_KINDS] : [...courseKinds(tramo, W), ...(env.extra ?? [])].filter((k) => !env.skip?.includes(k));
   let end = start + env.len;
   // (el cofre se prueba con id 0 solo para medir el sitio que pide: su id verdadero va al final, tras la última pieza)
   const probe = piece(0, 'chest', end, tramo);
   // el jefe del mundo (cada BOSS_EVERY tramos), justo antes del cofre: las piezas, antes de él (en un tramo corto, el tramo
   // se alarga lo que pida: la carrera, el jefe y el sitio hasta el cofre)
-  const boss = bossTramo(tramo, env.worldLen) ? piece(0, 'boss', 0, tramo, { len: BOSS_LEN, n: bossOf(tramo, env.worldLen) }) : null;
+  const boss = bossTramo(tramo, env.worldLen) && !env.fly ? piece(0, 'boss', 0, tramo, { len: BOSS_LEN, n: bossOf(tramo, env.worldLen) }) : null;
   if (boss) {
     const tail = BOSS_LEN + minGap(boss, probe, env.vmax);
     end = Math.max(end, start + RUN_UP + 3 + tail);
@@ -118,7 +120,7 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     const bi = queue.indexOf(b);
     if (bi >= 0) queue.splice(bi, 1);
   }
-  queue.unshift(...(bonus as PieceKind[]));
+  if (!env.fly) queue.unshift(...(bonus as PieceKind[])); // (en el vuelo, ni barriles ni trampolines ni doradas)
   const pieces: Piece[] = [];
   let special = false; // (ya salió la fruta especial de este tramo)
   const tp = Math.max(0, tramo - 1); // (tramos de plataforma)
@@ -202,6 +204,22 @@ export function buildCourse(env: CourseEnv, tramo: number, rank: number, start: 
     } else if (k === 'grip') {
       // las manos juntas (la pasarela se estrecha entre rocas) o anchas (una roca en medio), al azar
       seg.push(piece(id, k, 0, tramo, { len: GRIP_LEN, n: env.rnd() < 0.5 ? 0 : 1 }));
+    } else if (k === 'ring') {
+      // el aro: flota bajo (por debajo de la altura de salida: hay que picar), a un lado o al centro
+      seg.push(piece(id, k, 0, tramo, { u: rand(-1.6, 1.6), h: rand(2.6, 5.4) }));
+    } else if (k === 'pillar') {
+      // la columna: a un lado, más alta que lo más alto del vuelo
+      const side: -1 | 1 = env.rnd() < 0.5 ? -1 : 1;
+      seg.push(piece(id, k, 0, tramo, { side, u: side * rand(0.6, 1.4), h: 14, len: 1.2 }));
+    } else if (k === 'arch') {
+      // el puente: de lado a lado, con su cara de abajo entre 4 y 6 m
+      seg.push(piece(id, k, 0, tramo, { h: rand(4, 6), len: 2 }));
+    } else if (k === 'crack') {
+      seg.push(piece(id, k, 0, tramo, { u: rand(-1, 1), len: rand(1.2, 2) }));
+    } else if (k === 'updraft') {
+      seg.push(piece(id, k, 0, tramo, { u: rand(-1.5, 1.5), len: 6 }));
+    } else if (k === 'berries') {
+      seg.push(piece(id, k, 0, tramo, { u: rand(-1.6, 1.6), h: rand(2.6, 6), n: 4, len: 3 }));
     } else if (k === 'gust') {
       // la racha: sopla desde un lado (side: desde dónde) y empuja hacia el otro
       seg.push(piece(id, k, 0, tramo, { len: rand(GUST_MIN, GUST_MAX), side: env.rnd() < 0.5 ? -1 : 1 }));

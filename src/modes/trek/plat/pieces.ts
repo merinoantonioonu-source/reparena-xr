@@ -24,7 +24,7 @@
 import { trekRng, TREK_CH } from '../path.js';
 import { HEAD_TOP } from '../env.js';
 import { BOARD_CLEAR_U } from '../board-spot.js';
-import { PAW_U, SHIP_U, LEDGE_W, BOX_CLEAR, FORK_RAMP, FORK_U, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, SPRING_LIFT, type Piece } from './types.js';
+import { CRACK_W, PILLAR_W, PAW_U, SHIP_U, LEDGE_W, BOX_CLEAR, FORK_RAMP, FORK_U, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, SPRING_LIFT, type Piece } from './types.js';
 
 export type Kit = 'island' | 'nature' | 'food';
 
@@ -402,6 +402,9 @@ function tiltPole(ds: number, u0: number, y0: number, u1: number, y1: number, th
   return put('island', 'Dock_Pole', ds, (u0 + u1) / 2 - (xm * c - ym * sn), (y0 + y1) / 2 - (xm * sn + ym * c), { rz, sx: th, sy, sz: th });
 }
 
+/** Lo alto de la pared de la grieta del vuelo (m sobre el sendero: más que lo más alto que se vuela). */
+const FLY_TOP = 13;
+
 /** Las que salen como fruta normal (la piña es la especial). */
 const FRUIT_NORMAL = ['Apple', 'Banana', 'Cherries', 'Orange', 'Pear', 'Strawberry', 'Lemon', 'Grapes', 'Watermelon'] as const;
 /** Lo que mide de grande (su lado mayor, m) una fruta normal y la especial (la piña). */
@@ -620,6 +623,38 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       }
       break;
     }
+    // el vuelo (src/modes/trek/plat/fly.ts): lo del aire, a su lado `u` y su altura `h` sobre el sendero (+ tus ojos: a la vista
+    // cuando vuelas a esa altura)
+    case 'pillar':
+      // la columna: una roca alta y estrecha, del suelo del paisaje hasta más arriba de lo que se vuela
+      out.push(rockFit('island', 'Cliff4', p.u - PILLAR_W / 2, p.u + PILLAR_W / 2, GROUND_Y - 0.5, p.h + ref, -PILLAR_W / 2, PILLAR_W / 2, p.id % 2 === 1));
+      break;
+    case 'arch': {
+      // el puente: una losa de roca de lado a lado con su cara de abajo a `h`, y una columna a cada lado hasta el suelo
+      const y = p.h + ref, W = 4.2;
+      out.push(rockFit('island', 'Cliff1', -W, W, y, y + 1.6, 0, p.len, p.id % 2 === 1));
+      for (const sd of [-1, 1]) out.push(rockFit('island', 'Cliff4', sd * W - 0.9, sd * W + 0.9, GROUND_Y - 0.5, y + 0.8, 0.1, p.len - 0.1, sd > 0));
+      break;
+    }
+    case 'crack': {
+      // la grieta: una pared de roca de lado a lado, alta, con una raja vertical estrecha en `u` (se pasa de canto)
+      // (cada lado, losas de roca apiladas: estirada, una sola roca era una aguja, no una pared)
+      const top = FLY_TOP + ref, g = CRACK_W * 0.55, y0 = GROUND_Y - 0.5, n = 5, hh = (top - y0) / n;
+      for (let i = 0; i < n; i++) {
+        const a = y0 + i * hh, b = a + hh * 1.25;
+        out.push(rockFit('island', 'Cliff1', -5, p.u - g, a, b, -0.3, p.len + 0.3, i % 2 === 1), rockFit('island', 'Cliff1', p.u + g, 5, a, b, -0.3, p.len + 0.3, i % 2 === 0));
+      }
+      break;
+    }
+    case 'berries':
+      // una fila de frutas en el aire (se ocultan al cogerlas)
+      for (let i = 0; i < p.n; i++) {
+        const f = fruitPut(FRUIT_NORMAL[(Math.abs(p.id) + i) % FRUIT_NORMAL.length], FRUIT_SIZE * 1.3, p.u, p.h + ref);
+        f.ds += (i / Math.max(1, p.n - 1)) * p.len;
+        f.tag = i;
+        out.push(f);
+      }
+      break;
     case 'cannon':
       // el barco pirata que dispara, a su lado del muelle, de costado (su largo, a lo largo del sendero); la bala la pinta el
       // sistema
