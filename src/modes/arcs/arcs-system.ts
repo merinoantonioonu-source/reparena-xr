@@ -19,9 +19,11 @@ import { createArcTrack, type ArcTrackParts } from '../../scene-assets/arc-track
 import { createArc, type ArcParts } from '../../scene-assets/arc.scene-asset.js';
 import { warmKeep } from '../../style/warm.js';
 import { createLaser, createMace, createOrb, createWalls, type LaserParts, type MaceParts, type OrbParts, type WallsParts } from '../../scene-assets/arc-extras.scene-asset.js';
-import { ArcCore, arxSpeed, type ArcOutcome } from './arc.js';
+import { ArcCore, arxHard, arxSpeed, type ArcOutcome } from './arc.js';
 import { HEAD_TOP, type ArcsEnv } from './env.js';
 import { ArcObsCore, ArcOrbCore, type ObsOutcome } from './obstacles.js';
+import { BladeCore, bladeMix, type BladeKind } from './blades.js';
+import { bladesReady, createBladeLook, type BladeLook } from './blade-look.js';
 import { fieldMaterial, fieldTick } from './wall-looks.js';
 import { ARX_JUMP_GAP, ArcNewKind, arcGap, arcSpawnPlan, arxBeatGap, buildArcsWave, type ArcSpec } from './patterns.js';
 import { BEAT } from '../../core/beat-hub.js';
@@ -48,6 +50,10 @@ interface ObsEntry {
   mace?: MaceParts;
   own: Material[];
 }
+interface BladeEntry {
+  blade: BladeCore;
+  look: BladeLook;
+}
 interface OrbEntry {
   orb: ArcOrbCore;
   parts: OrbParts;
@@ -71,6 +77,8 @@ export class ArcsSystem extends createSystem({}) {
   private root = new Group();
   private arcs: ArcEntry[] = [];
   private obstacles: ObsEntry[] = [];
+  /** Las cuchillas (RepArena XR: blades.ts). */
+  private blades: BladeEntry[] = [];
   private orbs: OrbEntry[] = [];
   private queue: ArcSpec[] = [];
   private spawnT = 0;
@@ -178,14 +186,15 @@ export class ArcsSystem extends createSystem({}) {
 
   /** Empieza la oleada i (RepArena: buildWave y startWave en Arcos): la cola de obstáculos y el ritmo de salida. */
   startWave(total: number): void {
-    this.queue = buildArcsWave(total, this.env, this.newKind);
+    // (la cola de RepArena y, encima, las cuchillas de RepArena XR)
+    this.queue = bladeMix(buildArcsWave(total, this.env, this.newKind), this.env, arxHard(this.env));
     this.spawnInterval = 60 / dv('arcRate', GAME.ramp);
     this.spawnT = 0.6;
   }
 
   /** ¿Queda algo de esta oleada por salir o por pasar? (RepArena: spawnQueue.length || arcs.some(a => a.alive && !a.judged)) */
   waveLeft(): boolean {
-    return this.queue.length > 0 || this.arcs.some((e) => e.arc.alive && !e.arc.judged) || this.obstacles.some((e) => e.obs.alive && !e.obs.judged);
+    return this.queue.length > 0 || this.arcs.some((e) => e.arc.alive && !e.arc.judged) || this.obstacles.some((e) => e.obs.alive && !e.obs.judged) || this.blades.some((e) => e.blade.alive && !e.blade.judged);
   }
 
   /** Lo que se enseña en el marcador: metros, racha y la fiebre; y cómo vas frente a tu mejor ronda. */
@@ -205,7 +214,8 @@ export class ArcsSystem extends createSystem({}) {
     for (const e of this.arcs) this.freeArc(e);
     for (const e of this.obstacles) this.freeObs(e);
     for (const e of this.orbs) this.freeOrb(e);
-    this.arcs.length = this.obstacles.length = this.orbs.length = 0;
+    for (const e of this.blades) this.root.remove(e.look.grp);
+    this.arcs.length = this.obstacles.length = this.orbs.length = this.blades.length = 0;
     this.queue.length = 0;
     this.arx.orbT = -1;
     this.setFever(false);
@@ -219,7 +229,7 @@ export class ArcsSystem extends createSystem({}) {
     this.clock += dt;
     const live = GAME.phase === 'playing';
     if (!this.on) {
-      if (this.arcs.length || this.obstacles.length || this.orbs.length) this.clear();
+      if (this.arcs.length || this.obstacles.length || this.orbs.length || this.blades.length) this.clear();
       this.veil.visible = false;
       return;
     }
@@ -254,6 +264,11 @@ export class ArcsSystem extends createSystem({}) {
       this.freeObs(this.obstacles[i]);
       this.obstacles.splice(i, 1);
     }
+    for (const e of this.blades) this.stepBlade(e, dt, judging);
+    for (let i = this.blades.length - 1; i >= 0; i--) if (!this.blades[i].blade.alive) {
+      this.root.remove(this.blades[i].look.grp); // (su hoja comparte malla y material: no se tira nada)
+      this.blades.splice(i, 1);
+    }
     // los metros, la línea de puntos y los orbes
     const frame: ArxFrame = { play, winOpen: GAME.between && false, speed: arxSpeed(this.env, this.arx), score: GAME.score, beatNow: BEAT.now() };
     const out = arxStep(this.arx, this.env, dt, frame);
@@ -269,6 +284,14 @@ export class ArcsSystem extends createSystem({}) {
   private spawn(): void {
     const spec = this.queue.shift() as ArcSpec, cur = spec, wasJump = cur.kind === 'jump', arx = this.arx;
     arx.minNext = 0;
+    // una cuchilla (RepArena XR): si sus hojas aún no han cargado, en su lugar, la maza
+    if (spec.kind === 'blade') {
+      if (bladesReady()) this.addBlade(spec.blade as BladeKind);
+      else this.addObs('mace');
+      const gap = Math.min(this.spawnInterval * (spec.gap ?? arcGap(this.env, str('arcTiming') === 'regular')), num('arcMaxGap'));
+      this.spawnT = arxBeatGap(gap, this.env, '');
+      return;
+    }
     const plan = arcSpawnPlan(spec, this.env, arx, this.spawnInterval, (kind) => {
       // (un obstáculo nuevo, en el mismo momento del azar en que lo hacía RepArena)
       this.addObs(kind as 'laser' | 'walls' | 'mace');
@@ -340,6 +363,29 @@ export class ArcsSystem extends createSystem({}) {
     e.grp.position.z = o.z;
     this.root.add(e.grp);
     this.obstacles.push(e);
+  }
+
+  // ---------------------------------------------------------------- una cuchilla (RepArena XR)
+
+  private addBlade(kind: BladeKind): void {
+    const look = createBladeLook(kind);
+    if (!look) return;
+    const blade = new BladeCore(kind, this.env, arxSpeed(this.env, this.arx), arxHard(this.env));
+    look.grp.position.set(blade.x, blade.y, blade.z);
+    this.root.add(look.grp);
+    this.blades.push({ blade, look });
+  }
+
+  private stepBlade(e: BladeEntry, dt: number, judging: boolean): void {
+    const b = e.blade, L = e.look, f = b.update(dt, this.env, judging);
+    L.grp.position.set(b.x, b.y, b.z);
+    L.grp.rotation.set(0, 0, b.bank);
+    L.spin.rotation.y = b.ang;
+    // (aparece creciendo)
+    L.grp.scale.setScalar(Math.min(1, b.t / 0.35));
+    if (f.whoosh) SND.whoosh(this.tmp.set(b.x, b.y, b.z), 'arc');
+    if (f.beep) SND.beep(f.beep);
+    if (f.outcome) this.obsOutcome(f.outcome);
   }
 
   // ---------------------------------------------------------------- un arco

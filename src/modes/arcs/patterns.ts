@@ -25,6 +25,8 @@ export interface ArcSpec {
   note?: [string, string];
   /** La combinación: con qué obstáculo llega a la vez el arco ('laser' o 'walls'). */
   with?: string;
+  /** Una cuchilla (RepArena XR, kind 'blade': src/modes/arcs/blades.ts): cuál ('spin', 'wheel' o 'sweep'). */
+  blade?: string;
 }
 
 /** Los obstáculos nuevos (RepArena: ARX_NEW). */

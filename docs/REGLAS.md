@@ -420,6 +420,14 @@ No las cambies sin preguntarle.
 - Arcos: **el arco de plancha se endurece con la dificultad** (pedido del usuario: «siempre llega igual de lento»): con el
   rango y la dificultad creciente llega hasta un 60 % más deprisa, **nunca a más de 6,5 km/h** (nunca tan rápido como los
   láseres de las sentadillas), y tras él hay algo menos de tiempo para levantarse (de 2,5 s a 2 s).
+- Arcos: **las cuchillas** (pedido del usuario: «hachas o cuchillas de cierto tamaño… su vuelo no puede ser ni simple ni
+  totalmente impredecible»; «Cuchillas que vuelan», 15 % de serie): hojas de 1,4 m de los kits que ya hay (no hay hachas: el
+  sable del Capitán, la espada del tiburón y el ancla de la isla pirata, elegidas por el usuario) girando hacia ti. **La
+  hélice**, en horizontal a la altura de la cabeza: agacharse. **La rueda**, de canto cerca del centro: apartar el tronco a
+  un lado. **La rasante**, a ras del suelo: saltarla. Entran desde un lado en curva, ondulando, y **en el último segundo y
+  pico se asientan en su sitio** (se leen a tiempo, no desde lejos); con la dificultad ondulan más, la rueda a veces amaga
+  (cambia de lado una vez, antes de asentarse) y llegan en ráfagas de dos o tres. Si te dan, como un arco (vida y racha).
+  Mientras sus modelos no han cargado, en su lugar sale la maza.
 - Arcos: **los orbes, gemas doradas talladas** (pedido del usuario: «más atractivos, más relieve, más sombreado»): con caras
   de varios tonos que giran y atrapan la luz, un núcleo de luz, un halo con destello y sus dos aros; al cogerlos, muchos más
   destellos (oro, blanco y turquesa) y el sonido más fuerte.
