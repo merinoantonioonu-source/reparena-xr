@@ -38,8 +38,9 @@ import { buildCourse } from './course.js';
 import { PORTAL_AT, worldLenFor, worldNo, WORLD_LEN, WORLDS } from './worlds.js';
 import { formText } from './texts.js';
 import { buildGrade, gradeH, gradeK, gradeSlope, type Grade } from './grade.js';
-import { BodyMoves, LUNGE_FWD, LUNGE_SIDE_K, moveCfg, PRONE_FWD, PRONE_SIDE_K, PRONE_SIDE_MIN, type MoveCfg } from './moves.js';
-import { ASK_AHEAD, LANE_NEED, ARMS_KINDS, CLIMB_SLOPE, CLIMB_SWAY, GRIP_NARROW, GRIP_WIDE, PAW_R, PAW_U, REACH_NEED, SLAP_VY, SLIT_ROLL, TILT_NEED, WAVE_WIN, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { BodyMoves, WAVE_BACK, LUNGE_FWD, LUNGE_SIDE_K, moveCfg, PRONE_FWD, PRONE_SIDE_K, PRONE_SIDE_MIN, type MoveCfg } from './moves.js';
+import { boardTilt, FLY, Glider, type FlyIn } from './fly.js';
+import { ARCH_CLEAR, BERRY_R, CRACK_W, FLY_KINDS, LAND_D, PILLAR_W, RING_R, UPDRAFT_W, ASK_AHEAD, LANE_NEED, ARMS_KINDS, CLIMB_SLOPE, CLIMB_SWAY, GRIP_NARROW, GRIP_WIDE, PAW_R, PAW_U, REACH_NEED, SLAP_VY, SLIT_ROLL, TILT_NEED, WAVE_WIN, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -237,6 +238,10 @@ export class Runner {
    * lado para que tu rama quede bajo tus pies (m: el sistema lo resta a todo lo que pinta). */
   fork: Piece | null = null;
   lane: -1 | 0 | 1 = 0;
+  /** El planeador (el vuelo) y lo que manda el cuerpo en cada fotograma; desde cuándo no aleteas (s). */
+  readonly glider = new Glider();
+  private readonly flyIn: FlyIn = { dx: 0, low: false, flap: false, pair: false, pike: false, tilt: 0, tiltDive: false, auto: false, sinceRep: 0, updraft: false, land: 0 };
+  private sinceRep = 0;
   /** Las muñecas: su altura del fotograma anterior y su velocidad vertical (m/s; NaN, no se ven). */
   private readonly wy = [NaN, NaN];
   private readonly wvy = [0, 0];
@@ -344,6 +349,8 @@ export class Runner {
     this.fork = null;
     this.lane = 0;
     this.climbSaid = false;
+    this.glider.reset(0);
+    this.sinceRep = 0;
     this.uShift = 0;
     this.id = 1;
     const B = this.env.store(PLAT_GHOST) as PlatGhost | null;
@@ -364,7 +371,7 @@ export class Runner {
     while (this.ends.length < i) this.addTramo(this.ends.length, len); // (los de antes, por orden)
     const start = this.ends.length ? this.ends[this.ends.length - 1] + 0.5 : this.tk.dist;
     // (en zancada no hay túnel ni burpee: no se pasa echado)
-    const c = buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)), worldLen: this.worldLen, skip: this.lunge ? LUNGE_SKIP : undefined, extra: this.prone ? proneExtra(i) : undefined }, i, this.env.rank, start, this.id);
+    const c = buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)), worldLen: this.worldLen, skip: this.lunge ? LUNGE_SKIP : undefined, extra: this.prone ? proneExtra(i) : undefined, fly: this.fly }, i, this.env.rank, start, this.id);
     // en plancha, lo que pasa por encima de la cabeza (la viga, el picado, el tajo, la bala alta), a la altura de la flexión: se
     // ve justo por encima de la cabeza abajo (el juicio, `BodyMoves.under`, pide estar abajo)
     if (this.prone) {
@@ -392,6 +399,14 @@ export class Runner {
   /** ¿En plancha? (la Travesía con flexiones: elegido por el usuario, en sus dos formas) */
   get prone(): boolean {
     return this.env.ex === 'pushup';
+  }
+  /** ¿Volando? (la Travesía con flexiones y «Volando»: src/modes/trek/plat/fly.ts) */
+  get fly(): boolean {
+    return this.prone && this.env.s('trekFly') > 0;
+  }
+  /** La altura del vuelo (m sobre el sendero; 0 sin volar): el mundo baja eso bajo ti. */
+  get flyAlt(): number {
+    return this.fly ? this.glider.alt : 0;
   }
   /** ¿En zancada? (la Travesía con zancadas: de pie, con una pierna delante; elegido por el usuario, en sus dos formas) */
   get lunge(): boolean {
@@ -465,6 +480,7 @@ export class Runner {
     }
     this.tk.rep(perfect);
     this.pull();
+    this.sinceRep = 0;
     return true;
   }
 
@@ -489,6 +505,7 @@ export class Runner {
     this.moves.sway = CLIMB_SWAY;
     this.moves.update(dt, H, this.cfg);
     this.wristStep(dt);
+    if (this.fly) this.flyStep(dt, st);
     // (en plancha, «abrir los brazos» para planear es aguantar abajo)
     if (prone) this.armsOpen = this.moves.plank;
     // trepar (en plancha, en la dura): en una cuesta empinada, cada vaivén de ir mano a mano empuja como una flexión
@@ -535,6 +552,11 @@ export class Runner {
       tk.dist = d0 + (tk.dist - d0) * gradeK(g);
       if (g < -0.01 && tk.push <= 0 && tk.v < v0) tk.v += (v0 - tk.v) * 0.3 * Math.min(1, -g / 0.08);
     }
+    // el vuelo: en picado, como poco la máxima; frenando en pica, cada vez más despacio
+    if (this.fly && st === 'play' && !this.stop) {
+      if (this.glider.diving) tk.v = Math.max(tk.v, this.vmax);
+      else if (this.glider.braking) tk.v *= Math.max(0, 1 - FLY.brake * dt);
+    }
     // el acelerón (en plancha): como poco DASH_K la máxima, mientras dura
     if (this.dashT > 0 && st === 'play' && !this.stop && !this.hop) tk.v = Math.max(tk.v, this.vmax * DASH_K);
     // la supervelocidad: como poco SUPER_K la máxima, mientras dura
@@ -569,7 +591,7 @@ export class Runner {
       this.walk(dt);
       this.attack(dt);
       this.spit(dt);
-      if (this.moves.takeoff && !this.hop && !this.stop) this.takeoff(H.z);
+      if (this.moves.takeoff && !this.hop && !this.stop && !this.fly) this.takeoff(H.z); // (volando, una explosiva es un aletazo)
       this.forkStep();
       // el portal: al cruzarlo, otro mundo
       const w = this.worldAt(tk.dist - H.z);
@@ -875,6 +897,10 @@ export class Runner {
       this.judgeArms(p, z);
       return;
     }
+    if (FLY_KINDS.includes(p.k)) {
+      this.judgeFly(p, z);
+      return;
+    }
     if (p.k === 'lane') {
       // el paso lateral en plancha (elegido por el usuario): las rocas ocupan tu lado (`side`); hay que caminar con las manos
       // al otro y aguantar ahí todo su largo; si no, una vez, chocas: frenas y se rompe la racha
@@ -1148,6 +1174,139 @@ export class Runner {
   }
 
   /** Lo de chocar o tropezar: se rompe la racha, se apaga el turbo, golpe, polvo y vibración. */
+  /** El vuelo, cada fotograma: lo que manda el cuerpo (y la tabla), al planeador; al acercarte al cofre, a posarte; tras él,
+   * a despegar (en cuanto empieza el tramo siguiente). */
+  private flyStep(dt: number, st: string): void {
+    const M = this.moves, I = this.flyIn, A = this.env.hands, board = this.env.s('flyBoard') > 0;
+    this.sinceRep += dt;
+    I.dx = st === 'play' ? M.dx : 0;
+    I.low = st === 'play' && M.plank;
+    I.flap = st === 'play' && M.takeoff;
+    I.pair = I.flap && M.deepT < 1e-6;
+    I.pike = st === 'play' && M.fwd <= -WAVE_BACK;
+    I.tilt = board && st === 'play' ? boardTilt(A.l, A.r) : 0;
+    I.tiltDive = board && st === 'play' && M.fwd >= 0.06;
+    I.auto = this.auto;
+    I.sinceRep = this.sinceRep;
+    I.updraft = false;
+    for (const p of this.live) {
+      if (p.k !== 'updraft' || p.judged) continue;
+      const z = p.at - this.tk.dist;
+      if (z < 0.5 && z > -p.len && Math.abs(this.glider.u - p.u) < UPDRAFT_W) I.updraft = true;
+    }
+    // posarse ante el cofre (y quedarse en él hasta el tramo siguiente)
+    const c = this.nextHalt(), room = c ? c.at - STOP_AT - this.tk.dist : Infinity;
+    I.land = this.stop ? 1 : st !== 'play' && st !== 'rest' ? 0 : Math.max(0, Math.min(1, 1 - room / LAND_D));
+    this.glider.step(dt, I);
+  }
+
+  /** Lo del vuelo, al pasar (z: lo que le falta para llegar a ti, m). */
+  private judgeFly(p: Piece, z: number): void {
+    const G = this.glider;
+    const fail = (text: string): void => {
+      this.tk.v *= HIT_KEEP;
+      this.hit(p, this.pos(p, 0, G.alt + this.env.calibRef));
+      this.say(text, COL_WARN, 1.8, true);
+    };
+    const won = (text: string, pts: number): void => {
+      p.judged = true;
+      p.ok = true;
+      this.passed++;
+      this.ev.push({ t: 'pass', p });
+      this.score(pts);
+      this.snd('whoosh', this.pos(p, 0, G.alt + this.env.calibRef), 'arc');
+      this.cheer(text, COL_OK, 0.9);
+    };
+    const miss = (text: string): void => {
+      p.judged = true;
+      p.ok = false;
+      this.say(text, COL_ASK, 1.4, false);
+    };
+    if (p.k === 'ring') {
+      // el aro: por dentro (un premio: fallarlo no frena)
+      if (z < 0.1) {
+        if (Math.abs(G.u - p.u) < RING_R && Math.abs(G.alt - p.h) < RING_R) {
+          won('¡Por el aro!', 150);
+          this.addEnergy(0.15);
+        } else miss(G.alt > p.h ? 'Pica para pasar por el aro' : 'Más arriba: aletea');
+      }
+      return;
+    }
+    if (p.k === 'pillar') {
+      // la columna: hay que estar a otro lado al pasar
+      if (z < 0.1) {
+        if (Math.abs(G.u - p.u) >= PILLAR_W / 2 + 0.3) won('¡Esquivada!', 120);
+        else {
+          p.judged = true;
+          p.ok = false;
+          fail(`¡Escórate a la ${p.u > G.u ? 'izquierda' : 'derecha'}!`);
+        }
+      }
+      return;
+    }
+    if (p.k === 'arch') {
+      // el puente: por debajo
+      if (z < 0.1) {
+        if (G.alt < p.h - ARCH_CLEAR) won('¡Por debajo del puente!', 160);
+        else {
+          p.judged = true;
+          p.ok = false;
+          fail('¡Pica para pasar por debajo!');
+        }
+      }
+      return;
+    }
+    if (p.k === 'crack') {
+      // la grieta: de canto y por ella, todo su largo
+      if (z < 0 && z > -p.len && !p.bad && (this.moves.roll < SLIT_ROLL || Math.abs(G.u - p.u) > CRACK_W)) {
+        p.bad = true;
+        fail(this.moves.roll < SLIT_ROLL ? '¡De canto por la grieta!' : '¡Por la grieta!');
+      }
+      if (z < -p.len - 0.3) {
+        if (p.bad) {
+          p.judged = true;
+          p.ok = false;
+        } else won('¡Tonel por la grieta!', 200);
+      }
+      return;
+    }
+    if (p.k === 'updraft') {
+      // la corriente: si la has cogido, al salir de ella, su premio (la subida la da `flyStep`)
+      if (z < 0.5 && z > -p.len && Math.abs(G.u - p.u) < UPDRAFT_W) p.mask |= 1;
+      if (z < -p.len) {
+        if (p.mask & 1) won('¡Corriente de aire!', 100);
+        else {
+          p.judged = true;
+          p.ok = false;
+        }
+      }
+      return;
+    }
+    if (p.k === 'berries') {
+      // las frutas en fila: cada una, al pasar por ella
+      for (let i = 0; i < p.n; i++) {
+        const zi = z + (i / Math.max(1, p.n - 1)) * p.len;
+        if (!((p.mask >> i) & 1) && Math.abs(zi) < 0.4 && Math.abs(G.u - p.u) < BERRY_R && Math.abs(G.alt - p.h) < BERRY_R) {
+          p.mask |= 1 << i;
+          p.got++;
+          this.fruits++;
+          this.score(40);
+          this.addEnergy(0.06);
+          this.ev.push({ t: 'pick', p, i });
+        }
+      }
+      if (z < -p.len - 0.5) {
+        p.judged = true;
+        p.ok = p.got > 0;
+        if (p.got) {
+          this.passed++;
+          this.ev.push({ t: 'pass', p });
+          this.cheer(p.got === p.n ? '¡Todas las frutas!' : `¡${p.got} frutas!`, COL_OK, 0.9);
+        }
+      }
+    }
+  }
+
   /** Las muñecas: su velocidad hacia abajo (m/s, suavizada; para la palmada). */
   private wristStep(dt: number): void {
     const A = this.env.hands, k = dt > 0 ? 1 - Math.exp(-dt / 0.03) : 0;

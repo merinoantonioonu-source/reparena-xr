@@ -47,16 +47,29 @@ export type PieceKind =
   | 'paw' // una llave en las tablas, a un lado: zarpazo (levantar una mano y cogerla) (fluido; un premio)
   | 'slap' // una seta a un lado: palmada al suelo, encima, y se chafa (fluido; un premio)
   | 'grip' // la pasarela se estrecha entre rocas (`n` 0: manos juntas) o una roca en medio (`n` 1: manos anchas) (fluido)
+  // el vuelo (RepArena XR, src/modes/trek/plat/fly.ts): lo que hay en el aire, a su lado (`u`) y altura (`h`)
+  | 'ring' // un aro de luz que flota bajo: se pasa por dentro, en picado (un premio)
+  | 'pillar' // una columna de roca que sube del suelo hasta más alto de lo que vuelas: escorarse a un lado
+  | 'arch' // un puente de roca de lado a lado, a la altura `h` (su cara de abajo): picar para pasar por debajo
+  | 'crack' // una pared de roca con una grieta vertical en `u`: de canto (el tonel), por la grieta
+  | 'updraft' // una corriente de aire que sube en `u`: te sube sin aletear (un premio)
+  | 'berries' // una fila de frutas en el aire en `u` y `h`: se cogen pasando por ellas (un premio)
   | 'boss' // el jefe del mundo, al final de cada mundo («Tramos por mundo») y antes del cofre (paso): esquivar y supersalto encima
   | 'chest'; // fin del tramo (paso)
 
 /** Los que se pasan sin parar (el avance siempre sigue: se entrenan los reflejos, pedido del usuario tras probar el PR A):
  * si fallas, chocas o tropiezas (frenas y pierdes la racha, sin perder vidas, y sigues). El hueco también: si no saltas a
  * tiempo, tropiezas al cruzarlo (nunca se cae). */
-export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork', 'dive', 'skull', 'quake', 'fire', 'ledge', 'gust', 'rockfall', 'bob', 'sink', 'cannon', 'lane', 'tilt', 'wave', 'slit', 'reach', 'paw', 'slap', 'grip'];
+export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side', 'log', 'fruit', 'foe', 'gems', 'box', 'glide', 'spring', 'fork', 'dive', 'skull', 'quake', 'fire', 'ledge', 'gust', 'rockfall', 'bob', 'sink', 'cannon', 'lane', 'tilt', 'wave', 'slit', 'reach', 'paw', 'slap', 'grip', 'ring', 'pillar', 'arch', 'crack', 'updraft', 'berries'];
 /** El paso lateral en plancha (elegido por el usuario: caminar con las manos, no con los pies, a un lado): lo que mide (m) y
  * lo que hay que llevar la cabeza al otro lado mientras dura (m, desde el centro: más que escorarse). */
 export const LANE_MIN = 3, LANE_MAX = 5, LANE_NEED = 0.26;
+/** Lo que hay en el vuelo (`CourseEnv.fly`). */
+export const FLY_KINDS: readonly PieceKind[] = ['ring', 'pillar', 'arch', 'crack', 'updraft', 'berries'];
+/** El vuelo: el radio del aro (m: lo cerca de su centro que hay que pasar), el ancho de la columna (m), lo que hay que pasar
+ * por debajo del puente (m), lo cerca de la grieta (m), el ancho de la corriente (m), lo cerca de cada fruta (m), a cuánto
+ * del cofre se empieza a bajar para posarse (m) y la separación entre retos (s a velocidad máxima). */
+export const RING_R = 0.9, PILLAR_W = 1.4, ARCH_CLEAR = 0.6, CRACK_W = 0.7, UPDRAFT_W = 1.2, BERRY_R = 0.7, LAND_D = 22, FLY_GAP_S = 2.4;
 /** Los demás movimientos de brazos en plancha (docs/PLAN-ERGONOMIA-Y-CUESTAS.md, apartado 5), de los que salen tres por tramo
  * (además del paso lateral), cada tramo otros, para no llenarlo. */
 export const ARMS_KINDS: readonly PieceKind[] = ['tilt', 'wave', 'slit', 'reach', 'paw', 'slap', 'grip'];
@@ -259,13 +272,15 @@ export interface Piece {
   /** En una bifurcación, la rama de la pieza (−1 izquierda —la tranquila—, 1 derecha —la difícil, con más premios—; 0, la
    * pasarela de siempre): solo se juzga si vas por ella. */
   lane: -1 | 0 | 1;
+  /** En el vuelo: a tu derecha (m) de lo que hay en el aire (el aro, la columna, la grieta, la corriente, las frutas). */
+  u: number;
   /** El ataque del cíclope: lo que ha corrido su onda desde él (m; negativo, aún no ha salido). −1 en los demás. */
   fx: number;
 }
 
 /** Una pieza nueva, con su estado a cero. */
-export function piece(id: number, k: PieceKind, at: number, tramo: number, o: Partial<Pick<Piece, 'len' | 'side' | 'h' | 'n'>> = {}): Piece {
-  return { id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: WALKERS.includes(k) ? FOE_WALK : 0, woke: false, spat: false, gold: false, got: 0, mask: 0, lane: 0, fx: -1 };
+export function piece(id: number, k: PieceKind, at: number, tramo: number, o: Partial<Pick<Piece, 'len' | 'side' | 'h' | 'n' | 'u'>> = {}): Piece {
+  return { u: o.u ?? 0, id, k, at, len: o.len ?? 0, side: o.side ?? 0, h: o.h ?? 0, n: o.n ?? 0, tramo, shown: false, warned: false, judged: false, ok: null, maxUp: -1, fast: false, bad: false, special: false, burpee: false, walk: WALKERS.includes(k) ? FOE_WALK : 0, woke: false, spat: false, gold: false, got: 0, mask: 0, lane: 0, fx: -1 };
 }
 
 /** Lo que manda la tabla de dificultad (por rango, PR E; los ajustes `plat*`): el sitio de más entre retos (×, 1 = el de
@@ -300,6 +315,8 @@ export interface CourseEnv {
   skip?: PieceKind[];
   /** Lo que sale además por el ejercicio (en plancha, el paso lateral: `lane`). */
   extra?: PieceKind[];
+  /** El vuelo: solo lo del aire (`FLY_KINDS`), sin premios del suelo ni jefe. */
+  fly?: boolean;
   /** La velocidad más alta que se puede llevar (m/s: la de «Velocidad de avance» con el turbo): las separaciones en
    * segundos se pasan a metros con ella. */
   vmax: number;

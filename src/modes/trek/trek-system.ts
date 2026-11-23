@@ -34,10 +34,12 @@ import { TREK_BIOMES, TREK_CH } from './path.js';
 import { SEA_Y, CLIFF_FLOOR_Y, cliffDecoPuts, cliffFloorPuts, coastDecoPuts, coastFloorPuts, skyDecoPuts, skyFloorPuts, DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { PORTAL_AT, tramoBiome, tramoDeco, worldEnd, worldStart, WORLDS, type FloorStyle } from './plat/worlds.js';
 import { Runner, TREASURE_KEYS, tramoLen, type PlatEnd } from './plat/runner.js';
-import { PAW_U, CANNON_AT, CANNON_LOW_Y, SHIP_U, BOB_CRACK, BOB_ISLE, bobY, ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
+import { PAW_U, RING_R, CANNON_AT, CANNON_LOW_Y, SHIP_U, BOB_CRACK, BOB_ISLE, bobY, ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
+/** Volando: la pasarela que queda al salir y tras cada cofre (para despegar) y ante él (×1,6, para posarse), m. */
+const FLY_PAD = 8;
 /** Cuántas instancias caben de cada modelo: el muelle (unos 45 a la vista), las piezas y el paisaje. */
 // (las plataformas llevan unos 20 barriles cada una y sus tablas: con varias a la vista, hace falta sitio)
 /** Las islas: lo que tarda el islote en quedarse quieto a ras al saltar hacia él (s) y lo que hay que dejar atrás un trozo del
@@ -270,6 +272,8 @@ export class TrekSystem extends createSystem({}) {
   private readonly winds: Wind[] = [];
   /** Los brillos de las frutas doradas a la vista (hechos al empezar y reutilizados). */
   private readonly goldGlow: Sprite[] = [];
+  /** Los aros de luz del vuelo. */
+  private readonly flyRings: Mesh[] = [];
   /** Los escupitajos y las bolas de fuego (hechos al empezar y reutilizados) y las ondas del cíclope. */
   private readonly spits: SpitFx[] = [];
   private readonly fires: SpitFx[] = [];
@@ -492,6 +496,18 @@ export class TrekSystem extends createSystem({}) {
       this.goldGlow.push(g);
     }
     warmKeep(new Sprite(goldMat));
+    // los aros de luz del vuelo (dorados, que brillan): unos pocos, reutilizados
+    const flyMat = new MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.85, depthWrite: false, blending: AdditiveBlending, toneMapped: false, side: DoubleSide });
+    const flyGeo = new TorusGeometry(RING_R, 0.08, 10, 48);
+    for (let i = 0; i < 6; i++) {
+      const m = new Mesh(flyGeo, flyMat.clone());
+      m.userData.noInk = true;
+      m.renderOrder = 6;
+      m.visible = false;
+      this.root.add(m);
+      this.flyRings.push(m);
+    }
+    warmKeep(new Mesh(flyGeo, flyMat));
   }
 
   private get on(): boolean {
@@ -1083,11 +1099,33 @@ export class TrekSystem extends createSystem({}) {
 
   // ---------------------------------------------------------------- pintar
 
+  /** Lo del vuelo que no son modelos de los kits: los aros de luz (de un montón hecho una vez) y las corrientes de aire
+   * (remolinos de polvo claro que suben). */
+  private drawFly(lite: boolean): void {
+    const R = this.runner;
+    let ri = 0;
+    if (R.fly && !lite)
+      for (const p of R.live) {
+        if (p.k === 'ring' && !p.judged && ri < this.flyRings.length) {
+          const g = this.flyRings[ri++], ry = R.tk.bend(p.at, p.u - R.uShift, this.bp);
+          g.position.set(this.bp.x, p.h + this.calibRef + this.gy(p.at), this.bp.z);
+          g.rotation.set(0, ry, this.clock * 0.6);
+          (g.material as MeshBasicMaterial).opacity = 0.75 + 0.2 * Math.sin(this.clock * 4 + p.id);
+          g.visible = true;
+        } else if (p.k === 'updraft' && !p.judged && !GAME.paused && Math.random() < 0.5) {
+          // (la corriente: remolinos claros que suben por ella)
+          const at = this.world3({ s: p.at + Math.random() * p.len, u: p.u + (Math.random() - 0.5) * 1.6, y: GROUND_Y + Math.random() * 9 }, this.at);
+          vfx().puffs(at, 1, 0.45, 1.4, PAL.snow, 0.15, 2.4, 2, 0.32);
+        }
+      }
+    for (let i = ri; i < this.flyRings.length; i++) this.flyRings[i].visible = false;
+  }
+
   private draw(): void {
     if (!this.ready) return;
     const R = this.runner, tk = R.tk, d = R.dist, lite = LITE.on;
     tk.frame();
-    this.root.position.y = R.dip; // (el salto: el mundo baja y sube bajo los pies)
+    this.root.position.y = R.dip - R.flyAlt; // (el salto: el mundo baja y sube bajo los pies; volando, todo lo que vuelas)
     this.hNow = R.grades.length ? R.heightAt(d) : 0; // (las cuestas: lo alto del sendero bajo tus pies)
     for (const b of this.batches.values()) b.n = 0;
     // el muelle (recalculado al avanzar un tramo de tablas o al montar otro tramo del recorrido)
@@ -1097,6 +1135,12 @@ export class TrekSystem extends createSystem({}) {
       this.floorS0 = s0;
       this.floorN = R.pieces.length;
       this.holes.length = 0;
+      // (volando, sin pasarela: solo al salir y ante cada cofre, para despegar y posarse)
+      if (R.fly)
+        for (let j = 0; j <= R.ends.length; j++) {
+          const a = (j ? R.ends[j - 1] : 0) + FLY_PAD, b = j < R.ends.length ? R.ends[j] - FLY_PAD * 1.6 : 1e9;
+          if (b > a) this.holes.push([a, b]);
+        }
       for (const p of R.pieces) if ((p.k === 'gap' || p.k === 'glide' || p.k === 'fork' || p.k === 'bob') && p.at + p.len + BOB_ISLE + BOB_CRACK > s0 && p.at < s0 + BACK + AHEAD + DOCK_LEN) {
         this.holes.push([p.at, p.at + p.len]);
         // (el islote que sube y baja, separado del camino por una grieta: se mueve solo él)
@@ -1156,7 +1200,7 @@ export class TrekSystem extends createSystem({}) {
       const spin = this.clock * (p.k === 'box' ? 1.1 : 1.8) + p.id, bob = 0.04 * Math.sin(this.clock * 2.6 + p.id), turn = p.k === 'fruit' || p.k === 'box';
       for (const u of L) {
         // (las frutas del arco que ya te has comido y la dorada de la plataforma ya cogida, no)
-        if (u.tag !== undefined && (u.tag === GOLD_TAG ? p.got > 0 : p.k === 'glide' ? ((p.mask >> u.tag) & 1) === 1 : u.tag < p.got)) continue;
+        if (u.tag !== undefined && (u.tag === GOLD_TAG ? p.got > 0 : p.k === 'glide' || p.k === 'berries' ? ((p.mask >> u.tag) & 1) === 1 : u.tag < p.got)) continue;
         const f = turn || u.kit === 'food';
         this.put(u, p.at + u.ds, off + p.lane * FORK_U, k, kn ? kn.t : 0, p, f ? spin : 0, f ? bob : 0, false, f);
       }
@@ -1170,6 +1214,7 @@ export class TrekSystem extends createSystem({}) {
       }
     }
     for (let i = gi; i < this.goldGlow.length; i++) this.goldGlow[i].visible = false;
+    this.drawFly(lite);
     for (const b of this.batches.values())
       for (const im of b.ims) {
         im.count = b.n;
@@ -1798,7 +1843,7 @@ export class TrekSystem extends createSystem({}) {
   private stepWind(dt: number): void {
     const M = this.wind.material as MeshBasicMaterial, R = this.runner;
     // (con el turbo y planeando sobre un barranco)
-    const want = (R.tk.turbo || (!!R.hop?.glide && R.hop.won)) && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 0.7 : 0;
+    const want = (R.tk.turbo || (!!R.hop?.glide && R.hop.won) || (R.fly && R.flyAlt > 1)) && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 0.7 : 0;
     M.opacity += (want - M.opacity) * Math.min(1, dt * 3);
     this.wind.visible = M.opacity > 0.01;
     if (!this.wind.visible) return;
