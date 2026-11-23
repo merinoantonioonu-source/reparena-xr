@@ -1213,10 +1213,14 @@ export class Runner {
     I.side = play ? B.side + tilt : 0;
     I.back = play ? -B.fwd : 0;
     I.down = play ? Math.max(M.down, board ? B.fwd - 0.02 : 0) : 0;
-    I.depth = F ? F.down : Math.max(0.05, (this.env.s('pushDepth') || 13) / 100);
+    // (los recorridos, los de los ajustes «Vuelo: recorrido para bajar / para subir / de lado»; lo medido en la práctica, solo
+    // si es más largo: más corto, todo era hipersensible)
+    I.depth = Math.max(F ? F.down : 0, Math.max(0.04, (this.env.s('flyDown') || 13) / 100));
     I.lowNeed = Math.min(this.cfg.lowNeed, I.depth * 0.6);
-    I.range = F ? F.side : Math.max(0.08, (this.env.s('flySide') || FLY.sideRange * 100) / 100);
-    I.backTo = F ? Math.max(FLY.pikeFrom + 0.03, F.back) : FLY.pikeTo;
+    // (el lado, siempre el ajuste «Vuelo: recorrido de lado»: lo que mida la práctica no lo pisa)
+    I.range = Math.max(0.08, (this.env.s('flySide') || FLY.sideRange * 100) / 100);
+    I.backTo = Math.max(F ? F.back : 0, Math.max(FLY.pikeFrom + 0.03, (this.env.s('flyUp') || FLY.pikeTo * 100) / 100));
+    I.flapK = Math.max(0.1, (this.env.s('flyFlap') || 100) / 100);
     I.rep = play ? this.flyRepN : 0;
     this.flyRepN = 0;
     I.flap = play && M.takeoff;

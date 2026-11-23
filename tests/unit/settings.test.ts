@@ -32,10 +32,10 @@ beforeEach(() => {
 });
 
 describe('el esquema', () => {
-  it('tiene los 186 ajustes de RepArena y los 27 nuevos (las manos, el tamaño del menú, los 7 de la Travesía de plataformas, los tramos por mundo, el avance solo, las bajadas con cada pierna, el filtro nuevo de las manos, el descanso del superman, las cuestas, los 4 de los glúteos, la hora y el tiempo, el entorno distinto y los 6 del vuelo), sin claves repetidas', () => {
-    expect(SCHEMA.length).toBe(213);
-    expect(new Set(SCHEMA.map((f) => f.key)).size).toBe(213);
-    expect(SCHEMA.filter((f) => f.xr).length).toBe(27);
+  it('tiene los 186 ajustes de RepArena y los 30 nuevos (las manos, el tamaño del menú, los 7 de la Travesía de plataformas, los tramos por mundo, el avance solo, las bajadas con cada pierna, el filtro nuevo de las manos, el descanso del superman, las cuestas, los 4 de los glúteos, la hora y el tiempo, el entorno distinto y los 9 del vuelo), sin claves repetidas', () => {
+    expect(SCHEMA.length).toBe(216);
+    expect(new Set(SCHEMA.map((f) => f.key)).size).toBe(216);
+    expect(SCHEMA.filter((f) => f.xr).length).toBe(30);
     expect(SCHEMA.filter((f) => f.key === 'handLook' || f.key === 'menuSize').length).toBe(2);
   });
   it('cada valor de serie está dentro de sus límites', () => {
@@ -199,7 +199,7 @@ describe('guardar', () => {
     // los de RepArena XR, aparte (RepArena no los conoce)
     expect(s).not.toHaveProperty('handLook');
     // (los de la Travesía de plataformas, los del rango de serie: el cabo)
-    expect(saved(XR_STORE_KEY)).toEqual({ handLook: 'glove', menuSize: 75, platSpace: 100, platGap: 90, platDuck: 24, platHigh: 86, platTunnel: 3.3, platFoeV: 0.9, platFlyGap: 100, trekWorld: 3, trekFly: 0, flyBoard: 0, flyAlt: '0', flySide: 12, flyGauges: 1, flyPractice: 0, trekAuto: 0, trekLegReps: 10, handsNew: 0, supRest: 5, trekHills: 0, slungeDepth: 18, slungeSide: 30, skaterWidth: 50, skaterDip: 8, envVary: 1, envCycle: 1 });
+    expect(saved(XR_STORE_KEY)).toEqual({ handLook: 'glove', menuSize: 75, platSpace: 100, platGap: 90, platDuck: 24, platHigh: 86, platTunnel: 3.3, platFoeV: 0.9, platFlyGap: 100, trekWorld: 3, trekFly: 0, flyBoard: 0, flyAlt: '0', flySide: 15, flyDown: 13, flyUp: 18, flyFlap: 100, flyGauges: 1, flyPractice: 0, trekAuto: 0, trekLegReps: 10, handsNew: 0, supRest: 5, trekHills: 0, slungeDepth: 18, slungeSide: 30, skaterWidth: 50, skaterDip: 8, envVary: 1, envCycle: 1 });
     expect(s.mode).toBe('combat');
     expect(store(STORE_KEY)).toEqual(s);
   });

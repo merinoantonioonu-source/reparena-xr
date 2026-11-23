@@ -30,13 +30,14 @@ export const FLY = {
   altMax: 11,
   /** Lo que te puedes apartar del centro (a cada lado). */
   uMax: 2.4,
-  /** El lado: la zona muerta (m de cabeza), el recorrido de serie (m), la curva (exponente: sin escalón tras la zona muerta),
-   * lo que tarda en llegar (s, sin rebote) y su tope de velocidad (m/s). */
-  sideDead: 0.015,
-  sideRange: 0.12,
-  sideCurve: 0.8,
-  uTau: 0.2,
-  uV: 4,
+  /** El lado: la zona muerta (m de cabeza), el recorrido de serie (m), la curva (exponente: más de 1, suave cerca del centro y
+   * más fuerte hacia el borde; el usuario lo notaba hipersensible), lo que tarda en llegar (s, sin rebote) y su tope de
+   * velocidad (m/s). */
+  sideDead: 0.025,
+  sideRange: 0.15,
+  sideCurve: 1.4,
+  uTau: 0.35,
+  uV: 3,
   /** P: la zona muerta de bajar el pecho (m) y lo que baja la flexión entera (m de vuelo). */
   downDead: 0.02,
   downAlt: 3.5,
@@ -112,6 +113,8 @@ export interface FlyIn {
   /** El recorrido de lado entero y el de la pica (m de cabeza: hasta dónde atrás sube del todo). */
   range: number;
   backTo: number;
+  /** Lo que sube cada aletazo (× lo de serie: «Vuelo: fuerza del aletazo»). */
+  flapK: number;
   /** Este fotograma: una flexión hecha (1; 2, perfecta), una explosiva y dos seguidas. */
   rep: number;
   flap: boolean;
@@ -128,7 +131,7 @@ export interface FlyIn {
 }
 
 /** Un `FlyIn` vacío (para reservarlo una vez). */
-export const flyIn = (): FlyIn => ({ side: 0, down: 0, back: 0, depth: 0.13, lowNeed: 0.078, range: FLY.sideRange, backTo: FLY.pikeTo, rep: 0, flap: false, pair: false, auto: true, sinceRep: 0, updraft: false, land: 0, model: 'pos' });
+export const flyIn = (): FlyIn => ({ side: 0, down: 0, back: 0, depth: 0.13, lowNeed: 0.078, range: FLY.sideRange, backTo: FLY.pikeTo, flapK: 1, rep: 0, flap: false, pair: false, auto: true, sinceRep: 0, updraft: false, land: 0, model: 'pos' });
 
 const clamp = (v: number, a: number, b: number): number => (v < a ? a : v > b ? b : v);
 
@@ -234,11 +237,11 @@ export class Glider {
       const d = FLY.alt0 - this.cruise, m = FLY.cruiseBack * dt;
       this.cruise += clamp(d, -m, m);
     } else {
-      if (I.rep) this.cruise = Math.min(FLY.cruiseMax, this.cruise + FLY.cruiseRep);
+      if (I.rep) this.cruise = Math.min(FLY.cruiseMax, this.cruise + FLY.cruiseRep * I.flapK);
       if (I.sinceRep > FLY.cruiseIdle) this.cruise = Math.max(FLY.cruiseMin, this.cruise - FLY.cruiseSink * dt);
     }
     if (I.flap) {
-      this.cruise = Math.min(FLY.cruiseMax, this.cruise + (I.pair ? 2 : 1) * FLY.burst);
+      this.cruise = Math.min(FLY.cruiseMax, this.cruise + (I.pair ? 2 : 1) * FLY.burst * I.flapK);
       this.flapped = true;
     }
     if (I.rep) this.flapped = true;
@@ -254,11 +257,11 @@ export class Glider {
     // (por encima de la altura de salida, cada aletazo sube menos: las flexiones a buen ritmo te mantienen, no te suben sin fin)
     const over = (top: number): number => (this.alt <= FLY.alt0 ? 1 : clamp(1 - (this.alt - FLY.alt0) / (top - FLY.alt0), 0, 1));
     if (I.rep) {
-      this.vAlt = Math.max(this.vAlt, (I.rep > 1 ? FLY.flapPerfect : FLY.flap) * over(FLY.flapCeil));
+      this.vAlt = Math.max(this.vAlt, (I.rep > 1 ? FLY.flapPerfect : FLY.flap) * I.flapK * over(FLY.flapCeil));
       this.flapped = true;
     }
     if (I.flap) {
-      this.vAlt = Math.max(this.vAlt, (I.pair ? FLY.pair : FLY.flapBurst) * over(FLY.altMax));
+      this.vAlt = Math.max(this.vAlt, (I.pair ? FLY.pair : FLY.flapBurst) * I.flapK * over(FLY.altMax));
       this.flapped = true;
     }
     const k = clamp((I.down - I.lowNeed) / Math.max(0.01, I.depth - I.lowNeed), 0, 1);

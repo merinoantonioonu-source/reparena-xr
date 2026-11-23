@@ -22,13 +22,17 @@ const pushups = (g: Glider, n: number, base: Partial<FlyIn>, d = 0.11, dur = 1.3
 };
 
 describe('el lado: tanto te escoras, tanto te apartas', () => {
-  it('5 cm de escora, 1 m de lado (±0,1); la zona muerta no mueve; el recorrido entero, el tope', () => {
-    expect(Math.abs(sideTarget(0.05, FLY.sideRange) - 1)).toBeLessThan(0.1);
-    expect(sideTarget(0.01, FLY.sideRange)).toBe(0);
-    expect(sideTarget(-0.2, FLY.sideRange)).toBeCloseTo(-FLY.uMax, 6);
+  it('la zona muerta no mueve; cerca del centro, suave (no hipersensible); el recorrido entero, el tope; y el ajuste lo cambia', () => {
+    expect(sideTarget(0.02, FLY.sideRange)).toBe(0);
+    // (a medio recorrido, menos de medio lado: suave cerca del centro)
+    expect(sideTarget(FLY.sideRange / 2, FLY.sideRange)).toBeLessThan(FLY.uMax / 2);
+    expect(sideTarget(FLY.sideRange / 2, FLY.sideRange)).toBeGreaterThan(0.3);
+    expect(sideTarget(-0.4, FLY.sideRange)).toBeCloseTo(-FLY.uMax, 6);
+    // (más recorrido en el ajuste, menos sensible)
+    expect(sideTarget(0.06, 0.25)).toBeLessThan(sideTarget(0.06, 0.12));
     const g = new Glider();
-    run(g, 1.5, IN({ side: 0.05 }));
-    expect(Math.abs(g.u - 1)).toBeLessThan(0.1);
+    run(g, 2, IN({ side: 0.08 }));
+    expect(g.u).toBeCloseTo(sideTarget(0.08, FLY.sideRange), 1);
   });
   it('escorado y quieto 10 s, el lado no cambia; al volver al centro, vuelve a 0 sin pasarse', () => {
     const g = new Glider();
@@ -88,6 +92,27 @@ describe('la altura, posición (P)', () => {
     }
     run(g, 30, IN({ ...P, auto: false, sinceRep: 9 }));
     expect(g.alt).toBeCloseTo(FLY.cruiseMin, 1);
+  });
+});
+
+describe('la sensibilidad, en los ajustes del desarrollador', () => {
+  it('más recorrido para bajar o para subir, menos sensible; más fuerza del aletazo, sube más', () => {
+    const P = { model: 'pos' as const };
+    const corto = new Glider(), largo = new Glider();
+    run(corto, 4, IN({ ...P, down: 0.08, depth: 0.1 }));
+    run(largo, 4, IN({ ...P, down: 0.08, depth: 0.3 }));
+    expect(largo.alt).toBeGreaterThan(corto.alt + 1);
+    const a = new Glider(), b = new Glider();
+    run(a, 3, IN({ ...P, back: 0.12, backTo: 0.14 }));
+    run(b, 3, IN({ ...P, back: 0.12, backTo: 0.4 }));
+    expect(a.alt).toBeGreaterThan(b.alt + 1);
+    const up = (k: number): number => {
+      const g = new Glider();
+      g.step(DT, IN({ model: 'flap', auto: false, rep: 1, flapK: k }));
+      run(g, 1.5, IN({ model: 'flap', auto: false }));
+      return g.alt;
+    };
+    expect(up(2)).toBeGreaterThan(up(1) + 0.5);
   });
 });
 
@@ -173,8 +198,8 @@ describe('el planeador', () => {
     expect(boardSide(0.02)).toBe(0);
     expect(boardSide(0.2)).toBeGreaterThan(0.05);
     const g = new Glider();
-    run(g, 0.8, IN({ side: boardSide(0.2) }));
-    expect(g.u).toBeGreaterThan(0.8);
+    run(g, 1.5, IN({ side: boardSide(0.2) }));
+    expect(g.u).toBeGreaterThan(0.3);
   });
 });
 
@@ -292,7 +317,7 @@ describe('la Travesía volando', () => {
     s.head.x = 0.08;
     s.until(() => false, 72 * 2);
     const u1 = s.r.glider.u;
-    expect(u1).toBeGreaterThan(1.2);
+    expect(u1).toBeGreaterThan(0.6);
     s.until(() => false, 72 * 10);
     expect(Math.abs(s.r.glider.u - u1)).toBeLessThan(0.05);
     s.head.x = 0;
