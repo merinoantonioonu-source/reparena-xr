@@ -219,14 +219,19 @@ export function syncForm(): void {
     list.push(el);
     inputs.set(el.name, list);
   }
+  // (y los de cada número, por su id, también de una vez: buscar tres por id en cada uno de más de 200 era lo que más tardaba)
+  const byId = new Map<string, HTMLElement>();
+  for (const el of $$<HTMLElement>('[id^="f-"]')) byId.set(el.id, el);
+  const groups = new Set<string>();
   for (const f of SCHEMA) {
-    const wrap = wraps.get(f.key);
-    if (wrap) wrap.hidden = !fieldShown(f);
+    const wrap = wraps.get(f.key), vis = fieldShown(f);
+    if (vis) groups.add(f.g);
+    if (wrap) wrap.hidden = !vis;
     if (f.type === 'num') {
-      const a = $<HTMLInputElement>(`#f-${f.key}`), b = $<HTMLInputElement>(`#f-${f.key}-r`);
+      const a = byId.get(`f-${f.key}`) as HTMLInputElement | undefined, b = byId.get(`f-${f.key}-r`) as HTMLInputElement | undefined;
       if (a) a.value = String(settings[f.key]);
       if (b) b.value = String(settings[f.key]);
-      const z = $(`#f-${f.key}-z`);
+      const z = byId.get(`f-${f.key}-z`);
       if (z) z.textContent = zeroTxt(f);
     } else if (f.type === 'multi') {
       const on = String(settings[f.key]).split(',');
@@ -235,7 +240,7 @@ export function syncForm(): void {
       (inputs.get(`f-${f.key}`) ?? []).forEach((el) => (el.checked = String(el.value) === String(settings[f.key])));
     }
   }
-  for (const g of $$('.group')) g.hidden = !SCHEMA.some((f) => f.g === g.dataset.group && fieldShown(f));
+  for (const g of $$('.group')) g.hidden = !groups.has(g.dataset.group as string);
   const an = $('#animNote');
   if (an && formHooks.animNote) an.textContent = formHooks.animNote();
   formHooks.afterSync?.();
