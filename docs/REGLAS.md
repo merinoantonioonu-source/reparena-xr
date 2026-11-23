@@ -160,6 +160,25 @@ No las cambies sin preguntarle.
   caminar con las manos, no con los pies»): rocas que ocupan tu lado de la pasarela unos metros; hay que caminar con las
   manos al otro lado (la cabeza, a unos 26 cm del centro: más que escorarse) y aguantar ahí hasta pasarlas. Si no, chocas:
   frenas a la mitad y se rompe la racha, sin vidas. Solo en plancha (las dos formas).
+- Travesía de plataformas, **los demás movimientos de brazos en plancha** (pedido del usuario: «y demás movimientos de brazos
+  en plancha»; los del plan, menos remar): salen tres por tramo, cada tramo otros, además del paso lateral; solo en plancha.
+  Sin avisos de lo que viene: al fallar se dice cómo se hace.
+  - **La viga inclinada** (flexión arquera): baja de un lado; se pasa abajo en la flexión con la cabeza hacia el lado alto.
+  - **La valla baja y larga** (la ola): un enrejado de barras bajas; se pasa con la ola: la pica (la cabeza atrás), zambullirse
+    por debajo y salir en cobra (arriba y adelante).
+  - **La rendija** entre dos rocas altas (giro abierto): de canto, como en la plancha lateral, todo su largo.
+  - **Las frutas lejanas** a ras de las tablas: caminar con las manos hacia delante para alcanzarlas.
+  - **Las uvas** a un lado (zarpazo): se cogen con la mano; **la seta** a un lado (palmada): se chafa bajando la mano de golpe
+    encima. Si las gafas no ven ninguna mano, vale llevar la cabeza hacia ellas.
+  - **Manos juntas** (la pasarela se estrecha entre rocas bajas) y **manos anchas** (una fila de rocas en medio): solo se
+    juzga si se ven las dos muñecas; si no, se da por buena.
+  - **Trepar**: en la dura, en una cuesta empinada (con «Sendero con cuestas»), cada vaivén de la cabeza al ir mano a mano
+    empuja como una flexión.
+  Los retos (viga, valla, rendija, manos), si fallas: frenas a la mitad y se rompe la racha, sin vidas; los premios (frutas,
+  uvas, seta), no frenan.
+- Travesía de plataformas, **el desprendimiento** (pedido del usuario, para la plancha: mirando al suelo no se veían las rocas):
+  donde van a caer, una **sombra en el suelo** que crece y se oscurece mientras caen. Y **lo que se coge con la cabeza**
+  (frutas, barriles) se encoge al llegar a los ojos y desaparece a menos de 12 cm, como las chispas.
 - Travesía de plataformas, **las cuestas** (elegido por el usuario: «el terreno entero ondula», para esforzarse más o menos):
   el sendero, el suelo, el césped y el paisaje suben y bajan juntos entre los retos; **cuesta arriba cada repetición te lleva
   menos lejos y cuesta abajo más**, con más inercia (sin repeticiones te sigues parando, también bajando). Lo que pide suelo

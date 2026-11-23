@@ -75,7 +75,8 @@ tabla de `README.md` dice qué hace cada archivo.
   la costa, `coastFloorPuts`/`coastDecoPuts`, el mar, `sea.ts`, los cañonazos, `cannon`, y los piratas, `isPirate`: el picado
   con `n` 2 o 3 y el de un lado con `n` 1; sus animaciones, con el nombre de los monstruitos, `CLIP_ALIAS`); en plancha, con «Flexiones» (`Runner.prone`;
   la suave, `trekAuto`: `Runner.auto`), `BodyMoves.prone` lee lo mismo de otra forma (abajo, agacharse; explosiva, saltar; dos,
-  supersalto; escorarse, a un lado; adelante, el acelerón, `dashT`); en zancada (`Runner.lunge`, la estática con `trekAuto`),
+  supersalto; escorarse, a un lado; adelante, el acelerón, `dashT`), y los movimientos de brazos de plancha (`ARMS_KINDS`,
+  `proneExtra`, `Runner.judgeArms`: la ola, de canto con `env.head.roll`, las muñecas y trepar); en zancada (`Runner.lunge`, la estática con `trekAuto`),
   lo de pie con el lado más corto y el acelerón, sin túneles (`CourseEnv.skip`), y el aviso de cambio de pierna cada
   `trekLegReps` (`legSwap`; el detector no lo dice en la Travesía: `StandCfg.legSay`); el cofre da llave y gema
   y el fantasma va en `reparenaxr-trekghost`. Su dificultad por rango (separación, huecos, vigas, plataformas, túneles y

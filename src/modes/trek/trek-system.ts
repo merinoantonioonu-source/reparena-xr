@@ -34,7 +34,7 @@ import { TREK_BIOMES, TREK_CH } from './path.js';
 import { SEA_Y, CLIFF_FLOOR_Y, cliffDecoPuts, cliffFloorPuts, coastDecoPuts, coastFloorPuts, skyDecoPuts, skyFloorPuts, DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { PORTAL_AT, tramoBiome, tramoDeco, worldEnd, worldStart, WORLDS, type FloorStyle } from './plat/worlds.js';
 import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
-import { CANNON_AT, CANNON_LOW_Y, SHIP_U, BOB_CRACK, BOB_ISLE, bobY, ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
+import { PAW_U, CANNON_AT, CANNON_LOW_Y, SHIP_U, BOB_CRACK, BOB_ISLE, bobY, ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
@@ -201,6 +201,7 @@ export class TrekSystem extends createSystem({}) {
   readonly runner: Runner;
   /** La altura de tus ojos de pie al calibrar. */
   calibRef = 1.6;
+  private readonly rollF = new Vector3();
   /** Tus ojos, en el sitio del recorrido (cada fotograma). */
   private readonly eyeL = new Vector3();
   /** El fondo realista del tramo (lo pone el entorno). */
@@ -306,7 +307,22 @@ export class TrekSystem extends createSystem({}) {
       get state() {
         return self.state();
       },
-      head: head.p,
+      // la cabeza, y lo que se gira de canto mirando al suelo (la rendija en plancha: el giro abierto)
+      head: {
+        get x() {
+          return head.p.x;
+        },
+        get y() {
+          return head.p.y;
+        },
+        get z() {
+          return head.p.z;
+        },
+        get roll() {
+          const f = self.rollF.set(0, 0, -1).applyQuaternion(head.q);
+          return f.y < -0.05 || Math.abs(f.x) > 0.3 ? Math.abs(Math.atan2(f.x, -f.y)) : 0;
+        },
+      },
       // las muñecas (las que se ven de verdad: una calculada al perderla, no)
       hands: { l: armOf(hands.left), r: armOf(hands.right) },
       get calibRef() {
@@ -740,7 +756,8 @@ export class TrekSystem extends createSystem({}) {
     // (las rocas del risco: dos por trozo del sendero y la pared, más de las que caben en una pieza)
     for (const n of KIT_MODELS.island) if (n !== 'Dock') add('island', n, isl[n], n === 'Cliff1' || n === 'Cliff4' || n === 'Dock_Pole' ? CAP_CLIFF : CAP_PIECE, true);
     for (const n of KIT_MODELS.food) add('food', n, food[n], CAP_FOOD, true);
-    for (const n of Object.keys(nat)) add('nature', n, nat[n], CAP_DECO, false);
+    // (las rocas medianas y la seta, también de las piezas de plancha: la rendija, las manos juntas, el paso lateral, la palmada)
+    for (const n of Object.keys(nat)) add('nature', n, nat[n], n.startsWith('Rock_Medium') || n === 'Mushroom_Common' ? CAP_DECO + CAP_PIECE : CAP_DECO, false);
     return true;
   }
 
@@ -972,6 +989,12 @@ export class TrekSystem extends createSystem({}) {
           const at = this.world3({ s: e.p.at, u: 0, y: this.calibRef + 0.35 }, this.at);
           HOOKS.sparks(at, 18, 0xb07a44);
           HOOKS.sparks(at, 12, 0xffd166);
+        }
+        // en plancha: las frutas lejanas y las uvas cogidas, y la seta chafada de una palmada, se van con chispas
+        if (e.p.k === 'reach' || e.p.k === 'paw' || e.p.k === 'slap') {
+          if (e.p.k !== 'reach') this.gone.set(e.p.id, { t: 0, dir: 0 });
+          HOOKS.sparks(this.world3({ s: e.p.at + e.p.len / 2, u: e.p.k === 'reach' ? 0 : e.p.side * PAW_U, y: 0.15 }, this.at), 16, e.p.k === 'slap' ? 0xff5a5a : 0xffd166);
+          if (e.p.k === 'slap') SND.squish(this.world3({ s: e.p.at, u: e.p.side * PAW_U, y: 0.1 }, this.at));
         }
         // la seta pisada se chafa; el cangrejo y la calavera esquivados muerden el aire; el picado esquivado sigue de largo
         if (e.t === 'pass' && (e.p.k === 'foe' || e.p.k === 'side' || e.p.k === 'skull' || e.p.k === 'dive')) this.rigAct(e.p, e.p.k === 'foe' ? 'die' : 'miss');

@@ -9,9 +9,9 @@
 // - el salto del hueco dura entre 0,5 y 1 s y el mundo baja y sube en medio;
 // - el paso a un lado se puede repetir hacia el otro lado (el centro no se pierde).
 import { describe, expect, it } from 'vitest';
-import { BEHIND, BOUNCE_LIFT, CHEST_PTS, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, STOMP_PTS, SUPER_K, TREASURE_PTS } from '../../src/modes/trek/plat/runner.js';
+import { proneExtra, BEHIND, BOUNCE_LIFT, CHEST_PTS, CRAWL_V, FRUIT_E, HIT_KEEP, HOP_MAX, HOP_MIN, JUMP_LIFT, STOMP_PTS, SUPER_K, TREASURE_PTS } from '../../src/modes/trek/plat/runner.js';
 import { PORTAL_AT, worldLenFor } from '../../src/modes/trek/plat/worlds.js';
-import { BOB_T, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, FIRE_AT, QUAKE_AT, BOSS_HP, BOSS_LEN, BOSS_STEP, BOSS_THROWS, BOSS_WIND, glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
+import { ARMS_KINDS, BOB_T, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, FIRE_AT, QUAKE_AT, BOSS_HP, BOSS_LEN, BOSS_STEP, BOSS_THROWS, BOSS_WIND, glideU, BURPEE_GAP_S, FOE_V, SPIT_FAR, SPIT_NEAR, FOE_WAKE, FOE_WALK, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece as mk, Sim } from './plat-sim.js';
 import type { Piece } from '../../src/modes/trek/plat/types.js';
 
@@ -1401,6 +1401,161 @@ describe('la Travesía de plataformas en plancha (con flexiones)', () => {
     const s = prone(false);
     s.r.addTramo(0, 400);
     expect(s.r.pieces.some((p) => p.k === 'lane')).toBe(true);
+  });
+
+  // los demás movimientos de brazos (pedidos por el usuario; docs/PLAN-ERGONOMIA-Y-CUESTAS.md, apartado 5)
+  /** Hasta que la pieza llegue a `z` m, con la cabeza arriba en el centro. */
+  const near = (s: Sim, p: Piece, z: number): void => {
+    expect(s.until(() => s.room(p) < z, 72 * 60)).toBe(true);
+  };
+  const hand = (s: Sim, side: 'l' | 'r', x: number, y: number, z: number, ok = true): void => {
+    Object.assign(s.env.hands[side], { ok, x, y, z });
+  };
+
+  it('la viga inclinada: abajo y con la cabeza hacia el lado alto (flexión arquera); abajo en el centro o hacia el lado bajo, chocas', () => {
+    for (const [x, ok] of [[-0.09, true], [0, false], [0.09, false]] as [number, boolean][]) {
+      const s = prone(true);
+      const P = mk(1, 'tilt', 30, 0, { side: 1, h: 0.09 });
+      s.load(course([P, mk(2, 'chest', 200, 0)]));
+      near(s, P, 1.2);
+      s.head.y = TOP - 0.1;
+      s.head.x = x;
+      expect(s.until(() => P.judged, 72 * 10)).toBe(true);
+      expect(P.ok, `cabeza a ${x}`).toBe(ok);
+      expect(s.of('hit')).toHaveLength(ok ? 0 : 1);
+    }
+  });
+
+  /** La ola: atrás en pica, zambullirse (abajo, volviendo) y salir en cobra (arriba y adelante). */
+  const wave = (s: Sim): void => {
+    const steps: [number, number, number][] = [[0.09, TOP, 0.35], [0, TOP - 0.1, 0.35], [-0.06, TOP, 0.3]];
+    for (const [z, y, secs] of steps)
+      for (let t = 0; t < secs; t += DT) {
+        s.head.z = z;
+        s.head.y = y;
+        s.frame();
+      }
+  };
+  it('la valla baja y larga se pasa con la ola; bajar sin más, no', () => {
+    for (const bien of [true, false]) {
+      const s = prone(true);
+      const P = mk(1, 'wave', 30, 0, { len: 0.7, h: 0.09 });
+      s.load(course([P, mk(2, 'chest', 200, 0)]));
+      near(s, P, 1.6);
+      if (bien) wave(s);
+      else s.head.y = TOP - 0.1;
+      expect(s.until(() => P.judged, 72 * 10)).toBe(true);
+      expect(P.ok).toBe(bien);
+    }
+  });
+
+  it('la rendija: de canto todo su largo; sin girarte o volviendo a mitad, chocas', () => {
+    for (const [roll, back, ok] of [[1.2, false, true], [0.2, false, false], [1.2, true, false]] as [number, boolean, boolean][]) {
+      const s = prone(true);
+      const P = mk(1, 'slit', 30, 0, { len: 1.6 });
+      s.load(course([P, mk(2, 'chest', 200, 0)]));
+      near(s, P, 1);
+      s.head.roll = roll;
+      expect(s.until(() => {
+        if (back && s.room(P) < -0.8) s.head.roll = 0;
+        return P.judged;
+      }, 72 * 10)).toBe(true);
+      expect(P.ok, `de canto ${roll}${back ? ', volviendo' : ''}`).toBe(ok);
+    }
+  });
+
+  it('las frutas lejanas se alcanzan caminando con las manos hacia delante (un premio: si no, ni frenas ni chocas)', () => {
+    for (const bien of [true, false]) {
+      const s = prone(true);
+      const P = mk(1, 'reach', 30, 0, { len: 1.2, n: 3 });
+      s.load(course([P, mk(2, 'chest', 200, 0)]));
+      near(s, P, 0.8);
+      if (bien) s.head.z = -0.25;
+      expect(s.until(() => P.judged, 72 * 10)).toBe(true);
+      expect(P.ok).toBe(bien);
+      expect(P.got).toBe(bien ? 3 : 0);
+      expect(s.of('hit')).toHaveLength(0);
+    }
+  });
+
+  it('el zarpazo coge las uvas con la mano que llega a ellas; sin verse ninguna mano, vale llevar la cabeza hacia ellas', () => {
+    for (const how of ['mano', 'cabeza', 'lejos'] as const) {
+      const s = prone(true);
+      const P = mk(1, 'paw', 30, 0, { side: 1 });
+      s.load(course([P, mk(2, 'chest', 200, 0)]));
+      near(s, P, 0.5);
+      if (how === 'mano') hand(s, 'r', 0.32, 0.1, -0.4);
+      else if (how === 'lejos') hand(s, 'r', -0.3, 0.05, 0.1);
+      else s.head.x = 0.12;
+      expect(s.until(() => {
+        if (how === 'mano') s.env.hands.r.z = -s.room(P);
+        return P.judged;
+      }, 72 * 10)).toBe(true);
+      expect(P.ok, how).toBe(how !== 'lejos');
+      expect(s.of('hit')).toHaveLength(0);
+    }
+  });
+
+  it('la palmada chafa la seta bajando la mano de golpe encima; apoyarla sin más, no', () => {
+    for (const fast of [true, false]) {
+      const s = prone(true);
+      const P = mk(1, 'slap', 30, 0, { side: -1 });
+      s.load(course([P, mk(2, 'chest', 200, 0)]));
+      near(s, P, 0.4);
+      // la mano encima de la seta: sube y baja (de golpe, en 0,15 s; o despacio, en 1 s)
+      const z = -s.room(P), dur = fast ? 0.15 : 1;
+      hand(s, 'l', -0.32, 0.35, z);
+      s.frame();
+      for (let t = 0; t < dur; t += DT) {
+        s.env.hands.l.y = 0.35 - 0.3 * Math.min(1, t / dur);
+        s.env.hands.l.z = -s.room(P);
+        s.frame();
+      }
+      expect(s.until(() => P.judged, 72 * 10)).toBe(true);
+      expect(P.ok).toBe(fast);
+    }
+  });
+
+  it('manos juntas y anchas: solo se juzga viendo las dos muñecas', () => {
+    for (const [n, w, seen, ok] of [[0, 0.2, true, true], [0, 0.6, true, false], [1, 0.6, true, true], [1, 0.2, true, false], [0, 0.6, false, true]] as [number, number, boolean, boolean][]) {
+      const s = prone(true);
+      const P = mk(1, 'grip', 30, 0, { len: 1.6, n });
+      s.load(course([P, mk(2, 'chest', 200, 0)]));
+      near(s, P, 0.5);
+      hand(s, 'l', -w / 2, 0.02, -0.1, seen);
+      hand(s, 'r', w / 2, 0.02, -0.1, seen);
+      expect(s.until(() => P.judged, 72 * 10)).toBe(true);
+      expect(P.ok, `${n ? 'anchas' : 'juntas'} a ${w} m${seen ? '' : ', sin verse'}`).toBe(ok);
+    }
+  });
+
+  it('trepar: en una cuesta empinada (la dura), cada vaivén de ir mano a mano te empuja; en llano, no', () => {
+    for (const steep of [true, false]) {
+      const s = prone(false);
+      s.load(course([mk(1, 'chest', 200, 0)]));
+      const R = s.r as unknown as { grades: unknown[]; slopeAt: (d: number) => number };
+      R.grades.push({});
+      R.slopeAt = () => (steep ? 0.12 : 0);
+      for (let i = 0; i < 12; i++)
+        for (let t = 0; t < 0.4; t += DT) {
+          s.head.x = (i % 2 ? 0.05 : -0.05) * Math.min(1, t / 0.2);
+          s.frame();
+        }
+      if (steep) expect(s.r.dist).toBeGreaterThan(2);
+      else expect(s.r.dist).toBeLessThan(0.2);
+    }
+  });
+
+  it('en plancha salen, por turnos, los demás movimientos de brazos (tres por tramo): en tres tramos, todos', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 3; i++) for (const k of proneExtra(i)) seen.add(k);
+    for (const k of ARMS_KINDS) expect(seen.has(k), k).toBe(true);
+    const s = prone(false);
+    s.r.addTramo(0, 400);
+    expect(s.r.pieces.some((p) => ARMS_KINDS.includes(p.k))).toBe(true);
+    const r = new Sim().r;
+    r.addTramo(0, 400);
+    expect(r.pieces.some((p) => ARMS_KINDS.includes(p.k))).toBe(false);
   });
 
   it('dos flexiones explosivas seguidas suben a la plataforma alta (una sola, no)', () => {

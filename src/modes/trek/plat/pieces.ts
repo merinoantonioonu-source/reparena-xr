@@ -24,7 +24,7 @@
 import { trekRng, TREK_CH } from '../path.js';
 import { HEAD_TOP } from '../env.js';
 import { BOARD_CLEAR_U } from '../board-spot.js';
-import { SHIP_U, LEDGE_W, BOX_CLEAR, FORK_RAMP, FORK_U, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, SPRING_LIFT, type Piece } from './types.js';
+import { PAW_U, SHIP_U, LEDGE_W, BOX_CLEAR, FORK_RAMP, FORK_U, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, SPRING_LIFT, type Piece } from './types.js';
 
 export type Kit = 'island' | 'nature' | 'food';
 
@@ -393,6 +393,15 @@ const FRUITS: Record<string, readonly [number, number, number, number, number, n
   Lemon: [-0.0866, 0, -0.1, 0.0866, 0.224, 0.1],
   Grapes: [-0.1395, 0, -0.1193, 0.1395, 0.4226, 0.1193],
 };
+/** Un `Dock_Pole` tumbado a lo ancho e inclinado: su eje, de (`u0`, `y0`) a (`u1`, `y1`) (m), con grosor `th`. */
+function tiltPole(ds: number, u0: number, y0: number, u1: number, y1: number, th: number): Put {
+  const du = u1 - u0, dy = y1 - y0, len = Math.hypot(du, dy), sy = len / PL_LEN;
+  // (girado rz alrededor de su origen: su largo, el y del modelo, va a (−sin rz, cos rz); el centro del eje, a su sitio)
+  const rz = Math.atan2(-du, dy), c = Math.cos(rz), sn = Math.sin(rz);
+  const xm = ((PL.x0 + PL.x1) / 2) * th, ym = ((PL.y0 + PL.y1) / 2) * sy;
+  return put('island', 'Dock_Pole', ds, (u0 + u1) / 2 - (xm * c - ym * sn), (y0 + y1) / 2 - (xm * sn + ym * c), { rz, sx: th, sy, sz: th });
+}
+
 /** Las que salen como fruta normal (la piña es la especial). */
 const FRUIT_NORMAL = ['Apple', 'Banana', 'Cherries', 'Orange', 'Pear', 'Strawberry', 'Lemon', 'Grapes', 'Watermelon'] as const;
 /** Lo que mide de grande (su lado mayor, m) una fruta normal y la especial (la piña). */
@@ -556,6 +565,59 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
         out.push(put('nature', name, 0.4 + (i / Math.max(1, n - 1)) * (p.len - 0.8), p.side * 0.48, 0, { ry: (p.id + i) * 1.7, sx: sc, sy: sc * 0.9, sz: sc }));
       }
       out.push(put('nature', 'Rock_Medium_1', 0.2, p.side * 0.5, 0, { ry: p.id, sx: 0.34, sy: 0.4, sz: 0.34 }));
+      break;
+    }
+    case 'tilt': {
+      // la viga inclinada (flexión arquera): baja del lado `side` (donde obliga a bajar como la viga de siempre) y 30 cm más alta
+      // del otro, con un poste a cada lado hasta pasarla
+      const lo = ref + HEAD_TOP - p.h + 0.02, hi = lo + 0.3, th = 0.8, s = p.side;
+      out.push(standPole(0, s * 1.1, GROUND_Y, lo + 0.25 - GROUND_Y, th), standPole(0, -s * 1.1, GROUND_Y, hi + 0.25 - GROUND_Y, th));
+      out.push(tiltPole(0, s * 1.2, lo, -s * 1.2, hi, th));
+      break;
+    }
+    case 'wave': {
+      // la valla baja y larga (la ola): barras bajas seguidas, como un enrejado, con sus postes en los extremos y en medio (no
+      // se confunde con la viga de siempre, que es una sola)
+      const bottom = ref + HEAD_TOP - p.h - 0.03, th = 0.6, top = bottom + (PL.x1 - PL.x0) * th + 0.04, n = Math.max(3, Math.round(p.len / 0.3) + 1);
+      for (const ds of [0, p.len / 2, p.len]) out.push(standPole(ds, -1.1, GROUND_Y, top - GROUND_Y, th), standPole(ds, 1.1, GROUND_Y, top - GROUND_Y, th));
+      for (let i = 0; i < n; i++) out.push(layPole((i / (n - 1)) * p.len, 0, bottom, 2.4, th));
+      break;
+    }
+    case 'slit': {
+      // la rendija: rocas altas a los dos lados, pegadas al centro, todo su largo (solo se pasa de canto)
+      const n = Math.max(2, Math.ceil(p.len / 0.6));
+      for (const sd of [-1, 1]) for (let i = 0; i < n; i++) {
+        const name = (p.id + i + (sd > 0 ? 1 : 0)) % 2 ? 'Rock_Medium_1' : 'Rock_Medium_3';
+        out.push(put('nature', name, (i / Math.max(1, n - 1)) * p.len, sd * 0.44, 0, { ry: (p.id + i) * 1.3 + sd, sx: 0.16, sy: 0.55, sz: 0.16 }));
+      }
+      break;
+    }
+    case 'reach': {
+      // las frutas lejanas, a ras de las tablas en el centro, en fila (se ocultan al cogerlas)
+      for (let i = 0; i < p.n; i++) {
+        const f = fruitPut(FRUIT_NORMAL[(Math.abs(p.id) + i) % FRUIT_NORMAL.length], FRUIT_SIZE * 0.8, 0, 0.12);
+        f.ds += (i / Math.max(1, p.n - 1)) * p.len;
+        f.tag = i;
+        out.push(f);
+      }
+      break;
+    }
+    case 'paw':
+      // un racimo de uvas en las tablas, a un lado (se coge con la mano)
+      out.push(fruitPut('Grapes', FRUIT_SIZE, p.side * PAW_U, 0.12));
+      break;
+    case 'slap':
+      // una seta pequeña en las tablas, a un lado (se chafa de una palmada)
+      out.push(put('nature', 'Mushroom_Common', 0, p.side * PAW_U, 0.017 * 0.8, { ry: p.id, sx: 0.9, sy: 0.8, sz: 0.9 }));
+      break;
+    case 'grip': {
+      // manos juntas: rocas bajas a los dos lados dejan una franja estrecha; manos anchas: una roca baja en medio
+      const n = Math.max(2, Math.ceil(p.len / 0.7));
+      for (let i = 0; i < n; i++) {
+        const ds = (i / Math.max(1, n - 1)) * p.len, name = (p.id + i) % 2 ? 'Rock_Medium_2' : 'Rock_Medium_1';
+        if (p.n) out.push(put('nature', name, ds, 0, 0, { ry: (p.id + i) * 1.9, sx: 0.1, sy: 0.14, sz: 0.1 }));
+        else for (const sd of [-1, 1]) out.push(put('nature', name, ds, sd * 0.45, 0, { ry: (p.id + i) * 1.9 + sd, sx: 0.14, sy: 0.16, sz: 0.14 }));
+      }
       break;
     }
     case 'cannon':

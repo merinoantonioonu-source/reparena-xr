@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { worldOf } from '../../src/modes/trek/plat/worlds.js';
 import { buildCourse, courseKinds, courseRules, minGap } from '../../src/modes/trek/plat/course.js';
+import { proneExtra } from '../../src/modes/trek/plat/runner.js';
 import { ARC_MAX, ARC_MIN, bossTramo, WALKERS, GOLD_N, BURPEE_GAP_S, DROP_ROOM, FOE_WALK, FLOOR_UP_S, HALT_BRAKE, JUMP_GAP_S, LAND_PAST, MIN_GAP, piece, RUN_UP, SIDE_BACK_S, STOP_AT, type CourseEnv, type Piece, type PlatTune, platTune, TUNE_DEF } from '../../src/modes/trek/plat/types.js';
 
 const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
@@ -84,6 +85,16 @@ describe('el recorrido de la Travesía de plataformas', () => {
       });
     }
     expect(vistos).toBeGreaterThan(0);
+  });
+
+  it('en plancha, con los movimientos de brazos (tres por tramo, por turnos), 2.000 recorridos al azar cumplen todas las reglas', () => {
+    const r = rng(777);
+    const between = (a: number, b: number): number => a + (b - a) * r();
+    for (let n = 0; n < 2000; n++) {
+      const tramo = Math.floor(r() * 7), vmax = between(1.2, 4.8), len = between(40, 300);
+      const c = buildCourse({ ...env(n + 1, vmax, len), extra: proneExtra(tramo) }, tramo, Math.floor(r() * 7), between(0, 500), 0);
+      expect(courseRules(c.pieces, vmax, T0), `#${n} tramo ${tramo}`).toEqual([]);
+    }
   });
 
   it('5.000 recorridos al azar cumplen todas las reglas', () => {
