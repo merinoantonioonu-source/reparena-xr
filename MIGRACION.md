@@ -168,6 +168,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
   - [x] **Fase 2 · Arreglos del detector** (tras el ajuste «Manos: filtro nuevo», apagado de serie: una mano solo vale estable, la que no casa con la otra no está en la pesa, perdidas subiendo espera a verlas —opción A del usuario— y al quitar la pausa la pesa empieza de cero; probado con la caja negra del usuario) — #54
   - [ ] **Fase 3 · Los demás ejercicios con pesas**: el **curl a un brazo** (mancuerna; su caja negra: un rayo al llegar arriba por un salto falso de la mano al reaparecer) — #60; con su segunda caja negra, la mano que reaparece arriba carga, tras perderla abajo vuelve a cargar, una imagen suelta no carga ni dispara y con la mano escondida nunca dispara (opción 1 del usuario, también en el curl con barra) — #63; faltan la elevación frontal y los de dos tiempos (sentadilla con press, con elevación y swing), cuando haya cajas negras suyas
   - [ ] Fase 4 · Cierre (encendido de serie cuando el usuario lo dé por bueno)
+- [ ] **Lo que se ve desde cada postura, el superman, las cuestas y Arcos** (plan trazado con el usuario el 22/11/2026, por
+  bloques, un PR cada uno: `docs/PLAN-ERGONOMIA-Y-CUESTAS.md`; quién hace cada parte, en su apartado 0)
 
 ## Los PR
 
