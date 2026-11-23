@@ -179,17 +179,34 @@ No las cambies sin preguntarle.
 - Travesía de plataformas, **volando** (elegido por el usuario de las propuestas: A, B y C; «Volando», con «Flexiones»): vuelas
   por encima del recorrido (unos 6 m; los árboles, debajo) como un planeador, sin pasarela salvo al salir y ante cada cofre,
   donde te posas. Lo que hay que ver va **por debajo de ti o sube desde abajo** (en plancha se mira al suelo).
-  - **A, en plancha** (la base): escorarte lleva el vuelo a ese lado (más cuanto más te escoras); abajo en la flexión, el
-    **picado** (bajas deprisa y aceleras); una explosiva, un **aletazo** (subes; dos seguidas, un gran remonte); arriba,
-    planeas; de canto, un **tonel**.
-  - **B, con la tabla de equilibrio** («Volando: con tabla de equilibrio»): inclinarla a un lado (una muñeca más baja) lleva el
-    vuelo a ese lado y echar el peso adelante es picar.
-  - **C, la pica**: subir la cadera (la cabeza atrás) frena en el aire y remonta.
+  - **A, en plancha** (la base; afinado con `docs/PLAN-VUELO.md`, «aplica todas tus sugerencias»): **la cabeza es la palanca**,
+    respecto a un centro que no se mueve en el aire. **Escorarte es la posición de lado**: tanto te escoras, tanto te apartas
+    (5 cm, 1 m; «Vuelo: recorrido de lado») y, al volver al centro, el vuelo vuelve; el mundo se desplaza a tu lado. La altura,
+    con el **mando de altura** (en pruebas, «Vuelo: mando de altura»): **posición** en la suave (bajar el pecho baja en
+    proporción; la cadera arriba sube) y **aleteo** en la dura (cada flexión, un aletazo; aguantar abajo quieto, el
+    **picado**, más hondo, más deprisa). **La pica manda sobre el picado**. Una explosiva sube más (nunca hace falta); de
+    canto, un **tonel**.
+  - **Que se vea lo que haces**: tu **sombra** de ave en el suelo (se ladea, se pliega, se abre); tus **alas** a los lados
+    (se ladean con la escora, se pliegan al picar, se abren en pica y baten en cada aletazo); el viento al picar, un golpe de
+    aire al aletear y un siseo al frenar; la **ventana de cada reto**, con luz verde (el canto de abajo del puente, el lado
+    libre de la columna, la raja de la grieta); y **dos reglillas** en el suelo, por delante de las manos (dónde vas de lado y
+    a qué altura, con la ventana del reto que viene en verde: «Vuelo: instrumentos», de serie sí).
+  - **La práctica de vuelo**: la primera vez (y con «Vuelo: repetir la práctica»), antes del primer tramo y con el mundo
+    esperando, seis pasos (escórate a la derecha y a la izquierda, baja el pecho, una flexión, cadera arriba, de canto), cada
+    uno con su ✓; de paso mide lo que te escoras, bajas y vas atrás, y pone el vuelo a tu medida (al 80 %).
+  - **Los retos, a la medida de los gestos**: el tiempo antes de cada uno es el de su gesto (la grieta, 4 s; el puente y el
+    aro, 3 s; lo demás, 2,4 s; en el primer tramo, un 40 % más; «Volando: tiempo entre retos» y el rango); dos seguidos que
+    piden ir arriba y abajo, el doble; el primer tramo, solo premios (aros, corrientes y frutas); columnas y puentes desde el
+    segundo; grietas desde el tercero; y cada ventana se alcanza con medio gesto.
+  - **B, con la tabla de equilibrio** («Volando: con tabla de equilibrio»): inclinarla a un lado (una muñeca más baja) se suma
+    a escorarte (solo con las dos muñecas a la vista y estables, y pasados unos 2°) y echar el peso adelante baja en proporción.
+  - **C, la pica**: subir la cadera (la cabeza atrás) frena en el aire y remonta, en proporción.
   - Los retos: **aros de luz** que flotan bajos (por dentro, en picado), **columnas** de roca (escorarse al otro lado),
     **puentes** de roca (picar para pasar por debajo), **grietas** en una pared de roca (de canto, por la raja), **corrientes
     de aire** (te suben sin aletear) y **frutas en fila**. Las columnas, los puentes y las grietas, si fallas: frenas a la mitad
     y se rompe la racha, sin vidas; los aros, las corrientes y las frutas son premios. Sin jefe ni barriles.
-  - En la dura, sin flexiones un rato vas perdiendo altura poco a poco (nunca te caes); en la suave, el vuelo la mantiene.
+  - En la dura, sin flexiones un rato vas perdiendo altura poco a poco (nunca te caes); en la suave, el vuelo la mantiene. La
+    caja negra del vuelo (`reparenaxr-flybox`, con el diagnóstico) graba los últimos 40 s para afinar los números con tu vuelo.
 - Travesía de plataformas, **el desprendimiento** (pedido del usuario, para la plancha: mirando al suelo no se veían las rocas):
   donde van a caer, una **sombra en el suelo** que crece y se oscurece mientras caen. Y **lo que se coge con la cabeza**
   (frutas, barriles) se encoge al llegar a los ojos y desaparece a menos de 12 cm, como las chispas.

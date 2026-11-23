@@ -525,7 +525,10 @@ export class Runner {
     this.moves.sway = CLIMB_SWAY;
     this.moves.update(dt, H, this.cfg);
     this.wristStep(dt);
-    if (this.fly) this.flyStep(dt, st);
+    if (this.fly) {
+      this.flyStep(dt, st);
+      this.uShift = this.glider.u; // (volando, el mundo se desplaza a tu lado: lo que te apartas se ve)
+    }
     // (en plancha, «abrir los brazos» para planear es aguantar abajo)
     if (prone) this.armsOpen = this.moves.plank;
     // trepar (en plancha, en la dura): en una cuesta empinada, cada vaivén de ir mano a mano empuja como una flexión
