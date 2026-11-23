@@ -269,6 +269,7 @@ function mkEnv(settings: Record<string, unknown>, head: BarsEnv['head'], hands: 
     },
     sesWave: () => 0,
     nWaves: () => settings.waves as number,
+    classic: true, // (tal cual RepArena)
   };
   return env;
 }

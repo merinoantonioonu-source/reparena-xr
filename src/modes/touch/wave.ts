@@ -9,7 +9,10 @@
  * en tests/compare/touch.compare.test.ts.
  */
 import type { TouchEnv, TouchEvent } from './env.js';
-import { CUT_MOVES, SLAM_HAND, SLAM_HEAD, SWORD_CUTS, TCH_MOVES, TouchTarget, pick, pickW, sampleHands, tchPeriod, type TouchPart, type TouchState } from './targets.js';
+import { CUT_MOVES, SLAM_HAND, SLAM_HEAD, SWORD_CUTS, TCH_MOVES, TouchTarget, isFloor, pick, pickW, sampleHands, tchPeriod, type TouchPart, type TouchState } from './targets.js';
+
+/** La separación mínima entre objetivos en el suelo (s; RepArena XR). */
+export const TCH_FLOOR_GAP = 2;
 
 /** Un objetivo de la cola de la oleada: su movimiento y, en el Slam, su lado (−1 o 1). */
 export interface TouchSpec {
@@ -74,7 +77,10 @@ export function snapBeat(tch: TouchState, c: number): number {
 
 /** La separación hasta el siguiente (la plancha, más su aguante); con ritmo, en pulsos enteros (RepArena: tchGapFor). */
 export function tchGapFor(env: TouchEnv, move: string): number {
-  const P = tchPeriod(env), base = env.dv('tchGap') + (move === 'plank' ? env.s('plankHold') : 0);
+  // (en el suelo, al menos 2 s entre uno y otro: tumbado o en plancha no da tiempo a menos, ni a volver a la postura de
+  // partida; en RepArena XR, docs/ERGONOMIA.md)
+  const gap = env.classic || !isFloor(env) ? env.dv('tchGap') : Math.max(TCH_FLOOR_GAP, env.dv('tchGap'));
+  const P = tchPeriod(env), base = gap + (move === 'plank' ? env.s('plankHold') : 0);
   return P ? Math.max(1, Math.round(base / P)) * P : base;
 }
 

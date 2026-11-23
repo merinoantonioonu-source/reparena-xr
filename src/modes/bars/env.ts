@@ -55,6 +55,8 @@ export interface BarsEnv {
   sesWave(i: number): number;
   /** Cuántas oleadas tiene la ronda (RepArena: nWaves()); 0, sin fin. */
   nWaves(): number;
+  /** Tal cual RepArena (solo para compararlo, tests/compare): en el remo, desde los pies y por las compuertas. */
+  classic?: boolean;
 }
 
 /** Lo que además necesita colocar los aparatos: cambiar ajustes y guardar (RepArena: setSetting y store). */

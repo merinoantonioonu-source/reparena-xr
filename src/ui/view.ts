@@ -25,6 +25,9 @@ export class ViewFrame {
   readonly lie = { on: false, up: new Vector3() };
   /** En partida: dónde estabas y adónde mirabas al empezar (RepArena: FIXV). */
   readonly fix = { on: false, p: new Vector3(), q: new Quaternion() };
+  /** Los avisos se ladean con la cabeza (RepArena XR: la plancha lateral, con la cabeza tumbada de lado y la vista al frente;
+   * derechos en el mundo se leían girados 60-90°. Decidido por el usuario, docs/ERGONOMIA.md). */
+  roll = false;
   private readonly vq = new Quaternion();
   private readonly ve = new Euler(0, 0, 0, 'YXZ');
   private readonly f = new Vector3();
@@ -53,6 +56,7 @@ export class ViewFrame {
       return this.vq.setFromRotationMatrix(this.m.makeBasis(this.x, this.y, this.z));
     }
     if (this.lie.on && Math.abs(f.y) < 0.45) this.lie.on = false; // (de pie o sentado otra vez: la próxima vez se vuelve a tomar)
+    if (this.roll) return this.vq.copy(head.q);
     this.ve.setFromQuaternion(head.q, 'YXZ');
     this.ve.z = 0;
     return this.vq.setFromEuler(this.ve);

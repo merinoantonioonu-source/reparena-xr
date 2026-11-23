@@ -52,7 +52,7 @@ import { bodyYaw, UI } from '../ui/ra/menu-core.js';
 import { menuBusy } from '../ui/ra/poke.js';
 import { comicOn, makePanel, type RaPanel } from '../ui/ra/kit.js';
 import { drawCharge, drawGuide, drawTrophy, drawWarn, drawWave } from '../ui/info-draw.js';
-import { GUIDE_H, GUIDE_W, guideSpot, type GuideSpot } from '../ui/guide-spot.js';
+import { GUIDE_H, GUIDE_TOAST_EX, GUIDE_W, guideSpot, type GuideSpot } from '../ui/guide-spot.js';
 import { BOARD_PX, drawBoard, type BoardView } from '../ui/board-draw.js';
 import { diagEvent } from '../core/diag.js';
 import { BB } from '../core/blackbox.js';
@@ -138,6 +138,8 @@ const TROPHY_Y = 0.56, TROPHY_H = 0.42;
 // Avisos en el suelo (RepArena, src/60_ui.js: warnFloor y chargeFloor)
 /** Por debajo de esta altura de la cabeza (m: tumbado, en plancha), sin aviso en el suelo (lo dice el aviso breve). */
 const FLOOR_WARN_MIN_Y = 0.9;
+/** Los de Barras que se hacen colgado (sin aviso en el suelo). */
+const HANG_EX = ['pullup', 'hang'];
 const WARN_SECS = 4;
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
@@ -501,7 +503,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         this.guideShow(text, color, Math.max(secs, GUIDE_SECS));
         return;
       }
-      if (!(str('board') === 'gate' && !lyingEx() && GATE_MODES.includes(settings.mode))) {
+      if (!(str('board') === 'gate' && !lyingEx() && GATE_MODES.includes(settings.mode)) || GUIDE_TOAST_EX.includes(settings.exercise)) {
         HOOKS.toast(text, color, secs);
         return;
       }
@@ -517,7 +519,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   /** Dónde va ahora el panel de indicaciones (null: no hay; ver src/ui/guide-spot.ts). */
   private guideAt(): GuideSpot | null {
-    return guideSpot(settings.mode, lyingEx() || VIEW.prone, str('board'), -11, this.guideS);
+    return guideSpot(settings.mode, lyingEx() || VIEW.prone, str('board'), -11, this.guideS, settings.exercise);
   }
 
   private guideShow(text: string, color: string, secs: number): void {
@@ -567,6 +569,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // (tumbado o en plancha, el suelo está a un palmo de la cara: el aviso del suelo lo tapaba todo —el menú, los enemigos, el
     // marcador—; ahí basta el aviso breve de la vista, que se aparta de todo eso. Pedido del usuario)
     if (head.p.y < FLOOR_WARN_MIN_Y) return;
+    // (colgado de la barra, el suelo queda a unos 43° bajo los ojos y no se ve: basta el aviso breve; docs/ERGONOMIA.md, C3)
+    if (settings.mode === 'bars' && HANG_EX.includes(settings.exercise)) return;
     const p = this.warnP, o = p.mesh;
     if (text === this.warnText && this.warnT > 1) {
       this.warnT = WARN_SECS;
@@ -760,7 +764,28 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.boardSpot(o.position, 0.38);
       return;
     }
-    const mode = str('board');
+    const mode = str('board'), ex = settings.exercise, playing = GAME.phase === 'playing' || this.calibT >= 0;
+    if (playing && mode !== 'gate' && settings.mode === 'combat' && (ex === 'splank' || ex === 'superman')) {
+      // la plancha lateral y el superman (RepArena XR, docs/ERGONOMIA.md): delante, en el suelo, como el atril de la plancha
+      // (a un lado, mirando al frente de lado o al suelo, no se veía): bajo, por debajo de la línea a las compuertas (no tapa
+      // lo que viene) y, en el superman, pasadas las manos. El mundo ya está colocado contigo en el centro, mirando a −Z
+      const S = 0.9 / 0.64, H = 0.64 * 0.445 * S, a = BOARD_TILT, hy = (H / 2) * Math.sin(a), hz = (H / 2) * Math.cos(a);
+      o.position.set(0, 0.01 + hy, -(ex === 'superman' ? 1.45 : 1.25) + H / 2 - hz);
+      o.rotation.set(-a, 0, 0);
+      o.scale.setScalar(S);
+      this.boardSpot(o.position, 0.45);
+      return;
+    }
+    if (playing && mode !== 'gate' && isSupine()) {
+      // boca arriba (los abdominales; RepArena XR, docs/ERGONOMIA.md): en el techo, sobre la cara, de cara a los ojos y con lo
+      // de arriba hacia tu cabeza (a un lado no se veía mirando al techo). El mundo, colocado con los pies hacia −Z
+      const W = 1.5;
+      o.position.set(0, 1.55, -0.15);
+      o.rotation.set(Math.PI / 2, 0, 0);
+      o.scale.setScalar(W / 0.64);
+      this.boardSpot(o.position, W / 2);
+      return;
+    }
     if (settings.mode === 'trek' && mode !== 'gate') {
       // en la Travesía, en el lado despejado y más alto (elegido por el usuario: el paisaje lo atravesaba; en el risco quedaba
       // dentro de la pared): src/modes/trek/board-spot.ts
@@ -771,8 +796,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.boardSpot(o.position, b.w / 2);
       return;
     }
-    // como en RepArena (src/30_env.js: layoutArena): a un lado, flotando, por delante (a unos 50° y 5 m), grande (4,2 m de
-    // ancho), justo por fuera de la compuerta de ese lado (no tapa lo que sale de ella), girado hacia ti y algo inclinado;
+    // como en RepArena (src/30_env.js: layoutArena): a un lado, flotando, por delante (a unos 50° y 5 m), grande, justo por fuera de la compuerta de ese lado (no tapa lo que sale de ella), girado hacia ti y algo inclinado;
     // «Compuertas»: encima de la del centro, enorme, para leerlo de lejos
     const side = mode === 'right' ? 1 : -1, D = 11, sp = 4.62, PW = 0.64; // (las compuertas, a 11 m y 4,62 m de lado; el panel mide 64 cm)
     if (mode === 'gate') {
@@ -783,7 +807,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.boardSpot(o.position, W / 2);
       return;
     }
-    const R = 5.0, W = 4.2, yc = 2.15, edge = Math.atan((sp + 1.3) / D), a = Math.min(1.2, Math.max(0.85, edge + Math.atan(W / 2 / R) + 0.03));
+    // (RepArena XR: 3,2 m de ancho, no 4,2, para que quepa más cerca del frente —a unos 48°, no 53-69°— sin tapar la compuerta
+    // de ese lado: se lee girando menos la cabeza; docs/ERGONOMIA.md, C4)
+    const R = 5.0, W = 3.2, yc = 2.15, edge = Math.atan((sp + 1.3) / D), a = Math.min(1.2, Math.max(0.75, edge + Math.atan(W / 2 / R) + 0.03));
     const cx = side * R * Math.sin(a), cz = -R * Math.cos(a);
     o.position.set(cx, yc, cz);
     o.rotation.set(Math.atan((yc - 1.6) / R) * 0.8, Math.atan2(-cx, -cz), 0, 'YXZ');
@@ -1154,7 +1180,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // bodyYaw: en plancha, hacia donde apunta la coronilla): las trampillas quedan ante tus manos y las compuertas, de frente.
     // Sin esto, la arena diminuta salía siempre mirando a las compuertas aunque te tumbaras hacia otro lado (las trampillas, a
     // un lado, y «a su lado» de cada brazo no casaba con tu cuerpo). Tu cabeza queda en el centro (0, 0); delante es −Z
-    const turned = this.recenter(true, bodyYaw());
+    const turned = this.recenter(true, bodyYaw(ex === 'splank')); // (de lado, solo la mirada: docs/ERGONOMIA.md)
     hs?.layout(isTiny(), floorOrigin(turned, inch, reach, head.p, GAME.fwd, this.tmpA), oneArm());
     hs?.inchLayout(inch, reach);
     this.placeBoard();
@@ -1913,7 +1939,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // hacia dónde mira el cuerpo: la cabeza en horizontal, girando despacio (la bola no da latigazos)
     headFwd(this.gaze);
     // (mirando al suelo —tumbado, en plancha— manda la coronilla, no la mirada: src/input/body-dir.ts)
-    bodyDir(head.q, this.bodyD);
+    bodyDir(head.q, this.bodyD, settings.exercise === 'splank');
+    VIEW_FRAME.roll = settings.exercise === 'splank' && settings.mode === 'combat'; // (de lado, los avisos con tu cabeza)
     const want = Math.atan2(this.bodyD.x, this.bodyD.z);
     let dy = want - this.bodyYaw;
     while (dy > Math.PI) dy -= Math.PI * 2;
@@ -1935,7 +1962,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.rw.playStep(dt, time, !GAME.between);
       // tumbado, los voladores vienen bajos, a la altura de la cabeza (RepArena: lowFly, lowFlyY, SUP_ATK)
       const ex = this.flCfg.ex, cl = (v: number): number => Math.max(0.3, Math.min(0.8, v));
-      GAME.lowFly = ex === 'splank' ? cl(this.fl.sp.ref + 0.03) : ex === 'superman' ? cl(this.fl.su.ref + this.flCfg.supRange / 100 + 0.08) : 0;
+      // (en el superman, más a ras de suelo —entre 22 y 45 cm—: boca abajo la vista va al suelo y a 0,5-0,8 m quedaban por
+      // encima de ella; RepArena XR, docs/ERGONOMIA.md)
+      GAME.lowFly = ex === 'splank' ? cl(this.fl.sp.ref + 0.03) : ex === 'superman' ? Math.max(0.22, Math.min(0.45, this.fl.su.ref + this.flCfg.supRange / 100 + 0.04)) : 0;
       // el superman, «aguante que protege»: arriba no te tocan; tumbado, pican pasado el descanso (src/combat/flight.ts)
       if (ex === 'superman') {
         const E = this.supEnv, up = this.fl.su.state === 'up';
@@ -2004,7 +2033,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const sup = settings.exercise === 'superman' && settings.mode === 'combat';
     if (lift) this.ballTarget.copy(hands[lift].wrist).setY(hands[lift].wrist.y + 0.06);
     else if (sup) this.supBallAt(this.ballTarget);
-    else this.ballTarget.set(GAME.head.x + GAME.fwd.x * 1.0, (GAME.head.y < 1.0 ? Math.max(0.22, GAME.head.y - 0.12) : GAME.head.y - 0.32) + 0.012 * Math.sin(time * 1.7), GAME.head.z + GAME.fwd.z * 1.0);
+    else {
+      // (de 32 cm bajo los ojos de pie a 12 cm con la cabeza baja, sin saltos: antes, al cruzar 1 m —la sentadilla honda, los
+      // fondos—, la bola subía 20 cm de golpe justo cuando la miras para soltarla; docs/ERGONOMIA.md, C1)
+      const k = clamp((GAME.head.y - 0.9) / 0.2, 0, 1);
+      this.ballTarget.set(GAME.head.x + GAME.fwd.x * 1.0, Math.max(0.22, GAME.head.y - 0.12 - 0.2 * k) + 0.012 * Math.sin(time * 1.7), GAME.head.z + GAME.fwd.z * 1.0);
+    }
     this.fx.ball.update(dt, this.ballTarget, playing ? this.chargePow : 0, sup ? this.supBallK() : -1);
     if (this.fx.ball.visible !== GAME.ballOn && this.fx.ball.visible) {
       // (al diagnóstico, dónde sale la bola: si no se ve, ¿estaba lejos de la mirada?)

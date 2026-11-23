@@ -215,7 +215,22 @@ export class HeadTarget {
     this.side = barNextSide(bar, env); // por un lado (izquierda y derecha, por turnos: los dos brazos por igual) o al centro
     barSlot(this.slotIndex(), this.slot, this.side, bar, env);
     let gate = false;
-    if (this.side) {
+    // en el remo (RepArena XR), todo baja de arriba, de la barra: boca arriba se mira al techo, y lo que llegaba desde los pies
+    // a ras de las piernas o salía de las compuertas (que no se recolocan con tu cuerpo) no se veía venir; docs/ERGONOMIA.md
+    const fromTop = !door && !env.classic;
+    if (this.side && fromTop) {
+      const L = barLat(_ba, env).applyAxisAngle(UP, env.arena.ry), w = toWorld(env.arena, this.slot, _bw);
+      w.addScaledVector(L, this.side * 0.9);
+      w.y += rand(env, 1.5, 1.9);
+      toArena(env.arena, w, this.pos);
+      if (!this.bubble && K.wasp) out.push({ type: 'snd', name: 'hiss', args: [toWorld(env.arena, this.pos, new Vector3()), K.boss ? 0.6 : 0.9, 'wasp'] });
+    } else if (fromTop) {
+      const w = toWorld(env.arena, this.slot, _bw), dir = barFront(w, _ba, env);
+      const a = rand(env, -0.3, 0.3) * -dir.z, b = rand(env, 1.6, 2.0), c = rand(env, -0.3, 0.3) * dir.x;
+      w.addScaledVector(dir, 0.5).add(_bq.set(a, b, c));
+      toArena(env.arena, w, this.pos);
+      if (!this.bubble && K.wasp) out.push({ type: 'snd', name: 'hiss', args: [toWorld(env.arena, this.pos, new Vector3()), K.boss ? 0.6 : 0.9, 'wasp'] });
+    } else if (this.side) {
       // por los lados: llega en diagonal, desde delante y desde su lado (algo por encima), y se para apartado del centro;
       // así se le ve venir sin girar mucho la cabeza (de lado del todo, en el remo había que mirar a un costado)
       const F = barFront(toWorld(env.arena, barTopPoint(_bw, bar, env), _bw), _bq, env), L = barLat(_ba, env).applyAxisAngle(UP, env.arena.ry);
