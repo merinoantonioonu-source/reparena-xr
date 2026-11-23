@@ -240,6 +240,70 @@ de lo que viene.
    `tests/unit/plat-ergo.test.ts`.
 4. **Las indicaciones**: ver el apartado 3.E, que va en este mismo PR o en el siguiente según su tamaño.
 
+### 3.E Las indicaciones: cuáles se quedan y dónde (un PR; el inventario completo, en el apéndice A)
+
+Lo que se nota (decisión 5): ya no saltan mensajes avisando de lo que viene. Lo que te dice cómo hacer bien el ejercicio y
+las órdenes de la pelea con el jefe están en **un panel grande y fijo**, siempre en el mismo sitio, donde cae la mirada de
+tu postura; se quedan el tiempo suficiente para leerlas. Antes de empezar, la caricatura y las instrucciones están delante.
+
+**Por qué hoy no se leen** (`src/ui/view-panels.ts`, `src/ui/view.ts`, `src/combat/game.ts:456-490`):
+
+- casi todo sale por el «aviso breve» (80 × 14 cm a 1,2 m, uno o dos segundos), que además se aparta 50 cm a un lado cuando
+  el marcador o el aviso del centro le estorban;
+- antes de empezar, la caricatura va **siempre 70 cm a la derecha** del panel de calibración (`view-panels.ts:276`): el
+  conjunto queda descentrado unos 16°; y si no hay carátula (la Travesía sin cortinilla cargada), el panel se ancla **hacia
+  donde estaba el menú** al pulsar EMPEZAR y no te sigue hasta que giras más de 50° (`view.ts:137,167`). Por eso en la
+  Travesía quedan a la derecha;
+- varias frases de la Travesía piden cosas de pie estando en plancha («sentadilla honda», «brazos en cruz», «¡De pie!»).
+
+**Qué pasa con cada clase de indicación** (las clases del apéndice A):
+
+| Clase | Ejemplos | Qué se hace |
+| --- | --- | --- |
+| A. Anuncia lo que viene | «¡Un hueco! Salta al llegar al borde», «¡Una seta!…», «¡Cañonazo…!», «¡ARCO DE PLANCHA!…» | **Se quita** en todos los modos (se entrenan los reflejos). Lo que viene tiene que entenderse por su forma, su sonido y su aviso propio en la escena (el cangrejo que se encabrita, el fogonazo del cañón, la huella de la mano en el suelo). Excepciones propuestas, a confirmar: ver el apartado 6 |
+| B. Corrige la forma | «¡Baja más!», «¡Rodilla más abajo!», «Estira los brazos», «Sube hasta el hombro» | **Se queda, en el panel de indicaciones** (no en el aviso breve): visible al menos 4 s o hasta que la siguiente repetición salga bien. De pie, además, sigue en el suelo como ahora (regla del usuario) |
+| C. Lo que hiciste mal ante un reto | «¡Te ha mordido! Sáltale encima a la seta», «¡Apártate del láser, a la derecha!» | **Se queda**, corta, en el panel: sin avisos previos es la única forma de aprender qué pedía ese reto. (Si el usuario tampoco las quiere, se quitan con un solo interruptor) |
+| D. La pelea con el jefe | «¡Alta! Agáchate», «¡Está mareado!…» | **Se queda**, en grande, en el panel (en plancha, en las tablas) y con el texto de **esa forma**: en plancha, «¡Mareado! Dos explosivas», no «sentadilla honda» |
+| E. Estado | «OLEADA 2», «Aguanta 1», «Carga ×2», «¡Cambia de pierna!», calibración, «¡PREPÁRATE!» | Como ahora (marcador, panel entre oleadas, centro). Las cuentas («Aguanta N») y el cambio de pierna, al panel de indicaciones |
+| F. Celebraciones | «¡PERFECTA!», «¡Hueco saltado!», logros dorados | Como ahora: al marcador; los logros, en dorado |
+
+**El panel de indicaciones** [O el sitio y el pintado; S el reparto de textos]:
+
+- Un lienzo más (`infoPanel`, como los de `src/ui/info-draw.ts`: se repinta solo si cambia el texto, con `fitFont`), con
+  **dos renglones**: arriba, fijo y tenue, lo que hay que hacer en ese ejercicio (`IDLE[ex]` de `how.ts`: «Baja en
+  sentadilla para cargar»); abajo, grande y de color, la corrección o la orden del momento (B, C, D y las cuentas).
+- **Dónde**, según la postura (apartado 4.1); una función pura `guideSpot(modo, ejercicio, postura, marcador)` con su prueba:
+  - **de pie con compuertas** (Combate, Toques, Arcos): encima de la compuerta central, grande (unos 6 × 1,4 m, a 11 m y
+    por encima de la baliza), inclinado hacia el jugador. Si el marcador está puesto en «Compuertas», el panel va pegado a
+    su borde (encima o debajo: capturas al usuario). No tapa lo que sale de las compuertas;
+  - **en el suelo y en plancha** (flexiones, plancha con un brazo, inchworm, superman, fondos): no se ve la compuerta. Va en
+    el suelo, por delante de las manos: en la batalla diminuta, como una franja del atril del marcador; en el superman,
+    plano en el suelo a un metro; en la plancha lateral, de pie a un lado, hacia donde mira la cara;
+  - **boca arriba** (abdominales de Toques): en el techo, como los avisos de ahora;
+  - **Travesía de pie y en zancada**: no hay compuertas: un letrero fijo sobre el sendero, alto y lejos (a unos 9 m, por
+    encima de lo que viene); en la pelea, encima del jefe;
+  - **Travesía en plancha**: en las tablas, por delante (lo que ya hace `VIEW.prone`), más grande.
+- El aviso breve de la vista deja de usarse para B, C y D. Queda para lo que no tiene sitio mejor (se revisa en el reparto);
+  el ajuste «Avisos breves en la vista» sigue mandando lo suyo al marcador.
+- Nada de esto tapa el menú (regla: con un menú abierto, nada lo tapa) ni lo que viene.
+
+**Antes de empezar** [O] (`view-panels.ts:270-279`, `view.ts`): el panel del centro y la caricatura, **centrados como
+conjunto** y anclados **al frente de la partida** (hacia las compuertas o el sendero, donde se va a jugar), no hacia donde
+estaba el menú; se recolocan al acabar el giro de la calibración (`recenter`). En plancha y tumbado, en el suelo. Prueba
+pura en `tests/unit/view.test.ts` y capturas de la Travesía (con y sin cortinilla), Combate de pie y flexiones.
+
+**Los textos según la forma** [S]: una tabla en `runner.ts` (o `src/modes/trek/plat/texts.ts`) con cada frase de las clases
+C y D en sus tres versiones (de pie, plancha, zancada); prueba que recorre todas y comprueba que en plancha ninguna dice
+«sentadilla», «brazos en cruz», «de pie» ni «paso». Y `short-msg.ts` al día.
+
+**Reparto** [S, con la lista de Opus]: cada `say`, `message(..., true)`, `HOOKS.say`/`toast` del apéndice A pasa a su
+destino nuevo; las de la clase A se quitan en su origen (en `ask()` de `runner.ts:1428-1453` y compañía, tras un parámetro
+para poder volver atrás si el usuario lo pide). Los detectores no cambian sus frases (las compara `tests/compare`): el
+cambio es de canal, en `game.ts`. `tests/e2e`: en una ronda entera de cada modo no sale ningún texto de la clase A.
+
+**Reglas** [S]: `REGLAS.md` › Paneles y avisos: «No se avisa de lo que viene…», «El panel de indicaciones…» y la corrección
+de las reglas viejas que chocan (ver el apartado 6).
+
 ### 3.F Travesía con cuestas (dos PR: F1 la lógica con el bosque y el risco; F2 las islas y la costa)
 
 Lo que se nota (decisión 4): el sendero sube y baja con el terreno. Cuesta arriba cada repetición te lleva menos lejos:
@@ -476,3 +540,170 @@ Cómo se haría (cuando el usuario elija) [O la lógica, S las pruebas]:
 - Sin aviso de lo que viene (decisión 5): cada pieza tiene que **explicarse sola por su forma** (dos carriles con uno
   roto, una viga claramente inclinada, un botón que brilla). La primera vez que sale cada una en la vida del jugador, sí se
   enseña cómo se hace (ver 3.E, «la primera vez»).
+
+## 6. Lo que queda por decidir (Opus se lo pregunta al usuario, con propuestas, antes del bloque que toque)
+
+1. **Avisos de lo que viene, ¿alguna excepción?** (antes de 3.E). La decisión es quitarlos todos. Tres casos chocan con
+   reglas anteriores del propio usuario y hay que confirmarlos:
+   - Arcos: «el arco de plancha… con un aviso grande delante» y el semipuente «con aviso grande y la huella de la mano en el
+     suelo». Propuesta: quitar el texto y dejar la bocina, la huella de la mano y la velocidad más lenta.
+   - Los cofres: «dicen al aparecer qué hay dentro». Propuesta: no es un reflejo, es información: pasa al marcador.
+   - El lanzador de Combate («¡Te lanza piedras!…»). Propuesta: se quita; ya avisa con su gesto y su voz.
+   - Y una idea para quien juega por primera vez: enseñar cada reto **solo las dos primeras veces en la vida del jugador**
+     (se guarda en `reparenaxr-*`), en el panel. Si el usuario dice que no, no se enseña nunca.
+2. **Las frases de «lo que hiciste mal ante un reto»** (clase C): el plan las mantiene. Confirmarlo.
+3. **Superman, las manos apoyadas** (1.2): ¿se exige despegarlas del suelo cuando las gafas las ven?
+4. **La pared de los arcos inclinados** (3.H): elegir entre los cuatro modelos con las capturas; ¿también para las paredes
+   de los obstáculos con hueco?
+5. **Movimientos de brazos en plancha** (5): cuáles se hacen.
+6. **Lo apuntado de paso** (1.7): la fruta en la cara y la fluidez del menú principal.
+7. **El resto de ejercicios** (4.3): lo que salga del inventario.
+
+## 7. Orden y tamaño
+
+| Orden | Bloque | Tamaño | Depende de |
+| --- | --- | --- | --- |
+| 1 | 3.A Arreglos rápidos | Pequeño | — |
+| 2 | 3.B Superman | Mediano | 3.A (el ritmo) |
+| 3 | 3.C Vuelo suave | Mediano | — |
+| 4 | 3.E Indicaciones y panel | Grande | pregunta 1 y 2 |
+| 5 | 3.D Lo que se ve en plancha | Mediano | 3.E (dónde van los avisos en plancha) |
+| 6 | 3.G Luciérnagas y luces | Mediano | — |
+| 7 | 3.H Arcos | Mediano | pregunta 4 (las capturas se pueden preparar antes) |
+| 8 | 3.F Cuestas (F1 y F2) | Muy grande | 3.D (la tabla de tiempos) |
+| 9 | 5 Brazos en plancha | Grande, por entregas | pregunta 5; 3.F para «trepar» |
+
+Tras cada PR publicado, decirle al usuario qué probar en las gafas y pedirle el diagnóstico si algo no va (las reglas de
+`AGENTS.md` › Diagnóstico). Las capturas de 3.H y las preguntas del apartado 6 se le pueden mandar desde el primer día,
+mientras se hacen 3.A–3.C.
+
+## Apéndice A. Las indicaciones que salen hoy, por modo, y su destino
+
+Canal de hoy: **breve** = el aviso pequeño de la vista; **suelo** = impreso en el suelo; **marcador**; **centro**;
+**dorado** = el logro grande. Destino: **Fuera** (se quita), **Panel** (el panel de indicaciones de 3.E), **Igual**.
+Los textos entre paréntesis son la versión corta que se enseña (`src/ui/short-msg.ts`).
+
+### A.1 Travesía de plataformas (`src/modes/trek/plat/runner.ts`)
+
+**Anuncian lo que viene (clase A): todas Fuera.** Salen por el breve, en amarillo:
+«¡Un hueco! Salta al llegar al borde» · «¡Plataforma alta! Sentadilla honda y salta» · «¡Arriba y salta a la plataforma!» ·
+«¡Túnel! Al suelo, en plancha» · «¡Un trampolín! Písalo con una sentadilla honda» · «¡El camino se divide! Paso a la
+derecha: más difícil y más premios» · «¡Un barranco! Abre los brazos en cruz para planear» · «¡Un barril sorpresa! Salta
+debajo y dale con la cabeza» · «¡Una fruta dorada! Salta para cogerla» · «¡Fruta (especial) a la izquierda/derecha!» ·
+«¡Salta!» (tronco) · «¡Agáchate!» (viga) · «¡Un esqueleto pirata a la X! Apártate a la Y» · «¡Un cangrejo a la X! Apártate a
+la Y» · «¡Una seta! Sáltale encima cuando llegue» · «¡Un tiburón pirata! Agáchate cuando tire el tajo» · «¡Un murciélago /
+Una abeja en picado! Agáchate» · «¡Cañonazo desde el barco, a la X!» · «¡Una calavera botando! Sáltala» · «¡Un cíclope a la
+X! Va a golpear el suelo: salta su onda» · «¡Un demonio a la X! Esquiva su bola de fuego con un paso» · «¡Cornisa! Pégate a
+la pared, a la izquierda» · «¡Islote que sube y baja! Salta cuando esté a ras» · «¡Islote que se hunde! Crúzalo sin
+pararte» · «¡Viento! Inclínate a la X y aguanta» · «¡Desprendimiento a la X! Apártate a la Y» · «¡El cangrejo escupe!
+Aparta la cabeza» · «¡Salta la onda!» · «¡Bola de fuego! Un paso a un lado» · «¡Bala baja! Sáltala» / «¡Bala alta!
+Agáchate» · «¡De pie!» (al salir del túnel) (`runner.ts:1428-1453`, `585`, `629`, `637`, `867`, `961`).
+«Al final del tramo, un cofre: dentro, una llave… y una gema» (`runner.ts:561`): al marcador (pregunta 1).
+
+**Lo que hiciste mal (clase C): al Panel**, con el texto de la forma. Hoy, breve y suelo (en plancha, solo breve):
+«¡Te ha escupido! Aparta la cabeza» · «¡Te has quemado! Un paso a un lado cuando la lance» · «¡Salta al islote cuando esté a
+ras!» · «¡Que se hunde! No te pares» · «¡Pégate a la pared!» · «¡Inclínate contra el viento, a la X!» · «¡Cabeza abajo en el
+túnel!» · «¡Te ha dado la bala! Salta la que rueda / Agáchate con la alta» · «¡Te ha dado con la espada! Agáchate» · «¡Te ha
+dado el esqueleto! Apártate a la X» · «¡Te han dado las rocas! Apártate a la X» · «¡Te ha mordido/picado! Agáchate cuando
+baje en picado» · «¡Salta la calavera!» · «¡Salta la onda del cíclope!» · «¡Salta el tronco!» · «¡Agáchate bajo la viga!» ·
+«¡Te ha mordido! Sáltale encima a la seta» · «¡Te ha mordido! Apártate a la X» · «¡Salta para subir!» · «¡Sentadilla honda y
+salta!» · «¡Salta el hueco!» · «¡Has chocado con el islote!… / ¡El islote estaba abajo!…» · «¡Abre los brazos en cruz para
+planear!» · «¡Abre los brazos!» (`runner.ts:612-1399`).
+
+**La pelea con el jefe (clase D): al Panel, en grande** (en plancha, en las tablas), con el texto de la forma:
+«¡X te corta el paso! Esquiva lo que te lanza» · «¡Alta! Agáchate» / «¡Baja! Salta» / «¡Al cuerpo! Apártate» · «¡Te ha dado!
+La alta: agáchate / La baja: salta / Al cuerpo: apártate a un lado» · «¡Está mareado! Sentadilla honda y salta encima» /
+«¡Está mareado! ¡Salta encima!» · «¡Más hondo! Sentadilla honda y salta» · «Se ha recuperado. Cuando se maree…»
+(`runner.ts:1471-1541`). «¡Esquivada!», «¡Toma! n de 3» (marcador) y «¡JEFE DERROTADO!» (dorado): Igual.
+
+**Cómo hacer bien el ejercicio (clase B): al Panel** (de pie, además, en el suelo como ahora): «Baja más: irás más deprisa»
+(`path.ts:381`) · «¡Baja más!» (sentadilla) · «¡Baja más la rodilla de atrás!» (zancada) · «¡Más abajo!» y «Vuelve a la
+plancha» (plancha).
+
+**Estado (clase E)**: «Empieza con la pierna derecha delante», «¡Cambia de pierna! Ahora, la X delante»: al Panel. «Fin del
+turbo…», el marcador («x m · y km/h», «Tramo n: faltan N m», «★ g/G», «Energía N %»…), «MUNDO n» (dorado), «PREPÁRATE · N
+TRAMOS», «TRAMO n», «¡Tramo superado!»: Igual.
+
+**Celebraciones (clase F)**, todas al marcador: Igual («¡A TOPE!», «¡PERFECTA!», «¡Hueco saltado!», «¡Aplastada!», «¡Cofre
+abierto!…», «¡Supersalto!», «¡Fruta!», «¡Planeando!»… y los dorados del cofre y del tesoro).
+
+### A.2 Combate, por ejercicio (detectores: `src/exercise/standing.ts` y `floor.ts`)
+
+Todas son de la clase B (cómo hacerlo bien) salvo las marcadas; hoy salen por el breve (y de pie, también en el suelo).
+**Destino: Panel** (de pie, además, en el suelo).
+
+| Ejercicio | Indicaciones |
+| --- | --- |
+| Sentadillas | «¡Baja más!» |
+| Zancadas | «¡Baja más la rodilla de atrás!» · «Ahora con la pierna izquierda/derecha delante» (estado) |
+| Sentadilla con salto | «¡Baja más!» · «¡Salta al subir!» |
+| Sentadilla con press | «¡Baja más!» · «¡Sube las pesas por encima de la cabeza!» |
+| Sentadilla frontal con elevación | «¡Baja más!» · «¡Brazos estirados al frente, a la altura de los hombros!» |
+| Swing | «¡Lleva más la cadera atrás!» · «¡Lanza la kettlebell al frente, a la altura del pecho!» |
+| Peso muerto con remo | «¡Baja más el peso!» |
+| Curl y curl con barra | «Sube hasta el hombro» |
+| Elevación frontal | «Brazos estirados: la pesa, al frente» · «Sube hasta la altura de los hombros» |
+| Antebrazos (barra escurrida) | «Mira la barra: no veo tus dos manos» · «¡Cargado! Aguanta escurrida o gira al revés» (estado) · «Gira más las muñecas (unos N° cada una)» |
+| Fondos en silla | «Vuelve a la silla» · «¡Baja hasta los 90° de codo!» |
+| Flexiones | «Vuelve a la plancha» · «¡Más abajo!» |
+| Plancha lateral | «Ponte en plancha lateral» · «¡Sube la cadera!» · «Aguanta N» (estado) |
+| Superman | «Túmbate boca abajo» · «Sube un poco más: X de Y cm» · «¡Aguanta N s arriba!» · «Estira los brazos» · «Aguanta N» (estado) |
+| Inchworm | «Camina con las manos hasta la línea del suelo» · «Vuelve andando con las manos hasta la salida» · «¡Onda expansiva ×N!» (celebración) |
+| Plancha con un brazo | «Vuelve a la plancha» · «¡Más abajo para cargar!» · «¡Carga ×N! Levanta un brazo» (estado) · «Aguanta abajo en la flexión para cargar» · «Apoya bien la otra mano en el suelo» · «Levanta más el brazo, a la altura del hombro» |
+
+El renglón fijo del panel, por ejercicio: las 17 frases de `IDLE` (`src/exercise/how.ts:64-82`: «Baja en sentadilla para
+cargar», «Sube la pesa al hombro»…), que hoy van en la tercera línea del marcador.
+
+### A.3 Combate, lo común (`src/combat/game.ts` y compañía)
+
+| Indicación | Clase | Hoy | Destino |
+| --- | --- | --- | --- |
+| «¡Te lanza piedras! Apártate o párala con la mano» | A | breve y suelo | Fuera (pregunta 1) |
+| «¡Un cofre! Salta para abrirlo: dentro, una mejora, una vida o puntos» | A | marcador | Igual, en el marcador (pregunta 1) |
+| «Más controlado» (repetición demasiado rápida) | B | breve | Panel |
+| «Apunta con la mano y aprieta el gatillo» / «Mano atrás y lánzala hacia el enemigo» (la primera vez) | B | breve | Panel |
+| «Sin carga: ¡haz una sentadilla!» | B | breve | Panel |
+| «¡Lanza el rayo! Apunta y gatillo» / «…Mano atrás y adelante» (cada 4 s con carga) | E | breve | Panel |
+| «Carga ×N», «¡RECARGA PROFUNDA! ×N»; en el suelo «CARGA ×N», «×4 · ¡ARRIBA!» | E | marcador y suelo | Igual |
+| «OLEADA n», el panel entre oleadas, «¡Oleada superada!», «DESCANSO N», «PREPÁRATE…», «¡PREPÁRATE!» 3-2-1, la calibración | E | marcador, panel, centro | Igual (centrados: 3.E) |
+| «¡PERFECTA!», «¡Bien!», «¡DISPARO ×N!», «COMBO ×N», «¡Golpe!», «¡Parada!», «¡Esquivada!», «¡JEFE DESTRUIDO!», mejoras, cofres abiertos, relámpago, escudo | F | marcador | Igual |
+| «Fallo», «¡Te han golpeado!», «¡Pedrada!» | C | marcador | Igual |
+| Logros dorados (récords, meta diaria, misiones, nivel, cofre del día) | F | dorado | Igual |
+
+### A.4 Arcos (`src/modes/arcs/`)
+
+| Indicación | Clase | Hoy | Destino |
+| --- | --- | --- | --- |
+| «¡RÁFAGA DE VALLAS! N saltos seguidos» · «¡BURPEE! Al suelo en plancha… ¡y arriba a saltar la valla!» · «¡ARCO DE PLANCHA! Manos al suelo y pies atrás» · «¡MANO AL SUELO! Apártate a la X y apóyate en una mano» | A | breve, con bocina | Fuera el texto; quedan la bocina y la huella de la mano (pregunta 1) |
+| «Quédate en el carril» | B | breve y suelo | Panel |
+| «¡Salta!» / «¡Salta, no te estires!» · «¡Al suelo, en plancha!» · «¡Más abajo, con la mano en el suelo, a la X!» · «¡Por el lado alto: apártate a la X y baja sobre esa pierna!» · «¡Apártate a la X!» · «¡Agáchate más!» · «¡Apártate del láser, a la X!» · «¡Esquiva la maza: apártate o agáchate!» · «¡Ladéate para entrar en el hueco!» · «¡Métete en el hueco!» | C | breve | Panel (pregunta 2) |
+| «¡PERFECTA!», «¡Saltado!», «¡Esquivado!», «¡Aguantado!», «¡Maza esquivada!», «¡Por el hueco!», «¡ORBE!», la fiebre, «¡SUBE LA MÚSICA!» | F/E | marcador | Igual |
+
+El marcador de Arcos no anuncia lo que viene (regla del usuario; comprobado: `arcs.hud()` no lleva nada de eso).
+
+### A.5 Toques (`src/modes/touch/`)
+
+| Indicación | Clase | Hoy | Destino |
+| --- | --- | --- | --- |
+| «¡Agáchate para cortarlo!» · «¡Da un paso adelante!» · «¡Inclínate hacia ese lado!» · «¡Salta para cortarlo!» · «¡Oblicuo: cruza con la mano X!» · «¡Con la mano X!» · «Vuelve a la posición de partida» | B | breve | Panel (boca arriba, en el techo) |
+| «Aguanta N» | E | breve | Panel |
+| «¡Has salido de la ameba!» · «¡Mete la cabeza en la ameba!» · «¡Corta el bloque con la espada!» · «¡Toca el diamante con la X!» | C | breve | Panel |
+| «¡PERFECTO!», «¡Aguantado!», «¡Bien!», «Quedan N» | F/E | marcador | Igual |
+
+### A.6 Barras (`src/modes/bars/`)
+
+| Indicación | Clase | Hoy | Destino |
+| --- | --- | --- | --- |
+| Colocar la barra o las paralelas, «¡A LA BARRA!», «¡CUÉLGATE!», la cuenta | E | centro | Igual (centrado: 3.E) |
+| «¡Más arriba!» · «Más controlado» | B | breve y suelo / marcador | Panel (colgado: delante, a la altura de los ojos) |
+| «Se escapó» · «¡Te ha picado!» · por qué se acabó («la cabeza bajó más de N cm»…) | C | breve y suelo | Panel |
+| «¡N s!», «CARGA ×N», «¡ONDA ×N!», «¡AL CHARCO!», «¡TE SOLTASTE!», «¡Bien!», «¡PERFECTA!», «¡Sigue!» | E/F/C | marcador | Igual |
+
+### A.7 Otras cosas que salieron al hacer el inventario
+
+- `HOW` (`src/exercise/how.ts:7-25`, las 17 parejas «1. … / 2. …») no lo usa nadie.
+- `src/modes/trek/halts.ts`, `bandits.ts` y `wolves.ts` (la Travesía clásica) ya no se alcanzan desde la de plataformas.
+- De pie y sin número de tramos, la Travesía dice «PREPÁRATE · AL FALLO»; en el suelo, «SIN FIN» (`game.ts:1041` y `1061`).
+- `ArcCore.openGate` (`src/modes/arcs/arc.ts:151-152`) no lo usa nadie: Arcos nunca abre las compuertas.
+
+No se limpia nada de esto sin preguntar: va apuntado para que Opus lo proponga.
