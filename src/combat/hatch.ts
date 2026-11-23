@@ -18,6 +18,11 @@ export const HATCH_SIDE: [number, number][] = [[-0.95, -1.8], [0.95, -1.8], [-1.
 export const FLOORB = { hw: 0.4, z0: -1.13, z1: -0.77 };
 /** Lo que se frenan los empujones (RepArena: SHOVE_K). */
 const SHOVE_K = 7;
+/** El manotazo (RepArena XR, pedido del usuario, en la plancha con un brazo): la mano tiene que llegar de verdad al bicho (a
+ * menos de su radio y `SLAP_R` m de su centro) y como un golpe, no rozándolo: a `SLAP_V` m/s como poco y hacia él (o de arriba
+ * abajo, encima). Lo aleja `SLAP_PUSH` m y le quita el ataque; cada bicho, uno cada `SLAP_CD` s. */
+export const SLAP_R = 0.07, SLAP_V = 1.1, SLAP_PUSH = 0.35, SLAP_CD = 0.4;
+const _sc = new Vector3(), _sd = new Vector3();
 
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 const smooth = (t: number): number => t * t * (3 - 2 * t);
@@ -87,6 +92,8 @@ export class HatchFoe {
   parryT = 0;
   bounce = 0;
   flung = false;
+  /** Cuándo puede recibir otro manotazo (el reloj de `step`, s). */
+  slapAt = 0;
   /** Lo que ha pasado en el último paso: su siseo (s: su tono), sus patitas, el salto a morderte y el mordisco. */
   evHiss = 0;
   evSkitter = false;
@@ -289,6 +296,27 @@ export class HatchFoe {
     this.stunT = 0;
     this.parryT = 0.8;
     this.threatT = this.rand(1.5, 3);
+  }
+
+  /** El manotazo (RepArena XR): ¿la mano en `palm` (en la arena), que va a `vel` (m/s), le da de verdad? Si es así, sale
+   * despedido hacia donde iba la mano y deja de atacar; devuelve si le ha dado. `now`: el reloj (s). */
+  slap(palm: Vector3, vel: Vector3, HL: Vector3, now: number): boolean {
+    if (!this.alive || this.mode === 'emerge' || this.mode === 'dying' || now < this.slapAt) return false;
+    const c = _sc.set(this.pos.x, Math.max(0, this.pos.y) + this.radius, this.pos.z);
+    const to = _sd.subVectors(c, palm), d = to.length(), v = vel.length();
+    if (d > this.radius + SLAP_R || v < SLAP_V) return false;
+    // (un golpe hacia él, o de arriba abajo encima de él; no basta con apoyar la mano o pasar rozando hacia fuera)
+    if (vel.dot(to) <= 0 && vel.y > -SLAP_V * 0.7) return false;
+    this.slapAt = now + SLAP_CD;
+    this.rear = 0;
+    if (this.mode === 'rear' || this.mode === 'lunge' || this.mode === 'threat') {
+      this.mode = 'run';
+      this.st = 0;
+      this.run = false;
+    }
+    this.runT = 0.6;
+    this.shove(SLAP_PUSH * (this.boss ? 0.35 : 1), HL, vel);
+    return true;
   }
 
   /** Empujón: lo aleja de ti dist metros (RepArena: Spider.shove; sin dirección del golpe). */

@@ -63,7 +63,7 @@ function randomOp(r: () => number): [string, string | number] {
   const f = pick(RA_SCHEMA);
   if (f.type === 'num') return [f.key, +(f.min! - 1 + r() * (f.max! - f.min! + 2)).toFixed(r() < 0.5 ? 0 : 2)];
   if (f.type === 'toggle') return [f.key, r() < 0.5 ? 0 : 1];
-  if (f.type === 'choice') return [f.key, r() < 0.9 ? pick(f.opts!)[0] : 'basura'];
+  if (f.type === 'choice') return [f.key, r() < 0.9 ? pick(f.opts!.filter((o) => !f.xrOpts?.includes(o[0])))[0] : 'basura']; // (sin las opciones que solo tiene RepArena XR)
   return [f.key, f.opts!.filter(() => r() < 0.4).map((o) => o[0]).join(',')];
 }
 

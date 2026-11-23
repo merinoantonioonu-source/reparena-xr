@@ -172,7 +172,7 @@ tabla de `README.md` dice qué hace cada archivo.
   El curl con barra y el de un brazo tienen un camino nuevo en pruebas, «Manos: filtro nuevo» (`handsNew` → `StandCfg.robust`
   → `barRobust`, `armRobust`): lo de siempre (`barStep`, `armStep`) no se toca mientras el usuario no lo dé por bueno.
 - Los modelos de las manos y los mandos se sirven desde el juego (`public/input-profiles`, `src/input/input-models.ts`).
-- **Entornos** (`src/env/`): `EnvSystem` pone el fondo realista como `DomeTexture` de IWSDK en la raíz del nivel (`ajustes pano`) y las luciérnagas (`motes`); `Scenery` pinta el bosque o la isla (`scenery`) con instancias; dónde va cada modelo, `placement.ts`. El fondo realista y el entorno de día esconden el valle, las nubes y el suelo de cómic; Barras colgado (de noche, `nightForest`) los aparta.
+- **Entornos** (`src/env/`): `EnvSystem` pone el fondo realista como `DomeTexture` de IWSDK en la raíz del nivel (`ajustes pano`) y las luciérnagas (`motes`); `Scenery` pinta el bosque, la isla, el risco, las islas en el cielo o la aldea (`scenery`) con instancias; dónde va cada modelo, `placement.ts`; la hora y el tiempo de cada oleada, `sky-plan.ts` (lo aplica `EnvSystem.stepSky`; la lluvia y la nieve, `weather.ts`). El fondo realista y el entorno de día esconden el valle, las nubes y el suelo de cómic; Barras colgado (de noche, `nightForest`) los aparta.
 - **Estilo Cómic** (el de serie): `ComicSystem` (`src/style/`) prepara todo lo que aparece con material estándar: su
   sombreado de cómic y su contorno de tinta. Lo nuevo, con `MeshStandardMaterial` de colores claros y lisos; sin contorno,
   `userData.noInk`. Los objetos de escena, con las habilidades de IWSDK (`iwsdk-build-model`, `iwsdk-compose-scene`).

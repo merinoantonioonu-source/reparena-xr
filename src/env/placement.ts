@@ -35,17 +35,33 @@ export interface Models {
   has(n: string): boolean;
   foot(n: string): number;
   rad(n: string): number;
+  /** Lo alto que llega (m, a escala 1; para poner algo encima). */
+  top?(n: string): number;
 }
 
 const pick3 = <T>(R: () => number, l: T[]): T => l[Math.floor(R() * l.length)];
 
+/** Los desniveles del terreno (RepArena XR: un entorno distinto en cada partida): colinas y hondonadas más allá de donde se
+ * juega (llano hasta `HILL_IN` m de ti, para que tú y los enemigos piséis suelo llano), cada vez más marcadas hasta `HILL_MAX`
+ * m de alto a lo lejos. Con `seed` 0, llano (como siempre). */
+export const HILL_IN = 14, HILL_MAX = 4.5;
+export function hillH(x: number, z: number, seed: number): number {
+  if (!seed) return 0;
+  const r = Math.hypot(x, z);
+  if (r <= HILL_IN) return 0;
+  const k = Math.min(1, (r - HILL_IN) / 22), ease = k * k * (3 - 2 * k), o = (seed % 997) * 1.37;
+  // (unas ondas suaves que no se repiten: dos escalas, desfasadas con la semilla; de −0,35 a 1 × el alto)
+  const n = 0.55 * Math.sin(x * 0.11 + o) * Math.cos(z * 0.09 - o * 0.7) + 0.3 * Math.sin((x + z) * 0.21 + o * 1.9) + 0.15 * Math.cos((x - z) * 0.37 + o * 0.4);
+  return HILL_MAX * ease * Math.min(1, Math.max(-0.35, n + 0.25));
+}
+
 /** El claro del bosque (RepArena: natureBuild). `op`: con fondo realista, sin el bosque de detrás de las compuertas y con el abanico más abierto. */
-export function natureLayout(D: number, op: boolean, gates: Gate[], M: Models): { puts: Put[]; solids: { x: number; z: number; r: number }[] } {
-  const R = rng(23), puts: Put[] = [], trees: { x: number; z: number; r: number }[] = [], solids: { x: number; z: number; r: number }[] = [];
+export function natureLayout(D: number, op: boolean, gates: Gate[], M: Models, seed = 0): { puts: Put[]; solids: { x: number; z: number; r: number }[] } {
+  const R = rng(23 + seed * 7919), puts: Put[] = [], trees: { x: number; z: number; r: number }[] = [], solids: { x: number; z: number; r: number }[] = [];
   const front = (x: number, z: number, extra: number): boolean => Math.abs(Math.atan2(x, -z)) < (op ? 1.15 : 0.8) && (op || Math.hypot(x, z) < D + extra);
   const nearGate = (x: number, z: number, r: number): boolean => gates.some((g) => Math.hypot(g.x - x, g.z - z) < r);
   const add = (n: string, x: number, z: number, s: number, ry = R() * TAU): void => {
-    if (M.has(n)) puts.push({ n, x, y: 0, z, s, ry });
+    if (M.has(n)) puts.push({ n, x, y: hillH(x, z, seed), z, s, ry });
   };
   const solid = (n: string, x: number, z: number, s: number): void => {
     if (Math.hypot(x, z) < D + 4 && M.has(n)) solids.push({ x, z, r: M.foot(n) * s });
@@ -101,8 +117,8 @@ export function natureLayout(D: number, op: boolean, gates: Gate[], M: Models): 
 export const ISL_SHORE = 24;
 
 /** La playa de la isla pirata (RepArena: islandBuild). */
-export function islandLayout(D: number, gates: Gate[], M: Models): { puts: Put[]; solids: { x: number; z: number; r: number }[] } {
-  const R = rng(57), puts: Put[] = [], taken: { x: number; z: number; r: number }[] = [], solids: { x: number; z: number; r: number }[] = [];
+export function islandLayout(D: number, gates: Gate[], M: Models, seed = 0): { puts: Put[]; solids: { x: number; z: number; r: number }[] } {
+  const R = rng(57 + seed * 7919), puts: Put[] = [], taken: { x: number; z: number; r: number }[] = [], solids: { x: number; z: number; r: number }[] = [];
   const front = (x: number, z: number, extra: number): boolean => Math.abs(Math.atan2(x, -z)) < 0.8 && Math.hypot(x, z) < D + extra;
   const nearGate = (x: number, z: number, r: number): boolean => gates.some((g) => Math.hypot(g.x - x, g.z - z) < r);
   const free = (x: number, z: number, r: number): boolean => !taken.some((t) => Math.hypot(t.x - x, t.z - z) < t.r + r);
@@ -178,4 +194,112 @@ export function islandLayout(D: number, gates: Gate[], M: Models): { puts: Put[]
   add('ShipLarge', -18, ISL_SHORE + 26, 1.3, Math.PI * 0.35);
   add('ShipLarge', 34, 30, 1.0, -Math.PI * 0.2);
   return { puts, solids };
+}
+
+/* ------------------------------------------------------------------ los mundos de la Travesía, en Combate (RepArena XR) */
+// (pedidos por el usuario: el risco, las islas en el cielo y la aldea, con los kits que ya hay; lo grande, siempre fuera del
+// abanico de las compuertas y lejos de ti, como en el bosque y la isla)
+
+type Layout = { puts: Put[]; solids: { x: number; z: number; r: number }[] };
+
+function kit(D: number, gates: Gate[], M: Models, base: number, seed = 0, hills = false) {
+  const R = rng(base + seed * 7919), puts: Put[] = [], taken: { x: number; z: number; r: number }[] = [], solids: { x: number; z: number; r: number }[] = [];
+  const front = (x: number, z: number, extra: number): boolean => Math.abs(Math.atan2(x, -z)) < 0.8 && Math.hypot(x, z) < D + extra;
+  const nearGate = (x: number, z: number, r: number): boolean => gates.some((g) => Math.hypot(g.x - x, g.z - z) < r);
+  const free = (x: number, z: number, r: number): boolean => !taken.some((t) => Math.hypot(t.x - x, t.z - z) < t.r + r);
+  const add = (n: string, x: number, z: number, s: number, ry = R() * TAU, r = 0, y = 0): void => {
+    if (!M.has(n)) return;
+    puts.push({ n, x, y: y + (hills ? hillH(x, z, seed) : 0), z, s, ry });
+    if (r) taken.push({ x, z, r });
+    if (r && Math.hypot(x, z) < D + 4) solids.push({ x, z, r: M.foot(n) * s });
+  };
+  const scatter = (count: number, rMin: number, rMax: number, ok: (x: number, z: number, r: number, a: number) => boolean, fn: (x: number, z: number, r: number, a: number) => void): void => {
+    for (let i = 0, tries = 0; i < count && tries < count * 40; tries++) {
+      const a = R() * TAU, r = Math.sqrt(rMin * rMin + R() * (rMax * rMax - rMin * rMin)), x = Math.sin(a) * r, z = -Math.cos(a) * r;
+      if (!ok(x, z, r, Math.atan2(x, -z))) continue;
+      fn(x, z, r, Math.atan2(x, -z));
+      i++;
+    }
+  };
+  const side = (x: number, z: number, r: number, pad: number): boolean => r - pad > 5 && !front(x, z, 5 + pad) && !nearGate(x, z, 4 + pad) && free(x, z, pad);
+  const face = (x: number, z: number): number => Math.atan2(-x, -z);
+  return { R, puts, solids, add, scatter, side, free, face, front, nearGate };
+}
+
+/** Hasta dónde llega el suelo del risco y de la isla del cielo (m): más allá, el vacío y el mar de nubes. */
+export const CLIFF_EDGE = 21, SKY_EDGE = 17;
+
+/** El risco: una meseta de roca en la montaña; a la izquierda y detrás, la pared de roca y los pinos; a la derecha, el borde y
+ * el vacío, con agujas de roca que salen del mar de nubes a lo lejos. */
+export function cliffLayout(D: number, gates: Gate[], M: Models, seed = 0): Layout {
+  const K = kit(D, gates, M, 71, seed), { R, add, scatter, side } = K;
+  // la pared: peñascos grandes a la izquierda y detrás de las compuertas, de lado a lado
+  // (los peñascos miden 6-7 m a escala 1: cada uno, entero fuera de la meseta de juego, como poco a 9 m de ti)
+  for (let i = 0; i < 12; i++) {
+    const a = -Math.PI * 0.95 + i * 0.17 + (R() - 0.5) * 0.08, n = ['Cliff2', 'Cliff3', 'Cliff4'][i % 3], sc = 1.8 + R() * 1.2, rr = M.rad(n) * sc;
+    const r = Math.abs(a) < 0.85 ? D + 4 + rr : Math.max(CLIFF_EDGE - 4, rr + 9);
+    add(n, Math.sin(a) * r, -Math.cos(a) * r, sc, R() * TAU);
+  }
+  // a la derecha, más allá del borde, agujas de roca que salen de las nubes
+  for (let i = 0; i < 7; i++) {
+    const a = 0.9 + i * 0.32 + (R() - 0.5) * 0.15, r = 38 + R() * 30, sc = 3 + R() * 3;
+    add(i % 2 ? 'Cliff1' : 'Cliff4', Math.sin(a) * r, -Math.cos(a) * r, sc, R() * TAU, 0, -14 - R() * 6);
+  }
+  // el borde de la derecha: rocas sueltas; pinos y algún árbol seco a la izquierda, al pie de la pared
+  scatter(12, CLIFF_EDGE - 4, CLIFF_EDGE - 1, (x, z, r, a) => a > 0.5 && side(x, z, r, 1), (x, z) => add(`Rock_${1 + Math.floor(R() * 5)}`, x, z, 0.9 + R() * 1.4, R() * TAU, 1));
+  scatter(14, 9, CLIFF_EDGE - 3, (x, z, r, a) => a < -0.6 && side(x, z, r, 1.5), (x, z) => add(R() < 0.8 ? ['Pine_2', 'Pine_4', 'Pine_5'][Math.floor(R() * 3)] : 'DeadTree_1', x, z, 0.8 + R() * 0.5, R() * TAU, 1.5));
+  scatter(14, 6, CLIFF_EDGE - 2, (x, z, r) => side(x, z, r, 0.8), (x, z) => add(`Rock_Medium_${1 + Math.floor(R() * 3)}`, x, z, 0.3 + R() * 0.5, R() * TAU, 0.8));
+  scatter(40, 3, CLIFF_EDGE - 2, (x, z, r) => r > 2 && !K.nearGate(x, z, 2), (x, z) => add(['Grass_Wispy_Short', 'Grass_Common_Short', 'Fern_1'][Math.floor(R() * 3)], x, z, 0.2 + R() * 0.15));
+  return { puts: K.puts, solids: K.solids };
+}
+
+/** Las islas en el cielo: estás en lo alto de una isla de hierba que flota; alrededor, el borde de rocas y, a lo lejos, otras
+ * islas flotando sobre el mar de nubes, algunas con árboles. */
+export function skyLayout(D: number, gates: Gate[], M: Models, seed = 0): Layout {
+  const K = kit(D, gates, M, 83, seed), { R, add, scatter, side } = K, top = (n: string): number => M.top?.(n) ?? 1;
+  // el borde de la isla: rocas todo alrededor (detrás de las compuertas también, que no salen de la nada)
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * TAU + (R() - 0.5) * 0.1, r = SKY_EDGE - 0.6 + R() * 0.8, n = `Rock_${1 + Math.floor(R() * 5)}`;
+    if (!K.nearGate(Math.sin(a) * r, -Math.cos(a) * r, 2.5)) add(n, Math.sin(a) * r, -Math.cos(a) * r, 1 + R() * 1.2, R() * TAU);
+  }
+  // y bajo el borde, la roca de la isla, que cuelga (se ve al asomarse)
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * TAU, r = SKY_EDGE - 4;
+    add('Cliff1', Math.sin(a) * r, -Math.cos(a) * r, 2.4, R() * TAU, 0, -top('Cliff1') * 2.4 - 0.2);
+  }
+  // otras islas a lo lejos, a distintas alturas; en lo alto de algunas, árboles
+  for (let i = 0; i < 11; i++) {
+    const a = (i / 11) * TAU + (R() - 0.5) * 0.3, r = 32 + R() * 32, sc = 1.2 + R() * 1.6, y = -10 + R() * 16, n = i % 3 ? 'Cliff3' : 'Cliff1';
+    const x = Math.sin(a) * r, z = -Math.cos(a) * r;
+    add(n, x, z, sc, R() * TAU, 0, y);
+    if (i % 2 === 0) add(['CommonTree_3', 'CommonTree_4', 'Pine_4'][i % 3], x, z, sc * 0.7, R() * TAU, 0, y + top(n) * sc - 0.3);
+  }
+  // en la isla: árboles a los lados y detrás, arbustos, flores y hierba
+  scatter(9, 8, SKY_EDGE - 3, (x, z, r) => side(x, z, r, 2), (x, z) => add(['CommonTree_3', 'CommonTree_4', 'CommonTree_5'][Math.floor(R() * 3)], x, z, 0.8 + R() * 0.4, R() * TAU, 2));
+  scatter(10, 5.5, SKY_EDGE - 2, (x, z, r) => side(x, z, r, 1), (x, z) => add(R() < 0.5 ? 'Bush_Common' : 'Bush_Common_Flowers', x, z, 0.45 + R() * 0.3, R() * TAU, 1));
+  scatter(110, 1.8, SKY_EDGE - 1, (x, z, r) => r > 1.7 && !K.nearGate(x, z, 2.2), (x, z) => add(['Grass_Common_Short', 'Grass_Common_Tall', 'Grass_Wispy_Short', 'Flower_3_Group', 'Clover_1'][Math.floor(R() * 5)], x, z, 0.2 + R() * 0.15));
+  return { puts: K.puts, solids: K.solids };
+}
+
+/** La aldea: un claro con casas alrededor (las del Pirate Kit: casas y el aserradero, de cara a la plaza), barriles y cubos a
+ * su puerta, y el bosque detrás. */
+export function villageLayout(D: number, gates: Gate[], M: Models, seed = 0): Layout {
+  const K = kit(D, gates, M, 97, seed, true), { R, add, scatter, side, face } = K;
+  const houses = ['House1', 'House2', 'House3', 'Sawmill', 'House2', 'House1', 'House3', 'House1'];
+  // las casas, en corro, a los lados y detrás de ti (de cara a la plaza)
+  let hi = 0;
+  scatter(8, 14, 24, (x, z, r) => side(x, z, r, M.rad(houses[hi] ?? 'House1') + 0.5), (x, z) => {
+    const n = houses[hi++ % houses.length];
+    add(n, x, z, 1, face(x, z) + (R() - 0.5) * 0.25, M.rad(n) + 0.5);
+    // a su puerta, unos barriles y un cubo
+    for (let j = 0; j < 2; j++) {
+      const bx = x * 0.82 + (R() - 0.5) * 2, bz = z * 0.82 + (R() - 0.5) * 2;
+      if (side(bx, bz, Math.hypot(bx, bz), 0.6)) add(R() < 0.7 ? 'Barrel' : 'Bucket', bx, bz, 0.9, R() * TAU, 0.6);
+    }
+  });
+  // el bosque detrás de las casas y detrás de las compuertas
+  scatter(30, 25, 42, (x, z, r) => !K.nearGate(x, z, 5) && K.free(x, z, 2.5), (x, z) => add(['Pine_2', 'Pine_4', 'Pine_5', 'CommonTree_3', 'CommonTree_4'][Math.floor(R() * 5)], x, z, 0.9 + R() * 0.5, R() * TAU, 2.5));
+  scatter(10, 6, 14, (x, z, r) => side(x, z, r, 1.2), (x, z) => add(R() < 0.6 ? 'Bush_Common' : 'Bush_Common_Flowers', x, z, 0.45 + R() * 0.3, R() * TAU, 1.2));
+  scatter(140, 1.8, 22, (x, z, r) => r > 1.7 && !K.nearGate(x, z, 2.2), (x, z) => add(['Grass_Common_Short', 'Grass_Common_Tall', 'Grass_Wispy_Short', 'Flower_3_Group'][Math.floor(R() * 4)], x, z, 0.2 + R() * 0.15));
+  return { puts: K.puts, solids: K.solids };
 }

@@ -5,12 +5,16 @@
  * menú y la página lo cambian por `setSetting`).
  */
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, createSystem, DomeTexture, Points, ShaderMaterial, Vector3 } from '@iwsdk/core';
-import type { Entity, Object3D } from '@iwsdk/core';
+import type { DirectionalLight, Entity, HemisphereLight, Object3D } from '@iwsdk/core';
 import { SND } from '../audio/sound.js';
 import { GateSystem } from '../combat/gates.js';
 import { BarsSystem } from '../modes/bars/bars-system.js';
 import { num, str, on } from '../core/values.js';
-import { Scenery } from './scenery.js';
+import { Scenery, type SceneKind } from './scenery.js';
+import { lerpLook, skyLook, wavePlan, type SkyLook } from './sky-plan.js';
+import { Weather } from './weather.js';
+import { isBossWave } from '../combat/waves.js';
+import { nWaves } from '../core/settings.js';
 import { TrekSystem } from '../modes/trek/trek-system.js';
 import { BEAT, MOTES } from '../core/beat-hub.js';
 import { moteBpm } from '../core/beat.js';
@@ -51,6 +55,9 @@ export function moteFit(p: [number, number, number], R: () => number): [number, 
 /** De colores (pedido del usuario, dos veces: con una de cada tres y el centro blanco, ni se notaba): rosa, turquesa, violeta,
  * verde, naranja, azul y amarillo, vivos, en `MOTE_TINT_P` de ellas; las demás, del amarillo de siempre. */
 const MOTE_TINTS = [0xff3fb4, 0x1fe0ff, 0x9a5cff, 0x3dff7a, 0xff8a1f, 0x3f7bff, 0xffe23a], MOTE_TINT_P = 0.75;
+/** Los entornos de día que se pueden elegir y el orden de «Alternar». */
+const SCENE_KINDS: SceneKind[] = ['nature', 'island', 'cliff', 'sky', 'village'];
+const MIX_NEXT: Record<string, 'arena' | SceneKind> = { arena: 'nature', nature: 'island', island: 'cliff', cliff: 'sky', sky: 'village', village: 'arena' };
 const FONDOS = ['aldea', 'bosque', 'montana', 'cumbre', 'lago', 'atardecer', 'ocaso'];
 const fondoUrl = (k: string): string => `${import.meta.env.BASE_URL}fondos/${k}.jpg`;
 
@@ -165,7 +172,21 @@ export class EnvSystem extends createSystem({}) {
   private hidden: Object3D[] = [];
   private floor: Object3D[] = [];
   private scenery!: Scenery;
-  private pick: 'arena' | 'nature' | 'island' = 'arena';
+  private pick: 'arena' | SceneKind = 'arena';
+  /** La hora y el tiempo (src/env/sky-plan.ts): lo que se ve ahora y adonde va, la lluvia y la nieve, y el relámpago. */
+  private look: SkyLook = skyLook('dia', 'claro');
+  private readonly lookTo: SkyLook = skyLook('dia', 'claro');
+  private weather!: Weather;
+  private flash = 0;
+  private boltT = 6;
+  private thunderT = -1;
+  /** Las luces de la escena (el sol y la de relleno), con lo que traían, para teñirlas con la hora y devolverlas. */
+  private lights: { sun: DirectionalLight | null; fill: HemisphereLight | null; sunC: Color; sunI: number; fillC: Color; fillI: number } | null = null;
+  private lit = false;
+  /** La semilla del entorno de esta partida (RepArena XR, «Entorno distinto en cada partida»): otro reparto, otros desniveles,
+   * otro sol y otra hora de empezar; se elige al acabar la anterior (en el menú: rehacerlo no da tirones al EMPEZAR). 0: el de
+   * siempre. */
+  private seed = 0;
   private wasPlaying = false;
   private readonly tmp = new Vector3();
 
@@ -174,6 +195,9 @@ export class EnvSystem extends createSystem({}) {
     this.world.createTransformEntity(this.motes);
     this.scenery = new Scenery(this.world.scene);
     this.world.createTransformEntity(this.scenery.root);
+    this.weather = new Weather();
+    this.world.createTransformEntity(this.weather.rain);
+    this.world.createTransformEntity(this.weather.snow);
   }
 
   /** ¿Se ve un entorno de día (bosque o isla)? */
@@ -182,11 +206,11 @@ export class EnvSystem extends createSystem({}) {
   }
 
   /** El entorno que toca: el elegido o, con «Alternar», uno distinto en cada partida; con fondo realista, el bosque (con la foto detrás). */
-  private sceneryWanted(): 'arena' | 'nature' | 'island' {
+  private sceneryWanted(): 'arena' | SceneKind {
     if (settings.mode === 'trek') return 'arena'; // (la Travesía pinta su propio bosque, que corre con el mundo)
     if (this.panoWanted()) return 'nature';
     const k = str('scenery');
-    return k === 'mix' ? this.pick : k === 'nature' || k === 'island' ? k : 'arena';
+    return k === 'mix' ? this.pick : (SCENE_KINDS as string[]).includes(k) ? (k as SceneKind) : 'arena';
   }
 
   // dónde están las compuertas (las del bosque y la isla se apartan de ellas)
@@ -202,17 +226,91 @@ export class EnvSystem extends createSystem({}) {
 
   private stepScenery(dt: number, time: number): void {
     const playing = GAME.phase === 'playing';
-    if (playing && !this.wasPlaying && str('scenery') === 'mix') this.pick = ({ arena: 'nature', nature: 'island' } as Record<string, 'arena' | 'nature' | 'island'>)[this.pick] ?? 'arena'; // (fortaleza → bosque → isla)
+    // (con «Alternar», uno distinto en cada partida: fortaleza → bosque → isla → risco → islas en el cielo → aldea)
+    if (playing && !this.wasPlaying && str('scenery') === 'mix') this.pick = MIX_NEXT[this.pick] ?? 'arena';
+    // al acabar una partida (y al principio), la semilla de la siguiente
+    if ((!playing && this.wasPlaying) || (this.seed === 0 && num('envVary') > 0)) this.seed = num('envVary') > 0 ? 1 + Math.floor(Math.random() * 999983) : 0;
+    if (!(num('envVary') > 0)) this.seed = 0;
     this.wasPlaying = playing;
     const night = this.world.getSystem(BarsSystem)?.nightForest ?? false, want = night ? 'arena' : this.sceneryWanted();
     if (want === 'arena') this.scenery.hide();
-    else if (!this.scenery.show(want, num('depth') > 0 ? num('depth') : 11, !!this.panoWanted(), this.gateList())) this.scenery.hide();
+    else if (!this.scenery.show(want, num('depth') > 0 ? num('depth') : 11, !!this.panoWanted(), this.gateList(), this.seed)) this.scenery.hide();
     if (!this.floor.length) this.floor = ['arena-floor', 'comic-valley', 'comic-clouds'].map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is Object3D => !!o);
     const on = this.scenery.visible;
     if (!night && settings.mode !== 'trek') for (const o of this.floor) o.visible = !on && !(this.panoWanted() && o !== this.floor[0]); // (la Travesía los esconde ella)
     this.scenery.lite(LITE.on); // (con un menú abierto en las gafas, sin el bosque: va más fluido)
     this.scenery.update(dt, time, head.p, (at, isl) => (isl ? SND.gull(this.tmp.copy(at)) : SND.bird(this.tmp.copy(at))));
+    this.stepSky(dt, time, want);
   }
+
+  /** La hora y el tiempo de la oleada (pedido del usuario; «Hora y tiempo con las oleadas»): en los entornos de día, el cielo,
+   * la luz y la niebla van cambiando suave; la lluvia, la nieve y la tormenta, en todos (también en la fortaleza). */
+  private stepSky(dt: number, time: number, want: string): void {
+    const playing = GAME.phase === 'playing', mode = settings.mode, cyc = on('envCycle') && (mode === 'combat' || mode === 'touch' || mode === 'arcs');
+    if (cyc && playing && GAME.wave > 0) {
+      const w = wavePlan(GAME.wave, want, isBossWave(GAME.wave - 1, nWaves()), this.seed % 5);
+      skyLook(w.phase, w.weather, this.lookTo);
+    } else skyLook('dia', 'claro', this.lookTo);
+    lerpLook(this.look, this.lookTo, Math.min(1, dt * 0.6));
+    const L = this.look, day = this.scenery.visible && !this.panoWanted();
+    // el relámpago: en la tormenta, cada pocos segundos un fogonazo y, enseguida, el trueno
+    this.flash = Math.max(0, this.flash - dt * 4);
+    if (L.storm > 0.5 && playing && !GAME.paused) {
+      this.boltT -= dt;
+      if (this.boltT <= 0) {
+        this.boltT = 5 + Math.random() * 7;
+        this.flash = 1;
+        this.thunderT = 0.4 + Math.random() * 0.9;
+      }
+    }
+    if (this.thunderT > 0) {
+      this.thunderT -= dt;
+      if (this.thunderT <= 0) SND.thunder(1); // (del ambiente: con Spotify, se calla)
+    }
+    this.scenery.setLook(day ? L : null, this.flash);
+    this.tintLights(day, L);
+    // la lluvia y la nieve (con un menú abierto, sin ellas: va más fluido)
+    const r = this.world.renderer, xs = r.xr.isPresenting ? r.xr.getSession() : null, BL = xs?.renderState?.baseLayer as { framebufferHeight?: number } | undefined;
+    const wx = cyc && playing && !LITE.on ? 1 : 0;
+    this.weather.update(L.rain * wx, L.snow * wx, time, head.p, BL?.framebufferHeight ? BL.framebufferHeight : innerHeight * r.getPixelRatio());
+  }
+
+  /** Tiñe el sol y la luz de relleno con la hora (y el relámpago); sin ella, las deja como estaban. */
+  private tintLights(on: boolean, L: SkyLook): void {
+    if (settings.mode === 'trek') return; // (la Travesía tiñe las suyas)
+    if (!this.lights) {
+      let sun: DirectionalLight | null = null, fill: HemisphereLight | null = null;
+      this.world.getSceneEntity('sun')?.object3D?.traverse((o) => { if ((o as DirectionalLight).isDirectionalLight) sun = o as DirectionalLight; });
+      this.world.getSceneEntity('fill')?.object3D?.traverse((o) => { if ((o as HemisphereLight).isHemisphereLight) fill = o as HemisphereLight; });
+      const S = sun as DirectionalLight | null, F = fill as HemisphereLight | null;
+      if (!S && !F) return;
+      this.lights = { sun: S, fill: F, sunC: S ? S.color.clone() : new Color(), sunI: S?.intensity ?? 1, fillC: F ? F.color.clone() : new Color(), fillI: F?.intensity ?? 1 };
+    }
+    const G = this.lights;
+    if (!on) {
+      if (!this.lit) return;
+      this.lit = false;
+      if (G.sun) {
+        G.sun.color.copy(G.sunC);
+        G.sun.intensity = G.sunI;
+      }
+      if (G.fill) {
+        G.fill.color.copy(G.fillC);
+        G.fill.intensity = G.fillI;
+      }
+      return;
+    }
+    this.lit = true;
+    if (G.sun) {
+      G.sun.color.copy(G.sunC).multiply(this.c1.setHex(L.sun));
+      G.sun.intensity = G.sunI * L.sunI;
+    }
+    if (G.fill) {
+      G.fill.color.copy(G.fillC).multiply(this.c1.setHex(L.fill));
+      G.fill.intensity = G.fillI * L.fillI * (1 + 2.5 * this.flash);
+    }
+  }
+  private readonly c1 = new Color();
 
   /** El fondo elegido (que exista), o '' si es el cielo dibujado. */
   private panoWanted(): string {

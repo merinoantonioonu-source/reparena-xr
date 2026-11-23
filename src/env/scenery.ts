@@ -9,7 +9,12 @@ import {
   RingGeometry, ShaderMaterial, SphereGeometry, SRGBColorSpace, Vector3,
 } from '@iwsdk/core';
 import type { Material, Texture } from '@iwsdk/core';
-import { ISL_SHORE, islandLayout, natureLayout, rng, type Gate, type Models, type Put } from './placement.js';
+import { CLIFF_EDGE, cliffLayout, hillH, ISL_SHORE, islandLayout, natureLayout, rng, SKY_EDGE, skyLayout, villageLayout, type Gate, type Models, type Put } from './placement.js';
+import { CloudSea } from '../modes/trek/cloud-sea.js';
+import type { SkyLook } from './sky-plan.js';
+
+/** Los entornos de día: el bosque y la isla pirata (los de RepArena) y los mundos de la Travesía (RepArena XR). */
+export type SceneKind = 'nature' | 'island' | 'cliff' | 'sky' | 'village';
 
 const TAU = Math.PI * 2;
 const UP = new Vector3(0, 1, 0);
@@ -36,26 +41,34 @@ function natFloat(a: BufferAttribute): BufferAttribute {
   return new BufferAttribute(f, k);
 }
 
-/** El cielo de día: azul arriba, claro en el horizonte, nubes blandas que pasan despacio y el resplandor del sol. */
+/** El cielo de día: azul arriba, claro en el horizonte, nubes blandas que pasan despacio y el resplandor del sol. Con la hora y
+ * el tiempo (src/env/sky-plan.ts): sus colores, el sol, lo nublado, las estrellas de noche y el fogonazo del relámpago; con el
+ * mar de nubes (`uSea`), lo de debajo del horizonte es suyo. */
 function daySky(): ShaderMaterial {
   return new ShaderMaterial({
     side: BackSide,
     depthWrite: false,
     fog: false,
-    uniforms: { time: { value: 0 } },
+    uniforms: { time: { value: 0 }, uTop: { value: new Color(0x5294e0) }, uHor: { value: new Color(0xc7e0ee) }, uSun: { value: new Vector3(-0.5, 0.62, 0.6).normalize() }, uSunCol: { value: new Color(0xfff2dc) }, uCloud: { value: 0.4 }, uStars: { value: 0 }, uFlash: { value: 0 }, uSea: { value: 0 } },
     vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: `uniform float time; varying vec3 vP;
+    fragmentShader: `uniform float time, uCloud, uStars, uFlash, uSea; uniform vec3 uTop, uHor, uSun, uSunCol; varying vec3 vP;
 float hash(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x), mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x), f.y); }
 float fbm(vec2 p){ float v=0.0, a=0.5; for(int i=0;i<4;i++){ v+=a*vnoise(p); p*=2.03; a*=0.5; } return v; }
 void main(){
   vec3 d = normalize(vP); float h = d.y;
-  vec3 c = mix(vec3(0.78,0.88,0.93), vec3(0.32,0.58,0.88), smoothstep(-0.02, 0.6, h));
+  if (uSea > 0.5 && h < 0.03) discard; // (el mar de nubes, debajo)
+  vec3 c = mix(uHor, uTop, smoothstep(-0.02, 0.6, h));
   vec2 uv = d.xz / (max(h, 0.0) + 0.25) * 1.2 + vec2(time*0.006, time*0.002);
-  float cl = smoothstep(0.45, 0.8, fbm(uv)) * smoothstep(0.0, 0.15, h);
-  c = mix(c, vec3(1.0), cl * 0.75);
-  vec3 sun = normalize(vec3(-0.5, 0.62, 0.6)); float s = max(dot(d, sun), 0.0);
-  c += vec3(1.0,0.92,0.75) * (pow(s, 600.0) * 2.0 + pow(s, 12.0) * 0.18);
+  float cl = smoothstep(0.75 - 0.45 * uCloud, 0.95 - 0.3 * uCloud, fbm(uv)) * smoothstep(0.0, 0.15, h);
+  vec3 cloudCol = mix(vec3(1.0), uHor, 0.35) * (0.55 + 0.45 * dot(uTop + uHor, vec3(0.3)));
+  c = mix(c, cloudCol, cl * (0.55 + 0.35 * uCloud));
+  float s = max(dot(d, uSun), 0.0), veil = 1.0 - 0.8 * smoothstep(0.7, 1.0, uCloud);
+  c += uSunCol * (pow(s, 600.0) * 2.0 + pow(s, 12.0) * 0.18) * veil;
+  // de noche, estrellas (donde no hay nubes)
+  vec2 sp = floor(d.xz / (h + 0.3) * 140.0); float st = step(0.996, hash(sp)) * smoothstep(0.05, 0.3, h) * (1.0 - cl);
+  c += vec3(0.9, 0.95, 1.0) * st * uStars * (0.6 + 0.4 * sin(time * 2.0 + hash(sp) * 40.0));
+  c += vec3(0.75, 0.8, 1.0) * uFlash * (0.6 + 0.4 * cl); // (el relámpago)
   gl_FragColor = vec4(c, 1.0);
 }`,
   });
@@ -83,10 +96,33 @@ void main(){
 }
 
 /** El suelo: manchas de colores que se mezclan, con su grano (hierba o arena), en una textura que se repite. */
-export function groundTexture(kind: 'nature' | 'island'): CanvasTexture {
+export function groundTexture(kind: 'nature' | 'island' | 'cliff'): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
-  const x = c.getContext('2d') as CanvasRenderingContext2D, R = rng(kind === 'nature' ? 11 : 17);
+  const x = c.getContext('2d') as CanvasRenderingContext2D, R = rng(kind === 'nature' ? 11 : kind === 'cliff' ? 29 : 17);
+  if (kind === 'cliff') {
+    // (el risco: roca gris parda, con manchas de liquen y grano)
+    x.fillStyle = '#8b857a';
+    x.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 220; i++) {
+      const rr = 6 + R() * 24, X = R() * 256, Y = R() * 256, k = R();
+      x.fillStyle = k < 0.45 ? 'rgba(110,104,96,0.35)' : k < 0.8 ? 'rgba(160,152,140,0.3)' : 'rgba(110,130,80,0.25)';
+      for (const [dx, dy] of [[0, 0], [256, 0], [-256, 0], [0, 256], [0, -256]]) {
+        x.beginPath();
+        x.arc(X + dx, Y + dy, rr, 0, TAU);
+        x.fill();
+      }
+    }
+    for (let i = 0; i < 3000; i++) {
+      x.fillStyle = R() < 0.5 ? 'rgba(70,66,60,0.45)' : 'rgba(200,192,180,0.4)';
+      x.fillRect(R() * 256, R() * 256, 1, 1);
+    }
+    const t = new CanvasTexture(c);
+    t.wrapS = t.wrapT = RepeatWrapping;
+    t.repeat.set(14, 14);
+    t.colorSpace = SRGBColorSpace;
+    return t;
+  }
   x.fillStyle = kind === 'nature' ? '#5f8f3a' : '#d8c08a';
   x.fillRect(0, 0, 256, 256);
   for (let i = 0; i < 240; i++) {
@@ -155,7 +191,9 @@ export function kitParts(kind: 'nature' | 'island' | 'food'): Record<string, Par
 /** Un entorno de día: se carga la primera vez que hace falta y se pone y se quita sin rehacerlo (salvo si cambia la distancia de las compuertas). */
 export class Scenery {
   readonly root = new Group();
-  private kind: 'nature' | 'island' | '' = '';
+  private kind: SceneKind | '' = '';
+  /** El mar de nubes del risco y de las islas en el cielo (el de la Travesía). */
+  private readonly clouds = new CloudSea();
   private readonly sky = daySky();
   private readonly sea = seaMaterial();
   private skyMesh: Mesh;
@@ -174,15 +212,18 @@ export class Scenery {
     this.skyMesh = new Mesh(new SphereGeometry(85, 32, 16), this.sky);
     this.skyMesh.renderOrder = -10;
     this.skyMesh.userData.noInk = true;
-    this.root.add(this.skyMesh, this.plants);
+    this.root.add(this.skyMesh, this.plants, this.clouds.mesh);
     this.root.visible = false;
   }
 
   // ---------------------------------------------------------------- cargar los modelos
-  private load(kind: 'nature' | 'island'): Record<string, Part[]> | null {
-    return kitParts(kind);
+  private load(kind: SceneKind): Record<string, Part[]> | null {
+    if (kind === 'nature' || kind === 'island') return kitParts(kind);
+    // (los mundos de la Travesía usan los dos kits: los nombres no se repiten)
+    const n = kitParts('nature'), i = kitParts('island');
+    return n && i ? { ...n, ...i } : null;
   }
-  private models(kind: 'nature' | 'island', P: Record<string, Part[]>): Models {
+  private models(kind: SceneKind, P: Record<string, Part[]>): Models {
     const foot = (n: string): number => {
       const k = `${kind}:${n}`, hit = this.foot.get(k);
       if (hit !== undefined) return hit;
@@ -208,7 +249,18 @@ export class Scenery {
       this.foot.set(k, m || 1);
       return m || 1;
     };
-    return { has: (n) => !!P[n], foot, rad };
+    const top = (n: string): number => {
+      const k = `t:${kind}:${n}`, hit = this.foot.get(k);
+      if (hit !== undefined) return hit;
+      let m = 0;
+      for (const p of P[n] || []) {
+        const a = p.geo.attributes.position;
+        for (let i = 0; i < a.count; i++) m = Math.max(m, a.getY(i));
+      }
+      this.foot.set(k, m || 1);
+      return m || 1;
+    };
+    return { has: (n) => !!P[n], foot, rad, top };
   }
 
   // ---------------------------------------------------------------- poner y quitar
@@ -220,19 +272,21 @@ export class Scenery {
   }
 
   /** Lo pone (si ya cargó): `D`, la distancia de las compuertas; `op`, con fondo realista (bosque); `gates`, dónde están. Devuelve si ya se ve. */
-  show(kind: 'nature' | 'island', D: number, op: boolean, gates: Gate[]): boolean {
+  show(kind: SceneKind, D: number, op: boolean, gates: Gate[], seed = 0): boolean {
     this.skyMesh.visible = !op; // (con la foto de fondo, sin el cielo dibujado)
     const P = this.load(kind);
     if (!P) return false;
-    const key = `${kind}:${D.toFixed(2)}:${op ? 'p' : ''}`;
+    const key = `${kind}:${D.toFixed(2)}:${op ? 'p' : ''}:${seed}`;
     if (key !== this.builtKey) {
       this.builtKey = key;
       this.kind = kind;
       this.clearPlants();
-      const M = this.models(kind, P), L = kind === 'nature' ? natureLayout(D, op, gates, M) : islandLayout(D, gates, M);
+      // (con la semilla de la partida, otro reparto cada vez; 0, el de siempre)
+      const M = this.models(kind, P), L = kind === 'nature' ? natureLayout(D, op, gates, M, seed) : kind === 'island' ? islandLayout(D, gates, M, seed) : kind === 'cliff' ? cliffLayout(D, gates, M, seed) : kind === 'sky' ? skyLayout(D, gates, M, seed) : villageLayout(D, gates, M, seed);
       this.solids = L.solids;
       this.place(P, L.puts, kind);
-      this.buildGround(kind);
+      this.buildGround(kind, seed);
+      this.sunYaw = seed ? ((seed % 360) * Math.PI) / 180 : 0;
     }
     if (!this.root.visible) {
       this.root.visible = true;
@@ -241,14 +295,54 @@ export class Scenery {
     }
     // la niebla clara de cada sitio
     const sc = this.scene as { fog: FogExp2 | null };
-    if (sc.fog) {
-      sc.fog.color.setHex(kind === 'nature' ? 0xc4dcea : 0xbfe2ee);
-      sc.fog.density = kind === 'nature' ? 0.014 : 0.009;
+    if (sc.fog && !this.looked) {
+      sc.fog.color.setHex(kind === 'island' ? 0xbfe2ee : kind === 'cliff' ? 0xc9d6e2 : kind === 'sky' ? 0xd8dfee : 0xc4dcea);
+      sc.fog.density = this.fogBase();
     }
     return true;
   }
 
-  private place(P: Record<string, Part[]>, puts: Put[], kind: 'nature' | 'island'): void {
+  /** La niebla de cada sitio (la del mar de nubes, más ligera: se ve lejos). */
+  fogBase(): number {
+    const k = this.kind;
+    return k === 'island' ? 0.009 : k === 'cliff' || k === 'sky' ? 0.007 : 0.014;
+  }
+
+  /** ¿Está puesta la hora y el tiempo de la oleada? (entonces la niebla la pone ella) */
+  private looked = false;
+  private readonly sunDir = new Vector3();
+  /** Hacia dónde sale el sol (rad; cada partida, otro con la semilla). */
+  private sunYaw = 0;
+
+  /** La hora y el tiempo (src/env/sky-plan.ts): el cielo y la niebla; `flash`, el relámpago (0 a 1). null: el de siempre. */
+  setLook(L: SkyLook | null, flash: number): void {
+    const u = this.sky.uniforms, sc = this.scene as { fog: FogExp2 | null };
+    this.looked = !!L;
+    if (!L) {
+      (u.uTop.value as Color).setHex(0x5294e0);
+      (u.uHor.value as Color).setHex(0xc7e0ee);
+      (u.uSunCol.value as Color).setHex(0xfff2dc);
+      (u.uSun.value as Vector3).set(-0.5, 0.62, 0.6).normalize();
+      u.uCloud.value = 0.4;
+      u.uStars.value = 0;
+      u.uFlash.value = 0;
+      return;
+    }
+    (u.uTop.value as Color).setHex(L.top);
+    (u.uHor.value as Color).setHex(L.hor);
+    (u.uSunCol.value as Color).setHex(L.sun);
+    // (el sol, bajo al alba y al ocaso; de noche, la luna)
+    (u.uSun.value as Vector3).copy(this.sunDir.set(-0.5, Math.max(0.02, L.sunY) * 1.2, 0.6).normalize().applyAxisAngle(UP, this.sunYaw));
+    u.uCloud.value = L.cloud;
+    u.uStars.value = L.stars;
+    u.uFlash.value = flash;
+    if (sc.fog && this.root.visible) {
+      sc.fog.color.setHex(L.fog);
+      sc.fog.density = this.fogBase() * L.fogK;
+    }
+  }
+
+  private place(P: Record<string, Part[]>, puts: Put[], kind: SceneKind): void {
     const by = new Map<string, Matrix4[]>(), q = new Quaternion(), p = new Vector3(), s = new Vector3();
     for (const u of puts) {
       const m = new Matrix4().compose(p.set(u.x, u.y, u.z), q.setFromAxisAngle(UP, u.ry), s.setScalar(u.s));
@@ -269,9 +363,10 @@ export class Scenery {
     void kind;
   }
 
-  private buildGround(kind: 'nature' | 'island'): void {
-    if (this.groundKind === kind) return;
-    this.groundKind = kind;
+  private buildGround(kind: SceneKind, seed = 0): void {
+    const hilly = (kind === 'nature' || kind === 'village') && seed !== 0, gk = `${kind}:${hilly ? seed : 0}`;
+    if (this.groundKind === gk) return;
+    this.groundKind = gk;
     if (this.ground) {
       this.root.remove(this.ground);
       this.ground.geometry.dispose();
@@ -282,7 +377,18 @@ export class Scenery {
       this.seaMesh.geometry.dispose();
       this.seaMesh = null;
     }
-    this.ground = new Mesh(new CircleGeometry(kind === 'nature' ? 70 : 30, kind === 'nature' ? 64 : 72), new MeshStandardMaterial({ map: groundTexture(kind), roughness: 1, metalness: 0 }));
+    // (el suelo de cada sitio: hierba, arena o roca; en el risco y la isla del cielo, hasta el borde, y más allá el vacío)
+    const tex = kind === 'island' ? 'island' : kind === 'cliff' ? 'cliff' : 'nature', rad = kind === 'nature' || kind === 'village' ? 70 : kind === 'cliff' ? CLIFF_EDGE : kind === 'sky' ? SKY_EDGE : 30;
+    // (con desniveles: un anillo con muchas vueltas, cada punto a la altura del terreno; llano donde se juega)
+    let geo: BufferGeometry = new CircleGeometry(rad, 72);
+    if (hilly) {
+      geo = new RingGeometry(0, rad, 96, 40);
+      const a = geo.attributes.position;
+      for (let i = 0; i < a.count; i++) a.setZ(i, hillH(a.getX(i), -a.getY(i), seed));
+      geo.computeVertexNormals();
+    }
+    this.ground = new Mesh(geo, new MeshStandardMaterial({ map: groundTexture(tex), roughness: 1, metalness: 0 }));
+    if (kind === 'cliff' || kind === 'sky') (this.ground.material as MeshStandardMaterial).map!.repeat.set((2 * rad) / 3.5, (2 * rad) / 3.5); // (cada baldosa, unos 3,5 m)
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.position.y = -0.005;
     this.ground.receiveShadow = true;
@@ -320,6 +426,10 @@ export class Scenery {
     if (!this.root.visible) return;
     this.sky.uniforms.time.value = t % 600;
     this.sea.uniforms.time.value = t % 600;
+    // el mar de nubes, en el risco y las islas (y el cielo deja ver lo de debajo del horizonte)
+    const cloudy = this.kind === 'cliff' || this.kind === 'sky';
+    this.sky.uniforms.uSea.value = cloudy ? 1 : 0;
+    this.clouds.update(cloudy, t, (this.scene as { fog: FogExp2 | null }).fog?.color.getHex() ?? 0xc8d6e4);
     this.skyMesh.position.set(head.x, 0, head.z);
     this.birdT -= dt;
     if (this.birdT <= 0) {
