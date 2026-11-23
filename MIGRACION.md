@@ -413,6 +413,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Variedad (pedido del usuario: «que nunca tenga la sensación de pasar siempre por el mismo entorno y los mismos
+  enemigos»; eligió todo menos las oleadas temáticas y, de ejercicios, solo el press de pecho en el suelo)**. Hecho: el viaje
+  por portales y la fauna de cada entorno (`src/combat/journey.ts`, `travel-system.ts`; `Scenery` guarda montados los del
+  viaje). **Pendiente, en este orden**: enemigos de élite (rápido, gigante, con escudo que solo rompe una carga ×3, que se
+  divide, que parpadea) y el jefe errante; sucesos por oleada (eclipse, lluvia de meteoritos, niebla cerrada, lluvia de orbes
+  de oro); el press de pecho en el suelo (boca arriba con mancuernas, los voladores desde el cielo); y, con los paquetes que
+  elija el usuario, entornos y enemigos nuevos (KayKit se puede bajar desde las sesiones: está en GitHub; Quaternius y
+  Kenney, no: el proxy bloquea sus webs).
+
 - **Arcos y los robots** (pedido del usuario: cuchillas, plancha y burpee más duros, orbes y «trae a los robots de
   RepArena»): las cuchillas (`src/modes/arcs/blades.ts`, lógica pura: `BladeCore`, `bladeMix`; lo que se ve, `blade-look.ts`;
   «Cuchillas que vuelan», `arcBlades`) se añaden a la cola de RepArena sin tocarla; lo que se endurece con la dificultad

@@ -43,7 +43,8 @@ import { CALIB_LINES, IDLE, PLACE } from '../exercise/how.js';
 import { FLOOR_EX, FloorDetector, floorDefaults, iwReach, type FloorCfg, type FloorInput } from '../exercise/floor.js';
 import { aimForced, aimManual, deepOn, flyList, foes, groundList, handsFree, holdsWeights, isFloor, isSupine, isTiny, oneArm, pistolOn, twoShots } from '../core/rules.js';
 import { HatchSystem, hatchFoes } from './hatch-foes.js';
-import { devFoe, flyFoes, FOE_DEF, foeName, gateFoes } from './foes.js';
+import { devFoe, flyFoes, FOE_DEF, foeName, foeReady, gateFoes } from './foes.js';
+import { faunaOf, legOf, PLACE_NAME, placeAt, travelsAt, type Place } from './journey.js';
 import { Rewards } from './rewards.js';
 import { RUSH_SECS } from './perks.js';
 import { BoardRing } from '../ui/board-ring.js';
@@ -85,7 +86,7 @@ import { dv, onSettingsChange, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setS
 import { EX_NAMES, EX_SHORT, MODE_NAMES } from '../core/catalog.js';
 import { num, on, settings, str } from '../core/values.js';
 import { SND, soundState, unlockAudio } from '../audio/sound.js';
-import { GAME, HOOKS, LITE, SPECIAL, VIEW, type CenterInfo, type SupEnv } from '../core/state.js';
+import { GAME, HOOKS, LITE, SPECIAL, TRAVEL, VIEW, type CenterInfo, type SupEnv } from '../core/state.js';
 import { hands, head, headFwd, SIDES, type Side } from '../input/hand-model.js';
 import { BODY, haptic } from '../input/hand-system.js';
 import { HTH, throwCharge, throwReset, throwStep, type Charge, type ThrowEnv } from '../input/throw.js';
@@ -450,7 +451,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     };
     HOOKS.sparks = (p, n, c) => this.fx.sparks.burst(p, n, c, 2.4, 0.04);
     // (para las pruebas en el navegador: el estado de la partida, solo para mirarlo)
-    (window as unknown as { __rx: unknown }).__rx = { GAME, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS, spotify, sceneryOn: () => this.world.getSystem(EnvSystem)?.sceneryOn ?? false, fitLog: FIT_LOG };
+    (window as unknown as { __rx: unknown }).__rx = { GAME, TRAVEL, game: this, enemies: this.enemies, Foe, career, snapshot: () => this.snapshot(), setSetting, HOOKS, spotify, sceneryOn: () => this.world.getSystem(EnvSystem)?.sceneryOn ?? false, fitLog: FIT_LOG };
     // la letra de la ×N de la bola (Bungee, para el lienzo)
     try {
       const face = new FontFace('Bungee', `url(${import.meta.env.BASE_URL}fonts/Bungee-Regular.ttf)`);
@@ -1005,8 +1006,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     GAME.wave = i + 1;
     GAME.between = false;
     GAME.ramp = this.rampLvl;
-    const tiny = isTiny(), ground = tiny ? hatchFoes(groundList()) : gateFoes(groundList()), fly = flyFoes(flyList());
-    const env: WaveEnv = { reps: waveReps(i), twoShots: twoShots(), foes: foes() as WaveEnv['foes'], ground, fly: flyList().includes('dragon') ? [...fly, 'dragon'] : fly, waves: nWaves(), rank: rankIdx(), ladder: on('foeLadder'), tiny, hp: (k) => devFoe(k).hp, tier: (k) => foeTierOf((key) => devFoe(key).tier, k) };
+    // (con «Enemigos de cada entorno», los del sitio donde se juega la oleada en lugar de los marcados en Rivales)
+    const tiny = isTiny(), fauna = !tiny && settings.mode === 'combat' && on('cbFauna') ? faunaOf(this.placeOf(i), foeReady) : null;
+    const flyRaw = fauna ? fauna.fly : flyList(), ground = tiny ? hatchFoes(groundList()) : gateFoes(fauna ? fauna.ground : groundList()), fly = flyFoes(flyRaw);
+    // (el viaje por portales: al empezar el tramo siguiente, el portal te lleva al entorno que toca)
+    if (TRAVEL.on && travelsAt(TRAVEL.route as Place[], i, TRAVEL.per)) TRAVEL.want = legOf(i, TRAVEL.per);
+    const env: WaveEnv = { reps: waveReps(i), twoShots: twoShots(), foes: foes() as WaveEnv['foes'], ground, fly: flyRaw.includes('dragon') ? [...fly, 'dragon'] : fly, waves: nWaves(), rank: rankIdx(), ladder: on('foeLadder'), tiny, hp: (k) => devFoe(k).hp, tier: (k) => foeTierOf((key) => devFoe(key).tier, k) };
     const arcsMode = settings.mode === 'arcs';
     const touchMode = settings.mode === 'touch', barsMode = settings.mode === 'bars', trekMode = settings.mode === 'trek';
     const w = arcsMode || touchMode || barsMode || trekMode ? { list: [], fresh: [] as string[] } : buildWave(i, env, this.seen);
@@ -1037,6 +1042,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     SND.horn();
   }
 
+  /** Dónde se juega la oleada i: con el viaje por portales, el tramo del viaje; si no, el entorno elegido. */
+  private placeOf(i: number): Place {
+    const R = TRAVEL.route as Place[];
+    return TRAVEL.on ? placeAt(R, i, TRAVEL.per) : (R[0] ?? 'arena');
+  }
+
   // El panel entre oleadas (RepArena: waveIntro): la oleada que empieza, tus puntos y lo nuevo, grande delante de ti
   // (donde salen los avisos), con la escena algo oscurecida detrás; mientras se ve, no sale nadie
   private waveIntro(i: number, fresh: string[], rk: number): void {
@@ -1045,9 +1056,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const nw = fresh.map((k) => foeName(xrFoe(k).k)).join(', ');
     const trek = settings.mode === 'trek', wl = worldLenFor(num('trekWorld') || 3, nWaves()), newWorld = trek && i > 0 && worldStart(i, wl);
     // (la Travesía, al empezar un mundo nuevo: su nombre y que hay que cruzar el portal)
-    const t3 = newWorld ? `¡MUNDO ${worldNo(i, wl) + 1}: ${worldOf(i, wl).name}! Cruza el portal` : nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
+    const travel = !trek && TRAVEL.on && travelsAt(TRAVEL.route as Place[], i, TRAVEL.per);
+    const t3 = newWorld ? `¡MUNDO ${worldNo(i, wl) + 1}: ${worldOf(i, wl).name}! Cruza el portal` : travel ? `¡Portal! Llegas a ${PLACE_NAME[this.placeOf(i)].toLowerCase()}` : nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
     const W = trek ? 'TRAMO' : 'OLEADA', place = trek ? ` · ${tramoBiome(i, wl).name}` : '';
-    drawWave(p.ctx, p.W, p.H, (last ? (trek ? '¡ÚLTIMO TRAMO!' : '¡ÚLTIMA OLEADA!') : N ? `${W} ${i + 1} DE ${N}` : `${W} ${i + 1}`) + place, `${GAME.score} puntos`, t3, newWorld ? '#bff4ff' : nw ? '#ff8a3d' : '#3cf0c6');
+    drawWave(p.ctx, p.W, p.H, (last ? (trek ? '¡ÚLTIMO TRAMO!' : '¡ÚLTIMA OLEADA!') : N ? `${W} ${i + 1} DE ${N}` : `${W} ${i + 1}`) + place, `${GAME.score} puntos`, t3, newWorld || travel ? '#bff4ff' : nw ? '#ff8a3d' : '#3cf0c6');
     p.tex.needsUpdate = true;
     // delante de ti y de cara, derecho (nunca se ladea con la cabeza); tumbado, en el suelo bajo la cara
     const V = VIEW_FRAME, ly = lyingEx();

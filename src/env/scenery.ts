@@ -188,7 +188,19 @@ export function kitParts(kind: 'nature' | 'island' | 'food'): Record<string, Par
   return out;
 }
 
-/** Un entorno de día: se carga la primera vez que hace falta y se pone y se quita sin rehacerlo (salvo si cambia la distancia de las compuertas). */
+/** Un entorno ya montado: sus árboles y rocas (instancias), su suelo, su mar y lo que no se puede atravesar. */
+interface Built {
+  kind: SceneKind;
+  plants: Group;
+  ground: Mesh;
+  sea: Mesh | null;
+  solids: { x: number; z: number; r: number }[];
+  sunYaw: number;
+}
+
+/** Un entorno de día: se carga la primera vez que hace falta y se pone y se quita sin rehacerlo (salvo si cambia la distancia de
+ * las compuertas o la semilla). Se guardan montados los de la partida (el viaje por portales de Combate: `prepare`, en el
+ * menú), para que cambiar de uno a otro en plena ronda sea solo enseñar uno y esconder otro, sin tirones. */
 export class Scenery {
   readonly root = new Group();
   private kind: SceneKind | '' = '';
@@ -197,11 +209,11 @@ export class Scenery {
   private readonly sky = daySky();
   private readonly sea = seaMaterial();
   private skyMesh: Mesh;
-  private ground: Mesh | null = null;
-  private groundKind = '';
-  private seaMesh: Mesh | null = null;
-  private plants = new Group();
-  private builtKey = '';
+  /** Los montados (por su clave: sitio, compuertas, foto y semilla) y el que se ve. */
+  private readonly built = new Map<string, Built>();
+  private cur: Built | null = null;
+  /** Lo que comparten los montados (compuertas, foto y semilla): si cambia, se tiran los de antes. */
+  private builtTail = '';
   private readonly foot = new Map<string, number>();
   private savedFog: { color: Color; density: number } | null = null;
   private birdT = 3;
@@ -212,7 +224,7 @@ export class Scenery {
     this.skyMesh = new Mesh(new SphereGeometry(85, 32, 16), this.sky);
     this.skyMesh.renderOrder = -10;
     this.skyMesh.userData.noInk = true;
-    this.root.add(this.skyMesh, this.plants, this.clouds.mesh);
+    this.root.add(this.skyMesh, this.clouds.mesh);
     this.root.visible = false;
   }
 
@@ -264,29 +276,70 @@ export class Scenery {
   }
 
   // ---------------------------------------------------------------- poner y quitar
-  private clearPlants(): void {
-    for (const c of [...this.plants.children]) {
-      this.plants.remove(c);
-      (c as InstancedMesh).dispose?.();
+  /** Tira un entorno montado (sus instancias y su suelo; los modelos y sus materiales, compartidos, se quedan). */
+  private drop(b: Built): void {
+    for (const c of [...b.plants.children]) (c as InstancedMesh).dispose?.();
+    this.root.remove(b.plants, b.ground);
+    b.ground.geometry.dispose();
+    const gm = b.ground.material as MeshStandardMaterial;
+    gm.map?.dispose();
+    gm.dispose();
+    if (b.sea) {
+      this.root.remove(b.sea);
+      b.sea.geometry.dispose();
     }
+  }
+
+  /** Lo monta (escondido) si aún no lo está; null si sus modelos aún cargan. */
+  private build(kind: SceneKind, D: number, op: boolean, gates: Gate[], seed: number): Built | null {
+    const tail = `${D.toFixed(2)}:${op ? 'p' : ''}:${seed}`, key = `${kind}:${tail}`;
+    const have = this.built.get(key);
+    if (have) return have;
+    const P = this.load(kind);
+    if (!P) return null;
+    // (otras compuertas, otra foto u otra semilla: los de antes ya no sirven)
+    if (tail !== this.builtTail) {
+      for (const b of this.built.values()) this.drop(b);
+      this.built.clear();
+      this.cur = null;
+      this.builtTail = tail;
+    }
+    // (con la semilla de la partida, otro reparto cada vez; 0, el de siempre)
+    const M = this.models(kind, P), L = kind === 'nature' ? natureLayout(D, op, gates, M, seed) : kind === 'island' ? islandLayout(D, gates, M, seed) : kind === 'cliff' ? cliffLayout(D, gates, M, seed) : kind === 'sky' ? skyLayout(D, gates, M, seed) : villageLayout(D, gates, M, seed);
+    const plants = new Group();
+    this.place(P, L.puts, plants);
+    const [ground, sea] = this.makeGround(kind, seed);
+    plants.visible = ground.visible = false;
+    if (sea) sea.visible = false;
+    this.root.add(plants, ground);
+    if (sea) this.root.add(sea);
+    const b: Built = { kind, plants, ground, sea, solids: L.solids, sunYaw: seed ? ((seed % 360) * Math.PI) / 180 : 0 };
+    this.built.set(key, b);
+    return b;
+  }
+
+  /** Lo deja montado para luego, sin enseñarlo (el viaje por portales, en el menú: uno cada vez). Devuelve si ya lo está. */
+  prepare(kind: SceneKind, D: number, op: boolean, gates: Gate[], seed = 0): boolean {
+    return !!this.build(kind, D, op, gates, seed);
   }
 
   /** Lo pone (si ya cargó): `D`, la distancia de las compuertas; `op`, con fondo realista (bosque); `gates`, dónde están. Devuelve si ya se ve. */
   show(kind: SceneKind, D: number, op: boolean, gates: Gate[], seed = 0): boolean {
     this.skyMesh.visible = !op; // (con la foto de fondo, sin el cielo dibujado)
-    const P = this.load(kind);
-    if (!P) return false;
-    const key = `${kind}:${D.toFixed(2)}:${op ? 'p' : ''}:${seed}`;
-    if (key !== this.builtKey) {
-      this.builtKey = key;
+    const b = this.build(kind, D, op, gates, seed);
+    if (!b) return false;
+    if (b !== this.cur) {
+      if (this.cur) {
+        this.cur.plants.visible = this.cur.ground.visible = false;
+        if (this.cur.sea) this.cur.sea.visible = false;
+      }
+      this.cur = b;
       this.kind = kind;
-      this.clearPlants();
-      // (con la semilla de la partida, otro reparto cada vez; 0, el de siempre)
-      const M = this.models(kind, P), L = kind === 'nature' ? natureLayout(D, op, gates, M, seed) : kind === 'island' ? islandLayout(D, gates, M, seed) : kind === 'cliff' ? cliffLayout(D, gates, M, seed) : kind === 'sky' ? skyLayout(D, gates, M, seed) : villageLayout(D, gates, M, seed);
-      this.solids = L.solids;
-      this.place(P, L.puts, kind);
-      this.buildGround(kind, seed);
-      this.sunYaw = seed ? ((seed % 360) * Math.PI) / 180 : 0;
+      this.solids = b.solids;
+      this.sunYaw = b.sunYaw;
+      b.ground.visible = true;
+      if (b.sea) b.sea.visible = true;
+      b.plants.visible = !this.liteOn;
     }
     if (!this.root.visible) {
       this.root.visible = true;
@@ -342,7 +395,7 @@ export class Scenery {
     }
   }
 
-  private place(P: Record<string, Part[]>, puts: Put[], kind: SceneKind): void {
+  private place(P: Record<string, Part[]>, puts: Put[], plants: Group): void {
     const by = new Map<string, Matrix4[]>(), q = new Quaternion(), p = new Vector3(), s = new Vector3();
     for (const u of puts) {
       const m = new Matrix4().compose(p.set(u.x, u.y, u.z), q.setFromAxisAngle(UP, u.ry), s.setScalar(u.s));
@@ -358,26 +411,14 @@ export class Scenery {
         im.frustumCulled = false;
         im.castShadow = !/Ship|Cliff/.test(n);
         im.receiveShadow = true;
-        this.plants.add(im);
+        plants.add(im);
       }
-    void kind;
   }
 
-  private buildGround(kind: SceneKind, seed = 0): void {
-    const hilly = (kind === 'nature' || kind === 'village') && seed !== 0, gk = `${kind}:${hilly ? seed : 0}`;
-    if (this.groundKind === gk) return;
-    this.groundKind = gk;
-    if (this.ground) {
-      this.root.remove(this.ground);
-      this.ground.geometry.dispose();
-      (this.ground.material as Material).dispose();
-    }
-    if (this.seaMesh) {
-      this.root.remove(this.seaMesh);
-      this.seaMesh.geometry.dispose();
-      this.seaMesh = null;
-    }
-    // (el suelo de cada sitio: hierba, arena o roca; en el risco y la isla del cielo, hasta el borde, y más allá el vacío)
+  /** El suelo de cada sitio (hierba, arena o roca; en el risco y la isla del cielo, hasta el borde, y más allá el vacío) y, en
+   * la isla, el mar. */
+  private makeGround(kind: SceneKind, seed = 0): [Mesh, Mesh | null] {
+    const hilly = (kind === 'nature' || kind === 'village') && seed !== 0;
     const tex = kind === 'island' ? 'island' : kind === 'cliff' ? 'cliff' : 'nature', rad = kind === 'nature' || kind === 'village' ? 70 : kind === 'cliff' ? CLIFF_EDGE : kind === 'sky' ? SKY_EDGE : 30;
     // (con desniveles: un anillo con muchas vueltas, cada punto a la altura del terreno; llano donde se juega)
     let geo: BufferGeometry = new CircleGeometry(rad, 72);
@@ -387,20 +428,20 @@ export class Scenery {
       for (let i = 0; i < a.count; i++) a.setZ(i, hillH(a.getX(i), -a.getY(i), seed));
       geo.computeVertexNormals();
     }
-    this.ground = new Mesh(geo, new MeshStandardMaterial({ map: groundTexture(tex), roughness: 1, metalness: 0 }));
-    if (kind === 'cliff' || kind === 'sky') (this.ground.material as MeshStandardMaterial).map!.repeat.set((2 * rad) / 3.5, (2 * rad) / 3.5); // (cada baldosa, unos 3,5 m)
-    this.ground.rotation.x = -Math.PI / 2;
-    this.ground.position.y = -0.005;
-    this.ground.receiveShadow = true;
-    this.ground.userData.noInk = true;
-    this.root.add(this.ground);
+    const ground = new Mesh(geo, new MeshStandardMaterial({ map: groundTexture(tex), roughness: 1, metalness: 0 }));
+    if (kind === 'cliff' || kind === 'sky') (ground.material as MeshStandardMaterial).map!.repeat.set((2 * rad) / 3.5, (2 * rad) / 3.5); // (cada baldosa, unos 3,5 m)
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.005;
+    ground.receiveShadow = true;
+    ground.userData.noInk = true;
+    let sea: Mesh | null = null;
     if (kind === 'island') {
-      this.seaMesh = new Mesh(new RingGeometry(ISL_SHORE - 1.5, 140, 96, 8), this.sea);
-      this.seaMesh.rotation.x = -Math.PI / 2;
-      this.seaMesh.position.y = 0.01;
-      this.seaMesh.userData.noInk = true;
-      this.root.add(this.seaMesh);
+      sea = new Mesh(new RingGeometry(ISL_SHORE - 1.5, 140, 96, 8), this.sea);
+      sea.rotation.x = -Math.PI / 2;
+      sea.position.y = 0.01;
+      sea.userData.noInk = true;
     }
+    return [ground, sea];
   }
 
   /** Lo quita (vuelve la fortaleza) y deja la niebla como estaba. */
@@ -415,8 +456,10 @@ export class Scenery {
   }
   /** Con un menú abierto en las gafas: sin árboles, rocas ni plantas (el suelo y el cielo se quedan). */
   lite(on: boolean): void {
-    if (this.plants.visible === on) this.plants.visible = !on;
+    this.liteOn = on;
+    if (this.cur && this.cur.plants.visible === on) this.cur.plants.visible = !on;
   }
+  private liteOn = false;
   get visible(): boolean {
     return this.root.visible;
   }
