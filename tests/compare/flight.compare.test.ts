@@ -100,6 +100,7 @@ describe.skipIf(!RA_DIR)('el vuelo de los voladores, como en RepArena', () => {
       ptR(); // (RepArena elige ahí la compuerta: pick)
       const low = ex === 'superman' || ex === 'splank', lowY = Math.max(0.3, Math.min(0.8, ex === 'splank' ? refY + 0.03 : refY + supRange / 100 + 0.08));
       const pt = new Flight(kind, gate, flySpeed, erratic, hp, ptR, low, tiny);
+      pt.classic = true; // (el vuelo de RepArena: el suave es de RepArena XR)
       const supNext = { t: 0 };
       const env = { head: world.HL, play: true, active: true, beat: true, low: low ? lowY : 0, sup: ex === 'superman' ? { hold: supHold, up: false, time: 0, next: supNext } : null };
       let t = 0, myBites = 0;

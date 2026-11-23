@@ -39,7 +39,7 @@ export const GAME = {
   /** Tumbado (superman, plancha lateral): la altura a la que vienen los voladores (0: de pie). */
   lowFly: 0,
   /** El superman: lo que aguantas arriba, si estás arriba, el tiempo de la ronda y cuándo puede lanzarse el siguiente. */
-  sup: null as { hold: number; up: boolean; time: number; next: { t: number } } | null,
+  sup: null as SupEnv | null,
   /** Lo que multiplican los puntos de cada repetición (la fiebre de Arcos y el turbo de la Travesía: ×2). */
   ptsK: 1,
   /** Lo que ha subido la dificultad creciente (oleadas superadas): lo leen los enemigos (dv). */
@@ -140,3 +140,15 @@ export const HOOKS = {
   /** Unas chispas (n, del color c) en p: lo pone la partida. */
   sparks: (_p: Vector3, _n: number, _c: number): void => {},
 };
+
+/** El superman para los voladores (src/combat/flight.ts): lo que aguantas arriba (s), si estás arriba, el tiempo de la ronda,
+ * cuándo puede lanzarse el siguiente (lo comparten todos: nunca dos seguidos) y, con el «aguante que protege», lo que llevas
+ * tumbado sin subir y el descanso que se te da (s; sin ellos, como en RepArena). */
+export interface SupEnv {
+  hold: number;
+  up: boolean;
+  time: number;
+  next: { t: number };
+  rest?: number;
+  restMax?: number;
+}

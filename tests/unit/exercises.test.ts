@@ -228,6 +228,34 @@ describe('superman', () => {
   it('quieto tumbado, nada', () => {
     expect(play('superman', [{ s: 12 }], { ...o, wobble: 0.01 }).charges).toBe(0);
   });
+  // «aguante que protege» (elegido por el usuario; el de la partida): cumplido el aguante, la bola se llena y el rayo sale al
+  // bajar; aguantando de más, ×2, ×3 y ×4
+  const og: Opts = { ...o, over: { supGuard: true } };
+  it('aguante que protege: cumplido el aguante no dispara arriba; dispara al bajar (×1)', () => {
+    const r = play('superman', [{ s: 1.5 }, { y: 0.35, s: 0.6 }, { s: 2.3 }], og);
+    expect(r.reps.length).toBe(0);
+    expect(r.types).toContain('top'); // (la bola, llena: el chasquido)
+    const d = play('superman', [{ s: 1.5 }, ...times(3, UPHOLD)], og);
+    expect(d.reps.map((e) => e.pow)).toEqual([1, 1, 1]);
+    // (cada rayo, al bajar: después del chasquido de arriba)
+    const top = d.all.find((e) => e.type === 'top')!, rep = d.all.find((e) => e.type === 'rep')!;
+    expect(rep.t).toBeGreaterThan(top.t + 0.5);
+  });
+  it('aguante que protege: aguantando de más, ×2, ×3 y ×4 (y la onda)', () => {
+    // (×2 a los 1,5 s de más, ×3 a los 3,5 s, ×4 a los 6 s: con los de serie)
+    const lvl = (extra: number) => play('superman', [{ s: 1.5 }, { y: 0.35, s: 0.6 }, { s: 2 + extra }, { y: 0.2, s: 0.6 }, { s: 1 }], og).reps.map((e) => e.pow);
+    expect(lvl(0.3)).toEqual([1]);
+    expect(lvl(2)).toEqual([2]);
+    expect(lvl(4.2)).toEqual([3]);
+    expect(lvl(7)).toEqual([4]);
+    const r = play('superman', [{ s: 1.5 }, { y: 0.35, s: 0.6 }, { s: 9 }], og);
+    expect(r.all.filter((e) => e.type === 'power').map((e) => (e as { level: number }).level)).toEqual([2, 3, 4]);
+  });
+  it('aguante que protege: bajar antes de cumplirlo no cuenta (y avisa)', () => {
+    const r = play('superman', [{ s: 1.5 }, { y: 0.35, s: 0.6 }, { s: 0.6 }, { y: 0.2, s: 0.6 }, { s: 1.5 }], og);
+    expect(r.reps.length).toBe(0);
+    expect(msgs(r.all, 'partial')).toEqual(['¡Aguanta 2 s arriba!']);
+  });
 });
 
 describe('plancha con un brazo', () => {

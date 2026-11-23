@@ -18,7 +18,7 @@ export const HOW: Record<string, [string, string]> = {
   twist: ['1. Escurre la barra flexible girando las muñecas: carga.', '2. Aguanta escurrida (×2, ×3, ×4) y gira al revés: dispara.'],
   dips: ['1. Manos en el borde de una silla estable: baja doblando los codos (90°).', '2. Aguanta abajo: ×2, ×3 y ×4. Al estirarlos, dispara.'],
   splank: ['1. De lado sobre el antebrazo, cadera arriba y cuerpo recto.', '2. Cada pocos segundos aguantados, un disparo (si cae la cadera, vuelve a empezar).'],
-  superman: ['1. Boca abajo con los brazos estirados: sube el tronco y las piernas.', '2. Aguanta arriba los segundos que pidas: dispara solo al más cercano.'],
+  superman: ['1. Boca abajo con los brazos estirados: sube el tronco y las piernas.', '2. Aguanta arriba: la bola crece. Al bajar, dispara al más cercano.'],
   pushup: ['1. En plancha, baja el pecho casi al suelo: carga.', '2. Aguanta abajo: ×2, ×3 y ×4. Al subir, dispara.'],
   plank1: ['1. En plancha, levanta un brazo: dispara a ese lado.', '2. Una flexión aguantada abajo carga ×2, ×3 y ×4 para el siguiente.'],
   inchworm: ['1. Camina con las manos hasta que la cabeza llegue a la línea: carga.', '2. Cada flexión allí, más fuerza. Vuelve y ponte de pie: la onda.'],

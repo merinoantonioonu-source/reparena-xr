@@ -15,7 +15,7 @@
  */
 import { Vector3 } from 'three';
 import type { Side } from '../input/hand-model.js';
-import { VertDetector, type VertConfig, type VertEvent } from './vertical.js';
+import { powLevel, VertDetector, type VertConfig, type VertEvent } from './vertical.js';
 import type { StandEvent, StandInput } from './standing.js';
 import { WARN_COL } from './standing.js';
 
@@ -45,6 +45,12 @@ export interface FloorCfg {
   powHoldInc: number;
   deepDrop: number;
   power: boolean;
+  /**
+   * Superman, «aguante que protege» (elegido por el usuario; en RepArena XR): cumplido el aguante, la bola se llena pero
+   * no dispara; aguantar de más carga ×2, ×3 y ×4 (como la sentadilla, con «Carga: aguantar para ×2») y el rayo sale **al
+   * bajar**. Sin él, como en RepArena: dispara al cumplir el aguante (lo compara tests/compare/floor.compare.test.ts).
+   */
+  supGuard?: boolean;
 }
 
 export const floorDefaults = (ex = 'pushup'): FloorCfg => ({ ex, dipDepth: 15, pushDepth: 13, splDrop: 9, splHold: 3, supRange: 8, supHold: 2, supArms: 'yes', iwReach: 0, perfectTime: 1.2, powHold: 1.5, powHoldInc: 0.5, deepDrop: 0, power: true });
@@ -70,7 +76,7 @@ export class FloorDetector {
   readonly di = Object.assign(new VertDetector(), { awayT: 0 });
   readonly pu = Object.assign(new VertDetector(), { awayT: 0 });
   readonly sp = { state: 'hold' as 'hold' | 'low', ref: 0, t0: 0, sec: 0, dev: 0, awayT: 0, warnT: 0 };
-  readonly su = { state: 'down' as 'down' | 'up' | 'top', ref: 0.2, t0: 0, awayT: 0, sec: 0, warnT: 0, peak: 0, lift: 0, armT: 0, stillT: 0, lo: 0.2, k: 0 };
+  readonly su = { state: 'down' as 'down' | 'up' | 'top', ref: 0.2, t0: 0, awayT: 0, sec: 0, warnT: 0, peak: 0, lift: 0, armT: 0, stillT: 0, lo: 0.2, k: 0, full: false, pow: 0 };
   readonly pl = { ref: 0, awayT: 0, boost: 0, left: mkPl(), right: mkPl() };
   readonly plp = new VertDetector();
   readonly iw = { phase: 'stand' as 'stand' | 'out' | 'back', g: 0, max: 0, t0: 0, pu: 0, pow: 1, pst: 'up' as 'up' | 'down', ref: 0, flash: 0 };
@@ -90,7 +96,7 @@ export class FloorDetector {
     for (const d of [this.di, this.pu, this.plp]) d.reset(y);
     this.di.awayT = this.pu.awayT = 0;
     Object.assign(this.sp, { state: 'hold', ref: y, t0: 0, sec: 0, dev: 0, awayT: 0, warnT: 0 });
-    Object.assign(this.su, { state: 'down', ref: y, lo: y, t0: 0, awayT: 0, sec: 0, warnT: 0, peak: y, lift: 0, armT: 0, stillT: 0, k: 0 });
+    Object.assign(this.su, { state: 'down', ref: y, lo: y, t0: 0, awayT: 0, sec: 0, warnT: 0, peak: y, lift: 0, armT: 0, stillT: 0, k: 0, full: false, pow: 0 });
     Object.assign(this.pl, { ref: y, awayT: 0, boost: 0 });
     for (const s of ['left', 'right'] as const) Object.assign(this.pl[s], mkPl(), wrists[s] !== null ? { floor: wrists[s] } : {});
     this.plp.state = 'up';
@@ -268,9 +274,13 @@ export class FloorDetector {
       S.peak = Math.max(S.peak, y);
       S.k = clamp(held / Math.max(0.1, hold), 0, 1);
       if (y < S.ref + req * 0.6) {
-        this.partial(`¡Aguanta ${fmtNum(hold)} s arriba!`);
+        // (con el aguante que protege, bajar tras cumplirlo dispara, con la carga que lleve)
+        if (S.full) this.rep(S.peak - S.ref >= req + 0.04, false, S.pow);
+        else this.partial(`¡Aguanta ${fmtNum(hold)} s arriba!`);
         S.state = 'down';
         S.peak = y;
+        S.full = false;
+        S.pow = 0;
       } else {
         // manos recogidas durante un rato: el tiempo se para (un fallo suelto del seguimiento no cuenta)
         S.armT = this.armsBack(I, c) ? S.armT + dt : 0;
@@ -279,6 +289,18 @@ export class FloorDetector {
           if (S.warnT <= 0) {
             this.say('Estira los brazos');
             S.warnT = 1.5;
+          }
+        } else if (held >= hold && c.supGuard) {
+          // cumplido: la bola, llena (el chasquido); aguantando de más, ×2, ×3 y ×4; el rayo, al bajar
+          if (!S.full) {
+            S.full = true;
+            S.pow = 1;
+            this.out.push({ type: 'top', side: null });
+          }
+          const p = c.power ? powLevel(held - hold, c.powHold, c.powHoldInc) : 1;
+          if (p > S.pow) {
+            S.pow = p;
+            if (this.charged) this.out.push({ type: 'power', level: p, deep: false });
           }
         } else if (held >= hold) {
           this.rep(S.peak - S.ref >= req + 0.04, false, 1);
