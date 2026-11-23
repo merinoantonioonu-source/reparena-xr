@@ -58,13 +58,14 @@ import { BB } from '../core/blackbox.js';
 import { PROBE, probeSide } from '../input/hand-probe.js';
 import { floorOrigin, recenterPose } from './recenter.js';
 import { lyingEx, VIEW_FRAME } from '../ui/view-panels.js';
+import { blackOutHook, keepInBlack } from '../ui/black-out.js';
 import { HIST_KEY, kcalOf, runRecord, summaryOf, type RunStats } from '../core/run.js';
 import { career, history, progressNow } from './career-hub.js';
 import { CAMP, campBegin, campEnd, campLeave } from '../core/campaign.js';
 import { dayBoard, dayLive, type DayBoard } from '../core/today.js';
 import type { LiveStats } from '../core/career.js';
 import { PERKS } from './perks.js';
-import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, REP_TIME, repPoints, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
+import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, repPoints, repTimeOf, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
 import { Flight, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
 import { ArcsSystem } from '../modes/arcs/arcs-system.js';
@@ -74,7 +75,8 @@ import { BEAT } from '../core/beat-hub.js';
 import { exSongsStart, pulse, spotify } from '../services/hub.js';
 import { TouchSystem } from '../modes/touch/touch-system.js';
 import { TrekSystem } from '../modes/trek/trek-system.js';
-import { tramoBiome, worldLenFor, worldNo, worldOf, worldStart } from '../modes/trek/plat/worlds.js';
+import { tramoBiome, worldLenFor, worldNo, worldOf, worldStart, WORLDS, type WorldKey } from '../modes/trek/plat/worlds.js';
+import { trekBoardSpot, type BoardSpot } from '../modes/trek/board-spot.js';
 import { curEx } from '../ui/fields.js';
 import { PLAY_MODES, playableEx } from '../core/playable.js';
 import { dv, onSettingsChange, nLives, nWaves, RAMP_CAP, rankIdx, rankName, setSetting, store, waveReps } from '../core/settings.js';
@@ -141,6 +143,9 @@ const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
 /** El radio del fundido entre oleadas (m): por detrás del panel de la oleada (a 1,6 m), alrededor de tu cabeza. */
 const VEIL_R = 1.75;
 
+/** El radio de la esfera negra del final (m): de fondo, por detrás de todo lo que queda a la vista. */
+const BLACK_R = 25;
+
 /** El marcador de los ejercicios de suelo (la batalla diminuta): lo que se levanta del suelo, como un atril (rad). */
 const BOARD_TILT = Math.PI / 4;
 
@@ -206,7 +211,6 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private readonly cOut: CenterInfo = { kind: 'ready', title: '', lines: [], note: null, status: null, count: '', bar: 0 };
   private outTitle = false;
   private outFade = 0.8;
-  private readonly obp = new Vector3();
   private workT = 0;
   private warnLog: string[] = [];
   // los premios (cartas de mejora, dorado, relámpago, cofre y carrera contra tu récord) y si se está descansando
@@ -240,6 +244,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // (en el ordenador, la Travesía: el salto con Espacio y el paso a un lado con A/D)
   private desktopHop = 0;
   private desktopSide = 0;
+  /** El mundo de la Travesía en el que está el marcador (cambia en cada portal: en el risco, a la derecha). */
+  private boardWorld: WorldKey = 'forest';
+  private readonly boardSpotT: BoardSpot = { side: -1, x: 0, y: 0, z: 0, rx: 0, ry: 0, w: 0 };
   // temporales (sin crear objetos en cada fotograma)
   private tmpA = new Vector3();
   private projs: Proj[] = Array.from({ length: 12 }, mkProj);
@@ -317,6 +324,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.chargeP = this.infoPanel(1.1, 0.3, 768, 33);
     this.waveP = this.infoPanel(1.2, 0.5, 1024, 19);
     this.trophyP = this.infoPanel(1.25, 0.42, 1024, 55, 1.5);
+    keepInBlack(this.trophyP.mesh); // (los logros del final, sobre el negro)
     // (una esfera alrededor de tu cabeza, por detrás del panel: oscurece todo lo de más allá sin bordes. Antes era un plano de
     // 14 × 9 m que, al girar la cabeza o tras recalibrar, se veía como una pared gris a un lado: lo grabó el usuario)
     this.veil = new Mesh(new SphereGeometry(VEIL_R, 24, 12), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false, side: BackSide, toneMapped: false, fog: false }));
@@ -324,9 +332,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.veil.renderOrder = 10; // (antes que el panel de la oleada, que se pinta a 19: él no se oscurece)
     this.veil.userData.noInk = true;
     // el negro del final (RepArena: OUT.veil y OUT.black). Mientras funde, un velo pegado a los ojos que tapa todo (sin prueba
-    // de profundidad), menos el aviso del centro («¡VICTORIA!», «DERROTA»: se pinta después, a 50). Ya en negro, una esfera
-    // opaca que se pinta la primera (detrás del cielo) y deja su profundidad: lo que quede más lejos (el suelo, el paisaje,
-    // el marcador) no se ve, y el resumen y tus manos, dentro, sí. Su radio sigue al resumen
+    // de profundidad), menos el aviso del centro («¡VICTORIA!», «DERROTA»: se pinta después, a 50). Ya en negro, del nivel
+    // solo se pinta lo marcado (el resumen, tus manos, los avisos: src/ui/black-out.ts) y, de fondo, una esfera negra grande
+    // que se pinta la primera (tapa el cielo)
     this.outVeil = new Mesh(new SphereGeometry(0.3, 24, 12), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, side: BackSide, depthTest: false, depthWrite: false, toneMapped: false, fog: false }));
     this.outVeil.renderOrder = 40;
     this.outVeil.frustumCulled = false;
@@ -338,7 +346,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.black.frustumCulled = false;
     this.black.visible = false;
     this.black.userData.noInk = true;
+    this.black.scale.setScalar(BLACK_R);
     this.world.createTransformEntity(this.black);
+    keepInBlack(this.black);
+    blackOutHook(this.scene, () => this.black.parent, () => this.black.visible);
     this.veil.visible = false;
     this.world.createTransformEntity(this.veil);
     this.rw = new Rewards(this.world, {
@@ -669,10 +680,21 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.boardSpot(o.position, 0.38);
       return;
     }
+    const mode = str('board');
+    if (settings.mode === 'trek' && mode !== 'gate') {
+      // en la Travesía, en el lado despejado y más alto (elegido por el usuario: el paisaje lo atravesaba; en el risco quedaba
+      // dentro de la pared): src/modes/trek/board-spot.ts
+      const b = trekBoardSpot(this.boardWorld, mode, this.boardSpotT);
+      o.position.set(b.x, b.y, b.z);
+      o.rotation.set(b.rx, b.ry, 0, 'YXZ');
+      o.scale.setScalar(b.w / 0.64);
+      this.boardSpot(o.position, b.w / 2);
+      return;
+    }
     // como en RepArena (src/30_env.js: layoutArena): a un lado, flotando, por delante (a unos 50° y 5 m), grande (4,2 m de
     // ancho), justo por fuera de la compuerta de ese lado (no tapa lo que sale de ella), girado hacia ti y algo inclinado;
     // «Compuertas»: encima de la del centro, enorme, para leerlo de lejos
-    const mode = str('board'), side = mode === 'right' ? 1 : -1, D = 11, sp = 4.62, PW = 0.64; // (las compuertas, a 11 m y 4,62 m de lado; el panel mide 64 cm)
+    const side = mode === 'right' ? 1 : -1, D = 11, sp = 4.62, PW = 0.64; // (las compuertas, a 11 m y 4,62 m de lado; el panel mide 64 cm)
     if (mode === 'gate') {
       const W = Math.min(4.2, Math.max(1.8, D * 0.36)) * 3, H = W * 0.445, yc = 4.75 + H / 2;
       o.position.set(0, yc, -D - 0.35);
@@ -887,7 +909,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (trekMode) this.trek()?.startWave(i); // (en la Travesía, el tramo del recorrido hasta su cofre)
     if (touchMode) this.touch()?.startWave(i, i > 0 ? WAVE_INTRO : 0); // (en Toques, los objetivos que van llegando)
     const rk = rampK(num('ramp'), this.rampLvl, RAMP_CAP);
-    this.gap = spawnGap(this.queue, REP_TIME[settings.exercise] ?? 2.4, env.foes === 'flyers', env.twoShots, num('spawnGap'), rk);
+    this.gap = spawnGap(this.queue, repTimeOf(settings.exercise, settings.mode, num), env.foes === 'flyers', env.twoShots, num('spawnGap'), rk);
     this.spawnT = 0.6;
     this.maxAlive = Math.max(1, Math.round(dv('maxAlive', this.rampLvl)));
     GAME.foeSpeed = Math.min(2.2, Math.max(0.4, SQUAT_SPAWN_DIST / Math.max(1, dv('walkTime', this.rampLvl))));
@@ -1210,7 +1232,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         this.outTitle = false;
       }
     }
-    // fundiendo, el velo; ya en negro (o con el resumen), la esfera opaca hasta un poco más allá del resumen
+    // fundiendo, el velo; ya en negro (o con el resumen), solo lo marcado sobre el negro
     const black = this.outK >= 1;
     const k = this.outK * this.outK * (3 - 2 * this.outK);
     this.outVeil.visible = !black && this.outK > 0.01;
@@ -1219,13 +1241,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       (this.outVeil.material as MeshBasicMaterial).opacity = k;
     }
     this.black.visible = black;
-    if (black) {
-      let R = 0.9;
-      const sum = this.world.getSceneEntity('summary-panel')?.object3D;
-      if (sum?.visible) R = Math.max(R, sum.getWorldPosition(this.obp).distanceTo(head.p) + 0.6);
-      this.black.position.copy(head.p);
-      this.black.scale.setScalar(R);
-    }
+    if (black) this.black.position.copy(head.p);
   }
 
   // Un arco pasado (Arcos): cuenta una repetición, sin disparo (RepArena: registerRep(perfect, false))
@@ -1736,6 +1752,14 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       return;
     }
     this.clock = time;
+    if (settings.mode === 'trek' || this.boardWorld !== 'forest') {
+      // (en la Travesía, el marcador cambia de sitio al pasar al risco y al salir de él)
+      const T = this.trek(), wk: WorldKey = T && settings.mode === 'trek' && GAME.phase === 'playing' ? WORLDS[T.runner.worldAt(T.runner.dist) % WORLDS.length].key : 'forest';
+      if (wk !== this.boardWorld) {
+        this.boardWorld = wk;
+        this.placeBoard();
+      }
+    }
     const inXR = this.world.visibilityState.peek() !== VisibilityState.NonImmersive;
     (globalThis as { __xrOn?: boolean }).__xrOn = inXR;
     if (!inXR) {

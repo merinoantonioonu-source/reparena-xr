@@ -3,7 +3,7 @@
 // disparos…), con el mismo azar, tienen que dar los mismos enemigos, con la misma resistencia, en el mismo orden, y los
 // mismos «entra en juego». (Se salta sin RA_DIR: ver tests/compare/ra.ts.)
 import { describe, expect, it } from 'vitest';
-import { buildWave, FOE_TIER, type WaveEnv } from '../../src/combat/waves.js';
+import { buildWave, FOE_TIER, repTimeOf, type WaveEnv } from '../../src/combat/waves.js';
 import { FOE_FLY, FOE_GATE, FOE_HATCH } from '../../src/core/catalog.js';
 import { RA_DIR, raRun, raSlice } from './ra.js';
 
@@ -57,5 +57,15 @@ describe.skipIf(!RA_DIR)('las oleadas, como en RepArena', () => {
     expect(n).toBeGreaterThan(2000);
     expect(bosses).toBeGreaterThan(300);
     expect(fresh).toBeGreaterThan(50);
+  });
+
+  it('lo que tarda una repetición de cada ejercicio, como en RepArena (marca el ritmo al que salen los enemigos)', () => {
+    const exs = ['squat', 'pushup', 'pike', 'inchworm', 'curl', 'curl2', 'twist', 'press2', 'fraise', 'thruster', 'frontsq', 'jsquat', 'swing', 'chop', 'dlrow', 'plank1', 'plankrow', 'superman', 'row', 'pullup', 'hang', 'jump', 'abs', 'combo', 'lunge', 'dips', 'press', 'splank'];
+    for (const supHold of [0.5, 2, 6]) for (const splHold of [1, 3]) for (const mode of ['combat', 'touch'])
+      for (const ex of exs) {
+        const settings = { mode, supHold, splHold, tchGap: 2.7 };
+        const ra = raRun<number>(raSlice('00_core.js', 'function repTimeOf'), `repTimeOf(${JSON.stringify(ex)})`, { settings });
+        expect(repTimeOf(ex, mode, (k) => (settings as Record<string, number | string>)[k] as number)).toBe(ra);
+      }
   });
 });

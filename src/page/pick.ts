@@ -8,15 +8,13 @@ import { EX_NAMES, exOk, MODE_NAMES } from '../core/catalog.js';
 import { autoAim, foes, foesHas, isCombat } from '../core/rules.js';
 import { fmtNum, hangSecs, nWaves, waveReps } from '../core/settings.js';
 import { num, on, settings } from '../core/values.js';
-import { REP_TIME } from '../combat/waves.js';
+import { repTimeOf as repTimeOfAll } from '../combat/waves.js';
 import { demoDraw } from '../ui/demo-art.js';
 import { $ } from './dom.js';
 
-/** Lo que tarda una repetición (RepArena: repTimeOf; para calcular cuánto dura la ronda). */
+/** Lo que tarda una repetición (RepArena: repTimeOf; para calcular cuánto dura la ronda): el de la partida (waves.ts). */
 export function repTimeOf(ex: string, mode = settings.mode): number {
-  if (mode === 'touch') return num('tchGap');
-  const t: Record<string, number> = { ...REP_TIME, pushup: 2.4, pike: 2.6, inchworm: 8, plank1: 2.2, plankrow: 2.4, superman: num('supHold') + 3, row: 2.6, pullup: 3.2, hang: 1, jump: 2.2, abs: 2.6, combo: 2.4, dips: 2.4, splank: num('splHold') + 0.5 };
-  return t[ex] ?? 2.4;
+  return repTimeOfAll(ex, mode, num);
 }
 
 /** El recuadro de lo elegido y el aviso del modo (lo que dicen las fichas de arriba). */

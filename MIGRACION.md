@@ -413,6 +413,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Plan de ergonomía y cuestas, bloque 3.A** (`docs/PLAN-ERGONOMIA-Y-CUESTAS.md`): **el negro del final** ya no es una esfera
+  con radio (lo cercano quedaba dentro y el resumen, fuera): mientras está en negro, del nivel solo se pinta lo que lleve
+  `keepInBlack` (`src/ui/black-out.ts`: el menú, los guantes, los avisos del centro y breve, el logro dorado); lo nuevo que
+  deba verse sobre el negro, con su `keepInBlack`. **El marcador de la Travesía**, con `trekBoardSpot` (`src/modes/trek/
+  board-spot.ts`): en el risco, a la derecha; en los demás, más alto, y el paisaje de su lado (`decoPuts`, `skyDecoPuts`,
+  `coastDecoPuts`, con `clear`) no pone nada alto más cerca que `BOARD_CLEAR_U` (lo comprueba `trek-board.test.ts`). **El
+  ritmo de los enemigos** sale de `repTimeOf` (`waves.ts`, todos los ejercicios, como RepArena; lo compara
+  `waves.compare.test.ts`): no uses `REP_TIME` a pelo, que solo tiene los de pie.
+
 - **Los tramos de cada mundo** salen de `worldLenFor(trekWorld, tramos de la partida)` (`worlds.ts`): en una partida que no da
   para pasar de mundo, se reparten. Lo usan la marcha (`Runner.worldLen`) y el panel entre tramos (`game.ts`); no leas
   `trekWorld` a pelo.

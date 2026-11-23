@@ -186,7 +186,10 @@ No las cambies sin preguntarle.
   acercan y rugen al morder. Sin enjambres.
 - **No crear de cero enemigos ni elementos**: se usan los modelos que da el usuario (en `models/`); si no hay, se cambia
   el elemento. Las casas se montan con las piezas del Medieval Village.
-- El marcador, siempre flotando a un lado (nada de columnas que vayan contigo).
+- El marcador, siempre flotando a un lado (nada de columnas que vayan contigo). **En el lado despejado y más alto**
+  (elegido por el usuario: el paisaje lo atravesaba y en el risco quedaba dentro de la pared): en el risco, siempre a la
+  derecha, sobre el vacío; en los demás mundos, en el lado elegido, con el borde de abajo a 2 m (por encima de arbustos y
+  rocas), y de ese lado el paisaje no pone nada alto (árboles, islotes, palmeras) que pase por él.
 - El paisaje se dibuja todo junto, una pieza por modelo: que no pida más a la gráfica que el bosque de Combate.
 - El agua, realista (no una mancha azul): ondas que el viento eriza a rachas, reflejo del cielo y destellos; en el río,
   corriente con espuma y estelas en las piedras.
@@ -394,6 +397,8 @@ No las cambies sin preguntarle.
   calibrar). Se salta con cualquier botón del mando o con el pulgar arriba.
 - Al perder todas las vidas: fundido en negro, aviso claro de derrota y resumen automático con «Otra ronda» y «Menú
   principal».
+- **El negro del final, negro del todo** (pedido del usuario: al agacharse se veía el suelo y el aro turquesa y, al apartarse,
+  el resumen desaparecía): en negro solo se ven el resumen, tus manos y los avisos, se mueva uno como se mueva.
 
 **Menús**
 - **Menú de muñeca:**
