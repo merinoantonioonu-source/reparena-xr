@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLIFF_EDGE, cliffLayout, islandLayout, natureLayout, ISL_SHORE, SKY_EDGE, skyLayout, villageLayout, type Models } from '../../src/env/placement.js';
+import { CLIFF_EDGE, cliffLayout, HILL_IN, hillH, islandLayout, natureLayout, ISL_SHORE, SKY_EDGE, skyLayout, villageLayout, type Models } from '../../src/env/placement.js';
 
 // un pack de mentira: todo está, todo ocupa lo mismo
 const M: Models = { has: () => true, foot: () => 0.4, rad: () => 1.5 };
@@ -50,6 +50,21 @@ describe('los entornos de día', () => {
     expect(villageLayout(11, GATES, R).puts.filter((p) => /House|Sawmill/.test(p.n)).length).toBeGreaterThanOrEqual(4);
     expect(cliffLayout(11, GATES, R).puts.some((p) => p.n.startsWith('Rock_') && p.x > 0 && Math.hypot(p.x, p.z) > CLIFF_EDGE - 5)).toBe(true);
     expect(skyLayout(11, GATES, R).puts.filter((p) => p.n.startsWith('Rock_') && Math.abs(Math.hypot(p.x, p.z) - SKY_EDGE) < 1.5).length).toBeGreaterThan(15);
+  });
+  it('un entorno distinto en cada partida: con otra semilla, otro reparto y desniveles a lo lejos; donde se juega, llano', () => {
+    for (const lay of [(sd: number) => natureLayout(11, false, GATES, M, sd), (sd: number) => villageLayout(11, GATES, M, sd), (sd: number) => cliffLayout(11, GATES, M, sd)]) {
+      expect(lay(1234)).toEqual(lay(1234));
+      expect(lay(1234)).not.toEqual(lay(5678));
+    }
+    for (let i = 0; i < 2000; i++) {
+      const a = i * 2.399, r = (i % 50) * 1.2, x = Math.sin(a) * r, z = -Math.cos(a) * r;
+      if (r <= HILL_IN) expect(hillH(x, z, 4321)).toBe(0);
+      expect(hillH(x, z, 0)).toBe(0); // (sin semilla, llano como siempre)
+      expect(hillH(x, z, 4321)).toBeLessThan(4.6);
+    }
+    expect(Math.max(...Array.from({ length: 360 }, (_, i) => hillH(Math.sin(i) * 40, Math.cos(i) * 40, 4321)))).toBeGreaterThan(1);
+    // lo de la aldea va a la altura del terreno
+    for (const p of villageLayout(11, GATES, M, 4321).puts) expect(p.y).toBeCloseTo(hillH(p.x, p.z, 4321), 9);
   });
   it('lo que no está en el pack no se pone', () => {
     const none: Models = { has: () => false, foot: () => 1, rad: () => 1 };

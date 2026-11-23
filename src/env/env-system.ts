@@ -183,6 +183,10 @@ export class EnvSystem extends createSystem({}) {
   /** Las luces de la escena (el sol y la de relleno), con lo que traían, para teñirlas con la hora y devolverlas. */
   private lights: { sun: DirectionalLight | null; fill: HemisphereLight | null; sunC: Color; sunI: number; fillC: Color; fillI: number } | null = null;
   private lit = false;
+  /** La semilla del entorno de esta partida (RepArena XR, «Entorno distinto en cada partida»): otro reparto, otros desniveles,
+   * otro sol y otra hora de empezar; se elige al acabar la anterior (en el menú: rehacerlo no da tirones al EMPEZAR). 0: el de
+   * siempre. */
+  private seed = 0;
   private wasPlaying = false;
   private readonly tmp = new Vector3();
 
@@ -224,10 +228,13 @@ export class EnvSystem extends createSystem({}) {
     const playing = GAME.phase === 'playing';
     // (con «Alternar», uno distinto en cada partida: fortaleza → bosque → isla → risco → islas en el cielo → aldea)
     if (playing && !this.wasPlaying && str('scenery') === 'mix') this.pick = MIX_NEXT[this.pick] ?? 'arena';
+    // al acabar una partida (y al principio), la semilla de la siguiente
+    if ((!playing && this.wasPlaying) || (this.seed === 0 && num('envVary') > 0)) this.seed = num('envVary') > 0 ? 1 + Math.floor(Math.random() * 999983) : 0;
+    if (!(num('envVary') > 0)) this.seed = 0;
     this.wasPlaying = playing;
     const night = this.world.getSystem(BarsSystem)?.nightForest ?? false, want = night ? 'arena' : this.sceneryWanted();
     if (want === 'arena') this.scenery.hide();
-    else if (!this.scenery.show(want, num('depth') > 0 ? num('depth') : 11, !!this.panoWanted(), this.gateList())) this.scenery.hide();
+    else if (!this.scenery.show(want, num('depth') > 0 ? num('depth') : 11, !!this.panoWanted(), this.gateList(), this.seed)) this.scenery.hide();
     if (!this.floor.length) this.floor = ['arena-floor', 'comic-valley', 'comic-clouds'].map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is Object3D => !!o);
     const on = this.scenery.visible;
     if (!night && settings.mode !== 'trek') for (const o of this.floor) o.visible = !on && !(this.panoWanted() && o !== this.floor[0]); // (la Travesía los esconde ella)
@@ -241,7 +248,7 @@ export class EnvSystem extends createSystem({}) {
   private stepSky(dt: number, time: number, want: string): void {
     const playing = GAME.phase === 'playing', mode = settings.mode, cyc = on('envCycle') && (mode === 'combat' || mode === 'touch' || mode === 'arcs');
     if (cyc && playing && GAME.wave > 0) {
-      const w = wavePlan(GAME.wave, want, isBossWave(GAME.wave - 1, nWaves()));
+      const w = wavePlan(GAME.wave, want, isBossWave(GAME.wave - 1, nWaves()), this.seed % 5);
       skyLook(w.phase, w.weather, this.lookTo);
     } else skyLook('dia', 'claro', this.lookTo);
     lerpLook(this.look, this.lookTo, Math.min(1, dt * 0.6));

@@ -413,6 +413,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **El manotazo** (plancha con un brazo): `HatchFoe.slap` (`hatch.ts`: contacto, `SLAP_R`; golpe, `SLAP_V` y hacia él) y las
+  palmas de las manos de verdad en `HatchSystem.palms` (`hatch-foes.ts`). Lo prueba `hatch-slap.test.ts`.
+- **Un entorno distinto en cada partida** («Entorno distinto en cada partida», `envVary`): la semilla (`EnvSystem.seed`, se
+  elige al acabar cada partida) llega a cada colocación (`…Layout(…, seed)`; con 0, la de siempre), al terreno (`hillH`:
+  llano hasta `HILL_IN`, en el bosque y la aldea; el suelo, un anillo con alturas), al sol (`Scenery.sunYaw`) y a la hora de
+  empezar (`wavePlan(…, off)`).
+
 - **Los entornos de Combate nuevos** (`scenery`: `cliff`, `sky`, `village`, marcados en `xrOpts` para que las comparaciones se
   los salten): su colocación en `placement.ts` (`cliffLayout`, `skyLayout`, `villageLayout`; los peñascos del kit miden 6-7 m a
   escala 1: lejos de ti), los dos kits juntos en `Scenery.load` y el mar de nubes de la Travesía (`CloudSea`) en el risco y

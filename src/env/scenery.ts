@@ -9,7 +9,7 @@ import {
   RingGeometry, ShaderMaterial, SphereGeometry, SRGBColorSpace, Vector3,
 } from '@iwsdk/core';
 import type { Material, Texture } from '@iwsdk/core';
-import { CLIFF_EDGE, cliffLayout, ISL_SHORE, islandLayout, natureLayout, rng, SKY_EDGE, skyLayout, villageLayout, type Gate, type Models, type Put } from './placement.js';
+import { CLIFF_EDGE, cliffLayout, hillH, ISL_SHORE, islandLayout, natureLayout, rng, SKY_EDGE, skyLayout, villageLayout, type Gate, type Models, type Put } from './placement.js';
 import { CloudSea } from '../modes/trek/cloud-sea.js';
 import type { SkyLook } from './sky-plan.js';
 
@@ -272,19 +272,21 @@ export class Scenery {
   }
 
   /** Lo pone (si ya cargó): `D`, la distancia de las compuertas; `op`, con fondo realista (bosque); `gates`, dónde están. Devuelve si ya se ve. */
-  show(kind: SceneKind, D: number, op: boolean, gates: Gate[]): boolean {
+  show(kind: SceneKind, D: number, op: boolean, gates: Gate[], seed = 0): boolean {
     this.skyMesh.visible = !op; // (con la foto de fondo, sin el cielo dibujado)
     const P = this.load(kind);
     if (!P) return false;
-    const key = `${kind}:${D.toFixed(2)}:${op ? 'p' : ''}`;
+    const key = `${kind}:${D.toFixed(2)}:${op ? 'p' : ''}:${seed}`;
     if (key !== this.builtKey) {
       this.builtKey = key;
       this.kind = kind;
       this.clearPlants();
-      const M = this.models(kind, P), L = kind === 'nature' ? natureLayout(D, op, gates, M) : kind === 'island' ? islandLayout(D, gates, M) : kind === 'cliff' ? cliffLayout(D, gates, M) : kind === 'sky' ? skyLayout(D, gates, M) : villageLayout(D, gates, M);
+      // (con la semilla de la partida, otro reparto cada vez; 0, el de siempre)
+      const M = this.models(kind, P), L = kind === 'nature' ? natureLayout(D, op, gates, M, seed) : kind === 'island' ? islandLayout(D, gates, M, seed) : kind === 'cliff' ? cliffLayout(D, gates, M, seed) : kind === 'sky' ? skyLayout(D, gates, M, seed) : villageLayout(D, gates, M, seed);
       this.solids = L.solids;
       this.place(P, L.puts, kind);
-      this.buildGround(kind);
+      this.buildGround(kind, seed);
+      this.sunYaw = seed ? ((seed % 360) * Math.PI) / 180 : 0;
     }
     if (!this.root.visible) {
       this.root.visible = true;
@@ -309,6 +311,8 @@ export class Scenery {
   /** ¿Está puesta la hora y el tiempo de la oleada? (entonces la niebla la pone ella) */
   private looked = false;
   private readonly sunDir = new Vector3();
+  /** Hacia dónde sale el sol (rad; cada partida, otro con la semilla). */
+  private sunYaw = 0;
 
   /** La hora y el tiempo (src/env/sky-plan.ts): el cielo y la niebla; `flash`, el relámpago (0 a 1). null: el de siempre. */
   setLook(L: SkyLook | null, flash: number): void {
@@ -328,7 +332,7 @@ export class Scenery {
     (u.uHor.value as Color).setHex(L.hor);
     (u.uSunCol.value as Color).setHex(L.sun);
     // (el sol, bajo al alba y al ocaso; de noche, la luna)
-    (u.uSun.value as Vector3).copy(this.sunDir.set(-0.5, Math.max(0.02, L.sunY) * 1.2, 0.6).normalize());
+    (u.uSun.value as Vector3).copy(this.sunDir.set(-0.5, Math.max(0.02, L.sunY) * 1.2, 0.6).normalize().applyAxisAngle(UP, this.sunYaw));
     u.uCloud.value = L.cloud;
     u.uStars.value = L.stars;
     u.uFlash.value = flash;
@@ -359,9 +363,10 @@ export class Scenery {
     void kind;
   }
 
-  private buildGround(kind: SceneKind): void {
-    if (this.groundKind === kind) return;
-    this.groundKind = kind;
+  private buildGround(kind: SceneKind, seed = 0): void {
+    const hilly = (kind === 'nature' || kind === 'village') && seed !== 0, gk = `${kind}:${hilly ? seed : 0}`;
+    if (this.groundKind === gk) return;
+    this.groundKind = gk;
     if (this.ground) {
       this.root.remove(this.ground);
       this.ground.geometry.dispose();
@@ -374,7 +379,15 @@ export class Scenery {
     }
     // (el suelo de cada sitio: hierba, arena o roca; en el risco y la isla del cielo, hasta el borde, y más allá el vacío)
     const tex = kind === 'island' ? 'island' : kind === 'cliff' ? 'cliff' : 'nature', rad = kind === 'nature' || kind === 'village' ? 70 : kind === 'cliff' ? CLIFF_EDGE : kind === 'sky' ? SKY_EDGE : 30;
-    this.ground = new Mesh(new CircleGeometry(rad, 72), new MeshStandardMaterial({ map: groundTexture(tex), roughness: 1, metalness: 0 }));
+    // (con desniveles: un anillo con muchas vueltas, cada punto a la altura del terreno; llano donde se juega)
+    let geo: BufferGeometry = new CircleGeometry(rad, 72);
+    if (hilly) {
+      geo = new RingGeometry(0, rad, 96, 40);
+      const a = geo.attributes.position;
+      for (let i = 0; i < a.count; i++) a.setZ(i, hillH(a.getX(i), -a.getY(i), seed));
+      geo.computeVertexNormals();
+    }
+    this.ground = new Mesh(geo, new MeshStandardMaterial({ map: groundTexture(tex), roughness: 1, metalness: 0 }));
     if (kind === 'cliff' || kind === 'sky') (this.ground.material as MeshStandardMaterial).map!.repeat.set((2 * rad) / 3.5, (2 * rad) / 3.5); // (cada baldosa, unos 3,5 m)
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.position.y = -0.005;

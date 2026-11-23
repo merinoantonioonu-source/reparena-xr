@@ -41,13 +41,27 @@ export interface Models {
 
 const pick3 = <T>(R: () => number, l: T[]): T => l[Math.floor(R() * l.length)];
 
+/** Los desniveles del terreno (RepArena XR: un entorno distinto en cada partida): colinas y hondonadas más allá de donde se
+ * juega (llano hasta `HILL_IN` m de ti, para que tú y los enemigos piséis suelo llano), cada vez más marcadas hasta `HILL_MAX`
+ * m de alto a lo lejos. Con `seed` 0, llano (como siempre). */
+export const HILL_IN = 14, HILL_MAX = 4.5;
+export function hillH(x: number, z: number, seed: number): number {
+  if (!seed) return 0;
+  const r = Math.hypot(x, z);
+  if (r <= HILL_IN) return 0;
+  const k = Math.min(1, (r - HILL_IN) / 22), ease = k * k * (3 - 2 * k), o = (seed % 997) * 1.37;
+  // (unas ondas suaves que no se repiten: dos escalas, desfasadas con la semilla; de −0,35 a 1 × el alto)
+  const n = 0.55 * Math.sin(x * 0.11 + o) * Math.cos(z * 0.09 - o * 0.7) + 0.3 * Math.sin((x + z) * 0.21 + o * 1.9) + 0.15 * Math.cos((x - z) * 0.37 + o * 0.4);
+  return HILL_MAX * ease * Math.min(1, Math.max(-0.35, n + 0.25));
+}
+
 /** El claro del bosque (RepArena: natureBuild). `op`: con fondo realista, sin el bosque de detrás de las compuertas y con el abanico más abierto. */
-export function natureLayout(D: number, op: boolean, gates: Gate[], M: Models): { puts: Put[]; solids: { x: number; z: number; r: number }[] } {
-  const R = rng(23), puts: Put[] = [], trees: { x: number; z: number; r: number }[] = [], solids: { x: number; z: number; r: number }[] = [];
+export function natureLayout(D: number, op: boolean, gates: Gate[], M: Models, seed = 0): { puts: Put[]; solids: { x: number; z: number; r: number }[] } {
+  const R = rng(23 + seed * 7919), puts: Put[] = [], trees: { x: number; z: number; r: number }[] = [], solids: { x: number; z: number; r: number }[] = [];
   const front = (x: number, z: number, extra: number): boolean => Math.abs(Math.atan2(x, -z)) < (op ? 1.15 : 0.8) && (op || Math.hypot(x, z) < D + extra);
   const nearGate = (x: number, z: number, r: number): boolean => gates.some((g) => Math.hypot(g.x - x, g.z - z) < r);
   const add = (n: string, x: number, z: number, s: number, ry = R() * TAU): void => {
-    if (M.has(n)) puts.push({ n, x, y: 0, z, s, ry });
+    if (M.has(n)) puts.push({ n, x, y: hillH(x, z, seed), z, s, ry });
   };
   const solid = (n: string, x: number, z: number, s: number): void => {
     if (Math.hypot(x, z) < D + 4 && M.has(n)) solids.push({ x, z, r: M.foot(n) * s });
@@ -103,8 +117,8 @@ export function natureLayout(D: number, op: boolean, gates: Gate[], M: Models): 
 export const ISL_SHORE = 24;
 
 /** La playa de la isla pirata (RepArena: islandBuild). */
-export function islandLayout(D: number, gates: Gate[], M: Models): { puts: Put[]; solids: { x: number; z: number; r: number }[] } {
-  const R = rng(57), puts: Put[] = [], taken: { x: number; z: number; r: number }[] = [], solids: { x: number; z: number; r: number }[] = [];
+export function islandLayout(D: number, gates: Gate[], M: Models, seed = 0): { puts: Put[]; solids: { x: number; z: number; r: number }[] } {
+  const R = rng(57 + seed * 7919), puts: Put[] = [], taken: { x: number; z: number; r: number }[] = [], solids: { x: number; z: number; r: number }[] = [];
   const front = (x: number, z: number, extra: number): boolean => Math.abs(Math.atan2(x, -z)) < 0.8 && Math.hypot(x, z) < D + extra;
   const nearGate = (x: number, z: number, r: number): boolean => gates.some((g) => Math.hypot(g.x - x, g.z - z) < r);
   const free = (x: number, z: number, r: number): boolean => !taken.some((t) => Math.hypot(t.x - x, t.z - z) < t.r + r);
@@ -188,14 +202,14 @@ export function islandLayout(D: number, gates: Gate[], M: Models): { puts: Put[]
 
 type Layout = { puts: Put[]; solids: { x: number; z: number; r: number }[] };
 
-function kit(D: number, gates: Gate[], M: Models, seed: number) {
-  const R = rng(seed), puts: Put[] = [], taken: { x: number; z: number; r: number }[] = [], solids: { x: number; z: number; r: number }[] = [];
+function kit(D: number, gates: Gate[], M: Models, base: number, seed = 0, hills = false) {
+  const R = rng(base + seed * 7919), puts: Put[] = [], taken: { x: number; z: number; r: number }[] = [], solids: { x: number; z: number; r: number }[] = [];
   const front = (x: number, z: number, extra: number): boolean => Math.abs(Math.atan2(x, -z)) < 0.8 && Math.hypot(x, z) < D + extra;
   const nearGate = (x: number, z: number, r: number): boolean => gates.some((g) => Math.hypot(g.x - x, g.z - z) < r);
   const free = (x: number, z: number, r: number): boolean => !taken.some((t) => Math.hypot(t.x - x, t.z - z) < t.r + r);
   const add = (n: string, x: number, z: number, s: number, ry = R() * TAU, r = 0, y = 0): void => {
     if (!M.has(n)) return;
-    puts.push({ n, x, y, z, s, ry });
+    puts.push({ n, x, y: y + (hills ? hillH(x, z, seed) : 0), z, s, ry });
     if (r) taken.push({ x, z, r });
     if (r && Math.hypot(x, z) < D + 4) solids.push({ x, z, r: M.foot(n) * s });
   };
@@ -217,8 +231,8 @@ export const CLIFF_EDGE = 21, SKY_EDGE = 17;
 
 /** El risco: una meseta de roca en la montaña; a la izquierda y detrás, la pared de roca y los pinos; a la derecha, el borde y
  * el vacío, con agujas de roca que salen del mar de nubes a lo lejos. */
-export function cliffLayout(D: number, gates: Gate[], M: Models): Layout {
-  const K = kit(D, gates, M, 71), { R, add, scatter, side } = K;
+export function cliffLayout(D: number, gates: Gate[], M: Models, seed = 0): Layout {
+  const K = kit(D, gates, M, 71, seed), { R, add, scatter, side } = K;
   // la pared: peñascos grandes a la izquierda y detrás de las compuertas, de lado a lado
   // (los peñascos miden 6-7 m a escala 1: cada uno, entero fuera de la meseta de juego, como poco a 9 m de ti)
   for (let i = 0; i < 12; i++) {
@@ -241,8 +255,8 @@ export function cliffLayout(D: number, gates: Gate[], M: Models): Layout {
 
 /** Las islas en el cielo: estás en lo alto de una isla de hierba que flota; alrededor, el borde de rocas y, a lo lejos, otras
  * islas flotando sobre el mar de nubes, algunas con árboles. */
-export function skyLayout(D: number, gates: Gate[], M: Models): Layout {
-  const K = kit(D, gates, M, 83), { R, add, scatter, side } = K, top = (n: string): number => M.top?.(n) ?? 1;
+export function skyLayout(D: number, gates: Gate[], M: Models, seed = 0): Layout {
+  const K = kit(D, gates, M, 83, seed), { R, add, scatter, side } = K, top = (n: string): number => M.top?.(n) ?? 1;
   // el borde de la isla: rocas todo alrededor (detrás de las compuertas también, que no salen de la nada)
   for (let i = 0; i < 26; i++) {
     const a = (i / 26) * TAU + (R() - 0.5) * 0.1, r = SKY_EDGE - 0.6 + R() * 0.8, n = `Rock_${1 + Math.floor(R() * 5)}`;
@@ -269,8 +283,8 @@ export function skyLayout(D: number, gates: Gate[], M: Models): Layout {
 
 /** La aldea: un claro con casas alrededor (las del Pirate Kit: casas y el aserradero, de cara a la plaza), barriles y cubos a
  * su puerta, y el bosque detrás. */
-export function villageLayout(D: number, gates: Gate[], M: Models): Layout {
-  const K = kit(D, gates, M, 97), { R, add, scatter, side, face } = K;
+export function villageLayout(D: number, gates: Gate[], M: Models, seed = 0): Layout {
+  const K = kit(D, gates, M, 97, seed, true), { R, add, scatter, side, face } = K;
   const houses = ['House1', 'House2', 'House3', 'Sawmill', 'House2', 'House1', 'House3', 'House1'];
   // las casas, en corro, a los lados y detrás de ti (de cara a la plaza)
   let hi = 0;

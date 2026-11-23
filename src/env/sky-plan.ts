@@ -26,9 +26,10 @@ function hash(w: number, kind: string): number {
   return ((h ^ (h >>> 13)) >>> 0) / 4294967296;
 }
 
-/** La hora y el tiempo de la oleada `wave` (desde 1) en el entorno `kind`; `boss`, si es la del jefe. */
-export function wavePlan(wave: number, kind: string, boss: boolean): { phase: Phase; weather: Weather } {
-  const w = Math.max(1, wave), phase = PHASES[(w - 1) % PHASES.length];
+/** La hora y el tiempo de la oleada `wave` (desde 1) en el entorno `kind`; `boss`, si es la del jefe; `off`, por qué hora
+ * se empieza (con «Entorno distinto en cada partida», otra cada vez; 0, de día). */
+export function wavePlan(wave: number, kind: string, boss: boolean, off = 0): { phase: Phase; weather: Weather } {
+  const w = Math.max(1, wave), phase = PHASES[(w - 1 + off) % PHASES.length];
   if (boss) return { phase, weather: 'tormenta' };
   if (w === 1) return { phase, weather: 'claro' };
   const r = hash(w, kind);

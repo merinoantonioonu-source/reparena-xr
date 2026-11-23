@@ -235,6 +235,10 @@ No las cambies sin preguntarle.
   día, por la tarde, al ocaso, de noche (con estrellas) y al alba, por turnos; a veces niebla, lluvia o (en el risco y la aldea)
   nieve; la oleada del jefe, con **tormenta** (relámpagos y truenos). El cielo, la luz y la niebla cambian suave entre oleadas.
   La lluvia y la tormenta, también en la fortaleza; con fondo realista, solo el tiempo (la foto no cambia de hora).
+  **Un entorno distinto en cada partida** (pedido del usuario, «Entorno distinto en cada partida», de serie): otro reparto de
+  árboles, rocas, casas e islas, otros desniveles a lo lejos (colinas y hondonadas pasadas las compuertas; donde se juega,
+  siempre llano), el sol por otro lado y otra hora para empezar. Se prepara al acabar la partida anterior (en el menú), no al
+  empezar.
 - Fondos realistas (fotos de Poly Haven en `models/fondos/`, ver su `LEEME.md`): en la Travesía, uno por tramo; en los
   demás modos, «Fondo realista» (Opciones → Entorno, 7 para elegir). Solo paisajes abiertos, al fondo con el bosque de cómic
   delante: los de bosque por dentro, ciudad y playa se quitaron (lo cercano se veía plano, de cartón). En Arcos, con
@@ -279,6 +283,10 @@ No las cambies sin preguntarle.
   la zancada y la sentadilla con salto hasta que el usuario dé las suyas.
 - El press de hombro, el press con barra y la flexión en pica se quitaron (no se detectaban bien en las gafas); el leñador,
   porque no aportaba nada.
+- **El manotazo en la plancha con un brazo** (pedido del usuario: obliga también a hacer el ejercicio): la mano levantada
+  aparta a los bichos que se acercan, pero solo **si los toca de verdad y a golpe** (deprisa, hacia ellos o de arriba abajo
+  encima): rozarlos, apoyar la mano o pasar cerca no vale. Sale despedido y deja de atacar (no le quita vida); a cada uno, un
+  manotazo cada poco.
 - Cargas ×2/×3/×4 aguantando la postura más dura, como en la sentadilla: fondos (abajo, codos a 90°), elevación frontal
   (arriba), antebrazos (la barra escurrida), dominadas y remo (arriba; al bajar, onda que con ×4 revienta también a los
   cercanos) y la plancha con un brazo (una flexión aguantada abajo carga ×2/×3/×4, con la bola a la vista; el brazo que se

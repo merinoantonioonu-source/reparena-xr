@@ -17,6 +17,11 @@ import { num } from '../core/values.js';
 import { dv } from '../core/settings.js';
 import { SND } from '../audio/sound.js';
 import { GAME, HOOKS } from '../core/state.js';
+import { hands, type Side } from '../input/hand-model.js';
+import { haptic } from '../input/hand-system.js';
+import { diagEvent } from '../core/diag.js';
+
+const SIDES: Side[] = ['left', 'right'];
 
 /** Los bichos de las trampillas: su modelo y lo que mide su modelo (RepArena: BEAST_DEF, [alto del modelo]). */
 export const HATCH_BEAST: Record<string, { asset: string; nat: number; voice: string }> = {
@@ -318,6 +323,27 @@ export class HatchSystem extends createSystem({ hatched: { required: [Foe] } }, 
     this.HL.copy(GAME.head).sub(this.origin);
   }
 
+  /** Las palmas (en la arena) y su velocidad: solo las manos que se ven de verdad (una calculada al perderla, no). */
+  private readonly palm: Record<Side, Vector3> = { left: new Vector3(), right: new Vector3() };
+  private readonly palmV: Record<Side, Vector3> = { left: new Vector3(), right: new Vector3() };
+  private readonly palmOn: Record<Side, boolean> = { left: false, right: false };
+  private palms(dt: number): void {
+    for (const sd of SIDES) {
+      const h = hands[sd], j = h.J[10], was = this.palmOn[sd];
+      const ok = h.ok && !h.est;
+      if (!ok) {
+        this.palmOn[sd] = false;
+        continue;
+      }
+      // (el centro de la palma: el nudillo del dedo corazón, si se ve; si no, la muñeca)
+      this.p.copy(j?.ok ? j.p : h.wrist).sub(this.origin);
+      if (was && dt > 0) this.palmV[sd].subVectors(this.p, this.palm[sd]).divideScalar(dt);
+      else this.palmV[sd].set(0, 0, 0);
+      this.palm[sd].copy(this.p);
+      this.palmOn[sd] = true;
+    }
+  }
+
   // en el mundo, donde va en la arena; de cara hacia donde mira; alzado hacia atrás al amenazar
   private place(rt: HatchRt, root: Object3D): void {
     root.position.copy(rt.foe.pos).add(this.origin);
@@ -358,6 +384,7 @@ export class HatchSystem extends createSystem({ hatched: { required: [Foe] } }, 
     env.play = env.active && !GAME.between;
     env.board = this.on;
     this.localHead();
+    this.palms(dt);
     this.others.length = 0;
     for (const e of this.queries.hatched.entities) {
       const rt = e.object3D?.userData.hatch as HatchRt | undefined;
@@ -383,6 +410,13 @@ export class HatchSystem extends createSystem({ hatched: { required: [Foe] } }, 
       }
       rt.foe.step(dt * sl, time, env);
       const f = rt.foe;
+      // el manotazo (en la plancha con un brazo): la mano que se ve de verdad, si le da a golpe, lo aparta
+      if (this.oneArm && env.play) for (const sd of SIDES) if (this.palmOn[sd] && f.slap(this.palm[sd], this.palmV[sd], this.HL, time)) {
+        SND.hiss(rt.target.center(this.p), f.s * 1.3, HATCH_BEAST[rt.beast].voice);
+        HOOKS.sparks(rt.target.center(this.p), 10, 0xffd166);
+        haptic(sd, 0.8, 70);
+        diagEvent(`manotazo ${sd}`);
+      }
       if (f.evHiss) SND.hiss(rt.target.center(this.p), f.evHiss, HATCH_BEAST[rt.beast].voice);
       if (f.evSkitter) SND.skitter(rt.target.center(this.p), f.s);
       if (f.evWhoosh) SND.whoosh(rt.target.center(this.p), 'spider');
