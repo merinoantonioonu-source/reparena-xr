@@ -22,6 +22,8 @@ import { chromium } from 'playwright';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist');
 const BASE = '/reparena-xr/';
 const SHOTS = process.env.E2E_SHOTS || '';
+/** La semilla del recorrido de la Travesía (E2E_TREK_SEED para probar otra). */
+const SEED_TREK = +(process.env.E2E_TREK_SEED || 7);
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm', '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.uikitml': 'text/plain', '.md': 'text/markdown', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav' };
 
 if (!existsSync(path.join(ROOT, 'index.html'))) {
@@ -289,7 +291,7 @@ try {
   // acaba en el cofre. Sin tarjeta gráfica el juego va a unas 5 imágenes por segundo: las teclas se
   // mantienen hasta que se nota (una pulsación corta puede no verse) y una sentadilla entera tarda unos 5 s.
   const t2 = Date.now();
-  await page.evaluate(() => {
+  await page.evaluate((SEED_TREK) => {
     const rx = window.__rx;
     rx.setSetting('lives', 0);
     rx.setSetting('mode', 'trek');
@@ -297,8 +299,11 @@ try {
     rx.setSetting('repsWave', 1); // (el tramo mide entonces lo mínimo: 40 m)
     rx.setSetting('repsInc', 0);
     rx.setSetting('rest', 3);
+    // (el recorrido, con semilla: con el azar libre, a veces no salía nada que la prueba sepa pasar con el teclado antes del
+    // jefe —una viga— y fallaba por mala suerte)
+    rx.game.trek().seedRnd(SEED_TREK);
     rx.HOOKS.startRound();
-  });
+  }, SEED_TREK);
   const tv = await until('Travesía: empieza el tramo 1, con piezas a la vista', (s) => s.mode === 'trek' && s.phase === 'playing' && s.wave >= 1 && !s.between && !!s.trek?.next, 90);
   console.log(`  ✓ Travesía: el tramo 1 trae ${tv.trek.live.slice(0, tv.trek.live.indexOf('chest')).join(', ')} (la primera, ${tv.trek.next.k} a ${tv.trek.next.rel} m)`);
   await shot('11-travesia');
