@@ -156,12 +156,17 @@ No las cambies sin preguntarle.
   bola alta del jefe): en plancha, lo que lanza el jefe **sale de abajo, de sus pies**, y da más tiempo para esquivar (1,7 s
   desde el aviso; en zancada, 1,45 s; de pie, 1,1 s); mareado, sus estrellas giran también a sus pies; el picado llega
   rasante todo el camino. Regla: en plancha, lo que hay que ver nace y viaja a ras de suelo, por delante de las manos.
+- Travesía de plataformas, **el paso lateral en plancha** (elegido por el usuario entre los movimientos de brazos, «solo
+  caminar con las manos, no con los pies»): rocas que ocupan tu lado de la pasarela unos metros; hay que caminar con las
+  manos al otro lado (la cabeza, a unos 26 cm del centro: más que escorarse) y aguantar ahí hasta pasarlas. Si no, chocas:
+  frenas a la mitad y se rompe la racha, sin vidas. Solo en plancha (las dos formas).
 - Travesía de plataformas, **las cuestas** (elegido por el usuario: «el terreno entero ondula», para esforzarse más o menos):
   el sendero, el suelo, el césped y el paisaje suben y bajan juntos entre los retos; **cuesta arriba cada repetición te lleva
   menos lejos y cuesta abajo más**, con más inercia (sin repeticiones te sigues parando, también bajando). Lo que pide suelo
   llano (el cofre, el jefe, los huecos, las plataformas, los túneles, los islotes, el trampolín, la bifurcación) queda llano
   y a ras; cada colina sube y vuelve a bajar (la ronda no se alarga). El risco, lo más escarpado. El horizonte no se inclina
-  nunca. «Sendero con cuestas» (de serie, sí) las quita. *En pruebas*: a la espera de que el usuario lo vea en las gafas.
+  nunca. *En pruebas*: «Sendero con cuestas» las pone (apagado de serie hasta que el usuario lo vea en las gafas y lo dé por
+  bueno).
 - Travesía de plataformas, **en zancada** (pedido del usuario; elegido de las propuestas): se juega con «Zancada», de pie con
   una pierna delante, en los cuatro mundos y con sus jefes, con **dos formas** (el mismo ajuste «Avance solo»): la **dinámica**,
   en la que cada bajada (sin dar pasos) te empuja, y la **estática**, en la que el recorrido viene solo. Bajar, agacharse;
@@ -208,7 +213,7 @@ No las cambies sin preguntarle.
   delante: los de bosque por dentro, ciudad y playa se quitaron (lo cercano se veía plano, de cartón). En Arcos, con
   fondo, sin compuertas: avanzas por el paisaje de la Travesía.
 - Su caricatura no habla de rayos: cada repetición empuja por el sendero.
-- Los cofres (también el de Combate) dicen al aparecer qué hay dentro y, al abrirlos, sale un aviso grande con lo que has
+- Los cofres (también el de Combate) dicen al aparecer qué hay dentro (en el marcador: no es un aviso de lo que viene) y, al abrirlos, sale un aviso grande con lo que has
   conseguido y lo que falta para el premio siguiente; el de la Travesía, abierto, se esfuma con humo (no se aparta).
 - El césped del suelo gira y corre con el mundo (en las curvas, lo apoyado no patina sobre la hierba).
 
@@ -249,6 +254,9 @@ No las cambies sin preguntarle.
   que ya venía rebota. Tumbado, los voladores esperan a la vista el descanso («Superman: descanso antes de que piquen», de
   6 s en Recluta a 3,5 s en el rango más alto) y, si sigues sin subir, pican de uno en uno. Los voladores salen al ritmo de
   una repetición (lo que se aguanta más 3 s).
+- Superman: **con las manos apoyadas en el suelo no cuenta** (decidido por el usuario con su diagnóstico: el tronco tiene que
+  subir solo): si las gafas ven una mano a menos de 9 cm del suelo, el aguante se para y avisa «Despega las manos». Sin ver
+  las manos, solo cuenta el tronco.
 - En Toques, entre un toque y el siguiente hay que **volver a la postura de partida**. Un toque vale aunque el objetivo
   aún venga de camino. El oblicuo es un diamante a un lado, junto a la rodilla, que se toca con la mano contraria
   (cruzando: gira el tronco); «Manos a rodillas», un diamante delante de las rodillas (las gafas no ven las rodillas).
@@ -259,7 +267,7 @@ No las cambies sin preguntarle.
   Cada flexión en la plancha, al final del recorrido, da más fuerza a la onda (×2, ×3, ×4: más lejos, más fuerte y con
   daño); la onda, de colores vivos y levantando polvo a su paso. Los bichos que mueren en el aire caen al suelo.
 - Arcos de semipuente (`arcLow`): inclinados tan bajos que hay que apartarse al lado alto y bajar hasta apoyar una mano en
-  el suelo; llegan más despacio, con aviso grande y la huella de la mano en el suelo.
+  el suelo; llegan más despacio, con su bocina y la huella de la mano en el suelo (sin aviso de texto: decidido por el usuario).
 - El marcador de los ejercicios de suelo (flexiones, planchas, inchworm) es sólido: los bichos lo rodean. Va apoyado en el
   suelo como un atril, de cara al jugador y con el borde de arriba levantado a **45°** (elegido por el usuario: tumbado, los
   avisos del suelo lo tapaban).
@@ -299,7 +307,8 @@ No las cambies sin preguntarle.
   si se las gana (pocos golpes en esas tres).
 - Entre oleadas: fundido leve (sin que desaparezca la escena) y panel grande con la oleada que empieza y los puntos;
   mientras se ve, no sale nada (ni enemigos ni orbes).
-- Arcos: el arco de plancha llega más despacio (velocidad propia), con un aviso grande delante y sin que lo adelante nada.
+- Arcos: el arco de plancha llega más despacio (velocidad propia), con su bocina (sin aviso de texto: decidido por el
+  usuario) y sin que lo adelante nada.
 - Arcos: la fiebre se ve muy roja (columnas de luz, pista y arena) y con tormenta roja en el cielo de todos los entornos
   (nubarrones, niebla roja y cerrada, relámpagos); empieza de golpe con un relámpago enorme y un trueno, también con música,
   y un velo rojo tiñe toda la vista (por debajo de los paneles). Con música, el compás se ve (♪ y destellos en cada pulso).
@@ -316,8 +325,10 @@ No las cambies sin preguntarle.
   obligaban a esquivar nada): al empezar a frenarse (el último segundo y medio) se fija donde está tu cabeza —quedarse
   quieto ya no vale nunca: hay que apartarse a tiempo— y, ya frenado, se mece un poco hasta el último medio segundo.
 - Arcos, burpee: tras el arco de plancha, la valla llega con tiempo para levantarse (3 s).
-- Arcos: las paredes (obstáculos con hueco y la del lado bajo de los inclinados), rojas casi opacas con franjas, y el
-  canto del hueco en verde: que no haya duda de hacia dónde volcar el cuerpo.
+- Arcos: las paredes de los obstáculos con hueco, rojas casi opacas con franjas, y el canto del hueco en verde: que no haya
+  duda de hacia dónde volcar el cuerpo. **La de los arcos inclinados, un campo de fuerza** (elegido por el usuario entre cuatro
+  modelos: el rojo liso era «horrible»): una lámina translúcida con panal de hexágonos y una onda que la recorre, bajo el lado
+  bajo y también por encima de la barra (arriba parecía hueco); metiéndote en él, parpadea. El hueco bueno, con su canto verde.
 
 **Enemigos y física**
 - Los enemigos **nunca atraviesan** compuertas, piedras, cajas ni otros sólidos. La bola de energía también es un
@@ -427,9 +438,9 @@ No las cambies sin preguntarle.
 - **No se avisa de lo que viene** (decidido por el usuario: se entrenan los reflejos, como en Arcos): ni en la Travesía (el
   hueco, la seta, el cañonazo, el túnel…) ni la ráfaga de vallas de Arcos; lo que viene se entiende por su forma, su gesto y
   su sonido. Sí se dice **cómo hacer bien el ejercicio** (bajar más, estirar los brazos…), **lo que hiciste mal ante un reto**
-  («¡Te ha mordido! Písala»: sin avisos previos, es como se aprende) y las órdenes de **la pelea con el jefe**. Siguen, a la
-  espera de que el usuario diga si se quitan, el aviso grande del arco de plancha, del burpee y del semipuente de Arcos, el
-  del lanzador de Combate y lo que hay dentro de los cofres.
+  («¡Te ha mordido! Písala»: sin avisos previos, es como se aprende) y las órdenes de **la pelea con el jefe**. Tampoco el
+  aviso grande del arco de plancha, del burpee y del semipuente de Arcos (queda su bocina y la huella de la mano) ni el del
+  lanzador de Combate (avisa con su gesto y su voz); lo que hay dentro de los cofres, en el marcador.
 - **El panel de indicaciones** (pedido del usuario: los avisos de lo que hay que hacer salían y se iban sin dar tiempo a
   leerlos): de pie, lo que pide hacer algo ya sale en un panel grande y fijo, al menos 4 s: con compuertas, encima de la del
   centro (con el marcador en «Compuertas», en su hueco de mensajes); en la Travesía, un letrero sobre el sendero, alto y lejos.

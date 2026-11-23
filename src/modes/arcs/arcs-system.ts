@@ -21,7 +21,7 @@ import { createLaser, createMace, createOrb, createWalls, type LaserParts, type 
 import { ArcCore, arxSpeed, type ArcOutcome } from './arc.js';
 import { HEAD_TOP, type ArcsEnv } from './env.js';
 import { ArcObsCore, ArcOrbCore, type ObsOutcome } from './obstacles.js';
-import { WALL, wallMaterial, wallTick } from './wall-looks.js';
+import { fieldMaterial, fieldTick } from './wall-looks.js';
 import { ARX_JUMP_GAP, ArcNewKind, arcGap, arcSpawnPlan, arxBeatGap, buildArcsWave, type ArcSpec } from './patterns.js';
 import { BEAT } from '../../core/beat-hub.js';
 import { arxBeatP } from '../../core/beat.js';
@@ -35,7 +35,7 @@ interface ArcEntry {
   arc: ArcCore;
   parts: ArcParts;
   grp: Group;
-  side?: { mesh: Mesh; edge: Mesh; mat: MeshBasicMaterial };
+  side?: { mesh: Mesh; edge: Mesh; edgeMat: MeshBasicMaterial };
   print?: Mesh;
   zapT: number;
 }
@@ -65,8 +65,6 @@ function zapLines(lines: ArcParts['lines']): void {
 }
 
 export class ArcsSystem extends createSystem({}) {
-  /** El modelo de la pared de los inclinados (para las capturas de los modelos propuestos: wall-looks.ts). */
-  readonly wall = WALL;
   readonly arx = new ArxState();
   private readonly newKind = new ArcNewKind(rnd);
   private root = new Group();
@@ -214,7 +212,7 @@ export class ArcsSystem extends createSystem({}) {
   // ---------------------------------------------------------------- cada fotograma
 
   update(dt: number): void {
-    if (WALL.look !== 'solid') wallTick(performance.now() / 1000);
+    fieldTick(this.clock);
     this.clock += dt;
     const live = GAME.phase === 'playing';
     if (!this.on) {
@@ -273,10 +271,8 @@ export class ArcsSystem extends createSystem({}) {
       this.addObs(kind as 'laser' | 'walls' | 'mace');
     });
     for (const a of plan.arcs) this.addArc(a);
-    // (no se avisa de lo que viene —decidido por el usuario: se entrenan los reflejos—; la ráfaga de vallas, solo con su
-    // bocina. El arco de plancha, el burpee y el de semipuente siguen con su aviso grande: una regla anterior del usuario,
-    // pendiente de que diga si se quita)
-    if (plan.notice && !spec.note) HOOKS.say(`${plan.notice[0]} ${plan.notice[1]}`, plan.notice[2], 2.6, true);
+    // (no se avisa de lo que viene —decidido por el usuario: se entrenan los reflejos—: sin texto; queda la bocina y, en el
+    // semipuente, la huella de la mano en el suelo. `plan.notice` sigue para compararlo con RepArena)
     if (plan.horn) SND.horn();
     arx.minNext = plan.minNext;
     arx.nextGap = plan.nextGap;
@@ -297,13 +293,14 @@ export class ArcsSystem extends createSystem({}) {
       const [xa, xe] = arc.sideWallX(), g = new BufferGeometry(), y = (x: number): number => Math.max(0.05, arc.barAt(x) - 0.04);
       g.setAttribute('position', new Float32BufferAttribute([xa, y(xa), 0, xe, y(xe), 0, xa, 0.05, 0, xe, 0.05, 0], 3));
       g.setIndex([0, 2, 1, 1, 2, 3]);
-      const mat = new MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false, side: DoubleSide }), mesh = new Mesh(g, WALL.look === 'solid' ? mat : wallMaterial(WALL.look)); // (los modelos propuestos: wall-looks.ts)
+      // (el campo de fuerza, elegido por el usuario: wall-looks.ts)
+      const mesh = new Mesh(g, fieldMaterial());
       mesh.userData.noInk = true;
       const eh = Math.max(0.05, arc.barAt(xe) - 0.03), edge = new Mesh(new PlaneGeometry(0.07, eh), new MeshBasicMaterial({ color: 0x3cf0c6, toneMapped: false, side: DoubleSide }));
       edge.position.set(xe, eh / 2, 0);
       edge.userData.noInk = true;
       grp.add(mesh, edge);
-      e.side = { mesh, edge, mat };
+      e.side = { mesh, edge, edgeMat: edge.material as MeshBasicMaterial };
     }
     // el semipuente: la huella de la mano en el suelo, en el lado alto, que late mientras llega
     if (arc.low) {
@@ -314,6 +311,8 @@ export class ArcsSystem extends createSystem({}) {
       e.print = pr;
     }
     if (arc.spin) parts0(p).curtain.visible = false; // (la rueda: la cortina no la sigue)
+    // los inclinados, por encima de la barra, también el campo de fuerza (pedido del usuario: arriba parecía hueco)
+    else if (arc.tilt && !arc.jump) p.curtain.material = fieldMaterial();
     zapLines(p.lines);
     this.arcs.push(e);
   }
@@ -360,7 +359,7 @@ export class ArcsSystem extends createSystem({}) {
     P.glowMat.opacity = Math.min(1, (a.danger ? 1 : 0.7) * flick);
     P.curtainMat.opacity = a.danger ? 0.32 + 0.15 * Math.sin(t * 30) : 0.18;
     P.coreMat.color.setHex(a.danger ? 0xffffff : 0xffb0a0);
-    if (e.side) e.side.mat.opacity = a.danger && a.sideBad ? 0.8 + 0.2 * Math.sin(t * 30) : 0.9;
+    if (e.side) e.side.mesh.material = fieldMaterial(a.danger && a.sideBad); // (metiéndote en él, parpadea)
     if (e.print) {
       const d = head.p.z - a.z, o = a.judged ? Math.max(0, (e.print.material as MeshBasicMaterial).opacity - dt * 2) : d < 9 ? Math.min(1, (9 - d) / 2) * (0.65 + 0.35 * Math.sin(t * 9)) : 0;
       (e.print.material as MeshBasicMaterial).opacity = o;
@@ -522,7 +521,7 @@ export class ArcsSystem extends createSystem({}) {
     this.root.remove(e.grp);
     this.disposeTree(e.grp);
     for (const m of e.parts.own) m.dispose();
-    if (e.side) e.side.mat.dispose();
+    if (e.side) e.side.edgeMat.dispose();
     if (e.print) {
       this.root.remove(e.print);
       e.print.geometry.dispose();

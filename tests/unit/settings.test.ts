@@ -199,7 +199,7 @@ describe('guardar', () => {
     // los de RepArena XR, aparte (RepArena no los conoce)
     expect(s).not.toHaveProperty('handLook');
     // (los de la Travesía de plataformas, los del rango de serie: el cabo)
-    expect(saved(XR_STORE_KEY)).toEqual({ handLook: 'glove', menuSize: 75, platSpace: 100, platGap: 90, platDuck: 24, platHigh: 86, platTunnel: 3.3, platFoeV: 0.9, trekWorld: 3, trekAuto: 0, trekLegReps: 10, handsNew: 0, supRest: 5, trekHills: 1 });
+    expect(saved(XR_STORE_KEY)).toEqual({ handLook: 'glove', menuSize: 75, platSpace: 100, platGap: 90, platDuck: 24, platHigh: 86, platTunnel: 3.3, platFoeV: 0.9, trekWorld: 3, trekAuto: 0, trekLegReps: 10, handsNew: 0, supRest: 5, trekHills: 0 });
     expect(s.mode).toBe('combat');
     expect(store(STORE_KEY)).toEqual(s);
   });

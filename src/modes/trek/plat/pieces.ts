@@ -547,6 +547,17 @@ export function piecePuts(p: Piece, ref: number, out: Put[]): Put[] {
       out.push(fruitPut(name, p.special ? FRUIT_SIZE_SPECIAL : name === 'Watermelon' ? FRUIT_SIZE * 1.4 : FRUIT_SIZE, p.side * FRUIT_U, ref));
       break;
     }
+    case 'lane': {
+      // el paso lateral en plancha: rocas medianas que ocupan la mitad `side` de la pasarela todo su largo (bajas: en plancha
+      // se ven por delante de las manos), y una más alta al empezar
+      const n = Math.max(2, Math.round(p.len / 1.1));
+      for (let i = 0; i < n; i++) {
+        const sc = 0.22 + 0.05 * ((p.id * 7 + i * 3) % 3), name = (p.id + i) % 2 ? 'Rock_Medium_1' : 'Rock_Medium_3';
+        out.push(put('nature', name, 0.4 + (i / Math.max(1, n - 1)) * (p.len - 0.8), p.side * 0.48, 0, { ry: (p.id + i) * 1.7, sx: sc, sy: sc * 0.9, sz: sc }));
+      }
+      out.push(put('nature', 'Rock_Medium_1', 0.2, p.side * 0.5, 0, { ry: p.id, sx: 0.34, sy: 0.4, sz: 0.34 }));
+      break;
+    }
     case 'cannon':
       // el barco pirata que dispara, a su lado del muelle, de costado (su largo, a lo largo del sendero); la bala la pinta el
       // sistema

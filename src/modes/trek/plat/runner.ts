@@ -39,7 +39,7 @@ import { PORTAL_AT, worldLenFor, worldNo, WORLD_LEN, WORLDS } from './worlds.js'
 import { formText } from './texts.js';
 import { buildGrade, gradeH, gradeK, gradeSlope, type Grade } from './grade.js';
 import { BodyMoves, LUNGE_FWD, LUNGE_SIDE_K, moveCfg, PRONE_FWD, PRONE_SIDE_K, PRONE_SIDE_MIN, type MoveCfg } from './moves.js';
-import { ASK_AHEAD, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { ASK_AHEAD, LANE_NEED, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
@@ -74,6 +74,8 @@ export const AUTO_K = 0.55, DASH_T = 1.5, DASH_K = 1.15, DASH_CD = 4;
  * (que avanza sola y apenas pide bajadas), lo que se tarda como mucho en cambiar de pierna (s por cada bajada que toca). */
 export const LEG_REPS = 10, LEG_S = 3;
 const LUNGE_SKIP: PieceKind[] = ['crawl', 'burpee'];
+/** Lo que sale además en plancha: el paso lateral (elegido por el usuario: caminar con las manos a un lado). */
+const PRONE_EXTRA: PieceKind[] = ['lane'];
 /** Dónde se avisa de lo que viene (m antes de la cabeza, o lo que recorres en tantos s si es más): las fluidas, a 4 m o
  * 1,4 s; el obstáculo a un lado y el hueco, antes (para prepararse). */
 export const WARN_AT = 4, WARN_S = 1.4, SIDE_WARN_AT = 6, SIDE_WARN_S = 1.8;
@@ -350,7 +352,7 @@ export class Runner {
     while (this.ends.length < i) this.addTramo(this.ends.length, len); // (los de antes, por orden)
     const start = this.ends.length ? this.ends[this.ends.length - 1] + 0.5 : this.tk.dist;
     // (en zancada no hay túnel ni burpee: no se pasa echado)
-    const c = buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)), worldLen: this.worldLen, skip: this.lunge ? LUNGE_SKIP : undefined }, i, this.env.rank, start, this.id);
+    const c = buildCourse({ vmax: platVmax(this.env), len, rnd: () => this.env.rnd(), tune: platTune((k) => this.env.s(k)), worldLen: this.worldLen, skip: this.lunge ? LUNGE_SKIP : undefined, extra: this.prone ? PRONE_EXTRA : undefined }, i, this.env.rank, start, this.id);
     // en plancha, lo que pasa por encima de la cabeza (la viga, el picado, el tajo, la bala alta), a la altura de la flexión: se
     // ve justo por encima de la cabeza abajo (el juicio, `BodyMoves.under`, pide estar abajo)
     if (this.prone) {
@@ -585,7 +587,8 @@ export class Runner {
       // el cofre dice al aparecer (o al empezar el tramo, si ya se veía) qué hay dentro (regla del usuario)
       if (p.k === 'chest' && !p.warned && !p.judged && p !== this.chest) {
         p.warned = true;
-        this.say(`Al final del tramo, un cofre: dentro, una llave (${this.keys + 1} de ${TREASURE_KEYS}: con ${TREASURE_KEYS}, el tesoro) y una gema`, COL_ASK, 3, false);
+        // (lo que hay dentro, al marcador: no es lo que viene, es información; decidido por el usuario)
+        this.cheer(`Al final del tramo, un cofre: dentro, una llave (${this.keys + 1} de ${TREASURE_KEYS}: con ${TREASURE_KEYS}, el tesoro) y una gema`, COL_ASK, 3);
       }
       if (!WALKERS.includes(p.k) || p.judged) continue;
       if (!p.woke && p.at + p.walk - d < FOE_WAKE) {
@@ -760,7 +763,7 @@ export class Runner {
   /** ¿Se acerca un obstáculo a un lado (o está pasando)? Entonces el centro no sigue a la cabeza. */
   private sideAhead(): boolean {
     const look = Math.max(SIDE_WARN_AT, SIDE_HOLD_S * Math.max(this.tk.v, 0.5));
-    for (const p of this.live) if ((p.k === 'side' || p.k === 'fruit' || p.k === 'fork' || p.k === 'fire' || p.k === 'ledge' || p.k === 'gust' || p.k === 'rockfall') && !p.judged && p.at - this.tk.dist < look + (p.k === 'fire' ? FIRE_AT : 0)) return true;
+    for (const p of this.live) if ((p.k === 'side' || p.k === 'fruit' || p.k === 'fork' || p.k === 'fire' || p.k === 'ledge' || p.k === 'gust' || p.k === 'rockfall' || p.k === 'lane') && !p.judged && p.at - this.tk.dist < look + (p.k === 'fire' ? FIRE_AT : 0)) return true;
     return false;
   }
 
@@ -805,7 +808,7 @@ export class Runner {
   /** El juicio de una fluida; `z`, lo que le falta para llegar a tu cabeza (m). */
   private judge(p: Piece, z: number): void {
     const M = this.moves, C = this.cfg, v = this.tk.v;
-    const far = p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box' || p.k === 'spring' || p.k === 'fork' || p.k === 'dive' || p.k === 'skull' || p.k === 'ledge' || p.k === 'gust' || p.k === 'bob' || p.k === 'sink' || p.k === 'cannon';
+    const far = p.k === 'lane' || p.k === 'side' || p.k === 'gap' || p.k === 'step' || p.k === 'fruit' || p.k === 'foe' || p.k === 'box' || p.k === 'spring' || p.k === 'fork' || p.k === 'dive' || p.k === 'skull' || p.k === 'ledge' || p.k === 'gust' || p.k === 'bob' || p.k === 'sink' || p.k === 'cannon';
     // (el túnel, con más tiempo: hay que echarse al suelo; el cíclope y el demonio, antes de su ataque)
     const warnAt = p.k === 'cannon' ? CANNON_AT + 2 : p.k === 'quake' ? QUAKE_AT + 4 : p.k === 'rockfall' ? Math.max(10, (v + 0.2) * ROCKFALL_T + 6) : p.k === 'fire' ? FIRE_AT + 4 : p.k === 'crawl' || p.k === 'glide' ? Math.max(10, 3.5 * v) : Math.max(far ? SIDE_WARN_AT : WARN_AT, v * (far ? SIDE_WARN_S : WARN_S));
     if (!p.warned && z < warnAt) {
@@ -842,6 +845,28 @@ export class Runner {
           this.ev.push({ t: 'pass', p });
           this.score(180);
           this.cheer('¡Islote cruzado!', COL_OK, 1.0);
+        }
+      }
+      return;
+    }
+    if (p.k === 'lane') {
+      // el paso lateral en plancha (elegido por el usuario): las rocas ocupan tu lado (`side`); hay que caminar con las manos
+      // al otro y aguantar ahí todo su largo; si no, una vez, chocas: frenas y se rompe la racha
+      const away = -p.side * M.dx;
+      if (z < 0.1 && z > -p.len && !p.bad && away < LANE_NEED) {
+        p.bad = true;
+        this.tk.v *= HIT_KEEP;
+        this.hit(p, this.pos(p, 0, 0.4));
+        this.say(`¡Camina con las manos a la ${p.side < 0 ? 'derecha' : 'izquierda'}!`, COL_WARN, 1.6, true);
+      }
+      if (z < -p.len - 0.3) {
+        p.judged = true;
+        p.ok = !p.bad;
+        if (p.ok) {
+          this.passed++;
+          this.ev.push({ t: 'pass', p });
+          this.score(180);
+          this.cheer('¡Carril cambiado!', COL_OK, 1.0);
         }
       }
       return;

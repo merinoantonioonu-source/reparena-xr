@@ -413,6 +413,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Lo que eligió el usuario al final del plan**: la pared de los inclinados de Arcos es el campo de fuerza (`fieldMaterial`,
+  `wall-looks.ts`; también en la cortina de encima de la barra); sin avisos de texto en Arcos (`plan.notice` sigue para
+  compararlo) ni del lanzador; el cofre de la Travesía dice lo que lleva al marcador; superman con las manos apoyadas no
+  cuenta (`handsPlanted`, `SUP_FLOOR`); el paso lateral en plancha es la pieza `lane` (`CourseEnv.extra`, `LANE_NEED`). Las
+  cuestas, apagadas de serie («en pruebas») hasta que el usuario las vea.
+
 - **Las cuestas** (bloque 3.F): el perfil de cada tramo sale de `buildGrade` (`plat/grade.ts`, al montar el tramo en
   `Runner.addTramo`, con «Sendero con cuestas»); `Runner.heightAt`/`slopeAt` lo leen y el avance se multiplica por `gradeK`.
   En `TrekSystem`, todo lo que va sobre el sendero suma `gy(s)` a su altura (algo nuevo que se pinte en el sendero, también),

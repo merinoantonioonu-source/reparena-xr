@@ -57,6 +57,9 @@ export const floorDefaults = (ex = 'pushup'): FloorCfg => ({ ex, dipDepth: 15, p
 
 /** La muñeca de una mano apoyada en el suelo, en la plancha con un brazo: entre 2 y 30 cm (RepArena: PL_FLOOR). */
 const PL_FLOOR: [number, number] = [0.02, 0.3];
+/** Superman: una muñeca a menos de esto del suelo (m) está apoyada (en el diagnóstico del usuario, a 4–7 cm; con los brazos
+ * estirados y levantados, por encima de 10). */
+const SUP_FLOOR = 0.09;
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 const fmtNum = (v: number): string => String(Math.round(v * 10) / 10).replace('.', ',');
 const POW_HEX = ['#3cf0c6', '#ffd166', '#ff8a3d', '#ff3cf0'];
@@ -76,7 +79,7 @@ export class FloorDetector {
   readonly di = Object.assign(new VertDetector(), { awayT: 0 });
   readonly pu = Object.assign(new VertDetector(), { awayT: 0 });
   readonly sp = { state: 'hold' as 'hold' | 'low', ref: 0, t0: 0, sec: 0, dev: 0, awayT: 0, warnT: 0 };
-  readonly su = { state: 'down' as 'down' | 'up' | 'top', ref: 0.2, t0: 0, awayT: 0, sec: 0, warnT: 0, peak: 0, lift: 0, armT: 0, stillT: 0, lo: 0.2, k: 0, full: false, pow: 0 };
+  readonly su = { state: 'down' as 'down' | 'up' | 'top', ref: 0.2, t0: 0, awayT: 0, sec: 0, warnT: 0, peak: 0, lift: 0, armT: 0, handT: 0, stillT: 0, lo: 0.2, k: 0, full: false, pow: 0 };
   readonly pl = { ref: 0, awayT: 0, boost: 0, left: mkPl(), right: mkPl() };
   readonly plp = new VertDetector();
   readonly iw = { phase: 'stand' as 'stand' | 'out' | 'back', g: 0, max: 0, t0: 0, pu: 0, pow: 1, pst: 'up' as 'up' | 'down', ref: 0, flash: 0 };
@@ -96,7 +99,7 @@ export class FloorDetector {
     for (const d of [this.di, this.pu, this.plp]) d.reset(y);
     this.di.awayT = this.pu.awayT = 0;
     Object.assign(this.sp, { state: 'hold', ref: y, t0: 0, sec: 0, dev: 0, awayT: 0, warnT: 0 });
-    Object.assign(this.su, { state: 'down', ref: y, lo: y, t0: 0, awayT: 0, sec: 0, warnT: 0, peak: y, lift: 0, armT: 0, stillT: 0, k: 0, full: false, pow: 0 });
+    Object.assign(this.su, { state: 'down', ref: y, lo: y, t0: 0, awayT: 0, sec: 0, warnT: 0, peak: y, lift: 0, armT: 0, handT: 0, stillT: 0, k: 0, full: false, pow: 0 });
     Object.assign(this.pl, { ref: y, awayT: 0, boost: 0 });
     for (const s of ['left', 'right'] as const) Object.assign(this.pl[s], mkPl(), wrists[s] !== null ? { floor: wrists[s] } : {});
     this.plp.state = 'up';
@@ -221,6 +224,16 @@ export class FloorDetector {
     }
   }
 
+  // Superman: ¿se ve alguna mano apoyada en el suelo? (la muñeca a menos de SUP_FLOOR del suelo; una mano que las gafas
+  // calculan al perderla no cuenta)
+  private handsPlanted(I: FloorInput): boolean {
+    for (const s of ['left', 'right'] as const) {
+      const h = I.hands[s] as { ok: boolean; est?: unknown; wrist: { y: number } };
+      if (h.ok && !h.est && h.wrist.y < SUP_FLOOR) return true;
+    }
+    return false;
+  }
+
   // Superman: ¿hay alguna mano claramente recogida junto a la cabeza? (RepArena: armsBack)
   private armsBack(I: FloorInput, c: FloorCfg): boolean {
     if (c.supArms === 'no') return false;
@@ -284,7 +297,16 @@ export class FloorDetector {
       } else {
         // manos recogidas durante un rato: el tiempo se para (un fallo suelto del seguimiento no cuenta)
         S.armT = this.armsBack(I, c) ? S.armT + dt : 0;
-        if (S.armT > 0.4) {
+        // (con el aguante que protege, también si se ven las manos apoyadas en el suelo: el tronco tiene que subir solo; decidido
+        // por el usuario con su diagnóstico)
+        S.handT = c.supGuard && this.handsPlanted(I) ? S.handT + dt : 0;
+        if (S.handT > 0.4) {
+          S.t0 += dt;
+          if (S.warnT <= 0) {
+            this.say('Despega las manos del suelo');
+            S.warnT = 1.5;
+          }
+        } else if (S.armT > 0.4) {
           S.t0 += dt;
           if (S.warnT <= 0) {
             this.say('Estira los brazos');
