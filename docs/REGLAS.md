@@ -415,7 +415,14 @@ No las cambies sin preguntarle.
   velocidad que se pueda sortear (como mucho unos 2,5 m/s de lado). **Te busca** (pedido del usuario: los láseres no
   obligaban a esquivar nada): al empezar a frenarse (el último segundo y medio) se fija donde está tu cabeza —quedarse
   quieto ya no vale nunca: hay que apartarse a tiempo— y, ya frenado, se mece un poco hasta el último medio segundo.
-- Arcos, burpee: tras el arco de plancha, la valla llega con tiempo para levantarse (3 s).
+- Arcos, burpee: tras el arco de plancha, la valla llega con tiempo para levantarse (3 s; **con la dificultad, cada vez
+  menos, hasta 2,3 s**: más esfuerzo, pedido del usuario).
+- Arcos: **el arco de plancha se endurece con la dificultad** (pedido del usuario: «siempre llega igual de lento»): con el
+  rango y la dificultad creciente llega hasta un 60 % más deprisa, **nunca a más de 6,5 km/h** (nunca tan rápido como los
+  láseres de las sentadillas), y tras él hay algo menos de tiempo para levantarse (de 2,5 s a 2 s).
+- Arcos: **los orbes, gemas doradas talladas** (pedido del usuario: «más atractivos, más relieve, más sombreado»): con caras
+  de varios tonos que giran y atrapan la luz, un núcleo de luz, un halo con destello y sus dos aros; al cogerlos, muchos más
+  destellos (oro, blanco y turquesa) y el sonido más fuerte.
 - Arcos: las paredes de los obstáculos con hueco, rojas casi opacas con franjas, y el canto del hueco en verde: que no haya
   duda de hacia dónde volcar el cuerpo. **La de los arcos inclinados, un campo de fuerza** (elegido por el usuario entre cuatro
   modelos: el rojo liso era «horrible»): una lámina translúcida con panal de hexágonos y una onda que la recorre, bajo el lado

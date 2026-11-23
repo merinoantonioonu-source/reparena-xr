@@ -22,6 +22,9 @@ export interface ArcsEnv {
   beatP: number;
   /** El reloj de la partida en segundos (RepArena: beatNow/stats.time donde haga falta). */
   time: number;
+  /** Como RepArena, sin lo de RepArena XR (el arco de plancha y el burpee que se endurecen con la dificultad): solo para
+   * compararlo con su código. */
+  classic?: boolean;
 }
 
 /** La altura de la coronilla sobre los ojos (RepArena: HEAD_TOP). */

@@ -159,7 +159,7 @@ function mkWorld(seed: number): World {
 }
 
 const envOf = (w: World, rnd: () => number): ArcsEnv => ({
-  s: (k) => w.settings[k] as number, dv: (k) => (w.settings[k] as number) * w.dvK, rnd, head: w.HL, calibRef: w.calibRef, arenaDepth: w.depth,
+  s: (k) => w.settings[k] as number, dv: (k) => (w.settings[k] as number) * w.dvK, rnd, head: w.HL, calibRef: w.calibRef, arenaDepth: w.depth, classic: true,
   get jumpFastT() { return w.JUMP.fastT; },
   get beatP() { return w.settings.arcBeat && (w.settings.bpm as number) > 0 ? 60 / (w.settings.bpm as number) : 0; },
   time: 0,

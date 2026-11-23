@@ -39,8 +39,21 @@ export function arxBpmK(env: ArcsEnv): number {
 /** La velocidad de lo que llega (m/s): la del rango, con la fiebre y el ritmo. (RepArena: arxSpeed) */
 export const arxSpeed = (env: ArcsEnv, arx: ArxFever): number => env.dv('arcSpeed') / 3.6 * arxMul(env, arx) * arxBpmK(env);
 
-/** La del arco de plancha: la suya propia (más despacio), con la fiebre. */
-export const arxPlankSpeed = (env: ArcsEnv, arx: ArxFever): number => Math.max(0.3, env.s('arcPlankSpeed') / 3.6) * arxMul(env, arx);
+/** Lo duro que va la partida (de 0 a 1): la velocidad de los arcos (el rango y la dificultad creciente) del recluta (4 km/h)
+ * a la del general (14 km/h). Con ella se endurecen el arco de plancha y el burpee (pedido del usuario: «siempre llega igual
+ * de lento»). */
+export const arxHard = (env: ArcsEnv): number => (env.classic ? 0 : clamp((env.dv('arcSpeed') - 4) / 10, 0, 1));
+
+/** El arco de plancha, como mucho (m/s): nunca tan rápido como los demás arcos (6,5 km/h). */
+export const PLANK_VMAX = 6.5 / 3.6;
+
+/** La del arco de plancha: la suya propia (más despacio), con la fiebre; en RepArena XR, hasta un 60 % más deprisa con la
+ * dificultad, sin pasar de `PLANK_VMAX` (salvo que su ajuste ya sea mayor). */
+export const arxPlankSpeed = (env: ArcsEnv, arx: ArxFever): number => {
+  const base = Math.max(0.3, env.s('arcPlankSpeed') / 3.6);
+  if (env.classic) return base * arxMul(env, arx);
+  return Math.min(Math.max(base, PLANK_VMAX), base * (1 + 0.6 * arxHard(env))) * arxMul(env, arx);
+};
 
 /** Lo que tiene que subir la cabeza al pasar una valla (su ajuste propio, aparte del salto de Toques). */
 export const arcJumpNeed = (env: ArcsEnv): number => (env.s('arcJumpH') || 6) / 100;

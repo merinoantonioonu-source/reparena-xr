@@ -4,7 +4,7 @@
  * con dos postes, una cadena de eslabones y una bola de acero con doce pinchos) y el orbe dorado. Sin azar ni reloj: el juego
  * los mueve. Los materiales son de cada uno (la luz cambia con el peligro).
  */
-import { AdditiveBlending, BoxGeometry, CylinderGeometry, DataTexture, DoubleSide, Group, IcosahedronGeometry, LinearFilter, Mesh, MeshBasicMaterial, MeshStandardMaterial, OctahedronGeometry, PlaneGeometry, RepeatWrapping, RGBAFormat, Sprite, SpriteMaterial, SRGBColorSpace, TorusGeometry, UnsignedByteType } from '@iwsdk/core';
+import { AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, CylinderGeometry, DataTexture, DoubleSide, Group, IcosahedronGeometry, LinearFilter, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, RepeatWrapping, RGBAFormat, Sprite, SpriteMaterial, SRGBColorSpace, TorusGeometry, UnsignedByteType } from '@iwsdk/core';
 import type { Material } from '@iwsdk/core';
 
 const steel = new MeshStandardMaterial({ color: 0x6d7280, roughness: 0.45, metalness: 0.6 });
@@ -174,16 +174,69 @@ export interface OrbParts {
   ringMat: MeshBasicMaterial;
   ring2Mat: MeshBasicMaterial;
   bodyMat: MeshStandardMaterial;
+  /** La gema (gira sobre sí misma) y su halo de luz detrás. */
+  gem: Mesh;
+  halo: Sprite;
+  haloMat: SpriteMaterial;
   own: Material[];
 }
+
+/** El halo de los orbes: un resplandor suave dibujado una vez (compartido por todos). */
+let ORB_HALO: DataTexture | null = null;
+function orbHaloTex(): DataTexture {
+  if (ORB_HALO) return ORB_HALO;
+  const N = 64, d = new Uint8Array(N * N * 4);
+  for (let j = 0; j < N; j++)
+    for (let i = 0; i < N; i++) {
+      const x = (i + 0.5) / N - 0.5, y = (j + 0.5) / N - 0.5, r = Math.sqrt(x * x + y * y) * 2;
+      // (un núcleo brillante y una corona que se desvanece, con cuatro rayos finos: un destello de joya)
+      const ray = Math.max(0, 1 - Math.min(Math.abs(x), Math.abs(y)) * 40) * Math.max(0, 1 - r);
+      const a = Math.min(1, Math.pow(Math.max(0, 1 - r), 2.2) + 0.6 * ray);
+      d.set([255, 255, 255, Math.round(255 * a)], (j * N + i) * 4);
+    }
+  const t = new DataTexture(d, N, N, RGBAFormat, UnsignedByteType);
+  t.magFilter = t.minFilter = LinearFilter;
+  t.needsUpdate = true;
+  return (ORB_HALO = t);
+}
+
+/** La talla de la gema: cada cara con su tono (claras, medias y oscuras, siempre igual): así se ven las facetas aunque la luz
+ * de cómic las aplane. Hecha una vez y compartida. */
+let GEM_GEO: BufferGeometry | null = null;
+function gemGeo(): BufferGeometry {
+  if (GEM_GEO) return GEM_GEO;
+  const g = new IcosahedronGeometry(0.095, 1).toNonIndexed(), n = g.attributes.position.count, c = new Float32Array(n * 3);
+  const tones = [1, 0.78, 0.92, 0.62, 1, 0.85];
+  for (let f = 0; f < n / 3; f++) {
+    const k = tones[(f * 7) % tones.length];
+    for (let v = 0; v < 3; v++) c.set([k, k * 0.97, k * 0.9], (f * 3 + v) * 3);
+  }
+  g.setAttribute('color', new BufferAttribute(c, 3));
+  return (GEM_GEO = g);
+}
+
+/**
+ * El orbe (pedido del usuario: «más atractivos, más relieve, más sombreado»): una gema dorada tallada (80 caras, con poca luz
+ * propia para que el sombreado de cómic le dé relieve y claroscuro) que gira sobre sí misma, con un núcleo de luz, un halo
+ * con destello detrás y sus dos aros.
+ */
 export function createOrb(): OrbParts {
   const grp = new Group();
   grp.name = 'orb';
-  const bodyMat = new MeshStandardMaterial({ color: 0xffe9a0, emissive: 0xffb02a, emissiveIntensity: 0.4, metalness: 0.75, roughness: 0.12, flatShading: true, toneMapped: false });
-  const core = noInk(new Mesh(new IcosahedronGeometry(0.035, 0), new MeshBasicMaterial({ color: 0xfff6d8, toneMapped: false })));
+  const bodyMat = new MeshStandardMaterial({ color: 0xffcf5a, emissive: 0xffb02a, emissiveIntensity: 0.16, metalness: 0.45, roughness: 0.22, flatShading: true, vertexColors: true });
+  const gem = new Mesh(gemGeo(), bodyMat);
+  // (las caras de la talla, más marcadas: estirada un poco en vertical, como una gema)
+  gem.scale.set(1, 1.18, 1);
+  const core = noInk(new Mesh(new IcosahedronGeometry(0.04, 1), new MeshBasicMaterial({ color: 0xfffbe6, toneMapped: false })));
+  core.position.z = 0.0;
   const ringMat = new MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false, toneMapped: false });
   const ring2Mat = new MeshBasicMaterial({ color: 0x7ff7e0, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false, toneMapped: false });
-  const r1 = noInk(new Mesh(new TorusGeometry(0.135, 0.007, 6, 36), ringMat)), r2 = noInk(new Mesh(new TorusGeometry(0.135, 0.007, 6, 36), ring2Mat));
-  grp.add(new Mesh(new OctahedronGeometry(0.085, 1), bodyMat), core, r1, r2);
-  return { grp, rings: [r1, r2], ringMat, ring2Mat, bodyMat, own: [bodyMat, ringMat, ring2Mat] };
+  const r1 = noInk(new Mesh(new TorusGeometry(0.15, 0.008, 6, 36), ringMat)), r2 = noInk(new Mesh(new TorusGeometry(0.15, 0.008, 6, 36), ring2Mat));
+  const haloMat = new SpriteMaterial({ map: orbHaloTex(), color: 0xffc04a, transparent: true, opacity: 0.75, blending: AdditiveBlending, depthWrite: false, toneMapped: false });
+  const halo = new Sprite(haloMat);
+  halo.scale.setScalar(0.42);
+  halo.renderOrder = -1;
+  halo.userData.noInk = true;
+  grp.add(halo, gem, core, r1, r2);
+  return { grp, rings: [r1, r2], ringMat, ring2Mat, bodyMat, gem, halo, haloMat, own: [bodyMat, ringMat, ring2Mat, haloMat, core.material as Material] };
 }

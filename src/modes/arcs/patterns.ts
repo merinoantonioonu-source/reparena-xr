@@ -5,7 +5,7 @@
  * hueco hay hasta el siguiente y qué arcos salen de cada uno. Con el mismo azar, en el mismo orden que RepArena (se
  * compara con su código en tests/compare/arcs-core.compare.test.ts).
  */
-import { ArcCore, arxSpeed, randIn, type ArxFever } from './arc.js';
+import { arxHard, ArcCore, arxSpeed, randIn, type ArxFever } from './arc.js';
 import type { ArcsEnv } from './env.js';
 
 /** Lo que llega en la cola de una oleada (RepArena: los objetos de spawnQueue de los Arcos, con sus mismos campos). */
@@ -251,7 +251,10 @@ export function arcSpawnPlan(spec: ArcSpec, env: ArcsEnv, arx: ArxFever, spawnIn
   else if (spec.kind === 'plank') { // (más despacio, con 2,5 s para levantarte; y sin orbe)
     const a = new ArcCore({ drop: 0, plank: true }, env, arx);
     plan.arcs.push(a);
-    plan.minNext = wait(a, spec.burpee ? BURPEE_UP : 2.5); // (en el burpee, la valla llega tras BURPEE_UP s: levantarte y saltar)
+    // (en el burpee, la valla llega tras BURPEE_UP s: levantarte y saltar; en RepArena XR, con la dificultad, hasta 0,7 s menos
+    // —más esfuerzo—, y tras la plancha sola, hasta 0,5 s menos)
+    const hk = arxHard(env);
+    plan.minNext = wait(a, spec.burpee ? BURPEE_UP - 0.7 * hk : 2.5 - 0.5 * hk);
     plan.notice = spec.burpee ? ['¡BURPEE!', 'Al suelo en plancha… ¡y arriba a saltar la valla!', '#ffd166'] : ['¡ARCO DE PLANCHA!', 'Manos al suelo y pies atrás', '#ffd166'];
     plan.horn = true;
     plan.nextGap = spec.gap || 0;

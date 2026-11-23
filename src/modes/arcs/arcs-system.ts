@@ -17,6 +17,7 @@ import { num, on, settings, str } from '../../core/values.js';
 import { hands, head } from '../../input/hand-model.js';
 import { createArcTrack, type ArcTrackParts } from '../../scene-assets/arc-track.scene-asset.js';
 import { createArc, type ArcParts } from '../../scene-assets/arc.scene-asset.js';
+import { warmKeep } from '../../style/warm.js';
 import { createLaser, createMace, createOrb, createWalls, type LaserParts, type MaceParts, type OrbParts, type WallsParts } from '../../scene-assets/arc-extras.scene-asset.js';
 import { ArcCore, arxSpeed, type ArcOutcome } from './arc.js';
 import { HEAD_TOP, type ArcsEnv } from './env.js';
@@ -131,6 +132,8 @@ export class ArcsSystem extends createSystem({}) {
     this.track = createArcTrack();
     this.track.grp.visible = false;
     this.world.createTransformEntity(this.track.grp);
+    // (el orbe, compilado en el menú: su primer brillo no da un tirón en plena ronda)
+    warmKeep(createOrb().grp);
   }
 
   // RepArena: arxDeco (sin la tormenta del cielo): la pista y las farolas corren hacia ti; del color de la racha (rojo en la fiebre)
@@ -458,7 +461,9 @@ export class ArcsSystem extends createSystem({}) {
   }
   private paintOrb(P: OrbParts): void {
     P.bodyMat.emissive.setHex(this.feverOn ? 0xff3c9a : 0xffb02a);
+    P.bodyMat.color.setHex(this.feverOn ? 0xff8fcf : 0xffcf5a);
     P.ringMat.color.setHex(this.feverOn ? 0xff7fc4 : 0xffd166);
+    P.haloMat.color.setHex(this.feverOn ? 0xff5cb0 : 0xffc04a);
   }
 
   private stepOrbs(dt: number, play: boolean): void {
@@ -472,14 +477,22 @@ export class ArcsSystem extends createSystem({}) {
       P.grp.position.set(o.at.x, o.at.y, o.at.z);
       const pulse = 1 + 0.12 * Math.sin(t * 6 + o.ph);
       P.grp.scale.setScalar(pulse);
+      // (la gema gira y sus caras atrapan la luz; el halo late con un destello de vez en cuando)
+      P.gem.rotation.set(0.35 * Math.sin(t * 0.9 + o.ph), t * 1.8 + o.ph, 0);
+      const glint = Math.max(0, Math.sin(t * 2.3 + o.ph * 3)) ** 8;
+      P.halo.scale.setScalar(0.38 + 0.08 * Math.sin(t * 6 + o.ph) + 0.25 * glint);
+      P.haloMat.opacity = 0.6 + 0.35 * glint;
       P.rings[0].rotation.set(t * 1.6 + o.ph, t, 0);
       P.rings[1].rotation.set(t * -1.2, t * 1.9 + o.ph, 0);
       if (out) {
         HOOKS.score(out.pts, false);
         HOOKS.say(out.say[0], out.say[1], out.say[2], out.say[3]);
         if (out.cheer) HOOKS.say(out.cheer[0], out.cheer[1], out.cheer[2], false);
-        SND.orb(this.tmp.set(out.at.x, out.at.y, out.at.z));
-        HOOKS.sparks(this.tmp, 14, 0xffd166);
+        // (al cogerlo, más fuerte y con más destellos: oro, blanco y turquesa, como sus aros)
+        SND.orb(this.tmp.set(out.at.x, out.at.y, out.at.z), true);
+        HOOKS.sparks(this.tmp, 36, this.feverOn ? 0xff7fc4 : 0xffd166);
+        HOOKS.sparks(this.tmp, 18, 0xffffff);
+        HOOKS.sparks(this.tmp, 14, 0x7ff7e0);
         haptic('left', 0.4, 60);
         haptic('right', 0.4, 60);
       }
@@ -535,6 +548,7 @@ export class ArcsSystem extends createSystem({}) {
   }
   private freeOrb(e: OrbEntry): void {
     this.root.remove(e.parts.grp);
+    e.parts.grp.remove(e.parts.gem); // (la talla de la gema es compartida: no se tira)
     this.disposeTree(e.parts.grp);
     for (const m of e.parts.own) m.dispose();
   }

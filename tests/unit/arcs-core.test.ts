@@ -2,7 +2,7 @@
 // con la cabeza por encima de la barra te da, la valla pide saltar a tiempo, el arco de plancha pide bajar al suelo, el
 // inclinado pide apartarse al lado alto (la pared del lado bajo) y la oleada respeta los porcentajes y el reparto de lados.
 import { describe, expect, it } from 'vitest';
-import { ArcCore, arcJumpNeed, type ArcOutcome, type ArcParams } from '../../src/modes/arcs/arc.js';
+import { ArcCore, arcJumpNeed, arxPlankSpeed, type ArcOutcome, type ArcParams } from '../../src/modes/arcs/arc.js';
 import { HEAD_TOP, type ArcsEnv } from '../../src/modes/arcs/env.js';
 import { ArcNewKind, arcSpawnPlan, buildArcsWave } from '../../src/modes/arcs/patterns.js';
 
@@ -187,5 +187,28 @@ describe('Arcos: las oleadas', () => {
     const c = arcSpawnPlan({ kind: 'combo', with: 'walls', drop: 0.2, tilt: 0, hp: 1 }, env, calm, 2);
     expect(c.obs).toBe('walls');
     expect(c.arcs[0].second).toBe(true);
+  });
+});
+
+describe('el arco de plancha y el burpee se endurecen con la dificultad (RepArena XR)', () => {
+  it('el arco de plancha llega más deprisa cuanto más difícil, sin pasar nunca de 6,5 km/h; como RepArena, siempre igual', () => {
+    const v = (arcSpeed: number, classic = false): number => arxPlankSpeed({ ...mkEnv({ arcSpeed }), classic }, calm) * 3.6;
+    expect(v(4)).toBeCloseTo(3.5, 6); // (el recluta, como siempre)
+    expect(v(10)).toBeGreaterThan(v(7));
+    expect(v(14)).toBeGreaterThan(v(10));
+    expect(v(14)).toBeLessThanOrEqual(6.5 + 1e-9);
+    expect(v(30)).toBeLessThanOrEqual(6.5 + 1e-9);
+    expect(v(14)).toBeLessThan(14 / 2); // (nunca como los demás arcos)
+    expect(v(14, true)).toBeCloseTo(3.5, 6);
+  });
+  it('tras el arco de plancha del burpee, menos tiempo para levantarte cuanto más difícil (de 3 s a 2,3 s)', () => {
+    // (lo que se espera tras el arco lento, menos lo que tarda en pasar: el tiempo para levantarte)
+    const next = (arcSpeed: number): number => {
+      const env = mkEnv({ arcSpeed }), P = arcSpawnPlan({ kind: 'plank', drop: 0, tilt: 0, hp: 1, gap: 0.1, burpee: true }, env, calm, 5), a = P.arcs[0];
+      const L = env.head.z - a.z;
+      return P.minNext - (L / a.speed - L / (env.dv('arcSpeed') / 3.6));
+    };
+    expect(next(4)).toBeCloseTo(3, 1);
+    expect(next(14)).toBeCloseTo(2.3, 1);
   });
 });
