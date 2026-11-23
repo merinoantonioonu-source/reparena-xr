@@ -232,8 +232,12 @@ No las cambies sin preguntarle.
   delante: los de bosque por dentro, ciudad y playa se quitaron (lo cercano se veía plano, de cartón). En Arcos, con
   fondo, sin compuertas: avanzas por el paisaje de la Travesía.
 - Su caricatura no habla de rayos: cada repetición empuja por el sendero.
-- Los cofres (también el de Combate) dicen al aparecer qué hay dentro (en el marcador: no es un aviso de lo que viene) y, al abrirlos, sale un aviso grande con lo que has
-  conseguido y lo que falta para el premio siguiente; el de la Travesía, abierto, se esfuma con humo (no se aparta).
+- Los cofres (también el de Combate) dicen al aparecer qué hay dentro (en el marcador: no es un aviso de lo que viene); el de
+  la Travesía, abierto, se esfuma con humo (no se aparta). **Al abrirse, lo que llevan sale flotando de su boca** (pedido del
+  usuario: no se sabía qué contenían): un medallón por premio, con su dibujo y lo que es en grande (la llave n.º de 3, la gema,
+  los puntos, las doradas del tramo, el tesoro; en Combate, la mejora, la vida o los puntos), uno tras otro, que sube en
+  vertical y, arriba, se esfuma en chispas: recibido. **Sin el aviso grande de «¡Cofre abierto!»** (pedido del usuario: que se
+  abre ya se ve y su letra pequeña no se leía). Medallones dibujados, no modelos: no hay llave ni gema en los kits.
 - El césped del suelo gira y corre con el mundo (en las curvas, lo apoyado no patina sobre la hierba).
 
 **Repeticiones y disparo**

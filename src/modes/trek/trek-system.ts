@@ -33,7 +33,7 @@ import { PAL, vfx } from '../../style/vfx.js';
 import { TREK_BIOMES, TREK_CH } from './path.js';
 import { SEA_Y, CLIFF_FLOOR_Y, cliffDecoPuts, cliffFloorPuts, coastDecoPuts, coastFloorPuts, skyDecoPuts, skyFloorPuts, DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { PORTAL_AT, tramoBiome, tramoDeco, worldEnd, worldStart, WORLDS, type FloorStyle } from './plat/worlds.js';
-import { Runner, tramoLen, type PlatEnd } from './plat/runner.js';
+import { Runner, TREASURE_KEYS, tramoLen, type PlatEnd } from './plat/runner.js';
 import { PAW_U, CANNON_AT, CANNON_LOW_Y, SHIP_U, BOB_CRACK, BOB_ISLE, bobY, ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
@@ -951,10 +951,20 @@ export class TrekSystem extends createSystem({}) {
         }
         break;
       }
-      case 'chest':
-        // al llegar, el cofre se abre: lleno de oro
+      case 'chest': {
+        // al llegar, el cofre se abre: lleno de oro, y de su boca salen flotando, uno tras otro, lo que lleva (la llave, la
+        // gema, los puntos y, con la última llave, el tesoro), que arriba se esfuman: recibidos (src/ui/prize-system.ts)
         this.looks.set(e.p.id, chestPuts(true, []));
+        const items: Parameters<typeof HOOKS.prize>[1] = [
+          { icon: 'key', text: `Llave ${e.key}/${TREASURE_KEYS}`, color: '#ffc531' },
+          { icon: 'gem', text: `Gema nº ${e.gem}`, color: '#3cd8ff' },
+          { icon: 'coins', text: `+${e.pts}`, color: '#ffd166' },
+        ];
+        if (e.goldsOf) items.push({ icon: 'perk', text: `Doradas ${e.golds}/${e.goldsOf}`, color: '#ffd166' });
+        if (e.treasure) items.push({ icon: 'treasure', text: `¡Tesoro! +${e.treasure}`, color: '#ff9a3c' });
+        HOOKS.prize(this.world3({ s: e.p.at + 0.6, u: 0, y: 0.75 }, this.at), items);
         break;
+      }
       case 'trophy':
         HOOKS.trophy(e.title, e.sub);
         break;

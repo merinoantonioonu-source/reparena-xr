@@ -388,7 +388,9 @@ export type PlatEv =
   | { t: 'halt'; p: Piece }
   | { t: 'go'; p: Piece; dur: number }
   | { t: 'lift'; dy: number; dur: number }
-  | { t: 'chest'; p: Piece }
+  /** Se abre el cofre: la llave que da (la n.º `key` de `TREASURE_KEYS`), la gema (su número en tu colección), sus puntos y,
+   * con la última llave, los del tesoro (0: aún no); y las doradas del tramo: cogidas y las que había (0: ninguna). */
+  | { t: 'chest'; p: Piece; key: number; gem: number; pts: number; treasure: number; golds: number; goldsOf: number }
   | { t: 'vanish'; p: Piece }
   | { t: 'wake'; p: Piece }
   | { t: 'pick'; p: Piece; i: number }

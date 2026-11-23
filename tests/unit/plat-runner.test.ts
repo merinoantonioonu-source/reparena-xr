@@ -45,6 +45,8 @@ describe('la Travesía de plataformas: lo hace bien', () => {
     expect(s.r.hits).toBe(0);
     expect(s.r.atChest(0)).toBe(true);
     expect(s.of('chest')).toHaveLength(1);
+    // (y dice lo que lleva, para que salga flotando: la primera llave, la gema, sus puntos y aún sin tesoro)
+    expect(s.of('chest')[0]).toMatchObject({ key: 1, gem: 1, pts: CHEST_PTS, treasure: 0 });
     expect(lifeEv(s)).toBe(false);
     // el hueco no te paró (se salta en marcha) y te dejó pasado el borde lejano
     expect(s.ofPiece('halt', gap)).toHaveLength(0);
@@ -688,7 +690,7 @@ describe('la Travesía de plataformas: los enemigos (PR D)', () => {
 });
 
 describe('la Travesía de plataformas: el cofre, la medalla y el fantasma (PR D)', () => {
-  it('el cofre dice qué hay dentro al empezar a verse y, al llegar, da una llave y una gema (con tres llaves, el tesoro)', () => {
+  it('el cofre dice qué hay dentro al empezar a verse y, al llegar, da una llave y una gema (con tres llaves, el tesoro), que salen flotando sin aviso grande', () => {
     const s = new Sim();
     s.env.mem.set(PLAT_GEMS, 4);
     const c1 = piece(1, 'chest', 40, 0);
@@ -696,7 +698,8 @@ describe('la Travesía de plataformas: el cofre, la medalla y el fantasma (PR D)
     expect(s.pass(c1)).toBe(true);
     expect(s.of('cheer').some((e) => /dentro, una llave \(1 de 3/.test(e.text))).toBe(true); // (al marcador: decidido por el usuario)
     expect(s.of('store').at(-1)).toMatchObject({ key: PLAT_GEMS, val: 5 });
-    expect(s.of('trophy').at(-1)?.title).toBe('¡COFRE ABIERTO!');
+    expect(s.of('chest').at(-1)).toMatchObject({ key: 1, gem: 5, treasure: 0 });
+    expect(s.of('trophy')).toHaveLength(0); // (lo que lleva sale flotando: sin aviso grande, pedido del usuario)
     expect(s.of('score').some((e) => e.n === CHEST_PTS)).toBe(true);
     expect(s.r.keys).toBe(1);
     // dos cofres más: el tercero abre el tesoro
@@ -705,7 +708,8 @@ describe('la Travesía de plataformas: el cofre, la medalla y el fantasma (PR D)
     const c2 = piece(2, 'chest', 90, 1);
     s.r.addCourse(course([c2]));
     expect(s.pass(c2)).toBe(true);
-    expect(s.of('trophy').at(-1)?.title).toBe('¡TESORO DEL TRAMO!');
+    expect(s.of('chest').at(-1)).toMatchObject({ key: 3, treasure: TREASURE_PTS });
+    expect(s.of('trophy')).toHaveLength(0);
     expect(s.of('score').some((e) => e.n === TREASURE_PTS)).toBe(true);
     expect(s.r.keys).toBe(0);
   });

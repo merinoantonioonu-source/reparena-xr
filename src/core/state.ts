@@ -139,6 +139,8 @@ export const HOOKS = {
   perksClose: (): void => {},
   /** Unas chispas (n, del color c) en p: lo pone la partida. */
   sparks: (_p: Vector3, _n: number, _c: number): void => {},
+  /** Los premios de un cofre recién abierto, que salen de su boca (`at`) y suben flotando (src/ui/prize-system.ts). */
+  prize: (_at: Vector3, _items: { icon: 'key' | 'gem' | 'treasure' | 'coins' | 'heart' | 'perk'; text: string; color: string }[]): void => {},
 };
 
 /** El superman para los voladores (src/combat/flight.ts): lo que aguantas arriba (s), si estás arriba, el tiempo de la ronda,

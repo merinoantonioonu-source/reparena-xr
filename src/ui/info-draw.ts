@@ -130,12 +130,26 @@ export function drawTrophy(c: Ctx, W: number, H: number, title: string, sub: str
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   c.fillStyle = color;
-  fitFont(c, title, W - H * 1.3, Math.round(H * (sub ? 0.36 : 0.44)), '%px ' + FD);
-  c.fillText(title, W / 2, H * (sub ? 0.4 : 0.52));
+  // (lo de debajo, grande: si en una línea quedaría pequeño, en dos; pedido del usuario: la letra pequeña no se leía)
+  const max = W - H * 1.2, big = Math.round(H * 0.24), two = !!sub && fitFont(c, sub, max, big, '600 %px ' + FB) < H * 0.19 && sub.includes(' ');
+  c.fillStyle = color;
+  fitFont(c, title, W - H * 1.3, Math.round(H * (sub ? (two ? 0.26 : 0.34) : 0.44)), '%px ' + FD);
+  c.fillText(title, W / 2, H * (sub ? (two ? 0.28 : 0.38) : 0.52));
   if (sub) {
     c.fillStyle = '#fff3d6';
-    fitFont(c, sub, W - H * 1.2, Math.round(H * 0.19), '600 %px ' + FB);
-    c.fillText(sub, W / 2, H * 0.75);
+    if (!two) {
+      fitFont(c, sub, max, big, '600 %px ' + FB);
+      c.fillText(sub, W / 2, H * 0.75);
+    } else {
+      // (partido por el espacio más cerca de la mitad; las dos líneas, con la misma letra)
+      const mid = sub.length / 2;
+      let cut = -1;
+      for (let i = 0; i < sub.length; i++) if (sub[i] === ' ' && (cut < 0 || Math.abs(i - mid) < Math.abs(cut - mid))) cut = i;
+      const a = sub.slice(0, cut), b = sub.slice(cut + 1), long = a.length > b.length ? a : b;
+      fitFont(c, long, max, Math.round(H * 0.21), '600 %px ' + FB);
+      c.fillText(a, W / 2, H * 0.59);
+      c.fillText(b, W / 2, H * 0.79);
+    }
   }
 }
 

@@ -1251,25 +1251,25 @@ export class Runner {
       return;
     }
     if (p.k === 'paw' || p.k === 'slap') {
-      // la llave (el zarpazo: cogerla con la mano) y la seta (la palmada: chafarla bajando la mano de golpe). Si las gafas no
+      // las uvas (el zarpazo: cogerlas con la mano) y la seta (la palmada: chafarla bajando la mano de golpe). Si las gafas no
       // ven ninguna mano, vale llevar la cabeza hacia ella (un premio: fallar no frena)
       if (z < 0.9 && z > -0.2) {
         const h = this.handAt(p, z, p.k === 'slap');
         if (h.seen) p.mask |= 1;
         if (p.side * M.dx >= C.sideNeed) p.mask |= 2;
         if (h.hit) {
-          won(p.k === 'paw' ? '¡Llave cogida!' : '¡Seta chafada!', 180);
+          won(p.k === 'paw' ? '¡Uvas cogidas!' : '¡Seta chafada!', 180);
           this.addEnergy(FRUIT_E);
           this.ev.push({ t: 'haptic', k: 0.6, ms: 70 });
         }
       } else if (z <= -0.2) {
         if (!(p.mask & 1) && p.mask & 2) {
-          won(p.k === 'paw' ? '¡Llave cogida!' : '¡Seta chafada!', 180);
+          won(p.k === 'paw' ? '¡Uvas cogidas!' : '¡Seta chafada!', 180);
           this.addEnergy(FRUIT_E);
         } else {
           p.judged = true;
           p.ok = false;
-          this.say(p.k === 'paw' ? 'Coge la llave con la mano' : 'Chafa la seta de una palmada', COL_ASK, 1.4, false);
+          this.say(p.k === 'paw' ? 'Coge las uvas con la mano' : 'Chafa la seta de una palmada', COL_ASK, 1.4, false);
         }
       }
       return;
@@ -1322,28 +1322,28 @@ export class Runner {
     }
     if (p.k === 'chest') {
       this.chest = p;
-      this.ev.push({ t: 'chest', p });
       this.snd('victory', null);
-      this.openChest();
+      this.openChest(p);
       return;
     }
   }
 
   /** Se abre el cofre (como en la Travesía clásica): una llave (con tres, el tesoro del tramo) y una gema para tu colección,
    * con su aviso grande de lo que has conseguido y lo que falta para el premio siguiente. */
-  private openChest(): void {
+  private openChest(p: Piece): void {
     // (las doradas del tramo que acaba: cuántas has cogido)
-    const t = this.chest?.tramo ?? 0, of = this.goldsOf(t), gd = of ? ` · Doradas: ${this.golds[t] ?? 0} de ${of}` : '';
+    const t = this.chest?.tramo ?? 0, of = this.goldsOf(t);
     this.keys++;
     this.score(CHEST_PTS);
     const gems = ((this.env.store(PLAT_GEMS) as number) || 0) + 1;
+    // lo que lleva dentro sale flotando al abrirse (la llave, la gema, los puntos, las doradas del tramo y, con tres llaves, el
+    // tesoro): sin aviso grande ni mensaje (pedido del usuario: que se abre ya se ve, y la letra pequeña no se leía)
+    this.ev.push({ t: 'chest', p, key: this.keys, gem: gems, pts: CHEST_PTS, treasure: this.keys >= TREASURE_KEYS ? TREASURE_PTS : 0, golds: this.golds[t] ?? 0, goldsOf: of });
     this.ev.push({ t: 'store', key: PLAT_GEMS, val: gems });
-    this.cheer(`¡Cofre abierto! Llave ${this.keys}/${TREASURE_KEYS} · gema ${gems}`, '#ffd166', 2.2);
     if (this.keys >= TREASURE_KEYS) {
       this.keys = 0;
       this.score(TREASURE_PTS);
-      this.ev.push({ t: 'trophy', title: '¡TESORO DEL TRAMO!', sub: `Tres llaves: +${TREASURE_PTS} puntos (y +${CHEST_PTS} del cofre). Gema nº ${gems} para tu colección${gd}` });
-    } else this.ev.push({ t: 'trophy', title: '¡COFRE ABIERTO!', sub: `+${CHEST_PTS} puntos y la llave ${this.keys} de ${TREASURE_KEYS}: ${TREASURE_KEYS - this.keys === 1 ? 'una más' : 'dos más'} y abres el tesoro del tramo (+${TREASURE_PTS}). Gema nº ${gems}${gd}` });
+    }
   }
 
   /** Subes a la plataforma: con el supersalto (`won`: el mundo baja su altura mientras estás en el aire) o a trompicones
@@ -1807,7 +1807,7 @@ export class Runner {
     this.score(BOSS_PTS);
     this.snd('victory', null);
     const B = BOSSES[p.n % BOSSES.length];
-    this.ev.push({ t: 'trophy', title: '¡JEFE DERROTADO!', sub: `Has vencido a ${B.name}: +${BOSS_PTS} puntos. Sigue hasta el cofre` });
+    this.ev.push({ t: 'trophy', title: '¡JEFE DERROTADO!', sub: `${B.name}: +${BOSS_PTS} puntos` });
   }
 
   /* ---------- lo de la marcha ---------- */
