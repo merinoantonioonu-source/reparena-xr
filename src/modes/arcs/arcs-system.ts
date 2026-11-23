@@ -27,6 +27,8 @@ import { bladesReady, createBladeLook, type BladeLook } from './blade-look.js';
 import { fieldMaterial, fieldTick } from './wall-looks.js';
 import { ARX_JUMP_GAP, ArcNewKind, arcGap, arcSpawnPlan, arxBeatGap, buildArcsWave, type ArcSpec } from './patterns.js';
 import { BEAT } from '../../core/beat-hub.js';
+import { AnimationMixer, AssetManager, LoopOnce, type AnimationAction } from '@iwsdk/core';
+import { robotGltf } from '../../combat/robots.js';
 import { arxBeatP } from '../../core/beat.js';
 import { ARX_GHOST, ArxState, arxBeatTick, arxClean, arxEnd, arxGhostDiff, arxHit, arxPtsK, arxReset, arxStep, type ArxEnd, type ArxEvent, type ArxFrame, type ArxGhost } from './state.js';
 
@@ -54,6 +56,15 @@ interface BladeEntry {
   blade: BladeCore;
   look: BladeLook;
 }
+/** Un robot lanzador (el Destructor de RepArena), a un lado de la pista. */
+interface Thrower {
+  root: Object3D;
+  mixer: AnimationMixer;
+  idle: AnimationAction | null;
+  toss: AnimationAction | null;
+  side: -1 | 1;
+  tossT: number;
+}
 interface OrbEntry {
   orb: ArcOrbCore;
   parts: OrbParts;
@@ -77,8 +88,10 @@ export class ArcsSystem extends createSystem({}) {
   private root = new Group();
   private arcs: ArcEntry[] = [];
   private obstacles: ObsEntry[] = [];
-  /** Las cuchillas (RepArena XR: blades.ts). */
+  /** Las cuchillas (RepArena XR: blades.ts) y los robots que las lanzan (uno a cada lado de la pista; null hasta que hay
+   * con qué hacerlos). */
   private blades: BladeEntry[] = [];
+  private throwers: Thrower[] | null = null;
   private orbs: OrbEntry[] = [];
   private queue: ArcSpec[] = [];
   private spawnT = 0;
@@ -218,6 +231,7 @@ export class ArcsSystem extends createSystem({}) {
     this.arcs.length = this.obstacles.length = this.orbs.length = this.blades.length = 0;
     this.queue.length = 0;
     this.arx.orbT = -1;
+    if (this.throwers) for (const T of this.throwers) T.root.visible = false;
     this.setFever(false);
     if (this.track) this.track.grp.visible = false;
   }
@@ -243,6 +257,7 @@ export class ArcsSystem extends createSystem({}) {
     }
     if (!live) {
       this.track.grp.visible = false;
+      if (this.throwers) for (const T of this.throwers) T.root.visible = false;
       return;
     }
     const play = !GAME.between && GAME.wave > 0, judging = play || GAME.between;
@@ -265,6 +280,7 @@ export class ArcsSystem extends createSystem({}) {
       this.obstacles.splice(i, 1);
     }
     for (const e of this.blades) this.stepBlade(e, dt, judging);
+    this.stepThrowers(dt, num('arcBlades') > 0);
     for (let i = this.blades.length - 1; i >= 0; i--) if (!this.blades[i].blade.alive) {
       this.root.remove(this.blades[i].look.grp); // (su hoja comparte malla y material: no se tira nada)
       this.blades.splice(i, 1);
@@ -374,6 +390,54 @@ export class ArcsSystem extends createSystem({}) {
     look.grp.position.set(blade.x, blade.y, blade.z);
     this.root.add(look.grp);
     this.blades.push({ blade, look });
+    // el robot de su lado la lanza (con un gruñido)
+    const T = this.throwers?.find((t) => t.side === blade.from);
+    if (T?.toss) {
+      T.toss.reset().setLoop(LoopOnce, 1).play();
+      T.toss.crossFadeFrom(T.idle ?? T.toss, 0.12, false);
+      T.tossT = T.toss.getClip().duration;
+      SND.roar(this.tmp.copy(T.root.position), 0.6, 'robot');
+    }
+  }
+
+  /** Los robots lanzadores (los Destructores de RepArena: pedido del usuario), uno a cada lado del fondo de la pista, de
+   * cara a ti; esperan a su aire y, al salir una cuchilla de su lado, la lanzan por encima del hombro. */
+  private stepThrowers(dt: number, show: boolean): void {
+    if (!this.throwers) {
+      if (!show) return;
+      const lib = AssetManager.getGLTF('foe-anims') ?? null;
+      if (!lib) return;
+      this.throwers = [];
+      for (const side of [-1, 1] as const) {
+        const g = robotGltf('destroyer', lib);
+        if (!g) return;
+        const root = g.scene, mixer = new AnimationMixer(root), clip = (n: string) => g.animations.find((c) => c.name === n);
+        root.position.set(side * 2.5, 0, -this.env.arenaDepth + 1.2);
+        root.rotation.y = -side * 0.35; // (de cara a la pista, algo hacia ti)
+        root.scale.setScalar(1.1);
+        const idleC = clip('Idle_Loop'), tossC = clip('OverhandThrow');
+        const idle = idleC ? mixer.clipAction(idleC) : null, toss = tossC ? mixer.clipAction(tossC) : null;
+        idle?.play();
+        if (toss) toss.clampWhenFinished = false;
+        // (cada uno a su compás: no se mueven a la vez)
+        mixer.update(side > 0 ? 0.7 : 0);
+        this.root.add(root);
+        this.throwers.push({ root, mixer, idle, toss, side, tossT: 0 });
+      }
+    }
+    for (const T of this.throwers) {
+      T.root.visible = show;
+      if (!show) continue;
+      if (T.tossT > 0) {
+        T.tossT -= dt;
+        if (T.tossT <= 0.15 && T.idle && T.toss) {
+          T.idle.reset().play();
+          T.idle.crossFadeFrom(T.toss, 0.2, false);
+          T.tossT = 0;
+        }
+      }
+      T.mixer.update(dt);
+    }
   }
 
   private stepBlade(e: BladeEntry, dt: number, judging: boolean): void {

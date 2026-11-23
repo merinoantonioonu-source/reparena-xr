@@ -7,6 +7,7 @@
  * fuerza en vidas (la de la tabla del desarrollador); luego retroceden un poco. Un disparo los hace retroceder; el último
  * los lanza por el aire dando vueltas y caen al suelo como un cuerpo suelto. Encima, sus cuentas de vida (src/combat/life.ts).
  */
+import { robotGltf } from './robots.js';
 import {
   AnimationAction,
   AnimationClip,
@@ -239,7 +240,14 @@ export class EnemySystem extends createSystem(
   /** ¿Está ya cargado su modelo? (los que no son los de siempre, IWSDK los carga después de arrancar) */
   ready(kind: string): boolean {
     const d = FOE_DEF[kind];
+    if (d?.robot) return !!AssetManager.getGLTF('foe-anims'); // (los robots: hechos en código, con las animaciones de la biblioteca)
     return !!d && !!AssetManager.getGLTF(d.asset) && (!d.ual || !!AssetManager.getGLTF('foe-anims'));
+  }
+
+  /** Su modelo: el cargado o, los robots, uno hecho en código (src/combat/robots.ts; cada vez, una copia con su esqueleto). */
+  private gltfOf(d: FoeDef): { scene: Object3D; animations: AnimationClip[] } | null {
+    if (d.robot) return robotGltf(d.robot, AssetManager.getGLTF('foe-anims') ?? null);
+    return AssetManager.getGLTF(d.asset) ?? null;
   }
 
   // las animaciones de la biblioteca para un modelo (las mismas para todos los de ese modelo: se pasan una vez)
@@ -323,7 +331,7 @@ export class EnemySystem extends createSystem(
         const key = d.asset + '#' + (d.tex ? d.tex[t] : '');
         if (this.warmed.has(key)) continue;
         this.warmed.add(key);
-        const gl = AssetManager.getGLTF(d.asset);
+        const gl = this.gltfOf(d);
         if (!gl) continue;
         const a = this.model(d, gl.scene, t);
         comicScan(a, () => false);
@@ -344,7 +352,7 @@ export class EnemySystem extends createSystem(
   /** Saca uno de la tabla (kind: zgreen, raptor, captain…) en (x, z), mirando hacia ti, con hp de vida; boss: su jefe. */
   spawn(kind: string, x: number, z: number, hp: number, boss = false): FoeTarget | null {
     const d = FOE_DEF[kind] && boss ? bossDef(kind) : FOE_DEF[kind];
-    const gltf = d && AssetManager.getGLTF(d.asset);
+    const gltf = d && this.gltfOf(d);
     if (!d || !gltf) return null;
     const root = new Group();
     root.name = `enemigo-${kind}`;

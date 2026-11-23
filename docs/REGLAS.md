@@ -428,6 +428,9 @@ No las cambies sin preguntarle.
   pico se asientan en su sitio** (se leen a tiempo, no desde lejos); con la dificultad ondulan más, la rueda a veces amaga
   (cambia de lado una vez, antes de asentarse) y llegan en ráfagas de dos o tres. Si te dan, como un arco (vida y racha).
   Mientras sus modelos no han cargado, en su lugar sale la maza.
+- Arcos: **los robots lanzan las cuchillas** (pedido del usuario: «que volvieras a traer a los robots de RepArena»): dos
+  Destructores, uno a cada lado del fondo de la pista, esperan a su aire y, al salir una cuchilla de su lado, la lanzan por
+  encima del hombro con un rugido metálico. Solo con «Cuchillas que vuelan» por encima de 0.
 - Arcos: **los orbes, gemas doradas talladas** (pedido del usuario: «más atractivos, más relieve, más sombreado»): con caras
   de varios tonos que giran y atrapan la luz, un núcleo de luz, un halo con destello y sus dos aros; al cogerlos, muchos más
   destellos (oro, blanco y turquesa) y el sonido más fuerte.
@@ -475,7 +478,9 @@ No las cambies sin preguntarle.
   (a medio tiempo si la canción es rápida), destello en cada pulso y algo más deprisa cuanto más rápida; sin saltos.
 - Los contornos de tinta: finos de lejos (grosor fijo en el mundo pasados 2,5 m) y solo en el borde de verdad (sin
   parpadeos al mover la cabeza).
-- Los personajes geométricos hechos a mano gustaron poco: para enemigos nuevos, mejor modelos de Quaternius.
+- Los personajes geométricos hechos a mano gustaron poco: para enemigos nuevos, mejor modelos de Quaternius. **Salvo los
+  robots de RepArena** (pedido del usuario, que los había aplazado): vuelven tal cual (el Segador, el Destructor y el Coloso
+  de jefe), hechos de piezas como allí y con las animaciones de la biblioteca, en Combate y como lanzadores en Arcos.
 - **Lo que lanzan los enemigos y sus ondas, realistas** (pedido del usuario: primero «muy básico», luego «tosco: mucho más
   realista»): partículas con textura de humo que giran, crecen y cambian de color con la edad (el fuego, de blanco a
   amarillo, naranja y rojo; el humo, de oscuro a gris claro), no puntos de luz. Las piedras del lanzador (Combate), meteoros

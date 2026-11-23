@@ -48,7 +48,8 @@ Por ahora, Combate con los ejercicios de pie, como en RepArena:
   biblioteca de Quaternius pasadas a su esqueleto). El **lanzador**, un diablillo, se queda lejos y te tira piedras en
   parábola: apártate («¡Esquivada!») o párala con la mano («¡Parada!»); si te da, pierdes una vida. Salen repartidos entre
   los elegidos; su resistencia (disparos que aguantan) y su fuerza (vidas que quitan), las de la tabla del desarrollador
-  de RepArena. Los robots, que eran geométricos, por ahora no.
+  de RepArena. **Los robots de RepArena** (vuelven: pedido del usuario), hechos de piezas como allí y con las animaciones de
+  la biblioteca: el Segador, el Destructor y, de jefe, el Coloso.
 - **Los voladores**: la abeja, el murciélago y el Cthulhu (de Quaternius, con sus animaciones y su voz) salen volando por
   el hueco de las compuertas y vienen hacia ti con el **vuelo errático** de RepArena (bandazos al azar y un vaivén suave,
   más o menos según «Vuelo errático»), batiendo las alas siempre a su ritmo y **zumbando**. Cerca de tu cara, se echan
@@ -182,6 +183,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `tests/vr/eval.mjs` | Para preparar pruebas en la VR simulada (ejecuta algo en la página) |
 | `src/combat/gait.ts` | Cómo andan los de tierra (de RepArena): el ritmo de la marcha, recto, zigzag, rachas, la amenaza y las esquivas, sin IWSDK |
 | `src/combat/flight.ts` | El vuelo de los voladores (el de RepArena: acercarse, bandazos, lanzarse a morder, empujones, salir por la compuerta), sin IWSDK |
+| `src/combat/robots.ts` | Los robots de RepArena (el Segador, el Destructor y el Coloso): su cuerpo hecho de piezas en código, su esqueleto y las animaciones de la biblioteca pasadas a él (`robotGltf`); también los lanzadores de cuchillas de Arcos |
 | `src/combat/flyers.ts` | Los voladores: su modelo, el aleteo, el mordisco, el zumbido y la caída al morir |
 | `src/combat/life.ts` | Las cuentas de vida sobre cada enemigo (bolitas doradas, en un solo dibujo) |
 | `src/combat/enemies.ts` | Los enemigos: cuerpos de física, marcha a su puesto rodeando obstáculos, ataque con su fuerza, baile al compás, retroceso y muerte |

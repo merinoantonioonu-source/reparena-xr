@@ -39,7 +39,9 @@ describe('las oleadas', () => {
     expect(xrFoe('impthrow')).toEqual({ k: 'thrower', boss: false });
     expect(xrFoe('zombieboss')).toEqual({ k: 'zombie', boss: true });
     expect(xrFoe('carrier')).toEqual({ k: 'dragon', boss: true });
-    expect(xrFoe('scout')).toEqual({ k: 'zgreen', boss: false });
+    expect(xrFoe('scout')).toEqual({ k: 'robot', boss: false });
+    expect(xrFoe('heavy')).toEqual({ k: 'robotheavy', boss: false });
+    expect(xrFoe('titan')).toEqual({ k: 'robottitan', boss: true });
   });
   it('la dificultad sube solo con la oleada superada con soltura; los puntos, más con combo y perfecta', () => {
     expect(rampAfter(true, 1, 12, 10, 0, 0.6).up).toBe(true);

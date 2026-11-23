@@ -413,6 +413,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Arcos y los robots** (pedido del usuario: cuchillas, plancha y burpee más duros, orbes y «trae a los robots de
+  RepArena»): las cuchillas (`src/modes/arcs/blades.ts`, lógica pura: `BladeCore`, `bladeMix`; lo que se ve, `blade-look.ts`;
+  «Cuchillas que vuelan», `arcBlades`) se añaden a la cola de RepArena sin tocarla; lo que se endurece con la dificultad
+  (`arxHard`, `arxPlankSpeed`, el tiempo tras el arco de plancha) va tras `ArcsEnv.classic` para compararlo con RepArena. Los
+  robots (`src/combat/robots.ts`) son las piezas de `src/40_models.js` de RepArena con su esqueleto (`Rig`) y las animaciones
+  de `anims.glb` pasadas a él (`bakeRigClips`); salen en Combate donde RepArena pedía robots (`xrFoe`: scout, heavy, titan) y
+  en Arcos, dos Destructores lanzan las cuchillas. **Pendiente con el usuario**: que los vea en las gafas (si pesan, que los
+  robots compartan geometría; si la animación prestada no le convence, buscar otra de la biblioteca).
+
 - **El vuelo, afinado con `docs/PLAN-VUELO.md`** (el usuario: «aplica todas tus sugerencias»; los siete bloques hechos de
   una vez): la caja negra del vuelo (`src/core/flybox.ts`, `reparenaxr-flybox`; su reproducción, `tests/replay/fly-replay.test.ts`:
   las capturas del usuario, en `tests/replay/capturas/vuelo-*.txt`), el centro fijo en el aire (`FlyBody`), el lado por
