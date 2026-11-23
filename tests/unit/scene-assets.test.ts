@@ -18,15 +18,17 @@ describe('la compuerta', () => {
   it('lleva las partes que mueve el juego', () => {
     const g = createGate();
     for (const n of ['door-left', 'door-right', 'beacon-spin', 'beacon-body']) expect(g.getObjectByName(n), n).toBeTruthy();
-    let beams = 0;
+    let beams = 0, spots = 0;
     g.traverse((o) => {
       if (o.name === 'beacon-beam') beams++;
+      if (o.name === 'beacon-spot') spots++;
     });
     expect(beams).toBe(2);
+    expect(spots).toBe(2); // (las manchas de luz que los haces barren por el suelo)
   });
   it('lo fijo va junto: pocas mallas que pintar', () => {
     const n = meshes(createGate()).length;
-    expect(n).toBeLessThanOrEqual(16);
+    expect(n).toBeLessThanOrEqual(18); // (16, más las dos manchas de luz de la baliza en el suelo)
   });
   it('es igual cada vez (determinista)', () => {
     const a = meshes(createGate()).map((m) => m.geometry.attributes.position.count);

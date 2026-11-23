@@ -11,6 +11,7 @@
 import {
   AdditiveBlending,
   BoxGeometry,
+  Color,
   ConeGeometry,
   CylinderGeometry,
   DataTexture,
@@ -23,6 +24,7 @@ import {
   PlaneGeometry,
   RepeatWrapping,
   RGBAFormat,
+  ShaderMaterial,
   SRGBColorSpace,
   UnsignedByteType,
 } from '@iwsdk/core';
@@ -50,16 +52,45 @@ function hazardTexture(rx: number, ry: number): DataTexture {
   return t;
 }
 
-// el haz de la baliza: se apaga hacia la punta
-function beamTexture(): DataTexture {
-  const W = 4, H = 32, data = new Uint8Array(W * H * 4);
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const i = (y * W + x) * 4, a = Math.round(255 * Math.pow(1 - y / (H - 1), 1.6));
+/** Lo largo del haz de la baliza (m). */
+export const BEAM_LEN = 5;
+// el haz de la baliza, de luz (pedido del usuario: los conos de antes se veían como conos, «irreal»): brillante en su eje y
+// desvanecido hacia los bordes (se ve desde cualquier lado sin caras ni la boca del cono), que se apaga hacia la punta, con
+// motas de polvo que lo cruzan. uA: lo encendido que está (lo pone GateSystem)
+function beamMaterial(): ShaderMaterial {
+  return new ShaderMaterial({
+    uniforms: { uA: { value: 0 }, uT: { value: 0 }, uColor: { value: new Color(0xff3a18) } },
+    vertexShader: `varying vec3 vN; varying vec3 vV; varying float vL;
+      void main(){ vL = length(position) / ${BEAM_LEN.toFixed(1)}; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform float uA; uniform float uT; uniform vec3 uColor; varying vec3 vN; varying vec3 vV; varying float vL;
+      void main(){
+        float f = abs(dot(normalize(vN), normalize(vV)));
+        float soft = pow(f, 2.2);
+        float fall = pow(clamp(1.0 - vL, 0.0, 1.0), 1.5) * smoothstep(0.0, 0.06, vL);
+        float dust = 0.82 + 0.18 * sin(vL * 37.0 - uT * 3.1) * sin(vL * 11.0 + uT * 1.7);
+        float a = uA * soft * fall * dust;
+        // (se suma a lo que hay detrás —aditivo—: el alfa a 1 y lo que se ve, en el color)
+        gl_FragColor = vec4(uColor * a * 2.4 + vec3(1.0, 0.8, 0.7) * pow(f, 8.0) * fall * uA * 0.6, 1.0);
+      }`,
+    transparent: true,
+    depthWrite: false,
+    blending: AdditiveBlending,
+    side: DoubleSide,
+    toneMapped: false,
+    fog: false,
+  });
+}
+
+// la mancha de luz que el haz barre por el suelo, delante de la compuerta: ovalada, con el centro más vivo
+function spotTexture(): DataTexture {
+  const S = 64, data = new Uint8Array(S * S * 4);
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const u = (x / (S - 1)) * 2 - 1, v = (y / (S - 1)) * 2 - 1, d = Math.min(1, Math.hypot(u, v)), i = (y * S + x) * 4;
       data[i] = data[i + 1] = data[i + 2] = 255;
-      data[i + 3] = a;
+      data[i + 3] = Math.round(255 * Math.pow(1 - d, 2.2));
     }
-  const t = new DataTexture(data, W, H, RGBAFormat, UnsignedByteType);
+  const t = new DataTexture(data, S, S, RGBAFormat, UnsignedByteType);
   t.magFilter = LinearFilter;
   t.needsUpdate = true;
   return t;
@@ -81,7 +112,8 @@ const MAT = {
   void: new MeshBasicMaterial({ color: 0x000000, fog: false }),
   veil: new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5, depthWrite: false, fog: false, side: DoubleSide }),
   beaconBody: new MeshBasicMaterial({ color: 0x3a0c04, toneMapped: false }),
-  beam: new MeshBasicMaterial({ map: beamTexture(), color: 0xff3010, transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending, side: DoubleSide, toneMapped: false }),
+  beam: beamMaterial(),
+  spot: new MeshBasicMaterial({ map: spotTexture(), color: 0xff3a18, transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending, toneMapped: false, fog: false }),
 };
 
 function part(name: string, geo: BufferGeometry, mat: Material, x: number, y: number, z: number, ry = 0): Mesh {
@@ -142,15 +174,39 @@ function beacon(): Group {
   g.add(part('beacon-body', new CylinderGeometry(0.13, 0.15, 0.22, 14), MAT.beaconBody, 0, 0, 0));
   const spin = new Group();
   spin.name = 'beacon-spin';
-  const cone = new ConeGeometry(0.7, 4, 12, 1, true);
-  cone.translate(0, -2, 0);
-  cone.rotateZ(Math.PI / 2);
+  // (un cono abierto que se ensancha desde la lámpara, algo inclinado hacia abajo; lo que se ve es su luz, no su forma)
+  const cone = new ConeGeometry(0.75, BEAM_LEN, 20, 1, true);
+  cone.translate(0, -BEAM_LEN / 2, 0);
+  cone.rotateZ(Math.PI / 2 - 0.18);
   for (const ry of [0, Math.PI]) {
     const b = part('beacon-beam', cone, MAT.beam, 0, 0, 0, ry);
     b.userData.iwsdkPreviewBounds = 'exclude';
+    b.userData.noInk = true;
+    b.renderOrder = 3;
     spin.add(b);
   }
   g.add(spin);
+  return g;
+}
+
+/** Lo lejos de la compuerta que barre el suelo la luz de la baliza (m). */
+export const SPOT_D = 3.2;
+// las dos manchas de luz del suelo (una por haz), que giran con ellos (GateSystem las enciende cuando el haz mira hacia ti)
+function beaconFloor(): Group {
+  const g = new Group();
+  g.name = 'beacon-floor';
+  g.position.set(0, 0.03, 0.1);
+  const plane = new PlaneGeometry(2.8, 1.5);
+  plane.rotateX(-Math.PI / 2);
+  for (const ry of [0, Math.PI]) {
+    const h = new Group();
+    h.rotation.y = ry;
+    const m = part('beacon-spot', plane, MAT.spot, SPOT_D, 0, 0);
+    m.userData.iwsdkPreviewBounds = 'exclude';
+    m.userData.noInk = true;
+    h.add(m);
+    g.add(h);
+  }
   return g;
 }
 
@@ -171,7 +227,7 @@ export function createGate(): Group {
   ramp.rotation.x = -Math.PI / 2;
   const fixed = new Group();
   fixed.add(frame, sides, tunnel(), ramp);
-  root.add(mergeByMaterial(fixed), door(-1), door(1), beacon());
+  root.add(mergeByMaterial(fixed), door(-1), door(1), beacon(), beaconFloor());
   return root;
 }
 

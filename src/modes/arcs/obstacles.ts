@@ -23,6 +23,9 @@ const dist3 = (ax: number, ay: number, az: number, bx: number, by: number, bz: n
 
 /** El láser se queda quieto estos segundos antes de llegar a ti (RepArena: LASER_STILL). */
 export const LASER_STILL = 1.6;
+/** El láser que te busca: lo que se aparta de tu cabeza al fijarse (m, como mucho), lo que se mece ya frenado (m), cuándo se
+ * queda quieto del todo (s antes de llegar) y lo deprisa que su sitio va hacia ti (m/s). */
+export const LASER_JIT = 0.06, LASER_SWAY = 0.06, LASER_STOP = 0.6, LASER_FOLLOW = 1.2;
 /** El alcance de la bola de la maza con sus pinchos (RepArena: MACE.r: la bola, 0,16, y los pinchos). */
 export const MACE_R = 0.26;
 
@@ -87,6 +90,12 @@ export class ArcObsCore {
   amp2 = 0;
   ph2 = 0;
   still = 0;
+  /** El láser que te busca (RepArena XR; pedido del usuario: los láseres no obligaban a esquivar nada): acaba donde estás tú
+   * cuando empieza a frenarse y, frenado, sigue meciéndose. Sin él, el de RepArena (lo compara arcs-extras.compare). */
+  track = false;
+  /** Lo que se aparta de tu cabeza al fijarse (m) y si ya se ha fijado. */
+  private jit = 0;
+  private locked = false;
   /** Dónde está el rayo ahora (x en la arena). */
   beamX = 0;
   // la maza
@@ -127,6 +136,7 @@ export class ArcObsCore {
       this.amp2 = 0.12 * k;
       this.ph2 = rand(0, TAU);
       this.still = LASER_STILL - 0.3 * Math.min(1, k);
+      this.jit = rand(-LASER_JIT, LASER_JIT);
       const safe = this.xf > 0 ? -1 : 1;
       this.leanX = this.xf + safe * 0.5;
       this.tilt = safe * 0.01;
@@ -166,8 +176,25 @@ export class ArcObsCore {
   /** El láser: alrededor de su sitio, con un vaivén que se apaga del todo `still` s antes de llegar a ti. */
   x(): number {
     const tau = Math.max(0, this.tReach - this.t), env = smooth(clamp((tau - this.still) / 1.0, 0, 1)), t = this.t;
-    const x = this.xf + env * (this.amp * Math.sin(this.ph + t * this.w) + this.amp2 * Math.sin(this.ph2 + t * this.w * 2.4));
+    let x = this.xf + env * (this.amp * Math.sin(this.ph + t * this.w) + this.amp2 * Math.sin(this.ph2 + t * this.w * 2.4));
+    // (el que te busca, ya frenado, no se clava: se mece un poco y despacio hasta el último instante)
+    if (this.track) x += (1 - env) * LASER_SWAY * smooth(clamp((tau - LASER_STOP) / 0.4, 0, 1)) * Math.sin(this.ph2 + t * 2.2);
     return Math.max(-0.85, Math.min(0.85, x));
+  }
+
+  /** El láser que te busca: mientras barre, el sitio donde va a acabar se va acercando a tu cabeza (hx), sin pasar de
+   * LASER_FOLLOW m/s; al empezar a frenarse, se fija ahí (con un pequeño desvío): quedarse quieto ya no vale nunca. */
+  private seek(hx: number, dt: number): void {
+    const tau = Math.max(0, this.tReach - this.t);
+    if (this.locked) return;
+    if (tau <= this.still) {
+      this.locked = true;
+      return;
+    }
+    // (solo en el último segundo antes de frenarse: antes, su sitio de siempre)
+    if (tau > this.still + 1.0) return;
+    const to = clamp(hx + this.jit, -0.75, 0.75);
+    this.xf += clamp(to - this.xf, -LASER_FOLLOW * dt, LASER_FOLLOW * dt);
   }
 
   /** Un fotograma (RepArena: ArcObs.update). `live`: en partida o en el descanso (RepArena: state play o rest); fuera,
@@ -180,7 +207,10 @@ export class ArcObsCore {
     this.t += dt;
     this.z += this.speed * dt;
     const hz = HL.z, inLane = Math.abs(HL.x) < 1.0, s = this.settle();
-    if (this.kind === 'laser') this.beamX = this.x();
+    if (this.kind === 'laser') {
+      if (this.track) this.seek(HL.x, dt);
+      this.beamX = this.x();
+    }
     else if (this.kind === 'walls') {
       const half = this.gap / 2 + Math.min(0.9, s * 0.35);
       this.wallL = this.gx - half;
