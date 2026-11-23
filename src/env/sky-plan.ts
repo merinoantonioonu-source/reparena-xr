@@ -106,3 +106,26 @@ export function lerpLook(cur: SkyLook, to: SkyLook, k: number): SkyLook {
   for (const key of ['sunY', 'sunI', 'fillI', 'fogK', 'cloud', 'stars', 'rain', 'snow', 'storm'] as const) cur[key] += (to[key] - cur[key]) * k;
   return cur;
 }
+
+/** Los sucesos de la oleada (src/combat/wave-events.ts) en el cielo: el eclipse (todo oscuro, con estrellas y un sol rojo
+ * apagado) y la niebla cerrada (mucho más espesa y gris). Cambia `out`. */
+export function eventLook(out: SkyLook, ev: string): SkyLook {
+  if (ev === 'eclipse') {
+    out.top = 0x05060c;
+    out.hor = 0x1a1018;
+    out.sun = 0xff6a3a;
+    out.sunI *= 0.15;
+    out.fillI *= 0.3;
+    out.fog = 0x0a090e;
+    out.fogK *= 1.6;
+    out.stars = 1;
+    out.cloud = 0.2;
+  } else if (ev === 'fog') {
+    out.fog = mixHex(out.fog, 0x9aa3ad, 0.6);
+    out.hor = mixHex(out.hor, 0xaab2bb, 0.6);
+    out.fogK *= 4;
+    out.cloud = 0.9;
+    out.sunI *= 0.7;
+  }
+  return out;
+}

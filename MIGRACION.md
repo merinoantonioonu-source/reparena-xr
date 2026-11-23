@@ -416,8 +416,7 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - **Variedad (pedido del usuario: «que nunca tenga la sensación de pasar siempre por el mismo entorno y los mismos
   enemigos»; eligió todo menos las oleadas temáticas y, de ejercicios, solo el press de pecho en el suelo)**. Hecho: el viaje
   por portales y la fauna de cada entorno (`src/combat/journey.ts`, `travel-system.ts`; `Scenery` guarda montados los del
-  viaje); los enemigos de élite y el jefe errante (`src/combat/elite.ts`). **Pendiente, en este orden**: sucesos por oleada (eclipse, lluvia de meteoritos, niebla cerrada, lluvia de orbes
-  de oro); el press de pecho en el suelo (boca arriba con mancuernas, los voladores desde el cielo); y, con los paquetes que
+  viaje); los enemigos de élite y el jefe errante (`src/combat/elite.ts`); los sucesos de las oleadas (`wave-events.ts`). **Pendiente, en este orden**: el press de pecho en el suelo (boca arriba con mancuernas, los voladores desde el cielo); y, con los paquetes que
   elija el usuario, entornos y enemigos nuevos (KayKit se puede bajar desde las sesiones: está en GitHub; Quaternius y
   Kenney, no: el proxy bloquea sus webs).
 

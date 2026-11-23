@@ -11,8 +11,9 @@ import { GateSystem } from '../combat/gates.js';
 import { BarsSystem } from '../modes/bars/bars-system.js';
 import { num, str, on } from '../core/values.js';
 import { Scenery, type SceneKind } from './scenery.js';
-import { lerpLook, skyLook, wavePlan, type SkyLook } from './sky-plan.js';
+import { eventLook, lerpLook, skyLook, wavePlan, type SkyLook } from './sky-plan.js';
 import { Weather } from './weather.js';
+import { COMIC } from '../style/comic.js';
 import { isBossWave } from '../combat/waves.js';
 import { nWaves } from '../core/settings.js';
 import { TrekSystem } from '../modes/trek/trek-system.js';
@@ -20,7 +21,7 @@ import { BEAT, MOTES } from '../core/beat-hub.js';
 import { moteBpm } from '../core/beat.js';
 import { bpm as bpmSvc, spotify } from '../services/hub.js';
 import { settings } from '../core/values.js';
-import { GAME, LITE, SPECIAL, TRAVEL } from '../core/state.js';
+import { GAME, LITE, SPECIAL, TRAVEL, WAVE_EV } from '../core/state.js';
 import { journeyRoute, type Place } from '../combat/journey.js';
 import { head } from '../input/hand-model.js';
 
@@ -291,8 +292,18 @@ export class EnvSystem extends createSystem({}) {
       const w = wavePlan(GAME.wave, want, isBossWave(GAME.wave - 1, nWaves()), this.seed % 5);
       skyLook(w.phase, w.weather, this.lookTo);
     } else skyLook('dia', 'claro', this.lookTo);
+    // (el suceso de la oleada: el eclipse o la niebla cerrada; también en la fortaleza)
+    const ev = playing && settings.mode === 'combat' && (WAVE_EV.kind === 'eclipse' || WAVE_EV.kind === 'fog') ? WAVE_EV.kind : '';
+    if (ev) eventLook(this.lookTo, ev);
+    this.evK += ((ev ? 1 : 0) - this.evK) * Math.min(1, dt * 0.8);
+    // (el estilo cómic no usa las luces: en el eclipse se apaga su brillo; lo que brilla por sí mismo —las cuentas de vida, los
+    // aros, los rayos— se sigue viendo)
+    this.eclK += ((ev === 'eclipse' ? 1 : 0) - this.eclK) * Math.min(1, dt * 0.8);
+    if (this.comicK0 < 0) this.comicK0 = COMIC.uK.value;
+    COMIC.uK.value = this.comicK0 * (1 - 0.68 * this.eclK);
     lerpLook(this.look, this.lookTo, Math.min(1, dt * 0.6));
     const L = this.look, day = this.scenery.visible && !this.panoWanted();
+    this.arenaFog(day, ev);
     // el relámpago: en la tormenta, cada pocos segundos un fogonazo y, enseguida, el trueno
     this.flash = Math.max(0, this.flash - dt * 4);
     if (L.storm > 0.5 && playing && !GAME.paused) {
@@ -308,7 +319,7 @@ export class EnvSystem extends createSystem({}) {
       if (this.thunderT <= 0) SND.thunder(1); // (del ambiente: con Spotify, se calla)
     }
     this.scenery.setLook(day ? L : null, this.flash);
-    this.tintLights(day, L);
+    this.tintLights(day || this.evK > 0.02, L);
     // la lluvia y la nieve (con un menú abierto, sin ellas: va más fluido)
     const r = this.world.renderer, xs = r.xr.isPresenting ? r.xr.getSession() : null, BL = xs?.renderState?.baseLayer as { framebufferHeight?: number } | undefined;
     const wx = cyc && playing && !LITE.on ? 1 : 0;
@@ -351,6 +362,22 @@ export class EnvSystem extends createSystem({}) {
     }
   }
   private readonly c1 = new Color();
+  /** Lo que se nota el suceso de la oleada (de 0 a 1: entra y sale suave) y la niebla de la fortaleza, guardada. */
+  private evK = 0;
+  private eclK = 0;
+  private comicK0 = -1;
+  private fog0: { color: Color; density: number } | null = null;
+
+  /** En la fortaleza (sin entorno de día, que pone su niebla él), el eclipse y la niebla cerrada cambian su niebla. */
+  private arenaFog(day: boolean, ev: string): void {
+    const fog = (this.world.scene as unknown as { fog: { color: Color; density: number } | null }).fog;
+    if (!fog) return;
+    if (!this.fog0) this.fog0 = { color: fog.color.clone(), density: fog.density };
+    if (day) return;
+    const k = this.evK, F = this.fog0;
+    fog.color.copy(F.color).lerp(this.c1.setHex(ev === 'fog' ? 0x8a929c : 0x07070b), k);
+    fog.density = F.density * (1 + k * (ev === 'fog' ? 3.5 : 1.2));
+  }
 
   /** El fondo elegido (que exista), o '' si es el cielo dibujado. */
   private panoWanted(): string {

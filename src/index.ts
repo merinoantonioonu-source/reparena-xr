@@ -9,6 +9,7 @@ import { World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
 import { EnemySystem } from './combat/enemies.js';
 import { TravelSystem } from './combat/travel-system.js';
+import { WaveEventSystem } from './combat/wave-event-system.js';
 import { FlyerSystem } from './combat/flyers.js';
 import { HatchSystem } from './combat/hatch-foes.js';
 import { ArcsSystem } from './modes/arcs/arcs-system.js';
@@ -56,6 +57,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(TrekSystem, { priority: 5 });
   world.registerSystem(EnvSystem, { priority: 7 });
   world.registerSystem(TravelSystem, { priority: 7 }); // (el portal del viaje por portales de Combate y Toques)
+  world.registerSystem(WaveEventSystem, { priority: 7 }); // (los sucesos de las oleadas: meteoritos y lluvia de oro)
   world.registerSystem(GameSystem, { priority: 6 });
   world.registerSystem(VfxSystem, { priority: 7 }); // (las partículas: llamas, humo, polvo… src/style/vfx.ts)
   world.registerSystem(RaMenuSystem, { priority: 6 }); // (los menús de RepArena: opción B del usuario, PR 31)
