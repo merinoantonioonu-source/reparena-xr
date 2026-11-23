@@ -369,3 +369,110 @@ iluminada de dónde poner el cuerpo) y la parte tapada se ve claramente infranqu
 - Preguntarle también si el modelo elegido se aplica a las paredes de los obstáculos con hueco (hoy, franjas rojas).
 - Al elegir, cambiar la regla de `REGLAS.md` («Arcos: las paredes… rojas casi opacas con franjas…»).
 - Sin lienzos repintados cada fotograma, materiales creados al empezar y calentados en `warmKeep`.
+
+## 4. Los ejercicios y el movimiento natural del cuerpo (análisis)
+
+La idea que ordena todo: **cada postura tiene su mirada natural y su tempo natural**, y el juego tiene que pedir las cosas
+donde esa mirada cae y con el tiempo que ese cuerpo necesita. Pedir levantar el cuello en plancha, o un gesto más rápido de
+lo que el cuerpo da, es pelearse con el ejercicio.
+
+### 4.1 Dónde mira el cuerpo en cada postura
+
+| Postura | Mirada natural (cuello neutro) | Lo que se ve bien | Lo que NO se ve |
+| --- | --- | --- | --- |
+| De pie (sentadilla, curl, saltos) | Al frente, algo por debajo de la horizontal | Del suelo a 2 m hasta unos 20° por encima de los ojos; ±45° a los lados | Lo que está a los lados a más de 50°; lo alto y cerca |
+| En zancada | Al frente; el tronco erguido y la cabeza quieta (equilibrio) | Lo mismo que de pie | Igual; y girar la cabeza descoloca |
+| En plancha y flexión | Al suelo, 30–60 cm por delante de las manos (la cabeza mira 50–75° hacia abajo) | El suelo desde las manos hasta unos 2,5 m por delante; lo que venga a menos de un palmo sobre las tablas | Todo lo que esté por encima de la horizontal de los ojos: un jefe de pie, algo que cae, un barco a un lado |
+| Tumbado boca abajo (superman) | Al suelo, o al frente si se levanta el cuello (no recomendable aguantarlo) | Las manos y el suelo por delante | Lo que vuela a la altura de la cabeza a más de 1 m, si se mira al suelo |
+| Tumbado boca arriba (abdominales, Toques) | Al techo | Lo que está encima | El suelo, las compuertas, el marcador de lado |
+| Colgado (Barras) | Al frente o algo arriba | Lo de delante | Lo de abajo |
+
+Consecuencias que ya están en este plan: la bola del superman entre las manos (3.B); en plancha, todo a ras de suelo (3.D);
+el panel de instrucciones donde cae la mirada de cada postura (3.E).
+
+### 4.2 Cuánto tarda cada gesto (y lo que el juego debe dar)
+
+Tiempos de un adulto entrenando, sin prisa de competición. **El juego debe dar, desde que algo se puede ver hasta que se
+juzga, al menos el tiempo del gesto × 1,5 más 0,4 s de reacción**, a la velocidad máxima de esa forma (con el acelerón y la
+cuesta abajo incluidos).
+
+| Forma | Gesto | Tarda (s) |
+| --- | --- | --- |
+| De pie | Agacharse (un cuarto de sentadilla) | 0,4 |
+| De pie | Sentadilla honda | 0,9 |
+| De pie | Saltar (con su impulso) | 0,45 |
+| De pie | Paso a un lado | 0,5 |
+| De pie | Brazos en cruz | 0,5 |
+| De pie | Supersalto (honda y salto) | 1,3 |
+| Plancha | Bajar la flexión | 0,8 |
+| Plancha | Flexión explosiva desde arriba (bajar y empujar) | 1,2 |
+| Plancha | Dos explosivas seguidas | 2,6 |
+| Plancha | Escorarse a un lado | 0,6 |
+| Plancha | Peso adelante | 0,5 |
+| Zancada | Bajar | 0,9 |
+| Zancada | Inclinar el tronco a un lado | 0,6 |
+| Zancada | Salto corto con una pierna delante (y volver a estar estable) | 0,7 (+0,8 para estabilizarse) |
+| Zancada | Cambiar de pierna | 2,0 |
+| Superman | Subir, aguantar y bajar | `supHold` + 3 |
+
+Lo que hay que hacer con esto [O decide, S escribe la tabla y la prueba]:
+
+- `src/modes/trek/plat/ergo.ts`: la tabla (`GESTURE_T[forma][gesto]`) y, para cada tipo de pieza, qué gesto pide en cada
+  forma. `tests/unit/plat-ergo.test.ts`: para cada pieza y forma, el tiempo entre que se ve y que se juzga cumple la regla
+  de arriba en todos los rangos; y dos retos seguidos dejan sitio para **acabar el primero y volver a la postura**.
+- Lo que previsiblemente saldrá mal y hay que corregir en `course.ts`/`platTune` (comprobarlo, no darlo por hecho):
+  - en plancha, lo que pide **dos explosivas** (plataforma alta, trampolín, jefe mareado) necesita mucho más aviso que de
+    pie, y nada más pegado detrás;
+  - en plancha, nada que pida **bajar y escorarse a la vez** salvo que sea a propósito (ver 5, la flexión arquera);
+  - en zancada, **nada que esquivar durante el cambio de pierna** (2,5 s de tregua desde el aviso) ni dos saltos seguidos a
+    menos de 1,5 s; inclinar el tronco y bajar a la vez, tampoco;
+  - el jefe: el impulso de cada tiro, según la forma (de pie 1,1 s; en plancha ≈ 1,7 s; en zancada ≈ 1,4 s).
+- Lo de 3.D.3: para cada pieza y forma, lo que hay que ver (o su aviso en el suelo) cae dentro de la mirada de 4.1 cuando
+  aparece. En plancha: nada que haya que ver a más de 5° por encima de la horizontal de los ojos.
+
+### 4.3 El resto de ejercicios (Combate, Toques, Barras)
+
+[S] hace el inventario con la misma plantilla para cada ejercicio de `PLAY_EX` (`docs/ERGONOMIA.md`): postura, mirada,
+tempo, dónde salen la bola, los enemigos, el marcador y los avisos, y qué choca con 4.1 y 4.2. [O] lo revisa y **propone al
+usuario** los cambios que salgan (no se cambia nada de eso sin él). Sospechas que hay que mirar primero: la plancha lateral
+(se mira de lado: ¿dónde vienen los bichos?), los fondos en silla (se mira al frente y arriba), y los abdominales de Toques
+(boca arriba: los avisos, en el techo).
+
+## 5. Travesía en plancha: más movimientos de brazos (ideas para elegir)
+
+Hoy la plancha tiene: bajar (agacharse), aguantar abajo (túnel, barranco), escorarse (apartarse), explosiva (saltar), dos
+explosivas (supersalto) y peso adelante (acelerón). Todo son flexiones y pequeños balanceos. Ideas inspiradas en el «animal
+flow», ordenadas por lo fiable que es detectarlas: **las gafas ven muy bien la cabeza y solo a ratos las manos** (en plancha
+las pierden a menudo: lo enseñó la plancha con un brazo), así que lo que depende de la cabeza es seguro y lo que depende de
+ver una mano necesita un plan B.
+
+| # | Movimiento | Qué trabaja | Para qué serviría en el juego | Cómo se detecta | Fiabilidad |
+| --- | --- | --- | --- | --- | --- |
+| 1 | **Paso lateral en plancha** (caminar con manos y pies a un lado) | Hombros, core | **Cambiar de carril**: la pasarela con dos carriles; un derrumbe o un enemigo ocupa el tuyo y hay que pasarse al otro (más que escorarse: te vas de verdad) | La cabeza se desplaza 30 cm o más a un lado **y se queda** (escorarse es menos y vuelve) | Alta |
+| 2 | **Flexión arquera** (bajar cargando el peso en un brazo) | Pecho y tríceps de un lado | Pasar bajo una **viga inclinada**: baja de un lado, alta del otro | Cabeza abajo y a un lado a la vez | Alta |
+| 3 | **La ola** (de la pica a la cobra: caderas arriba, zambullirse y salir, como la flexión hindú) | Hombros, pecho, espalda | Pasar **por debajo de una valla baja** y salir al otro lado; o coger carrerilla para un salto largo | La cabeza va atrás y arriba, luego adelante y abajo, luego adelante y arriba, en ese orden | Media-alta |
+| 4 | **Giro abierto** (de la plancha a la plancha lateral, abriendo el pecho con un brazo al cielo) | Oblicuos, hombro de apoyo | Dejar pasar algo que viene **por el centro a ras de suelo** (te pones de canto); abrir una palanca alta | La cabeza se ladea más de 40° y se mantiene un instante (ya se detecta en la plancha lateral) | Media-alta |
+| 5 | **Caminar con las manos hacia delante y volver** (como el inchworm) | Hombros, abdomen | Alcanzar una **fila de frutas lejana** o cruzar un tramo «de puntillas» | La cabeza avanza 30 cm o más y vuelve (más que el peso adelante de ahora) | Alta |
+| 6 | **Zarpazo**: levantar una mano y alcanzar algo delante o a un lado | Hombro de apoyo, core (antirrotación) | **Coger con la mano** una fruta o una llave a ras de suelo; apartar una telaraña | La mano se ve y llega al objeto; plan B: si la mano no se ve, vale inclinar la cabeza hacia él | Media |
+| 7 | **Palmada al suelo** en un botón a un lado | Hombros, core | **Botones en las tablas** que abren una compuerta o bajan un puente: hay que darles de camino | La mano se levanta y baja deprisa sobre el botón; plan B: la sacudida de la cabeza al golpear | Media |
+| 8 | **Trepar** (alternar las manos hacia delante, como el oso) | Hombros, pecho, core | En las **cuestas muy empinadas** (3.F): en vez de flexiones, se sube trepando, mano a mano | Las manos avanzan alternándose; plan B: el vaivén corto de la cabeza a un lado y a otro, a ritmo | Media-baja |
+| 9 | **Manos juntas / manos anchas** (flexión diamante y ancha) | Tríceps / pecho | La pasarela **se estrecha** (manos juntas) o tiene un agujero en el centro (manos anchas) | La distancia entre las dos muñecas; solo se juzga si se ven las dos (si no, se da por buena) | Media-baja |
+| 10 | **Remar** (subir un codo, alternando) | Espalda, core | Una **balsa** en la costa pirata: cada remada empuja | La mano que rema se va hacia la cadera y las gafas la pierden; solo queda el giro de la cabeza | Baja (no recomendada) |
+
+Recomendación: empezar por **1, 2, 3 y 5** (solo dependen de la cabeza: saldrán bien a la primera) y **4**; luego **6 y 7**
+con su plan B; dejar 8 y 9 para después de probar las manos en plancha con la caja negra; descartar la 10.
+
+Cómo se haría (cuando el usuario elija) [O la lógica, S las pruebas]:
+
+- Cada movimiento es un gesto nuevo de `BodyMoves.prone` (`src/modes/trek/plat/moves.ts`) y **una pieza nueva** del
+  recorrido (`types.ts`, `course.ts`, `pieces.ts` con modelos de los kits que ya hay: nada creado de cero), con su tiempo
+  en la tabla de 4.2 y su prueba de guion (`plat-runner.test.ts` con `plat-sim.ts`).
+- Solo salen en plancha (`CourseEnv` ya sabe saltarse piezas por forma: `skip`); en la forma suave siguen siendo esquivas y
+  premios; en la dura, además, cuentan como repetición que empuja.
+- Para los que usan las manos: ampliar la caja negra (`src/core/blackbox.ts`) a la Travesía en plancha y pedir al usuario
+  una grabación antes de ajustar umbrales (como se hizo con los curls).
+- Fallar cualquiera de ellos, como todo en la Travesía: frenas a la mitad y se rompe la racha, sin vidas; los que son
+  premio (frutas, llaves), no frenan.
+- Sin aviso de lo que viene (decisión 5): cada pieza tiene que **explicarse sola por su forma** (dos carriles con uno
+  roto, una viga claramente inclinada, un botón que brilla). La primera vez que sale cada una en la vida del jugador, sí se
+  enseña cómo se hace (ver 3.E, «la primera vez»).
