@@ -121,7 +121,9 @@ export function moveSpec(env: TouchEnv, S: number, move: string, sd0 = 0): MoveS
   } else if (move === 'low') o.pos.set(side * R3(0.16, 0.34), clamp(S * 0.24, 0.3, 0.5) + R3(-0.03, 0.03), -0.42);
   else if (move === 'floor') o.pos.set(side * R3(0.18, 0.34), 0.03, -R3(0.3, 0.42));
   else if (move === 'punch') o.pos.set(side * R3(0.15, 0.3), S - 0.3 + R3(-0.05, 0.05), -0.45);
-  else if (move === 'reach') o.pos.set(side * R3(0.2, 0.35), S + 0.5 + jh, -0.2);
+  // (en RepArena XR, algo más bajo y por delante: encima de la cabeza, a 20 cm, no se veía al ir a por él; así queda a unos
+  // 30° sobre los ojos y al alcance de la mano estirada; docs/ERGONOMIA.md)
+  else if (move === 'reach') o.pos.set(side * R3(0.2, 0.35), S + (env.classic ? 0.5 : 0.28) + jh, env.classic ? -0.2 : -0.45);
   else if (move === 'push' || move === 'plank') {
     o.r = clamp(r * 0.65, 0.07, 0.13);
     const ri = o.r * 0.75;
@@ -175,9 +177,13 @@ export function moveSpec(env: TouchEnv, S: number, move: string, sd0 = 0): MoveS
     o.cutDir = new Vector3(c * Math.cos(o.ang), Math.sin(o.ang), -s * Math.cos(o.ang));
     if (env.str('sword') !== 'two') o.hand = env.str('swordHand') as Side;
   }
-  const far = isFloor(env) ? 3.5 : D;
+  // (en plancha, la vista alcanza unos 2,5 m por delante de las manos: desde 3,5 m no se veía llegar; docs/ERGONOMIA.md)
+  const far = isFloor(env) ? (env.classic ? 3.5 : 2.5) : D;
   if (move === 'side') o.from.set(side * 2.4, o.pos.y + 0.25, o.pos.z - 0.5); // por el costado
-  else if (isSupine(env)) o.from.set(o.pos.x * 1.5, o.pos.y + 0.6, -3.5);
+  else if (isSupine(env) && env.classic) o.from.set(o.pos.x * 1.5, o.pos.y + 0.6, -3.5);
+  // boca arriba (RepArena XR): baja del aire, por delante y por encima, donde va la mirada al subir el tronco (antes llegaba a
+  // ras de suelo desde los pies y solo se veía al final; docs/ERGONOMIA.md)
+  else if (isSupine(env)) o.from.set(o.pos.x * 1.3, o.pos.y + 1.9, o.pos.z - 1.3);
   else o.from.set(o.pos.x * 1.6, isFloor(env) ? Math.max(0.12, o.pos.y) : o.pos.y, -far);
   return o;
 }

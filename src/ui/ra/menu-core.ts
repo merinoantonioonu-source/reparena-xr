@@ -160,9 +160,11 @@ const yawOf = (q: Quaternion): number => {
   return Math.atan2(-_f.x, -_f.z);
 };
 /** Hacia dónde mira el cuerpo, también en el suelo (RepArena: bodyYaw). */
-export function bodyYaw(): number {
+export function bodyYaw(gazeOnly = false): number {
   _f.set(0, 0, -1).applyQuaternion(head.q);
   if (Math.abs(_f.y) < 0.7) return (lastStandYaw = yawOf(head.q));
+  // (solo con la mirada —la plancha lateral, de lado: la coronilla apunta a lo largo del cuerpo—, mientras diga algo)
+  if (gazeOnly) return Math.abs(_f.y) < 0.97 ? yawOf(head.q) : lastStandYaw;
   _bu.set(0, 1, 0).applyQuaternion(head.q);
   if (_f.y > 0) _bu.negate();
   _bu.y = 0;

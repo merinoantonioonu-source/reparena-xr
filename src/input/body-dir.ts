@@ -13,10 +13,12 @@ import { Vector3, type Quaternion } from 'three';
 const _f = new Vector3(), _u = new Vector3();
 
 /** La dirección horizontal (y = 0, de largo 1) a la que mira el cuerpo con la cabeza girada `q`. */
-export function bodyDir(q: Quaternion, out: Vector3): Vector3 {
+export function bodyDir(q: Quaternion, out: Vector3, gazeOnly = false): Vector3 {
   const f = _f.set(0, 0, -1).applyQuaternion(q), u = _u.set(0, 1, 0).applyQuaternion(q);
-  // (la coronilla cuenta más cuanto más mira hacia abajo: nada mirando al frente, del todo mirando al suelo)
-  const k = Math.min(1, Math.max(0, -f.y) * 1.25);
+  // (la coronilla cuenta más cuanto más mira hacia abajo: nada mirando al frente, del todo mirando al suelo. Con `gazeOnly`
+  // —la plancha lateral—, nunca: tumbado de lado la coronilla apunta a lo largo del cuerpo, a 90° de la mirada, y la bola se
+  // iba a un costado; docs/ERGONOMIA.md)
+  const k = gazeOnly ? 0 : Math.min(1, Math.max(0, -f.y) * 1.25);
   out.set(f.x + u.x * k, 0, f.z + u.z * k);
   if (out.lengthSq() < 1e-8) out.set(0, 0, -1);
   return out.normalize();

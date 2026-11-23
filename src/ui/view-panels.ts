@@ -31,7 +31,8 @@ import { drawCenter, drawToast } from './info-draw.js';
 import { clamp, loadCanvasFonts, mkCanvas, smooth } from './canvas-kit.js';
 import { makeCanvasPanel, type CanvasPanel } from './canvas-panel.js';
 import { hudSlot, hudSpot, lazyAt, lazyClear, mkLazy, ViewFrame, type Threat } from './view.js';
-import { demoDraw, type DemoOpts } from './demo-art.js';
+import { demoDraw, demoInfo, type DemoOpts } from './demo-art.js';
+import { DemoFrames } from './demo-frames.js';
 import { cortDraw, cortImage, cortInfo, cortUrl } from './cortinilla.js';
 import { duelBoss, duelRecord, duelScene, duelName, duelSub, type DuelEnv } from '../combat/duel.js';
 import { duelDeco, duelPaint, duelPlates } from './duel-art.js';
@@ -74,6 +75,8 @@ export class ViewSystem extends createSystem({}) {
   private demoT = 0;
   private demoDrawT = 0;
   private demoInit = false;
+  /** Los dibujos de la caricatura, guardados (src/ui/demo-frames.ts: sin subir uno nuevo en cada fotograma). */
+  private demoFr = new DemoFrames(DEMO_W, DEMO_H);
   // la carátula del duelo: la ilustración se pinta antes, en el menú, por partes (una cada 0,15 s) y se guarda; al
   // empezar la ronda solo se copia y se escriben los datos encima (RepArena: INTRO_ART)
   private duel!: CanvasPanel;
@@ -104,6 +107,7 @@ export class ViewSystem extends createSystem({}) {
     void loadCanvasFonts().then(() => {
       this.art.key = ''; // (la ilustración, otra vez con las letras buenas)
       this.demoDrawT = 0;
+      this.demoFr.reset();
     });
     // la caricatura
     this.demo = makeCanvasPanel(DEMO_W, DEMO_H, 640);
@@ -311,10 +315,19 @@ export class ViewSystem extends createSystem({}) {
     }
     this.demoMenu.visible = menu;
     if (!wait && !menu) return;
+    // (guardada: cada dibujo se pinta y se sube una sola vez y luego solo se cambia cuál se ve. Pintar y subir el lienzo 12
+    // veces por segundo daba tirones al menú principal en las gafas)
+    const o = this.demoOpts(), ex = settings.exercise, mode = settings.mode;
+    if (this.demoFr.can(ex)) {
+      const P = demoInfo(ex, mode, o).D.P, cycles = mode === 'combat' && o.foes === 'mix' ? 2 : 1; // (los mixtos, robots y voladores por turnos)
+      this.demo.mat.map = this.demoFr.frame(`${ex}|${mode}|${o.perfectTime}|${o.perks}|${o.foes}`, this.demoT, P, cycles, (c, W, H, t) => demoDraw(c, W, H, ex, mode, t, o));
+      return;
+    }
+    if (this.demo.mat.map !== this.demo.tex) this.demo.mat.map = this.demo.tex;
     this.demoDrawT -= dt;
     if (this.demoDrawT > 0) return;
     this.demoDrawT = 1 / 12; // (basta para que se vea fluido y no pesa en las gafas: cada dibujo se vuelve a subir)
-    demoDraw(this.demo.ctx, this.demo.W, this.demo.H, settings.exercise, settings.mode, this.demoT, this.demoOpts());
+    demoDraw(this.demo.ctx, this.demo.W, this.demo.H, ex, mode, this.demoT, o);
     this.demo.tex.needsUpdate = true;
   }
 

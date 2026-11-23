@@ -194,10 +194,15 @@ const armOf = (h: Hand): { ok: boolean; x: number; y: number; z: number } => ({
   },
 });
 
+/** Lo que se coge con la cabeza (frutas, barriles): se encoge a menos de esto de los ojos y desaparece a menos de esto (m). */
+const EYE_FADE = 0.45, EYE_GONE = 0.12;
+
 export class TrekSystem extends createSystem({}) {
   readonly runner: Runner;
   /** La altura de tus ojos de pie al calibrar. */
   calibRef = 1.6;
+  /** Tus ojos, en el sitio del recorrido (cada fotograma). */
+  private readonly eyeL = new Vector3();
   /** El fondo realista del tramo (lo pone el entorno). */
   pano = TREK_BIOMES[0].pano;
   private readonly env: PlatEnv;
@@ -228,7 +233,7 @@ export class TrekSystem extends createSystem({}) {
   private portalMat!: ShaderMaterial;
   private flash!: Mesh;
   private flashT = 0;
-  private readonly falls: { p: Piece | null; t: number; dur: number; rocks: Mesh[] }[] = [];
+  private readonly falls: { p: Piece | null; t: number; dur: number; rocks: Mesh[]; shade: Mesh }[] = [];
   private gustT = 0;
   private gustOn = false;
   /** El paisaje del primer tramo de un mundo nuevo, que se pone al cruzar su portal (−1: ninguno). */
@@ -433,6 +438,15 @@ export class TrekSystem extends createSystem({}) {
     this.world.createTransformEntity(this.flash);
     // las rocas de los desprendimientos (roca de verdad, sin brasas: la del lanzador sin su fuego)
     const rockMat = new MeshStandardMaterial({ color: 0x8a7e72, roughness: 1, flatShading: true });
+    // y su sombra en el suelo, que crece y se oscurece mientras caen (en plancha, mirando al suelo, las rocas de arriba no se
+    // ven: lo que hay que ver, a ras de suelo; docs/REGLAS.md). Una mancha redonda y blanda, de color liso
+    const sn = 32, sd = new Uint8Array(sn * sn * 4);
+    for (let y = 0; y < sn; y++) for (let x = 0; x < sn; x++) sd.set([255, 255, 255, Math.round(255 * Math.pow(Math.max(0, 1 - Math.hypot((x + 0.5) / sn - 0.5, (y + 0.5) / sn - 0.5) * 2), 0.7))], (y * sn + x) * 4);
+    const st = new DataTexture(sd, sn, sn, RGBAFormat, UnsignedByteType);
+    st.magFilter = st.minFilter = LinearFilter;
+    st.needsUpdate = true;
+    const shadeMat = new MeshBasicMaterial({ color: 0x140c08, map: st, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false });
+    const shadeGeo = new CircleGeometry(1, 24).rotateX(-Math.PI / 2);
     for (let i = 0; i < 2; i++) {
       const rocks: Mesh[] = [];
       for (let j = 0; j < 3; j++) {
@@ -442,9 +456,15 @@ export class TrekSystem extends createSystem({}) {
         this.root.add(m);
         rocks.push(m);
       }
-      this.falls.push({ p: null, t: 0, dur: 1, rocks });
+      const shade = new Mesh(shadeGeo, shadeMat.clone()); // (cada una, su opacidad)
+      shade.userData.noInk = true;
+      shade.renderOrder = 2;
+      shade.visible = false;
+      this.root.add(shade);
+      this.falls.push({ p: null, t: 0, dur: 1, rocks, shade });
     }
     warmKeep(new Mesh(looks().geo.meteor, rockMat));
+    warmKeep(new Mesh(shadeGeo, shadeMat));
     // el brillo dorado de las doradas (en el mundo que baja y sube: va con ellas)
     const goldMat = new SpriteMaterial({ map: gt, color: 0xffd166, transparent: true, opacity: 0.7, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
     for (let i = 0; i < 4; i++) {
@@ -616,6 +636,7 @@ export class TrekSystem extends createSystem({}) {
     for (const F of this.falls) {
       F.p = null;
       for (const m of F.rocks) m.visible = false;
+      F.shade.visible = false;
     }
     this.shotFx.on = false;
   }
@@ -1090,7 +1111,9 @@ export class TrekSystem extends createSystem({}) {
         }
         for (const u of L) this.put(u, u.ds, 0, 1);
       }
-    // las piezas del recorrido
+    // las piezas del recorrido (tus ojos, en el sitio del recorrido: lo que se coge con la cabeza no se pega a ellos)
+    this.root.updateMatrixWorld();
+    this.root.worldToLocal(this.eyeL.copy(head.p));
     let gi = 0;
     for (const p of R.live) {
       const L = this.looks.get(p.id);
@@ -1102,7 +1125,7 @@ export class TrekSystem extends createSystem({}) {
         // (las frutas del arco que ya te has comido y la dorada de la plataforma ya cogida, no)
         if (u.tag !== undefined && (u.tag === GOLD_TAG ? p.got > 0 : p.k === 'glide' ? ((p.mask >> u.tag) & 1) === 1 : u.tag < p.got)) continue;
         const f = turn || u.kit === 'food';
-        this.put(u, p.at + u.ds, off + p.lane * FORK_U, k, kn ? kn.t : 0, p, f ? spin : 0, f ? bob : 0);
+        this.put(u, p.at + u.ds, off + p.lane * FORK_U, k, kn ? kn.t : 0, p, f ? spin : 0, f ? bob : 0, false, f);
       }
       // el brillo de la dorada (la que flota alta en el centro o la de encima de una plataforma)
       if (p.gold && gi < this.goldGlow.length && !(p.k === 'fruit' && p.judged) && !(p.k === 'step' && p.got > 0) && !lite) {
@@ -1145,7 +1168,7 @@ export class TrekSystem extends createSystem({}) {
   }
 
   /** Una instancia: el modelo `u` en (s, u.u + du) del sendero, a su escala por `k`; `roll`, lo que vuelca (el barril). */
-  private put(u: Put, s: number, du: number, k: number, roll = 0, p?: Piece, spin = 0, bob = 0, pitch = false): void {
+  private put(u: Put, s: number, du: number, k: number, roll = 0, p?: Piece, spin = 0, bob = 0, pitch = false, near = false): void {
     const b = this.batches.get(`${u.kit}:${u.n}`);
     if (!b || b.n >= b.cap) return;
     // (el giro propio del modelo, en el orden de pieces.ts, y encima el del sendero en ese punto)
@@ -1156,7 +1179,15 @@ export class TrekSystem extends createSystem({}) {
     // (el suelo, en una cuesta, cabecea con ella: sin escalones entre un trozo y el siguiente)
     if (pitch && this.runner.grades.length) this.q.premultiply(this.qx.setFromAxisAngle(this.xAxis, Math.atan(this.runner.slopeAt(s))));
     this.q.premultiply(this.qy.setFromAxisAngle(this.up, ry));
-    this.m4.compose(this.v.set(this.bp.x, u.y + bob + this.gy(s), this.bp.z), this.q, this.sc.set(u.sx * k, u.sy * k, u.sz * k));
+    this.v.set(this.bp.x, u.y + bob + this.gy(s), this.bp.z);
+    if (near) {
+      // (las frutas y los barriles, pegados a los ojos se veían enormes al cogerlos: como las chispas, se encogen a menos de
+      // 45 cm y desaparecen a menos de 12; docs/REGLAS.md)
+      const d = this.v.distanceTo(this.eyeL);
+      if (d < EYE_GONE) return;
+      if (d < EYE_FADE) k *= (d - EYE_GONE) / (EYE_FADE - EYE_GONE);
+    }
+    this.m4.compose(this.v, this.q, this.sc.set(u.sx * k, u.sy * k, u.sz * k));
     for (const im of b.ims) im.setMatrixAt(b.n, this.m4);
     b.n++;
   }
@@ -1707,6 +1738,13 @@ export class TrekSystem extends createSystem({}) {
         m.scale.setScalar(0.22 + 0.06 * j);
         m.visible = !lite && k < 1;
       }
+      // la sombra, donde van a caer: pequeña y tenue al soltarse, grande y oscura al llegar
+      R.tk.bend(p.at + 0.0, p.side * 0.6 - R.uShift, this.bp);
+      const sh = F.shade, sm = sh.material as MeshBasicMaterial;
+      sh.position.set(this.bp.x, 0.025 + this.gy(p.at), this.bp.z);
+      sh.scale.setScalar(0.25 + 0.95 * k * k);
+      sm.opacity = 0.2 + 0.6 * k;
+      sh.visible = !lite && k < 1;
       if (k >= 1) {
         // se rompen: piedras y polvo, y retumba
         const at = this.world3({ s: p.at, u: p.side * 0.5, y: 0.2 }, this.at), V = vfx();
@@ -1716,6 +1754,7 @@ export class TrekSystem extends createSystem({}) {
         haptic('left', 0.5, 90);
         haptic('right', 0.5, 90);
         F.p = null;
+        F.shade.visible = false;
       }
     }
   }

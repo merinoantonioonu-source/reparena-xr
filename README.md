@@ -223,6 +223,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/ui/view.ts` | Dónde salen los avisos de la vista: siguen la mirada sin ladearse; tumbado, en el suelo bajo la cara; no tapan lo que viene |
 | `src/ui/view-panels.ts` | Los avisos de la vista (el del centro y el breve), la caricatura del ejercicio y la carátula del duelo |
 | `src/ui/demo-art.ts` | La caricatura del ejercicio (el monigote que lo hace, el rayo y el texto), pintada en un lienzo |
+| `src/ui/demo-frames.ts` | Los dibujos de la caricatura, guardados: cada uno se pinta y se sube una vez (sin tirones en el menú) |
 | `src/ui/duel-art.ts` | La ilustración de la carátula del duelo (tú contra el jefe, el VS y las placas), pintada en un lienzo |
 | `src/ui/canvas-kit.ts`, `src/ui/canvas-panel.ts` | Lo común de lo que se pinta en un lienzo: las letras, el tamaño que cabe y el cartel |
 | `src/combat/duel.ts` | Quién es el jefe de la ronda y tu récord, para la carátula del duelo |

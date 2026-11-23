@@ -7,8 +7,11 @@ Cómo leerlo:
 
 - Los números entre paréntesis son `archivo:línea` (para quien revise el código). Todo lo que dice «Choque» sale de leer el
   código; lo marcado **sospecha** no se ha podido confirmar sin probarlo en las gafas (se pide el diagnóstico al usuario).
-- **Nada de esto está cambiado.** Las propuestas son para que el usuario las apruebe o las descarte; ninguna se aplica sola.
-  Si una propuesta toca una regla de `docs/REGLAS.md`, lo dice expresamente («toca REGLAS»).
+- **Aplicado** (el usuario: «aplica todas tus propuestas en ergonomía y ya vamos corrigiéndolas poco a poco»): todas las de la
+  sección 6 salvo «avisar de la postura siguiente un objetivo antes» en el combinado de Toques, que va contra su regla «no se
+  avisa de lo que viene». Dos con matices: lo alto de Toques (`reach`) queda a unos 30° sobre los ojos, no 20 (a 20° no llegaba
+  la mano estirada), y el swing y el peso muerto van al aviso breve (como los curls) en vez de a un panel a la altura del
+  pecho (a 3 m de alto tapaba la boca de la compuerta). Las que tocaban REGLAS, apuntadas allí.
 
 ## 0. Lo común a todos (para no repetirlo en cada ficha)
 

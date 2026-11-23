@@ -196,6 +196,7 @@ function portEnv(w: World, random: Rnd): TouchEnv {
       return s;
     },
     waveReps: (i) => Math.max(1, Math.round(+w.settings.repsWave + +w.settings.repsInc * i)),
+    classic: true, // (tal cual RepArena: sin lo cambiado por la ergonomía)
   } as TouchEnv;
 }
 

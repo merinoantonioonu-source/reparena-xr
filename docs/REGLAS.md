@@ -253,7 +253,9 @@ No las cambies sin preguntarle.
   sale al bajar** (con ×4, además, una onda que alcanza a los cercanos). **Mientras aguantas arriba no te pueden tocar**: el
   que ya venía rebota. Tumbado, los voladores esperan a la vista el descanso («Superman: descanso antes de que piquen», de
   6 s en Recluta a 3,5 s en el rango más alto) y, si sigues sin subir, pican de uno en uno. Los voladores salen al ritmo de
-  una repetición (lo que se aguanta más 3 s).
+  una repetición (lo que se aguanta más 3 s). **Esperan bajos, a ras de suelo y a 1-1,5 m por delante de las manos** (boca
+  abajo se mira al suelo), y el marcador va delante, pasadas las manos, como el atril de la plancha (ergonomía, aplicada por
+  el usuario: «aplica todas tus propuestas»; `docs/ERGONOMIA.md`).
 - Superman: **con las manos apoyadas en el suelo no cuenta** (decidido por el usuario con su diagnóstico: el tronco tiene que
   subir solo): si las gafas ven una mano a menos de 9 cm del suelo, el aguante se para y avisa «Despega las manos». Sin ver
   las manos, solo cuenta el tronco.
@@ -270,7 +272,8 @@ No las cambies sin preguntarle.
   el suelo; llegan más despacio, con su bocina y la huella de la mano en el suelo (sin aviso de texto: decidido por el usuario).
 - El marcador de los ejercicios de suelo (flexiones, planchas, inchworm) es sólido: los bichos lo rodean. Va apoyado en el
   suelo como un atril, de cara al jugador y con el borde de arriba levantado a **45°** (elegido por el usuario: tumbado, los
-  avisos del suelo lo tapaban).
+  avisos del suelo lo tapaban). **La plancha lateral**, igual: el atril delante, bajo la línea a las compuertas. **Boca arriba**
+  (los abdominales de Toques), en el techo, sobre la cara (ergonomía: a un lado no se veía; `docs/ERGONOMIA.md`).
 - **[PR 30: portado de RepArena (opción B del usuario: con lo de serie de IWSDK las manos iban peor): la mano perdida sigue su gesto o la coloca el cuerpo, que se pide al entrar con «Manos con el cuerpo»; no se pinta ni pulsa menús (`src/input/hand-filter.ts`)]** Manos perdidas (solo manos desnudas): la que iba deprisa sigue su gesto un instante (`h.est = 'pred'`) y, con «Manos
   con el cuerpo» (Ajustes → Menú, de serie) y si el navegador da el cuerpo, la perdida se coloca en la muñeca del
   cuerpo con su última forma (`h.est = 'body'`). Ninguna mano con `h.est` se pinta (salían volando hacia delante o delante
@@ -415,8 +418,9 @@ No las cambies sin preguntarle.
   claro, en un marco de al menos 32 cm (en los voladores pequeños apenas se veían). Las demás se quitaron.
 - Cada ajuste con explicación lleva una tecla «?» que enseña su explicación al lado del menú.
 - El marcador se ve siempre, también al mirarlo de frente, y sin texto de más.
-  - Por defecto (VR), a un lado (izquierda o derecha, configurable), el doble de grande y siempre a la vista, por fuera de
-    las compuertas.
+  - Por defecto (VR), a un lado (izquierda o derecha, configurable), grande y siempre a la vista, por fuera de las
+    compuertas. **3,2 m de ancho a 5 m, a unos 48° del frente** (ergonomía, aplicada por el usuario: con 4,2 m quedaba a
+    53-69° y había que girar mucho la cabeza; antes, «el doble de grande»).
   - Siempre, bajo los puntos, lo que llevas entrenando (la ronda; en una sesión, la sesión entera) y, discreta, la hora.
   - Diseño elegido (C): rosco doble (fuera, la oleada con la muesca del récord; dentro, la racha en 10 tramos), oleadas en
     puntos, un solo hueco para mensajes a 48 px o más. En el relámpago, el borde es una mecha. Nada de cargas ni escudo en
@@ -429,6 +433,9 @@ No las cambies sin preguntarle.
   con la cabeza**: siempre derechos de pie y colgado.
   - Tumbado y en plancha: en el suelo bajo la cara o en el techo, de cara a los ojos, con lo de arriba del texto hacia la
     cabeza y fijos (ladearla no los gira). Igual para todos los avisos de la vista.
+  - **Salvo en la plancha lateral** (ergonomía, aplicada por el usuario): de lado, con la cabeza tumbada y la vista al frente,
+    se ladean con la cabeza (derechos en el mundo se leían girados 60-90°); y el mundo y la bola se orientan solo con la
+    mirada (la coronilla apunta a lo largo del cuerpo).
 - Los avisos de lo que se hace mal salen impresos en el suelo, durante unos 4 s, **de tamaño medio** (corregido por el usuario:
   en plancha llenaban la vista y tapaban el menú, los enemigos y el marcador). **Tumbado o en plancha no salen en el suelo**
   (está a un palmo de la cara): basta el aviso breve de la vista.
@@ -446,7 +453,10 @@ No las cambies sin preguntarle.
   centro (con el marcador en «Compuertas», en su hueco de mensajes); en la Travesía, un letrero sobre el sendero, alto y lejos.
   Arriba, tenue, lo que hay que hacer en ese ejercicio; abajo, grande, la corrección o la orden. Tumbado y en plancha, en el
   aviso breve de la vista (en el suelo bajo la cara). En plancha y en zancada, los textos dicen lo de esa forma (nada de
-  sentadillas ni brazos en cruz en plancha).
+  sentadillas ni brazos en cruz en plancha). Según la postura (ergonomía, aplicada por el usuario; `docs/ERGONOMIA.md`):
+  **sentado** (los fondos), el panel más bajo, a unos 14° sobre los ojos; con **la vista en la pesa o en el suelo** (los dos
+  curls, la elevación frontal, los antebrazos, el swing y el peso muerto), sin panel: en el aviso breve, justo bajo la
+  mirada; y **colgado** en Barras, sin aviso en el suelo (no se ve), solo el breve.
 - **Antes de empezar**, la colocación y la caricatura van juntas y centradas delante de ti, y vienen a tu mirada enseguida
   (antes quedaban a un lado, hacia donde estaba el menú).
 - **Con un menú abierto, nada lo tapa**: ni los avisos del suelo ni el breve ni la carga del suelo (pedido del usuario).

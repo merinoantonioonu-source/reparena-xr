@@ -41,6 +41,10 @@ export interface TouchEnv {
   swordCut(t: TouchTarget, hint: (text: string) => void): Side | null;
   /** Los objetivos de la oleada i (RepArena: waveReps). */
   waveReps(i: number): number;
+  /** Tal cual RepArena (solo para compararlo, tests/compare): sin lo cambiado en RepArena XR por la ergonomía
+   * (docs/ERGONOMIA.md: lo alto más a la vista, las flexiones desde 2,5 m, los abdominales a la altura de la mirada y la
+   * separación mínima en el suelo). */
+  classic?: boolean;
 }
 
 /** Lo que pasa en un paso, en orden; la partida lo aplica tal cual (entre paréntesis, lo que hacía RepArena). */

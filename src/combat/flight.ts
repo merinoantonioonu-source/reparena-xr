@@ -160,7 +160,7 @@ export class Flight {
     const low = env.low > 0, push = this.tiny;
     if (env.active) {
       const tgt = _a.set(HL.x * 0.6, low ? env.low : Math.max(push ? 0.2 : 1.0, HL.y - (push ? 0.05 : 0.12)), HL.z * 0.6);
-      const S = env.sup, to = _b.subVectors(tgt, this.base), d = to.length(), reach = push ? 0.32 : S ? 1.4 : 0.85;
+      const S = env.sup, to = _b.subVectors(tgt, this.base), d = to.length(), reach = push ? 0.32 : S ? (this.classic ? 1.4 : 2.0) : 0.85; // (el superman, en RepArena XR: a 1-1,5 m de las manos, en la mirada baja)
       if (d > reach || this.retreat > 0) this.waitT = 0;
       else this.waitT += dt;
       if (this.retreat > 0) {

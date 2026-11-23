@@ -413,6 +413,20 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **La ergonomía, aplicada** (el usuario: «aplica todas tus propuestas», `docs/ERGONOMIA.md`): lo de RepArena sigue tras
+  `classic` para compararlo (`TouchEnv.classic`: lo alto de Toques, las flexiones desde 2,5 m, los abdominales que bajan del
+  aire y el mínimo de 2 s en el suelo, `TCH_FLOOR_GAP`; `BarsEnv.classic`: el remo, desde arriba; y el superman de
+  `Flight.classic`). El panel de indicaciones según la postura (`guideSpot(…, ex)`: `GUIDE_TOAST_EX`, sin panel; los fondos,
+  más bajo); sin aviso del suelo colgado (`HANG_EX`); la bola sin salto (game.ts); la plancha lateral, solo con la mirada
+  (`bodyDir(…, true)`, `bodyYaw(true)`) y con los avisos ladeados (`VIEW_FRAME.roll`); los marcadores (`placeBoard`: 3,2 m;
+  el atril de la plancha lateral y el superman; el techo boca arriba). Lo comprueba `ergonomia.test.ts`. El aviso «un
+  objetivo antes» del combinado no se hizo: va contra «no se avisa de lo que viene».
+- **La caricatura del menú** se guarda en dibujos (`DemoFrames`, `src/ui/demo-frames.ts`): 40 por vuelta, cada uno pintado y
+  subido una vez; el colgado, como antes (su cuenta de segundos no se repite). Si se cambia el dibujo de la caricatura, la
+  clave de `frame` tiene que cambiar con lo que la cambie.
+- **Lo que se coge con la cabeza en la Travesía** (frutas, barriles) se encoge cerca de los ojos (`put(…, near)`,
+  `EYE_FADE`/`EYE_GONE`); el desprendimiento, con su sombra en el suelo (`falls[].shade`).
+
 - **Lo que eligió el usuario al final del plan**: la pared de los inclinados de Arcos es el campo de fuerza (`fieldMaterial`,
   `wall-looks.ts`; también en la cortina de encima de la barra); sin avisos de texto en Arcos (`plan.notice` sigue para
   compararlo) ni del lanzador; el cofre de la Travesía dice lo que lleva al marcador; superman con las manos apoyadas no
