@@ -383,18 +383,21 @@ export class Rewards {
     haptic('left', 0.6, 150);
     haptic('right', 0.6, 150);
     const pool = this.perksOn() ? this.perks.pool(GAME.maxLives > 0).filter((k) => !(this.perks.offer ?? []).includes(k)) : [];
+    // (lo que lleva sale flotando de su boca y arriba se esfuma: recibido; src/ui/prize-system.ts. Sin aviso grande: que se
+    // abre ya se ve y su letra pequeña no se leía, pedido del usuario)
+    const mouth = C.g.getWorldPosition(this.v).setY(0.5);
     if (pool.length) {
       const k = pool[Math.floor(Math.random() * pool.length)];
       this.perks.take(k);
+      HOOKS.prize(mouth, [{ icon: 'perk', text: PERKS[k].name, color: PERKS[k].col }]);
       this.host.message(`¡Cofre! Mejora extra: ${PERKS[k].name}`, 2.4);
-      this.host.trophy('¡COFRE ABIERTO!', `Mejora extra para esta ronda: ${PERKS[k].name}. ${PERKS[k].desc}`, PERKS[k].col);
     } else if (GAME.maxLives > 0 && this.host.addLife()) {
+      HOOKS.prize(mouth, [{ icon: 'heart', text: '+1 vida', color: '#ff4f7b' }]);
       this.host.message('¡Cofre! +1 vida', 2.2);
-      this.host.trophy('¡COFRE ABIERTO!', `+1 vida: ahora tienes ${GAME.lives}`, '#ff4fa3');
     } else {
       GAME.score += 300;
+      HOOKS.prize(mouth, [{ icon: 'coins', text: '+300', color: '#ffd166' }]);
       this.host.message('¡Cofre! +300 puntos', 2.2);
-      this.host.trophy('¡COFRE ABIERTO!', '+300 puntos (ya tienes todas las mejoras)');
     }
   }
 }

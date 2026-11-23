@@ -9,7 +9,7 @@
  * en tests/compare/touch.compare.test.ts.
  */
 import type { TouchEnv, TouchEvent } from './env.js';
-import { CUT_MOVES, SLAM_HAND, SLAM_HEAD, SWORD_CUTS, TCH_MOVES, TouchTarget, isFloor, pick, pickW, sampleHands, tchPeriod, type TouchPart, type TouchState } from './targets.js';
+import { CUT_MOVES, SLAM_HAND, SLAM_HEAD, SWORD_CUTS, TCH_MOVES, TouchTarget, gateLead, isFloor, pick, pickW, sampleHands, tchPeriod, type TouchPart, type TouchState } from './targets.js';
 
 /** La separación mínima entre objetivos en el suelo (s; RepArena XR). */
 export const TCH_FLOOR_GAP = 2;
@@ -111,7 +111,7 @@ export function touchStep(tch: TouchState, queue: TouchSpec[], dt: number, t: nu
   tch.ev.length = 0;
   tch.gatesOpen = false;
   if (st !== 'paused') tch.clock += dt;
-  if (st === 'play' && queue.length && tch.clock >= tch.nextArrive - env.dv('tchArrive')) {
+  if (st === 'play' && queue.length && tch.clock >= tch.nextArrive - env.dv('tchArrive') * gateLead(env)) {
     const spec = queue.shift() as TouchSpec, x = new TouchTarget(tch, spec.move, Math.max(tch.nextArrive, tch.clock + 0.3), spec.side);
     tch.touches.push(x);
     tch.nextArrive = Math.max(tch.nextArrive, tch.clock) + tchGapFor(env, spec.move);

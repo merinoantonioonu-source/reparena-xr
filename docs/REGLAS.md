@@ -232,8 +232,12 @@ No las cambies sin preguntarle.
   delante: los de bosque por dentro, ciudad y playa se quitaron (lo cercano se veía plano, de cartón). En Arcos, con
   fondo, sin compuertas: avanzas por el paisaje de la Travesía.
 - Su caricatura no habla de rayos: cada repetición empuja por el sendero.
-- Los cofres (también el de Combate) dicen al aparecer qué hay dentro (en el marcador: no es un aviso de lo que viene) y, al abrirlos, sale un aviso grande con lo que has
-  conseguido y lo que falta para el premio siguiente; el de la Travesía, abierto, se esfuma con humo (no se aparta).
+- Los cofres (también el de Combate) dicen al aparecer qué hay dentro (en el marcador: no es un aviso de lo que viene); el de
+  la Travesía, abierto, se esfuma con humo (no se aparta). **Al abrirse, lo que llevan sale flotando de su boca** (pedido del
+  usuario: no se sabía qué contenían): un medallón por premio, con su dibujo y lo que es en grande (la llave n.º de 3, la gema,
+  los puntos, las doradas del tramo, el tesoro; en Combate, la mejora, la vida o los puntos), uno tras otro, que sube en
+  vertical y, arriba, se esfuma en chispas: recibido. **Sin el aviso grande de «¡Cofre abierto!»** (pedido del usuario: que se
+  abre ya se ve y su letra pequeña no se leía). Medallones dibujados, no modelos: no hay llave ni gema en los kits.
 - El césped del suelo gira y corre con el mundo (en las curvas, lo apoyado no patina sobre la hierba).
 
 **Repeticiones y disparo**
@@ -278,6 +282,9 @@ No las cambies sin preguntarle.
 - Superman: **con las manos apoyadas en el suelo no cuenta** (decidido por el usuario con su diagnóstico: el tronco tiene que
   subir solo): si las gafas ven una mano a menos de 9 cm del suelo, el aguante se para y avisa «Despega las manos». Sin ver
   las manos, solo cuenta el tronco.
+- En Toques, **los objetivos salen de las compuertas** (pedido del usuario: aparecían a medio camino, poco realista): de la boca
+  de la de su lado (en el centro, la del centro), arrancan despacio, cogen velocidad y llegan suaves, a su paso de siempre
+  (salen antes). Boca arriba siguen bajando del aire (las compuertas quedan hacia los pies).
 - En Toques, entre un toque y el siguiente hay que **volver a la postura de partida**. Un toque vale aunque el objetivo
   aún venga de camino. El oblicuo es un diamante a un lado, junto a la rodilla, que se toca con la mano contraria
   (cruzando: gira el tronco); «Manos a rodillas», un diamante delante de las rodillas (las gafas no ven las rodillas).

@@ -26,6 +26,7 @@ import { PerfStartSystem, PerfSystem } from './ui/perf-system.js';
 import { ComicSystem } from './style/comic-system.js';
 import { SoundSystem } from './audio/sound.js';
 import { ViewSystem } from './ui/view-panels.js';
+import { PrizeSystem } from './ui/prize-system.js';
 import { GoalsSystem } from './ui/goals-intro.js';
 import { RaMenuSystem } from './ui/ra/menu-system.js';
 import { useLocalInputModels } from './input/input-models.js';
@@ -57,6 +58,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(VfxSystem, { priority: 7 }); // (las partículas: llamas, humo, polvo… src/style/vfx.ts)
   world.registerSystem(RaMenuSystem, { priority: 6 }); // (los menús de RepArena: opción B del usuario, PR 31)
   world.registerSystem(ViewSystem, { priority: 6 });
+  world.registerSystem(PrizeSystem, { priority: 6 }); // (los premios que salen de los cofres)
   world.registerSystem(GoalsSystem, { priority: 6 });
   world.registerSystem(GloveSystem, { priority: 7 }); // (detrás de la partida: el mundo ya está en su sitio)
   world.registerSystem(ComicSystem, { priority: 7 });

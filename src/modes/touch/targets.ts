@@ -88,6 +88,8 @@ export interface MoveSpec {
   yaw: number;
   normal: Vector3 | null;
   cutDir: Vector3 | null;
+  /** Sale de una compuerta (RepArena XR): viaja más, arrancando y llegando suave. */
+  gate: boolean;
 }
 
 /**
@@ -97,7 +99,7 @@ export interface MoveSpec {
 export function moveSpec(env: TouchEnv, S: number, move: string, sd0 = 0): MoveSpec {
   const r = env.s('tchRing') / 100, D = env.ar ? 4 : 6.5, side = sd0 || (env.rnd() < 0.5 ? -1 : 1);
   const sd = env.dv('squatDepth') / 100, pd = env.dv('pushDepth') / 100, jh = env.s('jumpHeight') / 100;
-  const o: MoveSpec = { move, part: CUT_MOVES.includes(move) ? 'cut' : HAND_MOVES.includes(move) ? 'hand' : 'head', hand: side < 0 ? 'left' : 'right', n: new Vector3(0, 0, 1), r, hold: 0, pos: new Vector3(), from: new Vector3(), ang: 0, yaw: 0, normal: null, cutDir: null };
+  const o: MoveSpec = { move, part: CUT_MOVES.includes(move) ? 'cut' : HAND_MOVES.includes(move) ? 'hand' : 'head', hand: side < 0 ? 'left' : 'right', n: new Vector3(0, 0, 1), r, hold: 0, pos: new Vector3(), from: new Vector3(), ang: 0, yaw: 0, normal: null, cutDir: null, gate: false };
   const rin = r * 0.75; // la cabeza está dentro si su centro cae a menos de esto del centro de la ameba
   const R3 = (a: number, b: number) => rand(env, a, b);
   if (move === 'lunge') {
@@ -185,8 +187,22 @@ export function moveSpec(env: TouchEnv, S: number, move: string, sd0 = 0): MoveS
   // ras de suelo desde los pies y solo se veía al final; docs/ERGONOMIA.md)
   else if (isSupine(env)) o.from.set(o.pos.x * 1.3, o.pos.y + 1.9, o.pos.z - 1.3);
   else o.from.set(o.pos.x * 1.6, isFloor(env) ? Math.max(0.12, o.pos.y) : o.pos.y, -far);
+  // (RepArena XR, pedido del usuario: salen de la boca de una compuerta, la de su lado, no de la nada a medio camino; boca
+  // arriba siguen bajando del aire y el abdominal lateral, por el costado)
+  if (gateLead(env) > 1 && move !== 'side' && env.gateFrom!(o.pos.x, _gf)) {
+    o.from.set(_gf.x, o.from.y, _gf.z);
+    o.gate = true;
+  }
   return o;
 }
+
+/** Cuánto antes salen los que vienen de las compuertas (× «Tiempo que tardan en llegar»: vienen de más lejos, a su paso de
+ * siempre). 1: tal cual RepArena. */
+export const TCH_GATE_K = 1.6;
+export function gateLead(env: TouchEnv): number {
+  return !env.classic && env.gateFrom && !isSupine(env) ? TCH_GATE_K : 1;
+}
+const _gf = new Vector3();
 
 /** Lo que lleva cada mano para volver a la postura de partida (RepArena: mkArm). */
 export interface Arm {
@@ -333,6 +349,7 @@ export class TouchTarget implements MoveSpec {
   hold!: number;
   pos!: Vector3;
   from!: Vector3;
+  gate = false;
   ang!: number;
   yaw!: number;
   normal!: Vector3 | null;
@@ -462,7 +479,8 @@ export class TouchTarget implements MoveSpec {
   update(dt: number, t: number): void {
     const tch = this.tch, c = tch.clock, play = tch.env.state === 'play' || tch.env.state === 'rest';
     if (this.mode === 'approach') {
-      const k = clamp((c - this.spawnT) / Math.max(0.1, this.arriveAt - this.spawnT), 0, 1), e = 1 - Math.pow(1 - k, 3);
+      // (de una compuerta: sale despacio de su boca, coge velocidad y llega suave; si no, frenando como en RepArena)
+      const k = clamp((c - this.spawnT) / Math.max(0.1, this.arriveAt - this.spawnT), 0, 1), e = this.gate ? k * k * (3 - 2 * k) : 1 - Math.pow(1 - k, 3);
       this.at.lerpVectors(this.from, this.pos, e);
       this.sway(k, t);
       // también vale tocarlo mientras viaja, si atinas

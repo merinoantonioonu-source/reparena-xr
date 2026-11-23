@@ -128,6 +128,7 @@ export class TouchSystem extends createSystem({}) {
       swordActive: () => false, // (las espadas llegan con el PR 9)
       swordCut: () => null,
       waveReps: (i) => waveReps(i),
+      gateFrom: (x, out) => self.gateFrom(x, out),
     };
     this.tch = mkTouch(this.env);
   }
@@ -195,6 +196,25 @@ export class TouchSystem extends createSystem({}) {
     for (const ev of evs) this.apply(ev);
     this.openFront();
     for (const e of this.entries) this.paint(e, dt);
+  }
+
+  /** La boca de la compuerta de delante de su lado (src/modes/touch/env.ts: gateFrom). Solo al salir un objetivo. */
+  private gateFrom(x: number, out: Vector3): boolean {
+    const gs = this.gates;
+    if (!gs) return false;
+    const live: { x: number; z: number; ry: number }[] = [];
+    for (const e of gs.queries.gates.entities) {
+      const f = gs.frame(e, { x: 0, z: 0, ry: 0, scale: 1 });
+      live.push({ x: f.x, z: f.z, ry: f.ry });
+    }
+    const fr = frontGates(live);
+    if (!fr.length) return false;
+    // (a un lado, la de ese lado; en el centro, la más centrada)
+    let g = fr[0];
+    for (const h of fr) if (x < -0.15 ? h.x < g.x : x > 0.15 ? h.x > g.x : Math.abs(h.x) < Math.abs(g.x)) g = h;
+    // (la boca: un palmo por delante de las puertas, hacia ti)
+    out.set(g.x + Math.sin(g.ry) * 0.4, out.y, g.z + Math.cos(g.ry) * 0.4);
+    return true;
   }
 
   // las compuertas de delante, por donde llegan, abiertas mientras dura la oleada
