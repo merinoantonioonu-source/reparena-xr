@@ -63,6 +63,9 @@ export class FlyLook {
   private readonly wins: Mesh[] = [];
   private readonly g: Record<'hBar' | 'hWin' | 'hDot' | 'vBar' | 'vWin' | 'vDot' | 'vTgt', Mesh>;
   private readonly bp = { x: 0, z: 0 };
+  /** Lo que lleva el batir de la sombra tras un aletazo (s). */
+  private flapT = 9;
+  private lastClock = 0;
 
   constructor() {
     const plane = new PlaneGeometry(1, 1);
@@ -105,12 +108,17 @@ export class FlyLook {
     const G = R.glider, d = R.dist;
     // tu sombra: justo debajo (el mundo ya está desplazado a tu lado), más grande y más clara cuanto más alto
     const ry = bend(d, 0, this.bp), spread = G.diving ? 0.6 : G.pike ? 1.15 : 1, bank = Math.max(-1, Math.min(1, G.vU / 3));
+    // (cada aletazo, la sombra bate: se abre y se cierra un instante)
+    if (G.flapped) this.flapT = 0;
+    this.flapT += Math.max(0, Math.min(0.1, clock - this.lastClock));
+    this.lastClock = clock;
+    const beat = this.flapT < 0.5 ? 0.35 * Math.sin((Math.PI * this.flapT) / 0.25) * (1 - this.flapT / 0.5) : 0;
     const k = 1 + 0.06 * G.alt;
     this.shadow.position.set(this.bp.x, GROUND_Y + gy(d) + 0.04, this.bp.z);
     this.shadow.visible = WORLDS[R.world % WORLDS.length].key !== 'sky'; // (en las islas en el cielo no hay suelo debajo)
     this.shadow.rotation.y = ry;
     this.shadow.rotation.z = -bank * 0.25;
-    this.shadow.scale.set(1.7 * spread * k * Math.cos(bank * 0.5), 1.2 * k, 1);
+    this.shadow.scale.set(1.7 * (spread + beat) * k * Math.cos(bank * 0.5), 1.2 * k, 1);
     (this.shadow.material as MeshBasicMaterial).opacity = Math.max(0.12, 0.55 - 0.03 * G.alt) * Math.min(1, G.alt / 0.5);
     // las ventanas de los retos
     let wi = 0;

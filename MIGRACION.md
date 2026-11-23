@@ -418,10 +418,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   las capturas del usuario, en `tests/replay/capturas/vuelo-*.txt`), el centro fijo en el aire (`FlyBody`), el lado por
   posición (y **el mundo se desplaza a tu lado**: antes el lado no se veía, `uShift`), la pica sobre el picado, los dos mandos
   de altura (`flyModel`: P en la suave, A en la dura), la práctica (`FlyPractice`; `reparenaxr-fly`, `reparenaxr-flytuto`), lo
-  que se ve (`src/modes/trek/fly-look.ts`: sombra, ventanas y reglillas; las alas, `Wings` con muñecas de mentira) y los retos
+  que se ve (`src/modes/trek/fly-look.ts`: sombra, ventanas y reglillas; las alas del vuelo se quitaron, ver abajo) y los retos
   a medida (`FLY_GAP`, `FLY_FROM`, `platFlyGap`). **Pendiente con el usuario**: que lo pruebe y elija mando de altura (se quita
   el otro), si las reglillas se quedan, si los recorridos le van (o los de la práctica) y si dedica más a la tabla. Si algo
   no va, pídele la caja negra del vuelo (pausa › «Guardar diagnóstico»; la página la descarga) y afina con la reproducción.
+  **Tras su primer vídeo** («desastroso»): las alas se quitaron (pegadas a la cabeza tapaban la vista), la práctica ya no
+  congela el mundo ni pide volver al centro, antes de empezar estás posado y sin flexiones no se pierde altura esperando
+  (en la dura se quedaba a 2 m y parado). Si vuelve a ir mal, pide la caja negra del vuelo antes de tocar nada.
 
 - **El vuelo de la Travesía** («Volando», `trekFly`; con tabla, `flyBoard`): el planeador es `Glider` (`plat/fly.ts`, lógica
   pura: lado, altura, picado, aletazo, pica, corriente, posarse); `Runner.fly`, `flyStep` (lo que manda el cuerpo, con

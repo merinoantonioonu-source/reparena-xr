@@ -303,8 +303,9 @@ describe('la Travesía volando', () => {
 
 
 describe('la práctica de vuelo', () => {
-  it('la primera vez, seis pasos: cada uno espera a que lo hagas; el mundo espera; al acabar, el vuelo a tu medida', () => {
-    const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });
+  it('la primera vez, seis pasos: cada uno se marca en cuanto lo haces (sin volver); el mundo no espera; al acabar, el vuelo a tu medida', () => {
+    // (con lo de serie: cada flexión te empuja, como lo probó el usuario en las gafas)
+    const s = new Sim({ pushDepth: 13, trekFly: 1 });
     s.env.ex = 'pushup';
     s.env.calibRef = 0.45;
     s.head.y = 0.45;
@@ -314,32 +315,57 @@ describe('la práctica de vuelo', () => {
     const P = s.r.practice;
     expect(P.active).toBe(true);
     expect(s.of('say').some((e) => e.text === 'Escórate a la derecha')).toBe(true);
-    const d0 = s.r.dist;
-    // a la derecha 10 cm y vuelta; a la izquierda 9 cm y vuelta; bajar 12 cm; una flexión; la pica 15 cm; de canto
-    s.side(0.1, 0.5);
-    s.until(() => P.step === 1, 72 * 3);
-    s.side(-0.09, 0.5);
-    s.until(() => P.step === 2, 72 * 3);
-    s.pushup(0.12, 1.2);
-    s.until(() => P.step === 3, 72 * 3);
-    s.r.rep(false);
-    s.until(() => P.step === 4, 72 * 3);
-    for (let i = 0; i < 40; i++) ((s.head.z = 0.15 * Math.sin((Math.PI * i) / 40)), s.frame());
+    // escorado a la derecha y quieto ahí: se marca enseguida (antes había que volver al centro y se quedaba esperando)
+    s.head.x = 0.1;
+    expect(s.until(() => P.step === 1, 72 * 3)).toBe(true);
+    s.head.x = -0.09;
+    expect(s.until(() => P.step === 2, 72 * 3)).toBe(true);
+    s.head.x = 0;
+    s.head.y = 0.45 - 0.12;
+    expect(s.until(() => P.step === 3, 72 * 3)).toBe(true);
+    s.head.y = 0.45;
+    s.until(() => false, 30);
+    expect(s.r.rep(false)).toBe(true); // (la flexión empuja también en la práctica: el mundo no espera)
+    expect(s.until(() => P.step === 4, 72 * 3)).toBe(true);
+    s.head.z = 0.15;
+    expect(s.until(() => P.step === 5, 72 * 3)).toBe(true);
     s.head.z = 0;
-    s.until(() => P.step === 5, 72 * 3);
     s.head.roll = 1.2;
-    s.until(() => P.done, 72 * 3);
+    expect(s.until(() => P.done, 72 * 3)).toBe(true);
     s.head.roll = 0;
-    expect(P.done).toBe(true);
-    expect(s.r.dist).toBeCloseTo(d0, 3); // (el mundo esperó)
     const fit = s.r.flyFit!;
     expect(fit.side).toBeCloseTo(0.09 * 0.8, 2);
     expect(fit.down).toBeCloseTo(0.12 * 0.8, 2);
     expect(fit.back).toBeCloseTo(0.15 * 0.8, 2);
     expect(s.of('store').some((e) => e.key === 'reparenaxr-flytuto')).toBe(true);
-    // y luego sigue: el recorrido viene
-    s.until(() => false, 72 * 2);
-    expect(s.r.dist).toBeGreaterThan(d0 + 1);
+    expect(s.r.dist).toBeGreaterThan(0.5); // (avanzaste con la flexión)
+    // durante la práctica no te hundes (sus pasos no son flexiones)
+    expect(s.r.flyAlt).toBeGreaterThan(4);
+  });
+  it('un paso que no sale se salta solo, sin quedarse esperando', () => {
+    const s = new Sim({ pushDepth: 13, trekFly: 1, trekAuto: 1 });
+    s.env.ex = 'pushup';
+    s.env.calibRef = s.head.y = 0.45;
+    s.r.calibrate(0.45, 0, 0);
+    s.load(course([mk(1, 'chest', 400, 0)]));
+    s.until(() => s.r.practice.done, 72 * 90);
+    expect(s.r.practice.done).toBe(true);
+    expect(s.of('say').some((e) => e.text === 'Seguimos')).toBe(true);
+  });
+  it('antes de empezar, en el suelo; en la dura, sin hundirse esperando: al empezar, despega hasta la altura de vuelo', () => {
+    const s = new Sim({ pushDepth: 13, trekFly: 1 });
+    s.env.ex = 'pushup';
+    s.env.mem.set('reparenaxr-flytuto', 1);
+    s.env.calibRef = s.head.y = 0.45;
+    s.r.calibrate(0.45, 0, 0);
+    s.load(course([mk(1, 'chest', 400, 0)]));
+    s.env.state = 'ready';
+    s.until(() => false, 72 * 20);
+    expect(s.r.flyAlt).toBeLessThan(0.05);
+    s.env.state = 'play';
+    let top = 0;
+    s.until(() => ((top = Math.max(top, s.r.flyAlt)), false), 72 * 6);
+    expect(top).toBeGreaterThan(FLY.alt0 - 0.3);
   });
   it('hecha una vez, no vuelve a salir (salvo con «Vuelo: repetir la práctica»)', () => {
     for (const again of [0, 1]) {

@@ -274,7 +274,7 @@ export class Glider {
       // (al llegar a la altura de salida, se queda ahí: sin pasarse)
       if (this.alt >= FLY.alt0) {
         this.alt = FLY.alt0;
-        this.vAlt = Math.max(0, this.vAlt - FLY.takeoff);
+        this.vAlt = 0;
         this.rising = false;
       } else if (this.diving || this.flapped) this.rising = false;
       else this.vAlt = Math.max(this.vAlt, FLY.takeoff);
@@ -347,14 +347,16 @@ export const PRACTICE: readonly { key: 'right' | 'left' | 'down' | 'rep' | 'pike
   { key: 'pike', text: 'Cadera arriba: frenas y subes', done: 'Frenas y subes' },
   { key: 'roll', text: 'De canto: tonel', done: 'Tonel' },
 ];
-/** La práctica: lo que hay que llegar a hacer en cada paso (m, rad), lo que dura cada paso como mucho (s: si no sale, se salta)
- * y la pausa entre uno y otro (s). Lo medido se queda al 80 % (el recorrido entero de cada eje, cómodo). */
-export const PRACTICE_SIDE = 0.04, PRACTICE_DOWN = 0.05, PRACTICE_BACK = 0.07, PRACTICE_ROLL = 0.7, PRACTICE_MAX = 25, PRACTICE_GAP = 1.2, PRACTICE_FIT = 0.8;
+/** La práctica: lo que hay que llegar a hacer en cada paso (m, rad), lo que se sigue midiendo al llegar (s: lo más que te
+ * escoras, bajas o vas atrás), lo que dura cada paso como mucho (s: si no sale, se salta) y la pausa entre uno y otro (s). Lo
+ * medido se queda al 80 % (el recorrido entero de cada eje, cómodo). */
+export const PRACTICE_SIDE = 0.04, PRACTICE_DOWN = 0.05, PRACTICE_BACK = 0.07, PRACTICE_ROLL = 0.7, PRACTICE_HOLD = 0.6, PRACTICE_MAX = 12, PRACTICE_GAP = 1.2, PRACTICE_FIT = 0.8;
 
 /**
- * La práctica de vuelo (docs/PLAN-VUELO.md, 3.4): la primera vez que vuelas, antes del primer tramo, seis pasos sin retos.
- * Cada uno espera a que lo hagas (y vuelvas), lo marca con ✓ y pasa al siguiente; de paso mide lo que te escoras a cada lado,
- * lo que bajas y lo que vas atrás en la pica, y deja el vuelo a tu medida.
+ * La práctica de vuelo (docs/PLAN-VUELO.md, 3.4): la primera vez que vuelas, al empezar el primer tramo (que solo trae premios),
+ * seis pasos. Cada uno, en cuanto lo haces, se marca con ✓ y pasa al siguiente (sin pedir volver; en las gafas se quedaba
+ * esperando); si no sale en `PRACTICE_MAX` s, se salta. El mundo no espera: la marcha sigue como siempre. De paso mide lo que
+ * te escoras a cada lado, lo que bajas y lo que vas atrás en la pica, y deja el vuelo a tu medida.
  */
 export class FlyPractice {
   /** El paso (−1: sin empezar; PRACTICE.length: acabada), cuánto lleva y la pausa tras el ✓ (s). */
@@ -368,6 +370,8 @@ export class FlyPractice {
   maxDown = 0;
   maxBack = 0;
   rollT = 0;
+  /** Lo que lleva hecho lo pedido en este paso (s; al llegar a `PRACTICE_HOLD`, ✓). */
+  holdT = 0;
 
   get active(): boolean {
     return this.step >= 0 && this.step < PRACTICE.length;
@@ -378,7 +382,7 @@ export class FlyPractice {
 
   begin(): void {
     this.step = 0;
-    this.t = this.wait = this.rollT = 0;
+    this.t = this.wait = this.rollT = this.holdT = 0;
     this.reached = false;
     this.maxR = this.maxL = this.maxDown = this.maxBack = 0;
   }
@@ -393,7 +397,7 @@ export class FlyPractice {
       this.wait -= dt;
       if (this.wait > 0) return '';
       this.step++;
-      this.t = this.rollT = 0;
+      this.t = this.rollT = this.holdT = 0;
       this.reached = false;
       return this.done ? 'end' : 'next';
     }
@@ -407,24 +411,23 @@ export class FlyPractice {
     if (k === 'right') {
       this.maxR = Math.max(this.maxR, side);
       if (side >= PRACTICE_SIDE) this.reached = true;
-      ok = this.reached && side < 0.02;
     } else if (k === 'left') {
       this.maxL = Math.max(this.maxL, -side);
       if (-side >= PRACTICE_SIDE) this.reached = true;
-      ok = this.reached && side > -0.02;
     } else if (k === 'down') {
       this.maxDown = Math.max(this.maxDown, down);
       if (down >= PRACTICE_DOWN) this.reached = true;
-      ok = this.reached && down < 0.02;
     } else if (k === 'rep') ok = rep;
     else if (k === 'pike') {
       this.maxBack = Math.max(this.maxBack, back);
       if (back >= PRACTICE_BACK) this.reached = true;
-      ok = this.reached && back < 0.03;
     } else {
       this.rollT = roll >= PRACTICE_ROLL ? this.rollT + dt : 0;
       ok = this.rollT > 0.3;
     }
+    // (llegado a lo pedido, un instante más midiendo lo más que llegas, y hecho: no hace falta volver)
+    if (this.reached) this.holdT += dt;
+    if (this.holdT >= PRACTICE_HOLD) ok = true;
     if (ok || this.t > PRACTICE_MAX) {
       this.wait = PRACTICE_GAP;
       return ok ? 'ok' : 'skip';

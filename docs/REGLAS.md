@@ -186,14 +186,17 @@ No las cambies sin preguntarle.
     proporción; la cadera arriba sube) y **aleteo** en la dura (cada flexión, un aletazo; aguantar abajo quieto, el
     **picado**, más hondo, más deprisa). **La pica manda sobre el picado**. Una explosiva sube más (nunca hace falta); de
     canto, un **tonel**.
-  - **Que se vea lo que haces**: tu **sombra** de ave en el suelo (se ladea, se pliega, se abre); tus **alas** a los lados
-    (se ladean con la escora, se pliegan al picar, se abren en pica y baten en cada aletazo); el viento al picar, un golpe de
-    aire al aletear y un siseo al frenar; la **ventana de cada reto**, con luz verde (el canto de abajo del puente, el lado
+  - **Que se vea lo que haces**: tu **sombra** de ave en el suelo (se ladea con la escora, se pliega al picar, se abre en pica
+    y bate en cada aletazo); **sin alas** (corregido por el usuario con su vídeo: pegadas a la cabeza salían delante y detrás
+    y tapaban la vista); el viento al picar, un golpe de aire al aletear y un siseo al frenar; la **ventana de cada reto**, con luz verde (el canto de abajo del puente, el lado
     libre de la columna, la raja de la grieta); y **dos reglillas** en el suelo, por delante de las manos (dónde vas de lado y
     a qué altura, con la ventana del reto que viene en verde: «Vuelo: instrumentos», de serie sí).
-  - **La práctica de vuelo**: la primera vez (y con «Vuelo: repetir la práctica»), antes del primer tramo y con el mundo
-    esperando, seis pasos (escórate a la derecha y a la izquierda, baja el pecho, una flexión, cadera arriba, de canto), cada
-    uno con su ✓; de paso mide lo que te escoras, bajas y vas atrás, y pone el vuelo a tu medida (al 80 %).
+  - **La práctica de vuelo**: la primera vez (y con «Vuelo: repetir la práctica»), al empezar el primer tramo (que solo trae
+    premios), seis pasos (escórate a la derecha y a la izquierda, baja el pecho, una flexión, cadera arriba, de canto): cada uno
+    se marca con ✓ **en cuanto lo haces** (sin volver al centro) y, si no sale en 12 s, se salta. **El mundo no espera** y las
+    flexiones empujan como siempre (corregido por el usuario con su vídeo: parado, sin avanzar, parecía roto). De paso mide lo
+    que te escoras, bajas y vas atrás, y pone el vuelo a tu medida (al 80 %). Antes de empezar (colocándote y calibrando)
+    estás posado en el suelo; al empezar el tramo despegas, y sin flexiones solo se pierde altura ya en el aire y jugando.
   - **Los retos, a la medida de los gestos**: el tiempo antes de cada uno es el de su gesto (la grieta, 4 s; el puente y el
     aro, 3 s; lo demás, 2,4 s; en el primer tramo, un 40 % más; «Volando: tiempo entre retos» y el rango); dos seguidos que
     piden ir arriba y abajo, el doble; el primer tramo, solo premios (aros, corrientes y frutas); columnas y puentes desde el
