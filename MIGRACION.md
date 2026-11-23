@@ -413,6 +413,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Arcos** (bloque 3.H): el láser de la partida te busca (`ArcObsCore.track`, lo pone `arcs-system`; sin él, el de RepArena
+  que compara `arcs-extras.compare`; lo comprueba `arcs-laser.test.ts`). Los cuatro modelos propuestos para la pared de los
+  inclinados están en `src/modes/arcs/wall-looks.ts` (`WALL.look`, de serie `solid`, la de siempre): cuando el usuario elija,
+  se pone el suyo de serie y se quita el resto (y la regla de `REGLAS.md` › Arcos de las paredes).
+
+- **Luciérnagas y balizas** (bloque 3.G): las luciérnagas salen de `moteLayout` (`env-system.ts`: 480; las 180 de RepArena con
+  su azar, apartadas con `moteFit` si estorban) y no pueden estar donde dice `moteAllowed` (lo comprueba `motes.test.ts`); el
+  compás, por sectores y con la ola de luz, en su sombreador. Las balizas: `beamMaterial` (un `ShaderMaterial`: `uA`, lo
+  encendido) y las manchas del suelo (`beacon-floor`, `beacon-spot`), que mueve `GateSystem`.
+
 - **Las indicaciones** (bloque 3.E): `message(…, true)` (y con él `HOOKS.say(…, true)`) va, de pie, al **panel de
   indicaciones** (`guideSpot`, `src/ui/guide-spot.ts`; `drawGuide`; `GameSystem.stepGuide`), y tumbado al aviso breve. No se
   avisa de lo que viene: en la Travesía, `ASK_AHEAD` (types.ts) a `false` (`ask()` solo habla en la pelea con el jefe); en

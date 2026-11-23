@@ -7,7 +7,7 @@
  *    cuerpos que se mueven con ellas. Y los zombis la rodean (Obstacle), como la bola de energía.
  *  - Al abrirse, suena y echa vapor a los lados.
  */
-import { createSystem, Entity, Group, Mesh, MeshBasicMaterial, Object3D, PhysicsBody, PhysicsShape, PhysicsShapeType, PhysicsState, PhysicsSystem, Quaternion, Vector3 } from '@iwsdk/core';
+import { createSystem, Entity, Group, Mesh, MeshBasicMaterial, Object3D, ShaderMaterial, PhysicsBody, PhysicsShape, PhysicsShapeType, PhysicsState, PhysicsSystem, Quaternion, Vector3 } from '@iwsdk/core';
 import { Flyer, Foe, FoeState, Gate, Obstacle } from './components.js';
 import { SND } from '../audio/sound.js';
 import { Puffs } from '../style/comic-fx.js';
@@ -18,7 +18,10 @@ interface GateRt {
   doorL: Object3D | null;
   doorR: Object3D | null;
   spin: Object3D | null;
-  beams: MeshBasicMaterial[];
+  beams: ShaderMaterial[];
+  /** Las manchas de luz del suelo (una por haz) y lo que gira con ellas. */
+  spots: MeshBasicMaterial[];
+  floor: Object3D | null;
   body: MeshBasicMaterial | null;
   doors: Entity[];
   lastOpen: number;
@@ -38,6 +41,8 @@ const SOLIDS: [number, number, number, number, number, number, number, number][]
   [1.25, 1.55, -0.75, 0.12, 3.1, 1.5, 0, 0],
   [0, 1.55, -1.5, 2.5, 3.1, 0.12, 0, 0],
 ];
+/** Lo deprisa que gira la baliza (rad/s: unas 0,7 vueltas por segundo; antes, casi una, y el barrido no se leía). */
+const SPIN = 4.4;
 const DOOR = { w: 1.23, h: 3.0, d: 0.16, x: 0.62, y: 1.5, z: 0.06, slide: 1.25 };
 
 export class GateSystem extends createSystem({ gates: { required: [Gate] }, foes: { required: [Foe] }, flyers: { required: [Flyer] } }, {}) {
@@ -70,15 +75,19 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] }, foes
     const root = e.object3D;
     if (!root || this.rt.has(e)) return;
     root.updateMatrixWorld(true);
-    const beams: MeshBasicMaterial[] = [];
+    const beams: ShaderMaterial[] = [], spots: MeshBasicMaterial[] = [];
     let body: MeshBasicMaterial | null = null;
     root.traverse((o) => {
       const m = o as Mesh;
       if (!m.isMesh) return;
       if (o.name === 'beacon-beam') {
-        const mat = (m.material as MeshBasicMaterial).clone();
+        const mat = (m.material as ShaderMaterial).clone();
         m.material = mat;
         beams.push(mat);
+      } else if (o.name === 'beacon-spot') {
+        const mat = (m.material as MeshBasicMaterial).clone();
+        m.material = mat;
+        spots.push(mat);
       } else if (o.name === 'beacon-body') {
         body = (m.material as MeshBasicMaterial).clone();
         m.material = body;
@@ -90,7 +99,7 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] }, foes
       if (r > 0) s.addComponent(Obstacle, { radius: r });
     }
     for (const sx of [-1, 1]) doors.push(this.collider(root, sx * DOOR.x, DOOR.y, DOOR.z, 0, [DOOR.w, DOOR.h, DOOR.d], PhysicsState.Kinematic));
-    this.rt.set(e, { root, doorL: root.getObjectByName('door-left') ?? null, doorR: root.getObjectByName('door-right') ?? null, spin: root.getObjectByName('beacon-spin') ?? null, beams, body, doors, lastOpen: -1, was: false, wait: 0 });
+    this.rt.set(e, { root, doorL: root.getObjectByName('door-left') ?? null, doorR: root.getObjectByName('door-right') ?? null, spin: root.getObjectByName('beacon-spin') ?? null, beams, spots, floor: root.getObjectByName('beacon-floor') ?? null, body, doors, lastOpen: -1, was: false, wait: 0 });
   }
 
   // un cuerpo de física (una caja) en (x, y, z) del marco de la compuerta
@@ -204,10 +213,24 @@ export class GateSystem extends createSystem({ gates: { required: [Gate] }, foes
         }
       }
       // la baliza: abierta, gira y echa sus haces
+      // (más despacio que antes, para que el barrido se lea; sus manchas de luz barren el suelo de delante de la compuerta y,
+      // cuando un haz te apunta, la lámpara deslumbra un instante: lo que hace reconocible una sirena; pedido del usuario)
       const on = want > 0 || open > 0.05;
-      if (r.spin && on) r.spin.rotation.y += dt * 6;
-      for (const m of r.beams) m.opacity = on ? 0.35 : 0;
-      r.body?.color.setHex(on ? (Math.sin(time * 12) > 0 ? 0xff2a08 : 0xc81e06) : 0x3a0c04);
+      if (r.spin && on) r.spin.rotation.y += dt * SPIN;
+      const th = r.spin?.rotation.y ?? 0;
+      if (r.floor) r.floor.rotation.y = th;
+      for (const m of r.beams) {
+        m.uniforms.uA.value = on ? 0.7 : 0;
+        m.uniforms.uT.value = time;
+      }
+      // (cada haz, hacia delante —hacia ti— cuanto más mira a +z de la compuerta: su mancha, encendida en proporción)
+      let glare = 0;
+      for (let i = 0; i < r.spots.length; i++) {
+        const a = th + i * Math.PI, fwd = Math.max(0, -Math.sin(a));
+        r.spots[i].opacity = on ? fwd : 0;
+        glare = Math.max(glare, Math.pow(fwd, 24));
+      }
+      r.body?.color.setHex(on ? (glare > 0.4 ? 0xffe0c8 : Math.sin(time * 12) > 0 ? 0xff2a08 : 0xc81e06) : 0x3a0c04);
     }
     this.puffs.update(dt);
   }

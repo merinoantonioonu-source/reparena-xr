@@ -20,8 +20,34 @@ import { GAME, LITE, SPECIAL } from '../core/state.js';
 import { head } from '../input/hand-model.js';
 
 const TAU = Math.PI * 2;
-// (el doble que en RepArena, pedido del usuario: con 90 se veían pocas; las 90 primeras, en los mismos sitios de siempre)
-const MOTE_N = 180, MOTE_SPAN = 15;
+// (pedido del usuario: el doble que en RepArena, 180; y luego al menos 2,5 veces más, en la periferia, para sentir el compás
+// de la música con su movimiento: 480. Las 180 de antes, con su mismo azar; las nuevas, más lejos y más altas)
+const MOTE_OLD = 180, MOTE_N = 480, MOTE_SPAN = 15;
+/** Lo que no pueden ocupar (pedido del usuario: que no tapen las compuertas, los enemigos ni tu entorno inmediato): a menos
+ * de `MOTE_NEAR` m de ti, y el pasillo de juego (±`MOTE_FRONT` rad del frente, hasta `MOTE_DEEP` m) por debajo de
+ * `MOTE_LOW` m. */
+export const MOTE_NEAR = 4.5, MOTE_FRONT = (35 * Math.PI) / 180, MOTE_DEEP = 12.5, MOTE_LOW = 4.6;
+
+/** ¿Puede estar una luciérnaga aquí? (x, z: en la arena, tú en el centro mirando a −z; y: la altura) */
+export function moteAllowed(x: number, y: number, z: number): boolean {
+  const d = Math.hypot(x, z);
+  if (d < MOTE_NEAR) return false;
+  const a = Math.abs(Math.atan2(x, -z));
+  return !(a < MOTE_FRONT && d < MOTE_DEEP && y < MOTE_LOW);
+}
+
+/** La lleva a un sitio permitido (lo más cerca del que tenía): más lejos de ti y, en el pasillo, por encima de él. */
+export function moteFit(p: [number, number, number], R: () => number): [number, number, number] {
+  let [x, y, z] = p;
+  const d = Math.hypot(x, z);
+  if (d < MOTE_NEAR) {
+    const k = (MOTE_NEAR + R() * 2) / Math.max(0.01, d);
+    x *= k;
+    z *= k;
+  }
+  if (!moteAllowed(x, y, z)) y = MOTE_LOW + 0.2 + R() * 2.4;
+  return [x, y, z];
+}
 /** De colores (pedido del usuario, dos veces: con una de cada tres y el centro blanco, ni se notaba): rosa, turquesa, violeta,
  * verde, naranja, azul y amarillo, vivos, en `MOTE_TINT_P` de ellas; las demás, del amarillo de siempre. */
 const MOTE_TINTS = [0xff3fb4, 0x1fe0ff, 0x9a5cff, 0x3dff7a, 0xff8a1f, 0x3f7bff, 0xffe23a], MOTE_TINT_P = 0.75;
@@ -39,14 +65,34 @@ function rng(seed: number): () => number {
   };
 }
 
-/** Las luciérnagas (RepArena: src/56_motes.js): 180 puntos con su vuelo sereno y sinuoso, que nunca van hacia atrás ni se
+/** Las luciérnagas (RepArena: src/56_motes.js): 480 puntos con su vuelo sereno y sinuoso, que nunca van hacia atrás ni se
  * acercan a menos de 80 cm; algunas, de colores; en un momento especial (`SPECIAL`), destellan más vivas. */
-function makeMotes(): Points {
-  const g = new BufferGeometry(), base = new Float32Array(MOTE_N * 3), seed = new Float32Array(MOTE_N * 4), tint = new Float32Array(MOTE_N * 4), R = rng(91), RT = rng(173), c = new Color();
+/** Dónde está cada luciérnaga (x, y, z, en la arena) y su azar propio (4 números): siempre igual. Las 180 de siempre, con su
+ * mismo azar (apartadas si caen donde estorban); las nuevas, alrededor, de 6 a 20 m y de 0,3 a 7 m de alto, fuera del pasillo
+ * de juego. */
+export function moteLayout(): { base: Float32Array; seed: Float32Array } {
+  const base = new Float32Array(MOTE_N * 3), seed = new Float32Array(MOTE_N * 4), R = rng(91), RF = rng(311), RN = rng(997);
   for (let i = 0; i < MOTE_N; i++) {
-    const a = R() * TAU, d = 1.3 + Math.pow(R(), 0.8) * 12; // (más cerca que lejos, pero no encima)
-    base.set([Math.sin(a) * d, 0.25 + Math.pow(R(), 1.3) * 3, -Math.cos(a) * d], i * 3);
-    seed.set([R(), R(), R(), R()], i * 4);
+    if (i < MOTE_OLD) {
+      const a = R() * TAU, d = 1.3 + Math.pow(R(), 0.8) * 12;
+      base.set(moteFit([Math.sin(a) * d, 0.25 + Math.pow(R(), 1.3) * 3, -Math.cos(a) * d], RF), i * 3);
+      seed.set([R(), R(), R(), R()], i * 4);
+    } else {
+      let p: [number, number, number];
+      do {
+        const a = RN() * TAU, d = 6 + Math.pow(RN(), 0.7) * 14;
+        p = [Math.sin(a) * d, 0.3 + Math.pow(RN(), 1.2) * 6.7, -Math.cos(a) * d];
+      } while (!moteAllowed(p[0], p[1], p[2]));
+      base.set(p, i * 3);
+      seed.set([RN(), RN(), RN(), RN()], i * 4);
+    }
+  }
+  return { base, seed };
+}
+
+function makeMotes(): Points {
+  const g = new BufferGeometry(), { base, seed } = moteLayout(), tint = new Float32Array(MOTE_N * 4), RT = rng(173), c = new Color();
+  for (let i = 0; i < MOTE_N; i++) {
     // su color propio (y cuánto lo lleva: 0, el de todas)
     const on = RT() < MOTE_TINT_P;
     c.setHex(MOTE_TINTS[Math.floor(RT() * MOTE_TINTS.length)]);
@@ -68,23 +114,29 @@ function makeMotes(): Points {
         vec3 sw = vec3(sin(tw * 2.37 * f.y + ph.y), 0.0, sin(tw * 2.71 * f.x + ph.z)) * 0.32;
         // el vaivén: el suyo, libre, o con música, al compás: en cada pulso, en un extremo (con canciones rápidas, cada dos; la
         // mitad, al revés que la otra mitad) y en columpio (un poco más arriba en los extremos, abajo al pasar por el medio)
-        float bw = cos(3.14159 * (uSwing + step(0.5, aSeed.z))); vec2 dir = vec2(cos(ph.x), sin(ph.x));
-        off += mix(sw, vec3(dir.x * bw * 0.22, (bw * bw - 0.5) * 0.05, dir.y * bw * 0.22), uDance);
+        // por grupos (sectores del anillo alrededor de ti): cada sector se columpia a la vez, sus vecinos al revés, hacia fuera y
+        // hacia dentro (el anillo entero «respira» con cada pulso); más amplio cuanto más lejos, para que se vea desde aquí
+        float ang = atan(position.x, -position.z), rad = length(position.xz), sect = floor((ang + 3.14159) / 6.2832 * 12.0);
+        float bw = cos(3.14159 * (uSwing + mod(sect, 2.0))); vec2 dir = rad > 0.01 ? position.xz / rad : vec2(cos(ph.x), sin(ph.x));
+        float kd = clamp(rad / 4.0, 1.0, 4.0);
+        off += mix(sw, vec3(dir.x * bw * 0.22 * kd, (bw * bw - 0.5) * 0.08 * kd, dir.y * bw * 0.22 * kd), uDance);
         vec3 p = position + off;
         vec3 dh = p - uHead; float dl = length(dh); if (dl < 0.8) p = uHead + dh / max(dl, 0.001) * 0.8; // (lejos de tu cara)
         vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
         float b = 0.5 + 0.5 * sin(t * (0.5 + 0.9 * aSeed.y) + aSeed.x * 6.2832), tw2 = 0.35 + 0.65 * pow(b, 3.0); // (se encienden y apagan despacio; a ratos, un destello)
         float fb = fract(uBeat), acc = step(fract(uBeat * 0.25), 0.25), pulse = exp(-fb * 5.0) * (0.55 + 0.55 * acc) * (0.6 + 0.4 * aSeed.w); // (con música, un destello en cada pulso; más en el primero de cada cuatro)
-        tw2 = mix(tw2, 0.3 + 0.45 * tw2 + pulse, uDance);
+        // y en el primer pulso de cada compás, una ola de luz que da la vuelta al anillo en ese compás
+        float wa2 = fract(uBeat * 0.25) * 6.2832 - 3.14159, dA = abs(mod(ang - wa2 + 3.14159, 6.2832) - 3.14159), wave = exp(-dA * dA * 9.0) * (1.0 - fract(uBeat * 0.25));
+        tw2 = mix(tw2, 0.3 + 0.45 * tw2 + pulse + 0.9 * wave, uDance);
         // en un momento especial, más vivas: chisporrotean deprisa, cada una a su ritmo, y brillan más y más grandes
         float sp = pow(0.5 + 0.5 * sin(t * (11.0 + 7.0 * aSeed.x) + aSeed.y * 40.0), 6.0);
         tw2 = mix(tw2, 0.55 + 0.35 * tw2 + 1.1 * sp, uHype);
-        vA = tw2 * smoothstep(16.0, 7.0, -mv.z) * smoothstep(0.35, 0.9, -mv.z);
+        vA = tw2 * smoothstep(26.0, 18.0, -mv.z) * smoothstep(0.35, 0.9, -mv.z); // (se ven de lejos: en la periferia)
         // (y las de color, más de su color; en el momento especial, todas algo de color)
         vTint = vec4(aTint.rgb, max(aTint.a, uHype * 0.6));
         // en el momento especial, además, se hinchan y deshinchan (cada una a su ritmo; pedido del usuario)
         float swell = 1.0 + uHype * (0.35 + 0.3 * sin(t * (3.0 + 2.0 * aSeed.z) + aSeed.w * 6.2832));
-        gl_PointSize = clamp(0.1 * (0.75 + 0.5 * aSeed.w) * swell * projectionMatrix[1][1] * uVH * 0.5 / -mv.z, 1.5, 64.0); // (unos 10 cm con el halo; el punto, un par de centímetros)
+        gl_PointSize = clamp(0.1 * (0.75 + 0.5 * aSeed.w) * swell * sqrt(kd) * projectionMatrix[1][1] * uVH * 0.5 / -mv.z, 2.0, 64.0); // (las lejanas, algo más grandes) // (unos 10 cm con el halo; el punto, un par de centímetros)
       }`,
     fragmentShader: `uniform vec3 uColor; uniform float uGain; varying float vA; varying vec4 vTint;
       void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float d2 = dot(q, q); if (d2 > 1.0) discard;

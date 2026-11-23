@@ -306,7 +306,9 @@ No las cambies sin preguntarle.
 - Arcos inclinados: agacharse en el centro no vale; hay que apartarse hacia el lado alto (pared de energía bajo el lado
   bajo hasta pasado el centro) y bajar sobre esa pierna.
 - Arcos: cuanto más difícil (el rango), el láser oscila más amenazante (más pista, más deprisa, con amagos), pero a una
-  velocidad que se pueda sortear (como mucho unos 2,5 m/s de lado) y quieto en su sitio el último segundo y medio.
+  velocidad que se pueda sortear (como mucho unos 2,5 m/s de lado). **Te busca** (pedido del usuario: los láseres no
+  obligaban a esquivar nada): al empezar a frenarse (el último segundo y medio) se fija donde está tu cabeza —quedarse
+  quieto ya no vale nunca: hay que apartarse a tiempo— y, ya frenado, se mece un poco hasta el último medio segundo.
 - Arcos, burpee: tras el arco de plancha, la valla llega con tiempo para levantarse (3 s).
 - Arcos: las paredes (obstáculos con hueco y la del lado bajo de los inclinados), rojas casi opacas con franjas, y el
   canto del hueco en verde: que no haya duda de hacia dónde volcar el cuerpo.
@@ -333,6 +335,15 @@ No las cambies sin preguntarle.
   violeta, verde, naranja, azul y amarillo; el centro, apenas más claro, que si no todas parecían iguales) y, en los momentos
   especiales (la fiebre, el relámpago, el turbo, la supervelocidad), **un destello más vivo y se hinchan y deshinchan**, cada
   una a su ritmo (pedido del usuario).
+- **Luciérnagas en la periferia, al compás** (pedido del usuario: al menos 2,5 veces más, sin tapar las compuertas, los
+  enemigos ni el entorno inmediato, y que su movimiento haga sentir el ritmo de la música): 480; nada a menos de 4,5 m de ti
+  ni en el pasillo de juego (±35° del frente, hasta las compuertas, por debajo de 4,6 m): alrededor, detrás, a los lados y
+  por encima, hasta 20 m, y se ven de lejos. Con música, se columpian **por grupos** (sectores del anillo alrededor de ti,
+  los vecinos al revés: el anillo entero «respira» con cada pulso), más amplio cuanto más lejos, y en el primer pulso de
+  cada compás una **ola de luz** da la vuelta al anillo.
+- **Las balizas de las compuertas, de luz** (pedido del usuario: los conos «tenían una proyección irreal»): un haz blando,
+  brillante en su eje y desvanecido hacia los bordes (no se le ven caras ni la boca del cono), que barre el suelo de delante
+  de la compuerta con una mancha de luz y, cuando te apunta, la lámpara deslumbra un instante; gira algo más despacio.
 - Pompas de Barras: **de jabón, como en RepArena** (película irisada con brillos, más opaca en el borde; la grande, con un ojo
   dentro): las de color liso no tenían relieve (pedido del usuario).
 - Luciérnagas (`src/56_motes.js`, Entorno → «Luciérnagas»): puntitos de luz con vuelo sereno y sinuoso de insecto (se

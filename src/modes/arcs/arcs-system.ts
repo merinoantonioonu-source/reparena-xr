@@ -21,6 +21,7 @@ import { createLaser, createMace, createOrb, createWalls, type LaserParts, type 
 import { ArcCore, arxSpeed, type ArcOutcome } from './arc.js';
 import { HEAD_TOP, type ArcsEnv } from './env.js';
 import { ArcObsCore, ArcOrbCore, type ObsOutcome } from './obstacles.js';
+import { WALL, wallMaterial, wallTick } from './wall-looks.js';
 import { ARX_JUMP_GAP, ArcNewKind, arcGap, arcSpawnPlan, arxBeatGap, buildArcsWave, type ArcSpec } from './patterns.js';
 import { BEAT } from '../../core/beat-hub.js';
 import { arxBeatP } from '../../core/beat.js';
@@ -64,6 +65,8 @@ function zapLines(lines: ArcParts['lines']): void {
 }
 
 export class ArcsSystem extends createSystem({}) {
+  /** El modelo de la pared de los inclinados (para las capturas de los modelos propuestos: wall-looks.ts). */
+  readonly wall = WALL;
   readonly arx = new ArxState();
   private readonly newKind = new ArcNewKind(rnd);
   private root = new Group();
@@ -211,6 +214,7 @@ export class ArcsSystem extends createSystem({}) {
   // ---------------------------------------------------------------- cada fotograma
 
   update(dt: number): void {
+    if (WALL.look !== 'solid') wallTick(performance.now() / 1000);
     this.clock += dt;
     const live = GAME.phase === 'playing';
     if (!this.on) {
@@ -293,7 +297,7 @@ export class ArcsSystem extends createSystem({}) {
       const [xa, xe] = arc.sideWallX(), g = new BufferGeometry(), y = (x: number): number => Math.max(0.05, arc.barAt(x) - 0.04);
       g.setAttribute('position', new Float32BufferAttribute([xa, y(xa), 0, xe, y(xe), 0, xa, 0.05, 0, xe, 0.05, 0], 3));
       g.setIndex([0, 2, 1, 1, 2, 3]);
-      const mat = new MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false, side: DoubleSide }), mesh = new Mesh(g, mat);
+      const mat = new MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false, side: DoubleSide }), mesh = new Mesh(g, WALL.look === 'solid' ? mat : wallMaterial(WALL.look)); // (los modelos propuestos: wall-looks.ts)
       mesh.userData.noInk = true;
       const eh = Math.max(0.05, arc.barAt(xe) - 0.03), edge = new Mesh(new PlaneGeometry(0.07, eh), new MeshBasicMaterial({ color: 0x3cf0c6, toneMapped: false, side: DoubleSide }));
       edge.position.set(xe, eh / 2, 0);
@@ -316,6 +320,7 @@ export class ArcsSystem extends createSystem({}) {
 
   private addObs(kind: 'laser' | 'walls' | 'mace'): void {
     const o = new ArcObsCore(kind, this.env, arxSpeed(this.env, this.arx)), e: ObsEntry = { obs: o, grp: new Group(), own: [] };
+    o.track = true; // (el láser acaba donde estás tú: src/modes/arcs/obstacles.ts)
     if (kind === 'laser') {
       e.laser = createLaser();
       e.grp = e.laser.grp;
