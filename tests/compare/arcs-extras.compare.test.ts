@@ -116,7 +116,7 @@ describe.skipIf(!RA_DIR)('los obstáculos nuevos de los Arcos, como en RepArena'
         say: rec('say'),
       });
       const ra = mk(kind);
-      const env: ArcsEnv = { s: (k) => settings[k], dv: (k) => settings[k], rnd: ptR, head: HL, calibRef, arenaDepth: D, jumpFastT: -1, beatP: 0, time: 0 };
+      const env: ArcsEnv = { s: (k) => settings[k], dv: (k) => settings[k], rnd: ptR, head: HL, calibRef, arenaDepth: D, jumpFastT: -1, beatP: 0, time: 0, classic: true };
       const pt = new ArcObsCore(kind, env, speed);
       // la cabeza: se aparta, se agacha y vuelve, cada vez de otra forma (a veces se sale del carril)
       const ax = 0.2 + r() * 0.9, wx = 0.5 + r() * 2, ay = r() * 0.5, wy = 0.5 + r() * 2.5, x0 = (r() - 0.5) * 0.6, out = r() < 0.08 ? 1.2 : 0;
@@ -226,7 +226,7 @@ describe.skipIf(!RA_DIR)('los orbes de los Arcos, como en RepArena', () => {
         say: (s: string) => w.says.push('say:' + s),
       });
       const ra = mk();
-      const env: ArcsEnv = { s: (k) => settings[k], dv: (k) => settings[k], rnd: ptR, head: HL, calibRef, arenaDepth: D, jumpFastT: -1, beatP: P, time: 0 };
+      const env: ArcsEnv = { s: (k) => settings[k], dv: (k) => settings[k], rnd: ptR, head: HL, calibRef, arenaDepth: D, jumpFastT: -1, beatP: P, time: 0, classic: true };
       const st = new ArxState();
       st.fever = fever;
       const pt = new ArcOrbCore(env, speed);
@@ -338,7 +338,7 @@ describe.skipIf(!RA_DIR)('la racha, la fiebre, el fantasma y la medalla de los A
           return w.stats;
         },
       });
-      const env: ArcsEnv = { s: (k) => settings[k] as number, dv: (k) => settings[k] as number, rnd: Math.random, head: HL, calibRef: 1.6, arenaDepth: D, jumpFastT: -1, beatP: P, time: 0 };
+      const env: ArcsEnv = { s: (k) => settings[k] as number, dv: (k) => settings[k] as number, rnd: Math.random, head: HL, calibRef: 1.6, arenaDepth: D, jumpFastT: -1, beatP: P, time: 0, classic: true };
       const st = new ArxState();
       const my: string[] = [];
       const ev = (e: ArxEvent | null) => {

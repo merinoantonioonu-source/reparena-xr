@@ -304,7 +304,8 @@ export const SND = {
     const n = VOICE.roar[who];
     if (n) playSound(n, at, 1, syn(n, s / (VOICE_PITCH[who] ?? 1.4)));
   },
-  orb: (at: Vector3): void => playSound('orbe', at),
+  /** Coger un orbe (`big`: el de Arcos, más fuerte y algo más agudo: pedido del usuario). */
+  orb: (at: Vector3, big = false): void => playSound('orbe', at, big ? 2.4 : 1, big ? syn('orbe', 1.08) : 1),
   /** El siseo de cada uno (who); el de serie, más grave cuanto más s. */
   hiss: (at: Vector3, s = 1, who = 'spider'): void => {
     const n = VOICE.hiss[who];
