@@ -229,6 +229,15 @@ No las cambies sin preguntarle.
     el juego. **El portal entre mundos, a tu altura** (pedido del usuario: quedaba abajo y nunca se cruzaba): volando, se
     pone delante de ti y sigue tu altura, suave, para que lo atravieses. **Las frutas suenan al cogerlas** (pedido del
     usuario: sin sonido no se sabía si se habían cogido), también en la Travesía a pie.
+  - **Sobre el mapa** (pedido del usuario: «volar por Google Maps 3D» con los movimientos del vuelo; vía A, Cesium ion, con su
+    cuenta gratuita): con una ciudad en «Volando: sobre el mapa» (Madrid, París, Nueva York o Roma) y la clave de Cesium ion del
+    jugador en la página («Volar sobre el mapa»: cada jugador, la suya; no va dentro del juego publicado), en vez del recorrido
+    se vuela sobre la ciudad de verdad (los mapas 3D de Google) con los mismos mandos: **escorarte te hace virar**, la media
+    flexión manda la altura (de unos 20 a 220 m sobre el suelo) y tus flexiones o el avance solo, la velocidad. Una **ruta de
+    aros** grandes y dorados pasa por sus monumentos (al pasar uno, su nombre, puntos, sonido y vibración); una flecha verde en
+    el suelo, delante de las manos, señala el que viene. En los cofres, quieto en el aire (no se aterriza). Los créditos del
+    mapa («Google», lo exigen) se ven junto a la flecha. Sin clave o sin ciudad, la Travesía de siempre. *En pruebas* hasta
+    que el usuario lo vea en las gafas.
   - En la dura, sin flexiones un rato vas perdiendo altura poco a poco (nunca te caes); en la suave, el vuelo la mantiene. La
     caja negra del vuelo (`reparenaxr-flybox`, con el diagnóstico) graba los últimos 40 s para afinar los números con tu vuelo.
 - Travesía de plataformas, **el desprendimiento** (pedido del usuario, para la plancha: mirando al suelo no se veían las rocas):

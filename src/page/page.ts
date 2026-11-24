@@ -16,6 +16,7 @@ import { $ } from './dom.js';
 import { devInitPage } from './dev-page.js';
 import { musicPage } from './music-page.js';
 import { pulsePage } from './pulse-page.js';
+import { mapPage } from './map-page.js';
 import { xferPage } from './xfer-page.js';
 import { appEnter, appMount, appSoon } from './app.js';
 import { buildForm, formHooks, syncForm } from './form.js';
@@ -57,6 +58,7 @@ export function startPage(): void {
   xferPage(); // (pasar datos por código y la sincronización)
   musicPage(); // (Spotify)
   pulsePage(); // (pulsómetro)
+  mapPage(); // (la clave de Cesium ion, para volar sobre el mapa)
   devInitPage(); // (modo desarrollador y canciones de cada ejercicio)
   $('#btnPreview')?.addEventListener('click', enterPreview);
   $('#btnExitPreview')?.addEventListener('click', exitPreview);

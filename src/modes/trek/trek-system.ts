@@ -16,6 +16,7 @@ import { AdditiveBlending, BackSide, BufferAttribute, DoubleSide, ShaderMaterial
 import { bodyDir, headRoll } from '../../input/body-dir.js';
 import { FB } from '../../core/flybox.js';
 import { FlyLook } from './fly-look.js';
+import { mapWanted } from './map/map-key.js';
 import { playSound } from '../../audio/sound.js';
 import type { AnimationAction, DirectionalLight, FogExp2, HemisphereLight, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
@@ -558,6 +559,8 @@ export class TrekSystem extends createSystem({}) {
   begin(): void {
     this.clearLooks();
     if (head.p.y > 1.1) this.calibRef = head.p.y;
+    // (volando sobre el mapa de una ciudad: el recorrido, sin retos; lo pinta MapSystem, src/modes/trek/map/)
+    this.runner.mapMode = mapWanted();
     this.runner.reset();
     FB.clear(this.clock);
     this.runner.addTramo(0, tramoLen(waveReps(0)));
@@ -724,6 +727,8 @@ export class TrekSystem extends createSystem({}) {
     if (!this.ready) this.ready = this.build();
     if (!this.foesReady) this.foesReady = this.buildFoes();
     if (!this.bossReady) this.bossReady = this.buildBoss();
+    // (sobre el mapa, la ciudad en vez del recorrido: lo de la Travesía, escondido)
+    this.root.visible = !this.runner.mapMode;
     if (GAME.paused) return;
     if (GAME.phase === 'playing') {
       this.runner.step(dt);
