@@ -51,6 +51,9 @@ const COACH_DEF: Record<string, number> = { flySide: 15, flyDown: 13, flyUp: 18,
 /** Lo que espera el asistente tras calibrar (s: lo que tarda el mundo en recolocarte, 0,8 s, y algo más), lo más lejos que
  * puede ir la cabeza del centro del vuelo en plancha (m) y cuánto así para volver a centrarlo (s). */
 const COACH_WAIT = 1.2, FLY_FAR = 0.35, FLY_FAR_T = 1.5;
+/** El aterrizaje: lo que queda del recorrido en que te baja el juego si llegas en el aire (m) y lo bajo que hay que estar para
+ * posarte tú (m). */
+const LAND_HELP = 5, LAND_TOUCH = 0.7;
 /** Cada salto: cuánto baja el mundo en lo más alto (m: como si te elevara) y lo que dura en el aire si no hay hueco (s). */
 export const JUMP_LIFT = 0.45, AIR_T = 0.55;
 /** El salto del hueco: lo que dura como poco y como mucho (s; si tu velocidad no te lleva al otro lado en HOP_MAX, el
@@ -262,6 +265,9 @@ export class Runner {
   /** Cuándo calibraste (s: el asistente espera a que el mundo acabe de recolocarte) y cuánto lleva la cabeza imposiblemente
    * lejos del centro del vuelo (s: se vuelve a centrar). */
   private calibAt = -9;
+  /** Ya te has posado en la zona de aterrizaje de este cofre (tú, bajando) y ya se dijo cómo. */
+  private landed = false;
+  private landSaid = false;
   private farT = 0;
   private coachHover = false;
   private howSaid = false;
@@ -378,7 +384,7 @@ export class Runner {
     this.wristsT = 0;
     this.coach.stop();
     this.coachWant = this.fly && (!this.env.store(FLY_TUTO) || this.env.s('flyPractice') > 0);
-    this.calibOk = this.coachHover = this.howSaid = false;
+    this.calibOk = this.coachHover = this.howSaid = this.landed = this.landSaid = false;
     this.flyBody.set(this.env.head.x, this.env.head.z, this.env.head.yaw);
     this.uShift = 0;
     this.id = 1;
@@ -491,6 +497,7 @@ export class Runner {
 
   /** Empieza el tramo i: si estabas ante el cofre del anterior, se esfuma y sigues. */
   startTramo(): void {
+    this.landed = this.landSaid = false;
     const c = this.chest;
     if (!c) return;
     this.chest = this.stop = null;
@@ -1285,10 +1292,24 @@ export class Runner {
       const z = p.at - this.tk.dist;
       if (z < 0.5 && z > -p.len && Math.abs(G.u - p.u) < UPDRAFT_W) I.updraft = true;
     }
-    // posarse ante el cofre (y quedarse en él hasta el tramo siguiente)
+    // posarse ante el cofre (y quedarse en él hasta el tramo siguiente): aterrizas tú (pedido del usuario: el juego tomaba el
+    // control demasiado pronto y te bajaba solo). Sobre la zona de aterrizaje (los últimos `LAND_D` m, con su marco verde en el
+    // suelo) puedes bajar hasta el suelo; al tocarlo, te posas. Solo si llegas al final aún en el aire, te baja él (lo que dura
+    // `LAND_HELP` m)
     const c = this.nextHalt(), room = c ? c.at - STOP_AT - this.tk.dist : Infinity;
+    I.zone = play && !!c && room < LAND_D;
+    if (I.zone && !this.landed && G.alt < LAND_TOUCH) {
+      this.landed = true;
+      this.score(100);
+      this.cheer('¡Buen aterrizaje!', COL_OK, 1.2);
+      this.snd('perfect', null);
+    }
+    if (I.zone && !this.landSaid) {
+      this.landSaid = true;
+      this.say('Baja hasta el marco verde', COL_ASK, 2.5, false);
+    }
     // (antes de empezar —colocándote y calibrando—, en el suelo: se despega al empezar el tramo)
-    I.land = this.stop || st === 'ready' ? 1 : st !== 'play' && st !== 'rest' ? 0 : Math.max(0, Math.min(1, 1 - room / LAND_D));
+    I.land = this.stop || st === 'ready' || this.landed ? 1 : st !== 'play' && st !== 'rest' ? 0 : Math.max(0, Math.min(1, 1 - room / LAND_HELP));
     // (con el asistente, vuelas en el sitio para notar cada movimiento; al acabar, sigues ahí hasta que empiece el tramo)
     if (coach || (this.coachHover && !play)) I.land = 0;
     // (con el asistente, la altura solo responde en su paso, el de subir y bajar: en los demás vuelas recto, sin que te suba

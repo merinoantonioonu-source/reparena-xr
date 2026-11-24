@@ -416,6 +416,33 @@ describe('la Travesía volando', () => {
 });
 
 
+describe('el aterrizaje ante el cofre (aterrizas tú)', () => {
+  const setup = (): { s: Sim; C: ReturnType<typeof mk> } => {
+    const TOP = 0.45, s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1, flyDown: 13 });
+    s.env.ex = 'pushup';
+    s.env.mem.set('reparenaxr-flytuto2', 1);
+    s.env.calibRef = TOP;
+    s.head.y = TOP - 0.065; // (a media flexión: recto)
+    const C = mk(2, 'chest', 70, 0);
+    s.load(course([C]));
+    s.r.calibrate(TOP, 0, 0);
+    return { s, C };
+  };
+  it('sin bajar, el juego no te baja hasta el final (los últimos metros)', () => {
+    const { s, C } = setup();
+    expect(s.until(() => C.at - 1 - s.r.dist < 12, 72 * 120)).toBe(true);
+    expect(s.r.flyAlt).toBeGreaterThan(4); // (a 12 m del cofre, aún volando: antes te bajaba desde 22 m)
+    expect(s.until(() => s.r.flyAlt < 0.05, 72 * 20)).toBe(true);
+  });
+  it('bajando tú sobre la zona de aterrizaje, pasas por debajo de la altura mínima y te posas: «¡Buen aterrizaje!»', () => {
+    const { s, C } = setup();
+    expect(s.until(() => C.at - 1 - s.r.dist < 20, 72 * 120)).toBe(true);
+    s.head.y = 0.45 - 0.13; // (abajo del todo: bajas deprisa)
+    expect(s.until(() => s.of('cheer').some((e) => e.text === '¡Buen aterrizaje!'), 72 * 15)).toBe(true);
+    expect(C.at - 1 - s.r.dist).toBeGreaterThan(3); // (antes de que el juego te bajara)
+  });
+});
+
 describe('el asistente del vuelo', () => {
   const setup = (over: Record<string, number> = {}): Sim => {
     const s = new Sim({ pushDepth: 13, trekFly: 1, flySide: 15, flyDown: 13, flyUp: 18, ...over });
