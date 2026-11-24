@@ -14,27 +14,36 @@ La pared rocosa (C) queda para las dominadas, donde de verdad cuelgas en vertica
 
 ## Cómo se ve y por qué
 
-- Tumbado mirando al cielo solo se ve bien lo que está casi encima. Por eso el mundo no se inclina (el cielo sigue arriba:
-  la gravedad que sientes casa con lo que ves) y **cada tramo acaba en la chimenea**: subes en vertical entre dos paredes de
-  roca y, arriba, ves la repisa que es la meta del tramo.
+- **La escena, la A de los bocetos** (elegida por el usuario tras ver el primer PR: el cañón de rocas y la cuerda con olas eran
+  «muy poco atractivos»; «la tirolina en la realidad nunca tiene esas curvas»; «los árboles nunca están flotando»): torres de
+  madera sobre la ladera de un valle alpino, de plataforma en plataforma.
+- **Como una tirolina de verdad**: cada tramo, un cable recto y tenso, con su cuesta fija (de 30° a 42°) y una comba leve; al
+  llegar a la torre, lo último en vertical por una cuerda fija hasta su plataforma. La cuerda pasa por una polea en cada torre
+  (la esquina, redondeada: sin tirones al cambiar de cuesta).
+- **Nada flota**: la ladera es un suelo de verdad (una malla), las patas de las torres y los troncos de los árboles se
+  apoyan en él, y los árboles quedan lejos de la cuerda (lo comprueba `tests/unit/bars-rope.test.ts`).
+- Tumbado mirando al cielo solo se ve bien lo que está casi encima: el mundo no se inclina (el cielo sigue arriba: la
+  gravedad que sientes casa con lo que ves) y, en la subida vertical, la plataforma de la torre se ve sobre ti.
 - La cuerda pasa por lo que agarras: con **dos paralelas**, dos cables (cada paralela es un trozo del suyo); con **una**,
   cruzada sobre ti, un cable por encima de su centro y la barra colgada de una polea.
-- Subir es que el cañón entero baje y vaya hacia tus pies; las paralelas virtuales no se mueven (son tu ancla).
+- Subir es que el valle entero baje y vaya hacia tus pies; las paralelas virtuales no se mueven (son tu ancla).
 
 ## Los PR
 
-- [x] **PR 1 · El armazón jugable**: el ajuste, el recorrido (la cuesta de unos 28° a 52° con olas largas, la chimenea al
-  final de cada tramo y la repisa con su cofre), el avance por remo (como la Travesía: más ritmo, más deprisa; bajar
-  aguantando la carga ×2-×4, un tirón de más), resbalar sin remar (como mucho 10 cm/s, tras 1,2 s), el cañón (las rocas del
-  risco, montes lejanos y algún pino) y «Faltan N m» en el marcador. Cada tramo pide «Repeticiones por oleada» × 1,7 m.
-- [ ] **PR 2 · Retos y premios** (los movimientos que no son el remo): aguantar arriba, pegado a la cuerda (lo que barre por
-  debajo: el chorro de una cascada, una rama); quedarse abajo con los brazos estirados (un pájaro que pasa rozando la cuerda);
-  la cabeza a un lado (piedras que caen, con su sombra); una explosiva (un tramo roto de la cuerda). Premios: frutas que se
-  cogen al subir el pecho y el cofre de la repisa, que se abre.
-- [ ] **PR 3 · Los mundos y el jefe**: el cañón, la cascada, el risco y las islas del cielo (las chimeneas, hacia ellas);
-  el jefe, un águila o el dragón que lanza cosas desde arriba (boca arriba se ven muy bien).
+- [x] **PR 1 · El armazón jugable**: el ajuste, el recorrido (cables rectos de torre en torre, la subida vertical al final de
+  cada tramo y la plataforma con su cofre), el avance por remo (como la Travesía: más ritmo, más deprisa; bajar aguantando la
+  carga ×2-×4, un tirón de más), resbalar sin remar (como mucho 10 cm/s, tras 1,2 s), la ladera con sus pinos y piedras, las
+  torres, los montes lejanos y «Faltan N m» en el marcador. Cada tramo pide «Repeticiones por oleada» × 1,7 m.
+  *Pendiente de elegir*: los fondos realistas (fotos de `public/fondos/`), siempre con la lógica del mundo real (la foto,
+  solo lo lejano: el cielo y las montañas del horizonte; lo de debajo del horizonte, el valle propio).
+- [ ] **PR 2 · Retos y premios** (los movimientos que no son el remo): aguantar arriba, pegado a la cuerda (lo que pasa por
+  debajo); quedarse abajo con los brazos estirados (un águila que pasa rozando el cable); la cabeza a un lado (piedras que caen
+  de la torre, con su sombra); una explosiva (un tramo roto). Premios: frutas que se cogen al subir el pecho y el cofre de la
+  plataforma, que se abre.
+- [ ] **PR 3 · Los mundos y el jefe**: la garganta de la cascada (B), los árboles gigantes de la selva (C) y del barco al
+  faro del acantilado (D), de los bocetos; el jefe, un águila o el dragón que lanza cosas desde arriba.
 
 ## Dónde está
 
 `src/modes/bars/rope.ts` (lógica pura: `RopeCourse`, `RopeRun`, `ropeDecoPuts`; pruebas en `tests/unit/bars-rope.test.ts`),
-`src/modes/bars/rope-scene.ts` (lo que se ve) y `BarsSystem` (`ropeOn`, `stepRope`, `placeRope`); el ajuste, `barRope`.
+`src/modes/bars/rope-scene.ts` (lo que se ve: la ladera, una malla hecha una vez por ronda; los pinos, las piedras, las torres y los cables, con instancias) y `BarsSystem` (`ropeOn`, `stepRope`, `placeRope`); el ajuste, `barRope`.

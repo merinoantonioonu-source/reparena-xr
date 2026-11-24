@@ -1,24 +1,27 @@
 /**
  * La aventura en la cuerda del remo invertido (RepArena XR, elegida por el usuario: «A con tramos de B», como opción de
- * Barras; plan en docs/PLAN-BARRAS-CUERDA.md). Tumbado bajo las paralelas, mirando al cielo, cuelgas de una cuerda tendida en
- * una cuesta muy empinada sobre un cañón; cada remo te sube por ella, como en la Travesía (el impulso sale del ritmo de las
- * repeticiones) y, sin remar, **resbalas un poco hacia atrás** (pedido del usuario: «mínimamente»), nunca más allá de la
- * repisa de donde saliste. Cada tramo acaba en vertical (la chimenea: subes mirando a la salida, arriba, entre dos paredes
- * de roca) hasta una repisa: el tramo superado. Tumbado mirando arriba solo se ve bien lo que está casi encima: en la
- * chimenea, la repisa que te espera se ve sobre ti.
+ * Barras; la escena, la A de los bocetos: torres sobre un valle alpino; plan en docs/PLAN-BARRAS-CUERDA.md). Tumbado bajo las
+ * paralelas, mirando al cielo, cuelgas de un cable tendido de torre en torre por la ladera de un valle; cada remo te sube por
+ * él, como en la Travesía (el impulso sale del ritmo de las repeticiones) y, sin remar, **resbalas un poco hacia atrás**
+ * (pedido del usuario: «mínimamente»), nunca más allá de la plataforma de donde saliste.
  *
- * Lógica pura, sin IWSDK: el recorrido (`RopeCourse`: la cuesta de cada punto, su altura y lo que avanza en horizontal), el
- * avance (`RopeRun`) y el paisaje de cada trozo (`ropeDecoPuts`: las paredes del cañón, los montes lejanos y las repisas, con
- * los modelos de los kits que ya hay). Lo pinta src/modes/bars/rope-scene.ts.
+ * Como una tirolina de verdad (pedido del usuario: «nunca tiene esas curvas»): cada tramo es **un cable recto y tenso**, con
+ * su cuesta fija y una comba leve, de la plataforma de una torre a la siguiente; al llegar a ella, **lo último, en vertical**
+ * por una cuerda fija junto a la torre, hasta su plataforma (el tramo superado). Tumbado mirando arriba, en esa subida se ve la
+ * plataforma sobre ti. **Nada flota**: el terreno (`ground`) es una ladera que baja hacia el valle a los lados, las torres
+ * apoyan en él sus patas y cada árbol, su tronco.
+ *
+ * Lógica pura, sin IWSDK: el recorrido (`RopeCourse`: la cuesta de cada punto, su altura, lo que avanza en horizontal, las
+ * torres y el terreno), el avance (`RopeRun`) y lo que hay en cada trozo (`ropeDecoPuts`: árboles, piedras, torres y montes
+ * lejanos, con los modelos de los kits que ya hay). Lo pinta src/modes/bars/rope-scene.ts.
  *
  * Coordenadas del recorrido: `s`, lo que llevas de cuerda (m); `h`, lo que avanza en horizontal hacia lo alto de tu cabeza;
  * `y`, la altura; `u`, a un lado (a la derecha mirando hacia lo alto de tu cabeza, de pie en la cuerda).
  */
-import { put, rockFit, type Put } from '../trek/plat/pieces.js';
+import { put, rockFit, standPole, tiltPole, type Put } from '../trek/plat/pieces.js';
 import { trekRng } from '../trek/path.js';
 
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
-const smooth = (t: number): number => t * t * (3 - 2 * t);
 const TAU = Math.PI * 2;
 
 /** Los números de la cuerda:
@@ -26,71 +29,107 @@ const TAU = Math.PI * 2;
  * - `v0`: la velocidad de un remo a su ritmo (m/s; a ese ritmo, unos `perRep` metros por remo), `vMax` la más alta.
  * - `repT`: el ritmo de un remo tranquilo (s, el de Barras: BAR_REP_T.row).
  * - `slide`: lo que resbalas sin remar (m/s, en lo más empinado), `slideAfter`: lo que tarda en empezar (s).
- * - `vert`: lo que se frena el avance en vertical (×; la chimenea pide más esfuerzo).
- * - `chimney`: el largo de la chimenea del final de cada tramo (m, como mucho; o un 35 % del tramo) y `ramp`, lo que tarda la
- *   cuesta en ponerse vertical y en volver (m).
- * - `flat`: la cuesta al empezar la ronda (rad) y lo que dura (m). */
-export const ROPE = { perRep: 1.7, v0: 0.75, vMax: 1.6, repT: 2.6, slide: 0.1, slideAfter: 1.2, vert: 0.7, chimney: 14, ramp: 5, flat: 0.25, flatLen: 3.5 };
-/** La cuesta de siempre (rad): entre unos 28° y 52°, con olas largas (nunca igual). */
-const BASE = 0.7, WAVE1 = 0.15, WAVE2 = 0.06;
-/** La chimenea, casi vertical (rad: 86°). */
-const VERT = 1.5;
-/** El paso de la tabla del recorrido (m) y lo que se prepara de más tras la última repisa (m: el paisaje de delante). */
-const STEP = 0.25, TAIL = 140;
-/** El trozo del paisaje (m de cuerda). */
-export const ROPE_CHUNK = 8;
+ * - `vert`: lo que se frena el avance en vertical (×; la subida por la cuerda fija pide más esfuerzo).
+ * - `pitch`: la cuesta de los cables (rad: de 30° a 42°); `sag`: su comba (del largo del cable).
+ * - `vLen`: lo que se sube en vertical al final de cada tramo (m, de 3 a 7; un 25 % del tramo).
+ * - `clear`: lo que queda, como poco, entre la cuerda y el suelo (m), y `treeU`: lo cerca que puede haber un árbol (a un lado). */
+export const ROPE = { perRep: 1.7, v0: 0.75, vMax: 1.6, repT: 2.6, slide: 0.1, slideAfter: 1.2, vert: 0.7, pitch: [0.52, 0.73] as [number, number], sag: 0.009, vLen: [3, 7] as [number, number], clear: 7, treeU: 9 };
+/** El paso de la tabla del recorrido (m), lo que se redondea cada esquina (muestras a cada lado: la cuerda pasa por una polea)
+ * y lo que se prepara de más tras la última plataforma (m: el paisaje de delante). */
+const STEP = 0.25, ROUND = 5, TAIL = 140;
+/** El trozo del paisaje (m en horizontal). */
+export const ROPE_CHUNK = 12;
 
-/** El recorrido de la ronda: la cuerda de todos los tramos, con sus repisas (`ends[i]`: dónde acaba el tramo i). */
+/** Una torre: dónde está (h), lo alto de su plataforma (`top`), su pie en el suelo (`base`) y dónde empieza la subida vertical
+ * junto a ella (`vert`; en la de salida, nada). */
+export interface RopeTower {
+  h: number;
+  top: number;
+  base: number;
+  vert: number;
+}
+
+/** El recorrido de la ronda: el cable de todos los tramos, de torre en torre (`ends[i]`: la plataforma del tramo i). */
 export class RopeCourse {
   readonly ends: number[] = [];
-  /** Las chimeneas (de dónde a dónde, en s). */
-  readonly chimneys: [number, number][] = [];
+  readonly towers: RopeTower[] = [];
+  /** Las subidas verticales (de dónde a dónde, en s). */
+  readonly verts: [number, number][] = [];
+  private readonly S: Float32Array;
   private readonly H: Float32Array;
   private readonly Y: Float32Array;
   private readonly T: Float32Array;
   readonly len: number;
 
-  /** lens: el largo de cada tramo (m); seed: el azar de la ronda (las olas de la cuesta). */
+  /** lens: el largo de cada tramo (m); seed: el azar de la ronda (las cuestas, las torres y el paisaje). */
   constructor(lens: number[], readonly seed = 1) {
-    let s = 0;
-    for (const L of lens) {
-      const a = s;
-      s += Math.max(6, L);
-      this.ends.push(s);
-      // (la chimenea, al final del tramo, hasta la repisa)
-      this.chimneys.push([s - Math.min(ROPE.chimney, (s - a) * 0.35), s + 0.5]);
-    }
-    this.len = s + TAIL;
-    const n = Math.ceil(this.len / STEP) + 2;
-    this.H = new Float32Array(n);
-    this.Y = new Float32Array(n);
-    this.T = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      const t = this.pitchRaw(i * STEP);
-      this.T[i] = t;
-      if (i > 0) {
-        const tm = (this.T[i - 1] + t) / 2;
-        this.H[i] = this.H[i - 1] + Math.cos(tm) * STEP;
-        this.Y[i] = this.Y[i - 1] + Math.sin(tm) * STEP;
+    const R = trekRng((seed * 2654435761) >>> 0), between = (a: number, b: number): number => a + R() * (b - a);
+    // los puntos de la cuerda sin redondear, cada STEP m: cada tramo, un cable recto (con su comba) y la subida vertical
+    const ph: number[] = [0], py: number[] = [0], endIdx: number[] = [], vertIdx: [number, number][] = [];
+    let h = 0, y = 0;
+    this.towers.push({ h: 0, top: 0, base: -between(10, 13), vert: 0 });
+    const cable = (L: number, th: number): void => {
+      const n = Math.max(1, Math.round(L / STEP)), dh = L * Math.cos(th), dy = L * Math.sin(th), sag = ROPE.sag * L;
+      for (let k = 1; k <= n; k++) {
+        const t = k / n;
+        ph.push(h + dh * t);
+        py.push(y + dy * t - 4 * sag * t * (1 - t));
       }
+      h += dh;
+      y += dy;
+    };
+    for (const L0 of lens) {
+      const L = Math.max(8, L0), Lv = clamp(L * 0.25, ROPE.vLen[0], ROPE.vLen[1]);
+      cable(L - Lv, between(ROPE.pitch[0], ROPE.pitch[1]));
+      const v0 = ph.length - 1, n = Math.round(Lv / STEP);
+      for (let k = 1; k <= n; k++) {
+        ph.push(h);
+        py.push(y + k * STEP);
+      }
+      const vBot = y;
+      y += n * STEP;
+      vertIdx.push([v0, ph.length - 1]);
+      endIdx.push(ph.length - 1);
+      this.towers.push({ h, top: y, base: y - (y - vBot) - between(8, 12), vert: vBot });
     }
+    // (detrás de la última plataforma, más cable: el paisaje de delante)
+    cable(TAIL, (ROPE.pitch[0] + ROPE.pitch[1]) / 2);
+    // las esquinas, redondeadas (la cuerda pasa por una polea en cada torre: sin tirones al cambiar de cuesta)
+    const n = ph.length, sh = new Float32Array(n), sy = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let a = 0, b = 0, c = 0;
+      for (let k = -ROUND; k <= ROUND; k++) {
+        const j = clamp(i + k, 0, n - 1);
+        a += ph[j];
+        b += py[j];
+        c++;
+      }
+      sh[i] = i < ROUND ? ph[i] : a / c;
+      sy[i] = i < ROUND ? py[i] : b / c;
+    }
+    this.S = new Float32Array(n);
+    this.T = new Float32Array(n);
+    for (let i = 1; i < n; i++) this.S[i] = this.S[i - 1] + Math.hypot(sh[i] - sh[i - 1], sy[i] - sy[i - 1]);
+    for (let i = 0; i < n; i++) {
+      const a = Math.max(0, i - 1), b = Math.min(n - 1, i + 1);
+      this.T[i] = Math.atan2(sy[b] - sy[a], sh[b] - sh[a]);
+    }
+    this.H = sh;
+    this.Y = sy;
+    for (const i of endIdx) this.ends.push(this.S[i]);
+    for (const [a, b] of vertIdx) this.verts.push([this.S[a], this.S[b]]);
+    this.len = this.S[n - 1];
   }
 
-  // La cuesta en s, de la fórmula: la de siempre, la chimenea encima y, al empezar, casi llana
-  private pitchRaw(s: number): number {
-    const ph = (this.seed % 97) * 0.37;
-    let t = BASE + WAVE1 * Math.sin((TAU * s) / 70 + ph) + WAVE2 * Math.sin((TAU * s) / 29 + 2 * ph);
-    for (const [a, b] of this.chimneys) {
-      const d = s < a ? a - s : s > b ? s - b : 0;
-      if (d < ROPE.ramp) t += (VERT - t) * smooth(1 - d / ROPE.ramp);
-    }
-    // (al empezar, casi llana: arrancas sin sobresaltos)
-    if (s < ROPE.flatLen * 2) t += (ROPE.flat - t) * smooth(clamp(1 - (s - ROPE.flatLen) / ROPE.flatLen, 0, 1));
-    return t;
-  }
-
+  // lo de s en la tabla (no uniforme: las esquinas redondeadas acortan un poco)
   private look(arr: Float32Array, s: number): number {
-    const x = clamp(s, 0, this.len) / STEP, i = Math.min(arr.length - 2, Math.floor(x)), f = x - i;
+    const S = this.S, n = S.length;
+    if (s <= 0) return arr[0];
+    if (s >= S[n - 1]) return arr[n - 1];
+    let i = Math.min(n - 2, Math.floor(s / STEP));
+    while (i > 0 && S[i] > s) i--;
+    while (i < n - 2 && S[i + 1] < s) i++;
+    const f = (s - S[i]) / Math.max(1e-6, S[i + 1] - S[i]);
     return arr[i] + (arr[i + 1] - arr[i]) * f;
   }
   /** La cuesta en s (rad: 0, llano; π/2, vertical). */
@@ -99,22 +138,35 @@ export class RopeCourse {
   }
   /** Lo que se ha avanzado en horizontal hasta s (m). */
   h(s: number): number {
-    if (s < 0) return s * Math.cos(this.T[0]);
-    return this.look(this.H, s);
+    return s < 0 ? s * Math.cos(this.T[0]) : this.look(this.H, s);
   }
   /** La altura en s (m). */
   y(s: number): number {
-    if (s < 0) return s * Math.sin(this.T[0]);
-    return this.look(this.Y, s);
+    return s < 0 ? s * Math.sin(this.T[0]) : this.look(this.Y, s);
   }
-  /** El tramo en que está s (el de la repisa siguiente). */
+  /** El tramo en que está s (el de la plataforma siguiente). */
   wave(s: number): number {
     for (let i = 0; i < this.ends.length; i++) if (s < this.ends[i] - 1e-6) return i;
     return this.ends.length;
   }
-  /** ¿Está s en una chimenea (vertical)? */
+  /** ¿Está s en una subida vertical? */
   inChimney(s: number): boolean {
     return this.pitch(s) > 1.2;
+  }
+  /** El suelo en (h, u): la ladera, de pie de torre a pie de torre, que baja hacia el valle a los dos lados (m). */
+  ground(h: number, u: number): number {
+    const T = this.towers;
+    let g: number;
+    if (h <= T[0].h) g = T[0].base - (T[0].h - h) * 0.6;
+    else {
+      let i = 0;
+      while (i < T.length - 2 && T[i + 1].h < h) i++;
+      const a = T[i], b = T[i + 1] ?? a;
+      // (pasada la última torre, la ladera sigue con la cuesta de los cables)
+      g = h > b.h ? b.base + (h - b.h) * Math.tan((ROPE.pitch[0] + ROPE.pitch[1]) / 2) : a.base + ((b.base - a.base) * (h - a.h)) / Math.max(1e-3, b.h - a.h);
+    }
+    // (los dos lados bajan al valle, y la ladera ondula un poco: nunca hacia arriba de la cuerda)
+    return g - 0.2 * Math.abs(u) - 0.0015 * u * u - 0.6 * (1 + Math.sin(h * 0.21 + u * 0.13) * Math.sin(u * 0.07 - h * 0.05));
   }
 }
 
@@ -130,10 +182,10 @@ export class RopeRun {
   private lastRep = 0;
   private idle = 0;
   private glide = 0;
-  /** Dónde empezó el tramo (no se resbala más abajo) y dónde acaba (la repisa). */
+  /** Dónde empezó el tramo (no se resbala más abajo) y dónde acaba (la plataforma de la torre). */
   start = 0;
   end = 0;
-  /** ¿Llegó a la repisa del tramo? */
+  /** ¿Llegó a la plataforma del tramo? */
   reached = true;
   private slipping = false;
   private inCh = false;
@@ -141,7 +193,7 @@ export class RopeRun {
 
   constructor(readonly course: RopeCourse) {}
 
-  /** Al empezar el tramo i: desde su repisa de salida hasta la siguiente. */
+  /** Al empezar el tramo i: desde la plataforma de salida hasta la siguiente. */
   startWave(i: number): void {
     this.start = i > 0 ? this.course.ends[i - 1] ?? 0 : 0;
     this.end = this.course.ends[i] ?? this.start + 20;
@@ -207,57 +259,78 @@ export class RopeRun {
     }
   }
 
-  /** Lo que falta hasta la repisa (m). */
+  /** Lo que falta hasta la plataforma (m). */
   get left(): number {
     return Math.max(0, this.end - this.s);
   }
 }
 
-/** Lo ancho que queda libre alrededor de la cuerda (m): las paredes, nunca más cerca. */
-export const ROPE_CLEAR = 3;
-
-/** El paisaje del trozo `chunk` (de `chunk·ROPE_CHUNK` a `(chunk + 1)·ROPE_CHUNK` m de cuerda): las paredes del cañón a los
- * dos lados (más cerca y más altas en la chimenea: un pozo), los montes lejanos y, si acaba un tramo, su repisa con el
- * cofre. Coordenadas: `ds` = h (hacia lo alto de tu cabeza), `u` a un lado, `y` la altura. */
+/** El paisaje del trozo `chunk` (de `chunk·ROPE_CHUNK` a `(chunk + 1)·ROPE_CHUNK` m en horizontal): pinos y alguna piedra en la
+ * ladera (siempre apoyados en el suelo y lejos de la cuerda), las torres de madera que haya en él (patas en el suelo, aspas y
+ * su plataforma, con el cofre) y, a lo lejos, los montes. Coordenadas: `ds` = h, `u` a un lado, `y` la altura. */
 export function ropeDecoPuts(C: RopeCourse, chunk: number, out: Put[]): Put[] {
   const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ Math.imul(C.seed | 0, 0x85ebca6b) ^ 0x27d4eb2f) >>> 0);
   const between = (a: number, b: number): number => a + R() * (b - a);
-  const s0 = chunk * ROPE_CHUNK, s1 = s0 + ROPE_CHUNK, h0 = C.h(s0), h1 = C.h(s1), y0 = C.y(s0), y1 = C.y(s1);
-  const ch = C.inChimney((s0 + s1) / 2);
-  // las paredes del cañón, a los dos lados: cada roca llena el trozo a lo largo (con algo de más, sin huecos) y de muy abajo
-  // a bastante por encima de la cuerda
-  for (const sd of [-1, 1]) {
-    const near = ch ? between(ROPE_CLEAR, ROPE_CLEAR + 1) : between(4.5, 7), w = ch ? between(4, 6) : between(5, 8);
-    const u0 = sd < 0 ? -near - w : near, u1 = sd < 0 ? -near : near + w;
-    out.push(rockFit('island', 'Cliff4', u0, u1, Math.min(y0, y1) - between(10, 18), Math.max(y0, y1) + (ch ? between(10, 16) : between(4, 12)), h0 - between(1.5, 3), h1 + between(1.5, 3), R() < 0.5));
-    // (alguna vez, un pino agarrado arriba de la pared)
-    if (!ch && R() < 0.25) {
-      const sc = between(0.6, 0.9);
-      out.push(put('nature', R() < 0.5 ? 'Pine_4' : 'Pine_2', (h0 + h1) / 2, sd * (near + w * 0.4), Math.max(y0, y1) + between(3, 8), { ry: R() * TAU, sx: sc, sy: sc, sz: sc }));
-    }
+  const h0 = chunk * ROPE_CHUNK, h1 = h0 + ROPE_CHUNK;
+  // los pinos de la ladera, a los dos lados (más espesos lejos de la cuerda), con su tronco en el suelo
+  for (let i = 0; i < 9; i++) {
+    const sd = R() < 0.5 ? -1 : 1, u = sd * (ROPE.treeU + Math.pow(R(), 0.7) * 55), h = between(h0, h1), sc = between(0.9, 1.5);
+    const n = R() < 0.85 ? (['Pine_2', 'Pine_4', 'Pine_5'] as const)[Math.floor(R() * 3)] : 'DeadTree_1';
+    out.push(put('nature', n, h, u, C.ground(h, u) - 0.15, { ry: R() * TAU, sx: sc, sy: sc, sz: sc }));
   }
-  // los montes lejanos, a los lados (la sensación de altura)
-  if (R() < 0.35) {
-    const sd = R() < 0.5 ? -1 : 1, u = sd * between(28, 60), w = between(10, 22);
-    out.push(rockFit('island', R() < 0.5 ? 'Cliff3' : 'Cliff4', u - w / 2, u + w / 2, y0 - between(40, 60), y0 + between(5, 35), h0 + between(-10, 10), h0 + between(-10, 10) + w, R() < 0.5));
+  // alguna piedra medio enterrada
+  if (R() < 0.6) {
+    const sd = R() < 0.5 ? -1 : 1, u = sd * between(ROPE.treeU, 40), h = between(h0, h1), sc = between(0.6, 1.2);
+    out.push(put('nature', (['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'] as const)[Math.floor(R() * 3)], h, u, C.ground(h, u) - 0.3 * sc, { ry: R() * TAU, sx: sc, sy: sc, sz: sc }));
   }
-  // la repisa del final de cada tramo, en lo alto de la chimenea: una roca que sobresale a un lado de la cuerda (desde abajo,
-  // sobre ti, la meta del tramo), con el cofre encima
-  for (const e of C.ends) {
-    if (e < s0 || e >= s1) continue;
-    const he = C.h(e), ye = C.y(e), top = ye - 0.3;
-    out.push(rockFit('island', 'Cliff1', 0.5, 4.5, top - 2.2, top, he - 2.4, he + 2.2));
-    out.push(put('island', 'Chest_Closed', he, 2.5, top - 0.02, { ry: -Math.PI / 2, sx: 0.7, sy: 0.7, sz: 0.7 }));
+  // los montes lejanos, a los lados (con nieve no hay modelo: rocas grandes que salen del valle)
+  if (R() < 0.5) {
+    const sd = R() < 0.5 ? -1 : 1, u = sd * between(150, 260), w = between(50, 90), h = between(h0, h1);
+    out.push(rockFit('island', R() < 0.5 ? 'Cliff3' : 'Cliff4', u - w / 2, u + w / 2, C.ground(h, 0) - 90, C.ground(h, 0) + between(40, 110), h - w / 2, h + w / 2, R() < 0.5));
+  }
+  // las torres de este trozo
+  for (let i = 0; i < C.towers.length; i++) {
+    const T = C.towers[i];
+    if (T.h >= h0 && T.h < h1) towerPuts(C, T, i > 0, out);
   }
   return out;
 }
 
+/** La torre de madera: cuatro patas desde el suelo, aspas a los lados y su plataforma a un lado de la cuerda (la cuerda fija
+ * sube pegada a ella), con el cofre encima (`chest`). */
+export const TOWER = { u0: 0.55, u1: 3.4, d: 1.4, deck: 0.35 };
+function towerPuts(C: RopeCourse, T: RopeTower, chest: boolean, out: Put[]): void {
+  const top = T.top - TOWER.deck, th = 0.9;
+  for (const u of [TOWER.u0 + 0.15, TOWER.u1 - 0.15])
+    for (const dh of [-TOWER.d, TOWER.d]) {
+      const g = C.ground(T.h + dh, u);
+      out.push(standPole(T.h + dh, u, g - 0.4, top - g + 0.4, th));
+    }
+  // las aspas: de lado a lado, cada 3 m de alto
+  for (const dh of [-TOWER.d, TOWER.d]) {
+    const g = Math.max(C.ground(T.h + dh, TOWER.u0), C.ground(T.h + dh, TOWER.u1));
+    for (let y = g + 0.5; y + 3 < top; y += 3) {
+      out.push(tiltPole(T.h + dh, TOWER.u0 + 0.15, y, TOWER.u1 - 0.15, y + 3, 0.5));
+      out.push(tiltPole(T.h + dh, TOWER.u1 - 0.15, y, TOWER.u0 + 0.15, y + 3, 0.5));
+    }
+  }
+  // la plataforma: tablas de muelle de 3 × 3,2 m
+  out.push(put('island', 'Dock', T.h + 0.04, (TOWER.u0 + TOWER.u1) / 2 - 0.0078 * 1.5, top - 0.488 * 0.5, { sx: (TOWER.u1 - TOWER.u0 + 0.2) / 1.98448, sy: 0.5, sz: (2 * TOWER.d + 0.4) / 2.08129 }));
+  if (chest) out.push(put('island', 'Chest_Closed', T.h, (TOWER.u0 + TOWER.u1) / 2 + 0.4, top + 0.02, { ry: -Math.PI / 2, sx: 0.6, sy: 0.6, sz: 0.6 }));
+}
+
 /** Los modelos que usa el paisaje de la cuerda (para preparar sus instancias). */
 export const ROPE_MODELS: { kit: 'island' | 'nature'; n: string; cap: number }[] = [
-  { kit: 'island', n: 'Cliff4', cap: 90 },
-  { kit: 'island', n: 'Cliff3', cap: 24 },
-  { kit: 'island', n: 'Cliff1', cap: 8 },
-  { kit: 'island', n: 'Chest_Closed', cap: 8 },
-  { kit: 'nature', n: 'Pine_2', cap: 16 },
-  { kit: 'nature', n: 'Pine_4', cap: 16 },
+  { kit: 'nature', n: 'Pine_2', cap: 160 },
+  { kit: 'nature', n: 'Pine_4', cap: 160 },
+  { kit: 'nature', n: 'Pine_5', cap: 160 },
+  { kit: 'nature', n: 'DeadTree_1', cap: 60 },
+  { kit: 'nature', n: 'Rock_Medium_1', cap: 20 },
+  { kit: 'nature', n: 'Rock_Medium_2', cap: 20 },
+  { kit: 'nature', n: 'Rock_Medium_3', cap: 20 },
+  { kit: 'island', n: 'Cliff3', cap: 20 },
+  { kit: 'island', n: 'Cliff4', cap: 20 },
+  { kit: 'island', n: 'Dock_Pole', cap: 200 },
+  { kit: 'island', n: 'Dock', cap: 12 },
+  { kit: 'island', n: 'Chest_Closed', cap: 12 },
 ];

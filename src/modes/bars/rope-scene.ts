@@ -1,15 +1,15 @@
 /**
- * Lo que se ve de la aventura en la cuerda (src/modes/bars/rope.ts): el cañón y su cuerda, que bajan hacia tus pies a medida
- * que subes. Tumbado bajo las paralelas, la cuerda sigue la línea de lo que agarras: con **dos paralelas**, dos cables (cada
+ * Lo que se ve de la aventura en la cuerda (src/modes/bars/rope.ts): la ladera del valle con sus pinos, las torres de madera
+ * y la cuerda, que bajan hacia tus pies a medida que subes. Tumbado bajo las paralelas, la cuerda sigue la línea de lo que agarras: con **dos paralelas**, dos cables (cada
  * paralela es un trozo de su cable, que sigue delante y detrás); con **una**, cruzada sobre ti, un cable que pasa por encima
  * de su centro, a lo largo de tu cuerpo, y la barra cuelga de él por una polea. Delante (hacia lo alto de tu cabeza) la
- * cuerda sube con la cuesta; en la chimenea, en vertical, hacia el cielo.
+ * cuerda sube recta con la cuesta del tramo; al final, en vertical junto a la torre, hacia su plataforma.
  *
- * El mundo no se inclina (el cielo sigue arriba): subir es que el cañón entero baje y vaya hacia tus pies. Todo cuelga de un
- * grupo (`track`) que se desplaza cada fotograma; las rocas se ponen con instancias al cambiar de trozo (cada 8 m), los cables,
- * cada fotograma (sin crear nada).
+ * El mundo no se inclina (el cielo sigue arriba): subir es que el valle entero baje y vaya hacia tus pies. Todo cuelga de un
+ * grupo (`track`) que se desplaza cada fotograma: el suelo (una malla de la ladera, hecha una vez por ronda), los pinos, las
+ * piedras y las torres (instancias, al cambiar de trozo) y los cables (cada fotograma, sin crear nada).
  */
-import { CylinderGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, Quaternion, Euler, TorusGeometry, Vector3 } from '@iwsdk/core';
+import { BufferAttribute, BufferGeometry, CylinderGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, Quaternion, Euler, TorusGeometry, Vector3 } from '@iwsdk/core';
 import { kitParts } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import type { Put } from '../trek/plat/pieces.js';
@@ -18,8 +18,10 @@ import { ROPE_CHUNK, ROPE_MODELS, ropeDecoPuts, type RopeCourse } from './rope.j
 /** Lo que se ve de la cuerda hacia delante y hacia atrás (m) y el largo de cada trozo de cable (m). */
 const AHEAD = 110, BEHIND = 30, SEG = 2;
 const SEGS = Math.ceil((AHEAD + BEHIND) / SEG) + 2;
-/** Lo que se pintan del paisaje: los trozos de detrás y de delante. */
-const CH_BACK = 4, CH_AHEAD = Math.ceil(AHEAD / ROPE_CHUNK) + 1;
+/** Lo que se pintan del paisaje (en horizontal): los trozos de detrás y de delante. */
+const CH_BACK = 4, CH_AHEAD = Math.ceil(AHEAD / ROPE_CHUNK) + 2;
+/** El suelo: hasta dónde llega a los lados (m) y su rejilla (m a lo largo y a lo ancho). */
+const GROUND_U = 120, GROUND_DH = 3, GROUND_DU = 6;
 /** Con una paralela, lo que sube el cable sobre ella (m). */
 const PULLEY_UP = 0.32;
 
@@ -37,6 +39,8 @@ export class RopeScene {
   private built = false;
   private cable: InstancedMesh | null = null;
   private pulley: Group | null = null;
+  private ground: Mesh | null = null;
+  private groundMat: MeshStandardMaterial | null = null;
   private course: RopeCourse | null = null;
   private chunkFrom = -999;
   private readonly cache = new Map<number, Put[]>();
@@ -105,10 +109,43 @@ export class RopeScene {
 
   /** La ronda nueva: su recorrido (el paisaje se rehace). */
   setCourse(C: RopeCourse | null): void {
+    if (C === this.course) return;
     this.course = C;
     this.cache.clear();
     this.chunkFrom = -999;
     this.placed = false;
+    if (C) this.buildGround(C);
+  }
+
+  // la ladera de toda la ronda (una malla, hecha al empezar: en plena ronda no se crea nada), de color de hierba de montaña
+  private buildGround(C: RopeCourse): void {
+    if (this.ground) {
+      this.track.remove(this.ground);
+      this.ground.geometry.dispose();
+    }
+    this.groundMat ??= new MeshStandardMaterial({ color: 0x86b25e, roughness: 1, metalness: 0 });
+    const hA = -60, hB = C.h(C.len) + 20, nh = Math.ceil((hB - hA) / GROUND_DH) + 1, nu = Math.ceil((2 * GROUND_U) / GROUND_DU) + 1;
+    const pos = new Float32Array(nh * nu * 3), idx: number[] = [];
+    for (let i = 0; i < nh; i++)
+      for (let j = 0; j < nu; j++) {
+        const h = hA + i * GROUND_DH, u = -GROUND_U + j * GROUND_DU, k = (i * nu + j) * 3;
+        pos[k] = u;
+        pos[k + 1] = C.ground(h, u);
+        pos[k + 2] = -h;
+      }
+    for (let i = 0; i < nh - 1; i++)
+      for (let j = 0; j < nu - 1; j++) {
+        const a = i * nu + j, b = a + 1, c = a + nu, d = c + 1;
+        idx.push(a, b, c, b, d, c); // (de cara arriba: se ve desde la cuerda)
+      }
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    this.ground = new Mesh(g, this.groundMat);
+    this.ground.receiveShadow = true;
+    this.ground.userData.noInk = true; // (el borde de tinta en una ladera entera, a rayas)
+    this.track.add(this.ground);
   }
 
   /** Al colgarte: dónde está la cuerda (el centro de las paralelas, a su altura, `x`, `y`, `z`), hacia dónde sube (`fx`,
@@ -129,7 +166,7 @@ export class RopeScene {
     const C = this.course!;
     // subir: el cañón baja y va hacia tus pies (lo de s queda en tus manos)
     this.track.position.set(0, -C.y(s), C.h(s));
-    const from = Math.floor(s / ROPE_CHUNK) - CH_BACK;
+    const from = Math.floor(C.h(s) / ROPE_CHUNK) - CH_BACK;
     if (from !== this.chunkFrom) this.paintDeco(C, from);
     this.paintCable(C, s);
     if (this.pulley) {
@@ -143,7 +180,7 @@ export class RopeScene {
     this.chunkFrom = from;
     for (const k of [...this.cache.keys()]) if (k < from || k > from + CH_BACK + CH_AHEAD) this.cache.delete(k);
     for (const b of this.batches.values()) b.n = 0;
-    for (let c = Math.max(0, from); c <= from + CH_BACK + CH_AHEAD; c++) {
+    for (let c = from; c <= from + CH_BACK + CH_AHEAD; c++) {
       let L = this.cache.get(c);
       if (!L) {
         L = ropeDecoPuts(C, c, []);

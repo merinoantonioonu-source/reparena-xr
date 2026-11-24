@@ -222,7 +222,7 @@ export class BarsSystem extends createSystem({}) {
   waveCleared(): boolean {
     if (this.mstate !== 'play') return false;
     if (str('exercise') === 'hang') return this.bar.hold >= this.bar.need || this.bar.failed;
-    if (this.rope) return this.rope.reached; // (la cuerda: al llegar a la repisa del tramo)
+    if (this.rope) return this.rope.reached; // (la cuerda: al llegar a la plataforma de la torre del tramo)
     return this.field.cleared();
   }
 
@@ -328,7 +328,7 @@ export class BarsSystem extends createSystem({}) {
     this.syncTargets(dt);
   }
 
-  // la cuerda: subes remando y, sin remar, resbalas un poco; al llegar a la repisa, el tramo superado
+  // la cuerda: subes remando y, sin remar, resbalas un poco; al llegar a la plataforma de la torre, el tramo superado
   private stepRope(dt: number): void {
     const R = this.rope;
     if (!R) return;
@@ -336,11 +336,11 @@ export class BarsSystem extends createSystem({}) {
     this.ropeScene.update(true, R.s); // (con lo que has subido en este fotograma)
     for (const e of R.ev) {
       if (e.t === 'ledge') {
-        HOOKS.say('¡REPISA!', '#ffd166', 1.6, false);
+        HOOKS.say('¡PLATAFORMA!', '#ffd166', 1.6, false);
         HOOKS.score(50, true);
         SND.combo();
       } else if (e.t === 'slip') HOOKS.say('¡Resbalas! Sigue remando', WARN, 1.6, true);
-      else if (e.t === 'chimney' && e.on) HOOKS.say('¡La chimenea! Arriba, la repisa', '#3cf0c6', 1.6, false);
+      else if (e.t === 'chimney' && e.on) HOOKS.say('¡A la torre! Sube por la cuerda', '#3cf0c6', 1.6, false);
     }
     R.ev.length = 0;
   }

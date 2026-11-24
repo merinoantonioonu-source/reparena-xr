@@ -331,7 +331,7 @@ export function coastDecoPuts(chunk: number, out: Put[], clear: -1 | 0 | 1 = 0):
 /* ------------------------------------------------------------------ las piezas */
 
 /** Un `Dock_Pole` de pie: de `y0` a `y0 + len` (m), con grosor `th` (escala en x y z). */
-function standPole(ds: number, u: number, y0: number, len: number, th: number): Put {
+export function standPole(ds: number, u: number, y0: number, len: number, th: number): Put {
   const sy = len / PL_LEN;
   return put('island', 'Dock_Pole', ds, u, y0 - PL.y0 * sy, { sx: th, sy, sz: th });
 }
@@ -394,7 +394,7 @@ const FRUITS: Record<string, readonly [number, number, number, number, number, n
   Grapes: [-0.1395, 0, -0.1193, 0.1395, 0.4226, 0.1193],
 };
 /** Un `Dock_Pole` tumbado a lo ancho e inclinado: su eje, de (`u0`, `y0`) a (`u1`, `y1`) (m), con grosor `th`. */
-function tiltPole(ds: number, u0: number, y0: number, u1: number, y1: number, th: number): Put {
+export function tiltPole(ds: number, u0: number, y0: number, u1: number, y1: number, th: number): Put {
   const du = u1 - u0, dy = y1 - y0, len = Math.hypot(du, dy), sy = len / PL_LEN;
   // (girado rz alrededor de su origen: su largo, el y del modelo, va a (−sin rz, cos rz); el centro del eje, a su sitio)
   const rz = Math.atan2(-du, dy), c = Math.cos(rz), sn = Math.sin(rz);

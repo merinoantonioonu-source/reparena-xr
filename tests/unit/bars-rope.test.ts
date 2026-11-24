@@ -1,57 +1,81 @@
 // La aventura en la cuerda del remo invertido (pedido del usuario: «A con tramos de B», resbalar mínimamente, en Barras, con
-// una paralela o dos): una cuesta muy empinada que acaba cada tramo en vertical hasta una repisa; cada remo sube y, sin remar,
-// se resbala un poco, nunca más abajo de la repisa de salida.
+// una paralela o dos; la escena A: torres sobre un valle alpino): cables rectos de torre en torre que acaban en vertical hasta
+// la plataforma; cada remo sube y, sin remar, se resbala un poco, nunca más abajo de la plataforma de salida. Nada flota.
 import { describe, expect, it } from 'vitest';
-import { putSpanU } from '../../src/modes/trek/plat/pieces';
-import { ROPE, ROPE_CHUNK, ROPE_CLEAR, RopeCourse, RopeRun, ropeDecoPuts } from '../../src/modes/bars/rope';
+import { ROPE, ROPE_CHUNK, RopeCourse, RopeRun, ropeDecoPuts } from '../../src/modes/bars/rope';
 
 const DEG = 180 / Math.PI;
 const lens = [10, 12, 14, 16, 18].map((r) => r * ROPE.perRep);
+const TREES = ['Pine_2', 'Pine_4', 'Pine_5', 'DeadTree_1'];
 
 describe('el recorrido de la cuerda', () => {
   const C = new RopeCourse(lens, 7);
 
-  it('sube siempre, con una cuesta muy empinada (de unos 28° a 52°) y casi llana al empezar', () => {
-    expect(C.pitch(0) * DEG).toBeLessThan(20);
+  it('sube siempre; cada cable, recto y tenso (de 30° a 42°, con una comba leve: menos de 3° de diferencia de punta a punta)', () => {
     let lastH = -1, lastY = -1;
     for (let s = 0; s < C.ends[C.ends.length - 1]; s += 0.5) {
-      expect(C.h(s)).toBeGreaterThanOrEqual(lastH - 1e-4);
+      expect(C.h(s)).toBeGreaterThanOrEqual(lastH - 1e-3);
       expect(C.y(s)).toBeGreaterThan(lastY - 1e-4);
       lastH = C.h(s);
       lastY = C.y(s);
     }
-    // (lejos del arranque y de las chimeneas, la cuesta de siempre)
     for (let i = 0; i < C.ends.length; i++) {
-      const a = i ? C.ends[i - 1] : 0, mid = a + (C.ends[i] - a) * 0.3;
-      if (mid < 10) continue;
-      const p = C.pitch(mid) * DEG;
-      expect(p).toBeGreaterThan(25);
-      expect(p).toBeLessThan(56);
+      const a = (i ? C.ends[i - 1] : 0) + 2, b = C.verts[i][0] - 2;
+      let lo = 9, hi = -9;
+      for (let s = a; s <= b; s += 0.25) {
+        lo = Math.min(lo, C.pitch(s));
+        hi = Math.max(hi, C.pitch(s));
+      }
+      expect(lo * DEG).toBeGreaterThan(ROPE.pitch[0] * DEG - 3);
+      expect(hi * DEG).toBeLessThan(ROPE.pitch[1] * DEG + 3);
+      expect((hi - lo) * DEG).toBeLessThan(3);
     }
   });
 
-  it('cada tramo acaba en vertical (la chimenea) justo en su repisa', () => {
-    for (const e of C.ends) {
-      expect(C.pitch(e - 1) * DEG).toBeGreaterThan(80);
-      expect(C.inChimney(e - 1)).toBe(true);
+  it('cada tramo acaba en vertical junto a su torre, hasta la plataforma', () => {
+    expect(C.verts.length).toBe(lens.length);
+    for (let i = 0; i < C.ends.length; i++) {
+      const [a, b] = C.verts[i];
+      expect(b - a).toBeGreaterThanOrEqual(ROPE.vLen[0] - 1);
+      expect(C.pitch((a + b) / 2) * DEG).toBeGreaterThan(80);
+      expect(C.inChimney((a + b) / 2)).toBe(true);
+      const T = C.towers[i + 1];
+      expect(Math.abs(C.h(C.ends[i]) - T.h)).toBeLessThan(0.6);
+      expect(Math.abs(C.y(C.ends[i]) - T.top)).toBeLessThan(0.6);
     }
-    expect(C.chimneys.length).toBe(lens.length);
     expect(C.wave(0)).toBe(0);
     expect(C.wave(C.ends[0] + 0.1)).toBe(1);
   });
 
-  it('las paredes del cañón nunca se meten en la cuerda (ni en la chimenea), y cada repisa sale con su cofre', () => {
-    let ledges = 0, chests = 0;
-    for (let c = 0; c * ROPE_CHUNK < C.len; c++)
+  it('la cuerda va siempre muy por encima del suelo (como poco 5 m)', () => {
+    for (let s = 0; s < C.ends[C.ends.length - 1]; s += 0.5) {
+      for (const u of [-0.3, 0, 0.3]) expect(C.y(s) - C.ground(C.h(s), u)).toBeGreaterThan(5);
+    }
+  });
+
+  it('nada flota: cada árbol, piedra y pata de torre, apoyado en el suelo; los árboles, lejos de la cuerda', () => {
+    let trees = 0, docks = 0, chests = 0;
+    const hEnd = C.h(C.len);
+    for (let c = -5; c * ROPE_CHUNK < hEnd; c++)
       for (const P of ropeDecoPuts(C, c, [])) {
-        if (P.n === 'Cliff1') ledges++;
+        if (TREES.includes(P.n)) {
+          trees++;
+          expect(Math.abs(P.u)).toBeGreaterThanOrEqual(ROPE.treeU - 1e-6);
+          const g = C.ground(P.ds, P.u);
+          expect(P.y).toBeLessThanOrEqual(g + 1e-6); // (el tronco, en la tierra)
+          expect(P.y).toBeGreaterThan(g - 0.3);
+        }
+        if (P.n.startsWith('Rock_Medium')) expect(P.y).toBeLessThanOrEqual(C.ground(P.ds, P.u) + 1e-6);
+        if (P.n === 'Dock') docks++;
         if (P.n === 'Chest_Closed') chests++;
-        if (P.n !== 'Cliff4' && P.n !== 'Cliff3') continue;
-        const sp = putSpanU(P)!;
-        expect(Math.min(Math.abs(sp[0]), Math.abs(sp[1]))).toBeGreaterThanOrEqual(ROPE_CLEAR - 1e-6);
-        expect(sp[0] * sp[1]).toBeGreaterThan(0); // (de un solo lado)
+        if (P.n === 'Dock_Pole' && Math.abs(P.rz) < 1e-6) {
+          // (las patas: su pie, bajo tierra)
+          const foot = P.y + -1.999561 * P.sy;
+          expect(foot).toBeLessThanOrEqual(C.ground(P.ds, P.u) + 1e-3);
+        }
       }
-    expect(ledges).toBe(lens.length);
+    expect(trees).toBeGreaterThan(50);
+    expect(docks).toBe(C.towers.length);
     expect(chests).toBe(lens.length);
   });
 

@@ -170,8 +170,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
   - [ ] Fase 4 · Cierre (encendido de serie cuando el usuario lo dé por bueno)
 - [ ] **Barras: la aventura en la cuerda del remo invertido** (elegido por el usuario: «A con tramos de B», resbalar
   mínimamente, en Barras, con una paralela o dos; plan en `docs/PLAN-BARRAS-CUERDA.md`)
-  - [x] **PR 1 · El armazón jugable** (la cuerda en cuesta con su chimenea al final de cada tramo, el avance por remo,
-    resbalar, el cañón y la repisa)
+  - [x] **PR 1 · El armazón jugable** (la escena A del usuario: cables rectos de torre en torre sobre un valle alpino, la
+    subida vertical al final de cada tramo hasta la plataforma, el avance por remo, resbalar, y nada flota)
   - [ ] PR 2 · Retos y premios
   - [ ] PR 3 · Los mundos y el jefe
 - [ ] **Lo que se ve desde cada postura, el superman, las cuestas y Arcos** (plan trazado con el usuario el 22/11/2026, por
@@ -422,12 +422,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - **La aventura en la cuerda del remo invertido, PR 1** (`docs/PLAN-BARRAS-CUERDA.md`): con `barRope` (solo RepArena XR, de
   serie apagado: *en pruebas*), `BarsSystem` crea al empezar la ronda un `RopeCourse` con todos los tramos (cada uno,
   `waveReps(i) × ROPE.perRep`) y un `RopeRun`; el detector de siempre le pasa los remos y las ondas (`ropeHits` en vez de las
-  pompas de `BarField`) y la oleada se supera al llegar a la repisa (`RopeRun.reached`). La cuerda se coloca al colgarte la
-  primera vez (`placeRope`: a lo largo de las paralelas con dos; cruzada a ella con una; hacia lo alto de tu cabeza).
-  `RopeScene` pinta el cañón con las rocas del risco (`ropeDecoPuts`, con `rockFit` y `put` de `pieces.ts`) y los cables,
-  y esconde la arena; `EnvSystem` aparta el entorno de serie mientras se ve (`BarsSystem.ropeShown`). Visto en el emulador,
-  tumbado bajo dos paralelas: la cuesta y la chimenea. **Pendiente con el usuario**: probarlo en las gafas (si marea, si se
-  entiende que subes, el ritmo de 1,7 m por remo y lo cerca que quedan las paredes) y, con una paralela, la polea.
+  pompas de `BarField`) y la oleada se supera al llegar a la plataforma (`RopeRun.reached`). La cuerda se coloca al colgarte la
+  primera vez (`placeRope`: a lo largo de las paralelas con dos; cruzada a ella con una; hacia lo alto de tu cabeza). La
+  escena es la A de los bocetos (el usuario rechazó el cañón): `RopeCourse` hace cables rectos (`ROPE.pitch`, comba `sag`) y la
+  subida vertical (`verts`) con las esquinas redondeadas, y el suelo (`ground`) de pie de torre a pie de torre; `ropeDecoPuts`
+  pone pinos y piedras en él (`standPole`, `tiltPole`, `put` y `rockFit` de `pieces.ts`) y las torres (`TOWER`). `RopeScene`
+  hace la malla de la ladera al empezar la ronda y esconde la arena; `EnvSystem` aparta el entorno de serie mientras se ve
+  (`BarsSystem.ropeShown`). Visto en el emulador tumbado bajo dos paralelas (al empezar, en el cable y en la subida vertical);
+  mirando de lado, el navegador del emulador se caía (sin errores en el registro): falta verlo. **Pendiente con el usuario**:
+  los fondos realistas (tres propuestas: una foto, una por altura —la recomendada—, o con la hora) y probarlo en las gafas.
 
 - **El press de pecho, desde el cielo, y las cuchillas más pequeñas** (pedido del usuario: tumbado no se ven las compuertas, la
   bola quedaba entre las piernas y las cuchillas de Arcos eran descomunales). Con `skyFoes()` (`src/core/rules.ts`) los
