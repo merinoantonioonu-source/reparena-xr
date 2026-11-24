@@ -23,6 +23,9 @@ export interface City {
   name: string;
   lat: number;
   lon: number;
+  /** El suelo del centro sobre el elipsoide del mapa (m, aproximado: su altitud y la del geoide); hasta medirlo con el mapa
+   * cargado, para no empezar bajo tierra (Madrid está a unos 700 m). */
+  h: number;
   route: Landmark[];
 }
 
@@ -32,6 +35,7 @@ export const CITIES: readonly City[] = [
     name: 'Madrid',
     lat: 40.4169,
     lon: -3.7035,
+    h: 710,
     route: [
       { name: 'Puerta del Sol', lat: 40.4169, lon: -3.7035 },
       { name: 'Plaza Mayor', lat: 40.4155, lon: -3.7074 },
@@ -47,6 +51,7 @@ export const CITIES: readonly City[] = [
     name: 'París',
     lat: 48.8606,
     lon: 2.3376,
+    h: 80,
     route: [
       { name: 'Louvre', lat: 48.8606, lon: 2.3376 },
       { name: 'Notre-Dame', lat: 48.853, lon: 2.3499 },
@@ -60,6 +65,7 @@ export const CITIES: readonly City[] = [
     name: 'Nueva York',
     lat: 40.758,
     lon: -73.9855,
+    h: -15,
     route: [
       { name: 'Times Square', lat: 40.758, lon: -73.9855 },
       { name: 'Rockefeller Center', lat: 40.7587, lon: -73.9787 },
@@ -74,6 +80,7 @@ export const CITIES: readonly City[] = [
     name: 'Roma',
     lat: 41.8946,
     lon: 12.4831,
+    h: 70,
     route: [
       { name: 'Coliseo', lat: 41.8902, lon: 12.4922 },
       { name: 'Foro Romano', lat: 41.8925, lon: 12.4853 },

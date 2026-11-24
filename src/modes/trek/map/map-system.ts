@@ -9,7 +9,7 @@
  * donde vuelas quede en tu cabeza. El suelo bajo ti (y bajo cada aro) se mide con un rayo hacia abajo contra el mapa.
  * Los mapas, sin el estilo cómic ni niebla (son fotos de verdad) y con sus créditos de Google a la vista (lo exigen).
  */
-import { AdditiveBlending, CanvasTexture, ConeGeometry, createSystem, DoubleSide, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Raycaster, TorusGeometry, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, CanvasTexture, ConeGeometry, createSystem, DoubleSide, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Raycaster, TorusGeometry, Vector2, Vector3 } from '@iwsdk/core';
 import type { Material, PerspectiveCamera, WebGLRenderer } from '@iwsdk/core';
 // (el descompresor de los modelos de Google: el mismo paquete de Three que reexporta IWSDK —IWSDK lo importa igual—)
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -22,13 +22,13 @@ import { str } from '../../../core/values.js';
 import { haptic } from '../../../input/hand-system.js';
 import { FLY } from '../plat/fly.js';
 import { TrekSystem } from '../trek-system.js';
-import { GOOGLE_3D_ASSET, mapKey } from './map-key.js';
+import { GOOGLE_3D_ASSET, mapKey, mapLog } from './map-key.js';
 import { cityOf, headingTo, MAP, MapFlight, type MapIn } from './map-route.js';
 
 const DEG = Math.PI / 180;
 /** Lo lejos que se pinta (m: la ciudad entera; la cámara de la Travesía no llega tan lejos), cada cuánto se mide el suelo (s), el
  * detalle de los mapas (más, menos detalle y más ligero: en las gafas), lo que pueden ocupar en memoria (bytes) y el aviso. */
-const FAR = 25000, GROUND_T = 0.35, ERROR_TARGET = 24, CACHE_BYTES = 260 * 1024 * 1024, WAIT = 12;
+const FAR = 25000, GROUND_T = 0.35, ERROR_TARGET = 24, CACHE_BYTES = 260 * 1024 * 1024, WAIT = 20;
 
 export class MapSystem extends createSystem({}) {
   private root!: Group;
@@ -42,6 +42,9 @@ export class MapSystem extends createSystem({}) {
   private errSaid = false;
   /** Si ya ha llegado algún trozo del mapa, y lo que lleva esperándolo (s: pasado `WAIT`, se avisa). */
   private loaded = false;
+  private asked = false;
+  private nextState = 0;
+  private readonly size = new Vector2();
   private waitT = 0;
   /** El suelo bajo ti y bajo cada aro (m, en el mapa; NaN: aún sin medir) y cuándo toca medirlo. */
   private ground = 0;
@@ -113,7 +116,15 @@ export class MapSystem extends createSystem({}) {
     if (!this.active && !this.start()) return;
     const F = this.flight!, tiles = this.tiles!;
     // (sin nada del mapa en un rato: la clave mal pegada, sin permiso para esta dirección o sin wifi)
-    if (!this.loaded && !this.errSaid && (this.waitT += dt) > WAIT) this.fail('sin respuesta');
+    if (!this.loaded) {
+      this.waitT += dt;
+      if (!this.errSaid && this.waitT > WAIT) this.fail(`sin ningún trozo en ${WAIT} s${this.asked ? ' (pedidos)' : ' (ni pedidos)'}`);
+      // (y cómo va, cada rato: para saber dónde se atasca)
+      if (this.waitT > this.nextState && this.nextState < 80) {
+        this.nextState += 15;
+        this.log(this.stateOf(tiles));
+      }
+    }
     // el vuelo: lo que manda el cuerpo (el planeador de la Travesía) y la marcha
     if (!GAME.paused) {
       const I = this.inp;
@@ -205,8 +216,16 @@ export class MapSystem extends createSystem({}) {
       tiles.errorTarget = ERROR_TARGET;
       tiles.lruCache.maxBytesSize = CACHE_BYTES;
       tiles.lruCache.minBytesSize = CACHE_BYTES * 0.6;
+      tiles.addEventListener('load-root-tileset', () => this.log('índice del mapa recibido'));
+      tiles.addEventListener('tile-download-start', () => {
+        if (!this.asked) {
+          this.asked = true;
+          this.log('pidiendo trozos del mapa');
+        }
+      });
       tiles.addEventListener('load-model', (e: { scene: Object3D }) => {
         // (fotos de verdad: sin cómic, sin contorno de tinta y sin la niebla de la Travesía)
+        if (!this.loaded) this.log('primer trozo del mapa cargado');
         this.loaded = true;
         e.scene.traverse((o) => {
           o.userData.noInk = true;
@@ -215,19 +234,26 @@ export class MapSystem extends createSystem({}) {
         });
       });
       tiles.addEventListener('load-error', (e: { error: Error; url: string | URL }) => {
-        this.fail(String(e.error?.message ?? e.error).slice(0, 80));
+        let host = '';
+        try {
+          host = new URL(String(e.url)).host;
+        } catch {
+          /* (sin dirección) */
+        }
+        this.fail(`${String(e.error?.message ?? e.error).slice(0, 90)}${host ? ` · ${host}` : ''}`);
       });
       tiles.group.userData.noComic = true;
       this.root.add(tiles.group);
       this.tiles = tiles;
       this.cityId = city.id;
-      this.loaded = false;
+      this.loaded = this.asked = false;
     }
     this.flight = new MapFlight(city);
     this.waitT = 0;
+    this.nextState = 6;
     this.ringGround = [];
     this.groundOk = false;
-    this.ground = 0;
+    this.ground = city.h; // (hasta medirlo: no bajo tierra)
     this.groundT = this.ringT = 0;
     this.root.visible = true;
     const cam = this.world.camera as PerspectiveCamera;
@@ -235,7 +261,7 @@ export class MapSystem extends createSystem({}) {
     cam.far = FAR;
     cam.updateProjectionMatrix();
     HOOKS.say(`${city.name} · sigue los aros`, '#3cf0c6', 3, false);
-    diagEvent(`Mapa: ${city.name}`);
+    this.log(`${city.name}: empieza (clave …${key.slice(-4)})`);
     return true;
   }
 
@@ -262,10 +288,23 @@ export class MapSystem extends createSystem({}) {
   }
 
   private fail(why: string): void {
-    diagEvent(`Mapa: no se pudo cargar (${why})`);
+    this.log(`no carga: ${why}`);
     if (this.errSaid) return;
     this.errSaid = true;
-    HOOKS.say('Mapa: no carga (¿clave o wifi?)', '#ff8a3d', 4, true);
+    HOOKS.say('Mapa: no carga · mira la página', '#ff8a3d', 4, true);
+  }
+
+  /** Cómo va la carga: la raíz (0 sin pedir, 2 bajando, 4 recibida, −1 fallida), los trozos en cada paso y la resolución. */
+  private stateOf(tiles: TilesRenderer): string {
+    const S = (tiles as unknown as { stats: Record<string, number> }).stats, r = this.world.renderer as WebGLRenderer;
+    r.getSize(this.size);
+    return `a los ${Math.round(this.waitT)} s · raíz ${(tiles as unknown as { rootLoadingState: number }).rootLoadingState} · en cola ${S.queued} · bajando ${S.downloading} · procesando ${S.parsing} · cargados ${S.loaded} · fallidos ${S.failed} · visibles ${tiles.visibleTiles.size} · ${this.size.x}×${this.size.y}${r.xr.isPresenting ? ' (VR)' : ''}`;
+  }
+
+  /** Al diagnóstico y al registro del mapa (que enseña la página: no se borra a los 30 s). */
+  private log(text: string): void {
+    diagEvent(`Mapa: ${text}`);
+    mapLog(text);
   }
 
   /** El suelo en (x, z) del mapa (m; NaN si aún no ha cargado): un rayo desde muy alto hacia abajo. */

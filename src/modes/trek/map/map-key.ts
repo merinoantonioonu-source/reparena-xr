@@ -22,3 +22,24 @@ export const setMapKey = (k: string): void => {
 /** ¿Se vuela sobre el mapa? En la Travesía, en plancha y volando, con una ciudad elegida y la clave puesta. */
 export const mapWanted = (): boolean =>
   settings.mode === 'trek' && settings.exercise === 'pushup' && num('trekFly') > 0 && !!cityOf(str('flyMap')) && !!mapKey();
+
+/** Lo que le ha pasado al mapa las últimas veces (en este aparato; no viaja con la sincronización): la página lo enseña en
+ * «Volar sobre el mapa», para saber por qué no carga sin depender del diagnóstico (que solo guarda los últimos 30 s). */
+export const MAP_LOG_KEY = 'reparenaxr-maplog';
+export interface MapLogLine {
+  t: number;
+  text: string;
+}
+export const mapLogRead = (): MapLogLine[] => {
+  const v = store<MapLogLine[]>(MAP_LOG_KEY);
+  return Array.isArray(v) ? v : [];
+};
+export const mapLog = (text: string): void => {
+  try {
+    const L = mapLogRead();
+    L.push({ t: Date.now(), text });
+    globalThis.localStorage?.setItem(MAP_LOG_KEY, JSON.stringify(L.slice(-24)));
+  } catch {
+    /* (sin guardado: no pasa nada) */
+  }
+};
