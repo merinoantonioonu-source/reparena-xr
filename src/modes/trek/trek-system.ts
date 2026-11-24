@@ -20,7 +20,7 @@ import { playSound } from '../../audio/sound.js';
 import type { AnimationAction, DirectionalLight, FogExp2, HemisphereLight, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { diagEvent } from '../../core/diag.js';
-import { dv, store, waveReps, nWaves, rankIdx } from '../../core/settings.js';
+import { dv, setSetting, store, waveReps, nWaves, rankIdx } from '../../core/settings.js';
 import { CAMP } from '../../core/campaign.js';
 import { GAME, HOOKS, LITE, VIEW } from '../../core/state.js';
 import { num, settings, str } from '../../core/values.js';
@@ -368,6 +368,7 @@ export class TrekSystem extends createSystem({}) {
   }
 
   init(): void {
+    HOOKS.flyCoach = () => this.runner.coachAgain();
     this.world.createTransformEntity(this.root);
     this.root.visible = false;
     // el césped de debajo de la pasarela: su dibujo corre y gira con el mundo (no patina bajo lo apoyado)
@@ -549,6 +550,11 @@ export class TrekSystem extends createSystem({}) {
     this.pendingBiome = -1;
     this.setBiome(0);
     this.applyEvents();
+  }
+
+  /** El asistente del vuelo en marcha: la partida no cuenta el descanso ni la cuenta atrás hasta que acabe. */
+  holding(): boolean {
+    return this.runner.coaching;
   }
 
   /** Ya calibrado (quieto 2 s): tu altura y el centro. Si la partida te recoloca (`turned`: el mundo se desliza 0,8 s hasta
@@ -1039,6 +1045,25 @@ export class TrekSystem extends createSystem({}) {
       }
       case 'store':
         store(e.key, e.val);
+        break;
+      case 'set':
+        setSetting(e.key, e.val); // (el asistente del vuelo: el ajuste del movimiento que acabas de notar)
+        break;
+      case 'coachAsk': {
+        // su pregunta, en las teclas de un menú (se pulsan con una mano, de rodillas o apoyado en la otra)
+        const R = this.runner, ans = (a: 'much' | 'ok' | 'little') => (): void => R.coachAnswer(a);
+        HOOKS.openScreen(
+          [
+            { t: 'title', text: e.text, color: '#3cf0c6' },
+            { t: 'text', text: 'Demasiado: se mueve con nada · Poco: cuesta moverlo', color: '#a49fc8' },
+            { t: 'btns', items: [{ label: 'Demasiado', accent: '#ff8a3d', onPress: ans('much') }, { label: 'Bien', style: 'primary', onPress: ans('ok') }, { label: 'Poco', accent: '#7fb4ff', onPress: ans('little') }], h: 0.1 },
+          ],
+          { accent: '#3cf0c6', low: true },
+        );
+        break;
+      }
+      case 'coachClose':
+        HOOKS.closeScreen();
         break;
       case 'halt':
       case 'go':

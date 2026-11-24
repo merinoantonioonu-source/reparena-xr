@@ -138,12 +138,14 @@ export const HOOKS = {
   spChanged: (): void => {},
   /** Una pantalla genérica del menú (título y filas de texto o de botones, como `openMenu` de RepArena): la abre y la cierra el
    * menú de RepArena (openMenu, src/ui/ra/menu-core.ts). */
-  openScreen: (_rows: unknown[], _opts?: { title?: string; accent?: string }): void => {},
+  openScreen: (_rows: unknown[], _opts?: { title?: string; accent?: string; low?: boolean }): void => {},
   closeScreen: (): void => {},
   screenOn: (): boolean => false,
   /** Las cartas de mejora (el menú de RepArena: src/ui/ra/menus.ts, perkMenu): cuáles y qué hacer al elegir una. */
   perksOpen: (_cards: { name: string; desc: string; col: string }[], _pick: (i: number) => void): void => {},
   perksClose: (): void => {},
+  /** La Travesía volando: «Ajustar el vuelo» desde la pausa (el asistente, en el próximo cofre o antes del primer tramo). */
+  flyCoach: (): void => {},
   /** Unas chispas (n, del color c) en p: lo pone la partida. */
   sparks: (_p: Vector3, _n: number, _c: number): void => {},
   /** Los premios de un cofre recién abierto, que salen de su boca (`at`) y suben flotando (src/ui/prize-system.ts). */

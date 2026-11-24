@@ -399,6 +399,8 @@ export function pauseMenu(): void {
       ...(PAUSE.diag ? [{ t: 'text' as const, text: 'Diagnóstico guardado: en la página del juego, «Descargar la caja negra» (o «Copiar el último»)', color: '#3cf0c6' }] : []),
       // («Manos: filtro nuevo», en pruebas: a mano en la pausa para comparar; vale al seguir)
       ...(fieldVisible(FIELD.handsNew) ? [{ t: 'field' as const, key: 'handsNew' }] : []),
+      // (la Travesía volando: el asistente, en el próximo cofre o, si aún no ha empezado el primer tramo, ya)
+      ...(settings.mode === 'trek' && settings.exercise === 'pushup' && num('trekFly') > 0 ? [{ t: 'btns' as const, items: [{ label: 'Ajustar el vuelo', accent: '#3cf0c6', onPress: () => (HOOKS.flyCoach(), HOOKS.resume(), HOOKS.toast('Ajuste del vuelo: en el próximo cofre', '#3cf0c6', 3)) }] }] : []),
       { t: 'btns', items: [{ label: 'Sonido  ▸', accent: MC.sound, onPress: () => soundMenu(pauseMenu) }, { label: 'Entorno  ▸', accent: MC.scene, onPress: () => sceneMenu(pauseMenu) }, { label: 'Ajustes  ▸', accent: MC.set, onPress: () => settingsMenu(pauseMenu) }] },
       { t: 'btns', items: [{ label: bars ? 'Volver a colgarme' : 'Recalibrar', accent: MC.body, onPress: () => (HOOKS.resume(), HOOKS.recalibrate()) }, { label: 'Guardar diagnóstico', onPress: () => (HOOKS.diagSave('con el botón de la pausa'), (PAUSE.diag = true), pauseMenu()) }] },
       { t: 'btns', items: [{ label: 'Terminar ronda', onPress: () => (HOOKS.resume(), HOOKS.endRound()) }, { label: 'Menú principal', onPress: () => (HOOKS.resume(), HOOKS.toLobby()) }, { label: 'Salir del juego', style: 'danger', onPress: () => (HOOKS.resume(), MENU_ENV.exit()) }] },

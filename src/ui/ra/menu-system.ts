@@ -19,7 +19,7 @@ import { SND, unlockAudio } from '../../audio/sound.js';
 import { HITCH } from '../../core/hitch.js';
 import { diagEvent } from '../../core/diag.js';
 import type { Btn, Widget } from './btn.js';
-import { activeWidgets, ENV, hideMenu, menuClose, noteStand, openMenu, refreshFields, UI, updateWatch, updateWristMenu, WATCH, watchBtn, WM, wristOpen, wristReady, type Row } from './menu-core.js';
+import { activeWidgets, ENV, hideMenu, lowAnchor, menuClose, noteStand, openMenu, refreshFields, UI, updateWatch, updateWristMenu, WATCH, watchBtn, WM, wristOpen, wristReady, type Row } from './menu-core.js';
 import { endMenu, lobbyMenu, MENU_ENV, pauseMenu, perkClose, perkMenu } from './menus.js';
 import { fingers, pokeHold, pokeIdle, pokeWidgets, POKE } from './poke.js';
 import type { Summary } from '../../core/run.js';
@@ -125,11 +125,12 @@ export class RaMenuSystem extends createSystem({}, {}) {
       hideMenu();
     };
     HOOKS.openScreen = (rows, opts) => {
-      const m = openMenu(rows as Row[], { accent: opts?.accent }, 'screen');
+      // (`low`: en plancha, en el suelo delante de tus manos, hacia donde apunta el cuerpo, sin «✕ Cerrar»: se pulsa con una mano)
+      const m = openMenu(rows as Row[], { accent: opts?.accent, ...(opts?.low ? { anchor: lowAnchor(), noClose: true } : {}) }, opts?.low ? 'coach' : 'screen');
       if (opts?.title) m.kind = 'screen';
     };
     HOOKS.closeScreen = () => {
-      if (UI.menu?.kind === 'screen') hideMenu(true);
+      if (UI.menu?.kind === 'screen' || UI.menu?.kind === 'coach') hideMenu(true);
     };
     HOOKS.screenOn = () => UI.menu?.kind === 'screen';
     HOOKS.perksOpen = (cards, pick) => this.open(() => perkMenu(cards, pick));
@@ -310,12 +311,13 @@ export class RaMenuSystem extends createSystem({}, {}) {
     }
     // qué menú se ve (para la partida): el que está abierto aunque esté recogido
     const k = UI.menu?.kind;
-    GAME.menu = k === 'lobby' ? 'lobby' : k === 'options' || k === 'screen' ? 'options' : k === 'pause' ? 'pause' : k === 'summary' ? 'summary' : 'none';
-    // en plena partida no hay más menú que la pausa y las cartas
-    if (GAME.phase === 'playing' && !GAME.paused && m && m.kind !== 'pause' && m.kind !== 'perks') hideMenu();
-    // con un menú abierto (y a la vista) en las gafas, la escena se aligera (sin el bosque ni los enemigos: src/core/state.ts)
+    GAME.menu = k === 'lobby' ? 'lobby' : k === 'options' || k === 'screen' || k === 'coach' ? 'options' : k === 'pause' ? 'pause' : k === 'summary' ? 'summary' : 'none';
+    // en plena partida no hay más menú que la pausa, las cartas y la pregunta del asistente del vuelo
+    if (GAME.phase === 'playing' && !GAME.paused && m && m.kind !== 'pause' && m.kind !== 'perks' && m.kind !== 'coach') hideMenu();
+    // con un menú abierto (y a la vista) en las gafas, la escena se aligera (sin el bosque ni los enemigos: src/core/state.ts);
+    // con la pregunta del asistente, no (se ve dónde vuelas)
     const mm = UI.menu;
-    LITE.on = inXR && !!mm && !mm.closed && mm.group.visible && mm.kind !== 'perks' && (!mm.wrist || WM.on);
+    LITE.on = inXR && !!mm && !mm.closed && mm.group.visible && mm.kind !== 'perks' && mm.kind !== 'coach' && (!mm.wrist || WM.on);
     this.applyHold(dt, inXR);
   }
 

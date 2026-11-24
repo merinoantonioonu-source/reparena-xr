@@ -6,7 +6,7 @@
  * va donde va tu cabeza, en proporción y sin memoria, respecto a un centro que no se mueve mientras vuelas (`FlyBody`: se toma
  * al calibrar y, posado en cada cofre, en plancha arriba):
  * - **A los lados** (escorarte): la **posición** de lado. Tanto te escoras, tanto te apartas; vuelves al centro y el vuelo
- *   vuelve (zona muerta de 1,5 cm; el recorrido entero, «Vuelo: recorrido de lado» o lo que midió la práctica).
+ *   vuelve (zona muerta de 1,5 cm; el recorrido entero, «Vuelo: recorrido de lado», que pone a tu gusto el asistente: fly-coach.ts).
  * - **Abajo** (bajar el pecho) y **atrás** (subir la cadera, la pica): la altura, según el mando de altura (`FlyModel`):
  *   - **P, posición** («el cuerpo es el avión»): tu altura sale de tu cabeza. Bajar el pecho baja el vuelo en proporción
  *     (la flexión entera, 3,5 m); la pica lo sube (hasta 3 m) y frena. En la dura, cada flexión sube el crucero y sin
@@ -387,113 +387,4 @@ export function boardTilt(l: { ok: boolean; x: number; y: number }, r: { ok: boo
 export function boardSide(tilt: number): number {
   const a = Math.abs(tilt) - FLY.tiltDead;
   return a > 0 ? Math.sign(tilt) * a * FLY.tilt : 0;
-}
-
-/** Los pasos de la práctica de vuelo, en orden: lo que se pide y lo que lo marca como hecho. */
-export const PRACTICE: readonly { key: 'right' | 'left' | 'down' | 'rep' | 'pike' | 'roll'; text: string; done: string }[] = [
-  { key: 'right', text: 'Escórate a la derecha', done: 'A la derecha' },
-  { key: 'left', text: 'Escórate a la izquierda', done: 'A la izquierda' },
-  { key: 'down', text: 'Baja el pecho: bajas', done: 'Bajas' },
-  { key: 'rep', text: 'Haz una flexión', done: 'Flexión' },
-  { key: 'pike', text: 'Cadera arriba: frenas', done: 'Frenas' },
-  // (un giro, no un tonel: con los barriles de los premios, «tonel» se entendía como un barril que no estaba)
-  { key: 'roll', text: 'Ponte de canto: giras', done: 'Giro' },
-];
-/** La práctica: lo que hay que llegar a hacer en cada paso (m, rad), lo que se sigue midiendo al llegar (s: lo más que te
- * escoras, bajas o vas atrás), lo que dura cada paso como mucho (s: si no sale, se salta) y la pausa entre uno y otro (s). Lo
- * medido se queda al 80 % (el recorrido entero de cada eje, cómodo). */
-export const PRACTICE_SIDE = 0.04, PRACTICE_DOWN = 0.05, PRACTICE_BACK = 0.07, PRACTICE_ROLL = 0.7, PRACTICE_HOLD = 0.6, PRACTICE_MAX = 12, PRACTICE_GAP = 1.2, PRACTICE_FIT = 0.8;
-
-/**
- * La práctica de vuelo (docs/PLAN-VUELO.md, 3.4): la primera vez que vuelas, al empezar el primer tramo (que solo trae premios),
- * seis pasos. Cada uno, en cuanto lo haces, se marca con ✓ y pasa al siguiente (sin pedir volver; en las gafas se quedaba
- * esperando); si no sale en `PRACTICE_MAX` s, se salta. El mundo no espera: la marcha sigue como siempre. De paso mide lo que
- * te escoras a cada lado, lo que bajas y lo que vas atrás en la pica, y deja el vuelo a tu medida.
- */
-export class FlyPractice {
-  /** El paso (−1: sin empezar; PRACTICE.length: acabada), cuánto lleva y la pausa tras el ✓ (s). */
-  step = -1;
-  t = 0;
-  wait = 0;
-  /** Lo hecho en este paso (ya llegó a lo pedido) y lo máximo de cada cosa. */
-  reached = false;
-  maxR = 0;
-  maxL = 0;
-  maxDown = 0;
-  maxBack = 0;
-  rollT = 0;
-  /** Lo que lleva hecho lo pedido en este paso (s; al llegar a `PRACTICE_HOLD`, ✓). */
-  holdT = 0;
-
-  get active(): boolean {
-    return this.step >= 0 && this.step < PRACTICE.length;
-  }
-  get done(): boolean {
-    return this.step >= PRACTICE.length;
-  }
-
-  begin(): void {
-    this.step = 0;
-    this.t = this.wait = this.rollT = this.holdT = 0;
-    this.reached = false;
-    this.maxR = this.maxL = this.maxDown = this.maxBack = 0;
-  }
-
-  /**
-   * Un fotograma con lo que lee el vuelo (`side`, `down`, `back` en m; `roll` en rad; `rep`: una flexión). Devuelve lo que pasa:
-   * 'next' (empieza un paso: hay que decir el suyo), 'ok' (paso hecho), 'skip' (no salió a tiempo), 'end' (acabada) o ''.
-   */
-  update(dt: number, side: number, down: number, back: number, roll: number, rep: boolean): '' | 'next' | 'ok' | 'skip' | 'end' {
-    if (!this.active) return '';
-    if (this.wait > 0) {
-      this.wait -= dt;
-      if (this.wait > 0) return '';
-      this.step++;
-      this.t = this.rollT = this.holdT = 0;
-      this.reached = false;
-      return this.done ? 'end' : 'next';
-    }
-    if (this.t === 0 && this.step === 0 && !this.reached) {
-      this.t = 1e-6;
-      return 'next';
-    }
-    this.t += dt;
-    const k = PRACTICE[this.step].key;
-    let ok = false;
-    if (k === 'right') {
-      this.maxR = Math.max(this.maxR, side);
-      if (side >= PRACTICE_SIDE) this.reached = true;
-    } else if (k === 'left') {
-      this.maxL = Math.max(this.maxL, -side);
-      if (-side >= PRACTICE_SIDE) this.reached = true;
-    } else if (k === 'down') {
-      this.maxDown = Math.max(this.maxDown, down);
-      if (down >= PRACTICE_DOWN) this.reached = true;
-    } else if (k === 'rep') ok = rep;
-    else if (k === 'pike') {
-      this.maxBack = Math.max(this.maxBack, back);
-      if (back >= PRACTICE_BACK) this.reached = true;
-    } else {
-      this.rollT = roll >= PRACTICE_ROLL ? this.rollT + dt : 0;
-      ok = this.rollT > 0.3;
-    }
-    // (llegado a lo pedido, un instante más midiendo lo más que llegas, y hecho: no hace falta volver)
-    if (this.reached) this.holdT += dt;
-    if (this.holdT >= PRACTICE_HOLD) ok = true;
-    if (ok || this.t > PRACTICE_MAX) {
-      this.wait = PRACTICE_GAP;
-      return ok ? 'ok' : 'skip';
-    }
-    return '';
-  }
-
-  /** Lo medido, al 80 % (lo que no se midió, null en ese eje). */
-  fit(): { side: number | null; down: number | null; back: number | null } {
-    const c = (v: number, need: number, lo: number, hi: number): number | null => (v >= need ? Math.min(hi, Math.max(lo, v * PRACTICE_FIT)) : null);
-    return {
-      side: c(Math.min(this.maxR, this.maxL), PRACTICE_SIDE, 0.06, 0.2),
-      down: c(this.maxDown, PRACTICE_DOWN, 0.05, 0.35),
-      back: c(this.maxBack, PRACTICE_BACK, FLY.pikeFrom + 0.03, 0.3),
-    };
-  }
 }

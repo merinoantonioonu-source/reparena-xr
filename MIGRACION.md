@@ -413,6 +413,17 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **El asistente del vuelo** (elegido por el usuario: «paso a paso con preguntas»; sustituye a la práctica, que empezaba sola
+  en pleno vuelo): `FlyCoach` (`src/modes/trek/plat/fly-coach.ts`, lógica pura con `tests/unit/fly-coach.test.ts`) corre en
+  el corredor (`Runner.coachStep`) ya calibrado y antes del primer tramo (o en el descanso de un cofre, con «Ajustar el
+  vuelo» de la pausa: `HOOKS.flyCoach`); la partida espera (`TrekSystem.holding`: ni cuenta atrás ni caricatura). Su
+  pregunta es un menú de tipo `coach` (`HOOKS.openScreen(…, { low: true })`): en el suelo delante de las manos (`lowAnchor`),
+  más tumbado, nunca en la muñeca, sin «✕ Cerrar», que no aligera la escena ni lo cierra la partida. Cada respuesta cambia el
+  ajuste de siempre (suceso `set` → `setSetting`); ya no se guarda lo medido aparte (`reparenaxr-fly2` ya no se usa).
+  **Pendiente con el usuario**: probarlo en las gafas (si las teclas quedan a mano en plancha y si los pasos de 3 cm son
+  buenos). **Los meteoritos**: su sombra en el suelo (`Rocks.throw(…, mark)`) y sin ellos con la vista en la pesa
+  (`GUIDE_TOAST_EX`).
+
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):
   el centro del vuelo (`FlyBody`, y `BodyMoves.x0`) se tomaba al calibrar **antes** de que el mundo se deslizara 0,8 s para
   dejarte en (0, 0) mirando a −Z: quedaba desplazado (2,2 m en su diagnóstico) y girado (hasta 135°), y el lado y la pica

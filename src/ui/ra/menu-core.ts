@@ -188,6 +188,17 @@ export function placeAnchor(dist: number): Anchor {
   return { pos, yaw: yawOf(head.q) };
 }
 
+/** En plancha (el asistente del vuelo): en el suelo delante de tus manos, hacia donde apunta el cuerpo (la coronilla), a tu
+ * alcance con una mano. */
+export function lowAnchor(): Anchor {
+  const a = bodyYaw();
+  const pos = head.p.clone();
+  pos.x -= Math.sin(a) * 0.42;
+  pos.z -= Math.cos(a) * 0.42;
+  pos.y = Math.max(0.25, head.p.y - 0.25); // (su borde de arriba: el panel cuelga de él, tumbado, sin llegar al suelo)
+  return { pos, yaw: a };
+}
+
 /** El tamaño del menú del atril («Tamaño del menú»; en la muñeca, el suyo). */
 export const menuK = (): number => Math.max(0.5, Math.min(1.2, (num('menuSize') || 75) / 100));
 const wristMenuOn = (): boolean => ENV.inXR() && settings.menuWhere === 'wrist';
@@ -609,7 +620,8 @@ function openMenuNow(rows: Row[], opts: MenuOpts, kind: string): Menu {
     } else layRow(r, h, cy, i, X0, CW, LABW);
     y -= h + GAP;
   });
-  const wrist = wristMenuOn(), k = menuK(), ksc = wrist ? wristScale() : ENV.inXR() ? k : 1;
+  // (la pregunta del asistente del vuelo, nunca en la muñeca: en el suelo delante de las manos, más tumbada hacia tu cara)
+  const coach = kind === 'coach', wrist = wristMenuOn() && !coach, k = menuK(), ksc = wrist ? wristScale() : ENV.inXR() ? k : 1, tilt = coach ? 0.95 : 0.38;
   BTN.later = false;
   flatKeys(widgets.filter((w): w is Btn => w.kind === 'btn'), KEY_H / ksc);
   ENV.root?.add(group);
@@ -623,13 +635,13 @@ function openMenuNow(rows: Row[], opts: MenuOpts, kind: string): Menu {
     wristPose(group, H);
   } else {
     // cuelga de su borde de arriba (inclinado hacia ti): el centro, más abajo y algo más cerca
-    const A = UI.anchor!, s = ENV.inXR() ? k : 1, Hs = H * s, hz = (Hs / 2) * Math.sin(0.38);
+    const A = UI.anchor!, s = ENV.inXR() ? k : 1, Hs = H * s, hz = (Hs / 2) * Math.sin(tilt);
     group.scale.setScalar(s);
-    group.rotation.set(-0.38, A.yaw, 0);
-    group.position.set(A.pos.x + hz * Math.sin(A.yaw), A.pos.y - (Hs / 2) * Math.cos(0.38), A.pos.z + hz * Math.cos(A.yaw));
+    group.rotation.set(-tilt, A.yaw, 0);
+    group.position.set(A.pos.x + hz * Math.sin(A.yaw), A.pos.y - (Hs / 2) * Math.cos(tilt), A.pos.z + hz * Math.cos(A.yaw));
     const st = STAND.g;
     if (st) {
-      st.visible = ENV.inXR() && settings.menuWhere === 'stand';
+      st.visible = ENV.inXR() && settings.menuWhere === 'stand' && !coach;
       if (st.visible) {
         const nx = -Math.sin(A.yaw), nz = -Math.cos(A.yaw), postH = Math.max(0.1, group.position.y - (Hs / 2) * Math.cos(0.38) - 0.02);
         st.position.set(group.position.x + nx * 0.06, 0, group.position.z + nz * 0.06);

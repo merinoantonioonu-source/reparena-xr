@@ -144,16 +144,22 @@ En plancha se mira al suelo, por delante de las manos: todo esto va ahí o por d
    siguiente reto. Hechas con piezas que se mueven (nada de repintar un lienzo en cada fotograma).
 5. **Sonido**: el viento sube de tono en el picado; un golpe de aire en cada aletazo; un siseo al frenar.
 
-### 3.4 Que se aprenda: la práctica de vuelo
+### 3.4 Que se aprenda: el asistente del vuelo
 
-- La **primera vez** (y con «Vuelo: repetir la práctica»), antes del primer tramo, una práctica sin retos: seis pasos, cada
-  uno espera a que lo hagas y lo marca con ✓ y un sonido: «Escórate a la derecha» · «…a la izquierda» · «Baja el pecho:
-  bajas» · «Haz una flexión: aletazo» · «Cadera arriba: frenas y subes» · «Ponte de canto: giras» (cada paso, con su número: «Práctica 1/6 · …»). El texto, en el aviso breve de
-  la vista (en plancha, en el suelo bajo la cara), con la sombra y las alas ya a la vista.
-- De paso, **mide al jugador**: lo que se escora cómodo a cada lado, lo que baja y lo que va atrás en pica. El recorrido
-  completo de cada eje se pone al 80 % de lo medido (se guarda en `reparenaxr-fly2`; se puede rehacer).
-- Que se ha hecho la práctica se guarda en `reparenaxr-flytuto2` (el «2»: lo de antes del arreglo del centro, que quedaba
-  desplazado al calibrar, se descarta y la práctica se repite una vez).
+*(Sustituye a la práctica de vuelo, que empezaba sola en pleno vuelo y no se entendía: el usuario eligió «paso a paso con
+preguntas».)*
+
+- La **primera vez** (con «Vuelo: asistente en cada partida», en cada una; y desde la pausa, «Ajustar el vuelo», en el
+  próximo cofre), ya calibrado y antes del primer tramo, **con el mundo esperando** y volando en el sitio: cuatro pasos,
+  «Ajuste 1/4 · …» en el aviso breve: de lado, subir y bajar (según el mando de altura), frenar con la cadera arriba y de
+  canto (el giro de las grietas).
+- Cada paso se prueba (al menos 5 s, y hasta hacerlo de verdad; a los 20 s pregunta igual) y sale la pregunta, «¿Cómo has
+  notado ir de lado?», con tres teclas: **Demasiado** (menos sensible: +3 cm de recorrido; el aletazo, −20 %), **Bien** (al
+  siguiente) y **Poco** (más sensible). Tras cambiar, se prueba otra vez; a la cuarta, al siguiente. De canto no pregunta:
+  se marca con ✓ al hacerlo.
+- Lo que cambia son los ajustes de siempre («Vuelo: recorrido de lado / para bajar / para subir», «Vuelo: fuerza del
+  aletazo»): se ven y se cambian también en Ajustes. Ya no se mide nada aparte.
+- Que se ha pasado se guarda en `reparenaxr-flytuto2`. Al acabar, sigues en el aire hasta que empieza el tramo.
 - Durante el vuelo, lo que haces mal ante un reto se sigue diciendo al fallar (ya está: «¡Pica para pasar por debajo!»).
 
 ### 3.5 Los retos, a la medida de los gestos

@@ -183,7 +183,7 @@ No las cambies sin preguntarle.
     respecto a un centro que no se mueve en el aire. **Escorarte es la posición de lado**: tanto te escoras, tanto te apartas
     y, al volver al centro, el vuelo vuelve; el mundo se desplaza a tu lado. **Suave cerca del centro** (corregido por el usuario:
     «hipersensible»): 2,5 cm sin efecto y del todo a un lado con lo que diga «Vuelo: recorrido de lado» (15 cm de serie, de 8
-    a 30: más, menos sensible); la práctica nunca lo acorta. **La sensibilidad de cada eje, en los ajustes** (pedido del
+    a 30: más, menos sensible); el asistente lo cambia a tu gusto. **La sensibilidad de cada eje, en los ajustes** (pedido del
     usuario como desarrollador): «Vuelo: recorrido de lado», «Vuelo: recorrido para bajar» (13 cm de serie), «Vuelo: recorrido
     para subir» (la pica, 18 cm), «Vuelo: fuerza del aletazo» (100 %) y «Vuelo: velocidad al subir y bajar» (100 %).
     **La altura, con media flexión** (elegido por el usuario entre tres: la reglilla de altura no respondía a la cabeza con el
@@ -198,12 +198,14 @@ No las cambies sin preguntarle.
     y tapaban la vista); el viento al picar, un golpe de aire al aletear y un siseo al frenar; la **ventana de cada reto**, con luz verde (el canto de abajo del puente, el lado
     libre de la columna, la raja de la grieta); y **dos reglillas** en el suelo, por delante de las manos (dónde vas de lado y
     a qué altura, con la ventana del reto que viene en verde: «Vuelo: instrumentos», de serie sí).
-  - **La práctica de vuelo**: la primera vez (y con «Vuelo: repetir la práctica»), al empezar el primer tramo (que solo trae
-    premios), seis pasos (escórate a la derecha y a la izquierda, baja el pecho, una flexión, cadera arriba, de canto): cada uno
-    se marca con ✓ **en cuanto lo haces** (sin volver al centro) y, si no sale en 12 s, se salta. **El mundo no espera** y las
-    flexiones empujan como siempre (corregido por el usuario con su vídeo: parado, sin avanzar, parecía roto). De paso mide lo
-    que bajas y vas atrás y, solo si es más que lo de serie, alarga esos recorridos (al 80 %); el de lado lo pone el ajuste. Antes de empezar (colocándote y calibrando)
-    estás posado en el suelo; al empezar el tramo despegas, y sin flexiones solo se pierde altura ya en el aire y jugando.
+  - **El asistente del vuelo** (elegido por el usuario: «paso a paso con preguntas»; sustituye a la práctica de vuelo, que
+    empezaba sola en pleno vuelo y no se entendía): la primera vez (y con «Vuelo: asistente en cada partida»; o desde la
+    pausa, «Ajustar el vuelo», en el próximo cofre), ya calibrado y antes del primer tramo, **con el mundo esperando** y
+    volando en el sitio: te explica cada movimiento (de lado, subir y bajar, frenar con la cadera arriba y de canto), lo
+    pruebas y pregunta **«¿Cómo lo has notado?»** con tres teclas, **Demasiado · Bien · Poco**, que se pulsan con una mano:
+    Demasiado lo hace menos sensible y Poco, más (cambian «Vuelo: recorrido de lado / para bajar / para subir» o la fuerza
+    del aletazo), y se prueba otra vez; Bien, al siguiente. Al acabar, cómo se vuela, y sigues en el aire hasta que empieza
+    el tramo.
   - **Los retos, a la medida de los gestos**: el tiempo antes de cada uno es el de su gesto (la grieta, 4 s; el puente y el
     aro, 3 s; lo demás, 2,4 s; en el primer tramo, un 40 % más; «Volando: tiempo entre retos» y el rango); dos seguidos que
     piden ir arriba y abajo, el doble; el primer tramo, solo premios (aros, corrientes y frutas); columnas y puentes desde el
