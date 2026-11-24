@@ -14,14 +14,24 @@ import { kitParts } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import type { Put } from '../trek/plat/pieces.js';
 import { ROPE_CHUNK, ROPE_MODELS, ropeDecoPuts, type RopeCourse } from './rope.js';
+import { CloudSea } from '../trek/cloud-sea.js';
 
 /** Lo que se ve de la cuerda hacia delante y hacia atrás (m) y el largo de cada trozo de cable (m). */
 const AHEAD = 110, BEHIND = 30, SEG = 2;
 const SEGS = Math.ceil((AHEAD + BEHIND) / SEG) + 2;
 /** Lo que se pintan del paisaje (en horizontal): los trozos de detrás y de delante. */
 const CH_BACK = 4, CH_AHEAD = Math.ceil(AHEAD / ROPE_CHUNK) + 2;
-/** El suelo: hasta dónde llega a los lados (m) y su rejilla (m a lo largo y a lo ancho). */
-const GROUND_U = 120, GROUND_DH = 3, GROUND_DU = 6;
+/** El suelo: la rejilla fina cerca (m a los lados, y su paso a lo largo y a lo ancho) y, más allá, cada vez más ancha hasta
+ * `FAR` m (más allá no se pinta: la cámara llega a 200 m; detrás, el mar de nubes). */
+const GROUND_U = 120, GROUND_DH = 3, GROUND_DU = 6, FAR = 300;
+/** Los puntos de la rejilla de `a` a `b` cada `d` m y, por fuera, cada vez más separados hasta `far` m más allá. */
+function spread(a: number, b: number, d: number, far: number): number[] {
+  const out: number[] = [];
+  for (let x = a - d, g = d * 2; x > a - far; x -= g, g *= 1.35) out.unshift(x);
+  for (let x = a; x <= b; x += d) out.push(x);
+  for (let x = out[out.length - 1] + d, g = d * 2; x < b + far; x += g, g *= 1.35) out.push(x);
+  return out;
+}
 /** Con una paralela, lo que sube el cable sobre ella (m). */
 const PULLEY_UP = 0.32;
 
@@ -40,6 +50,10 @@ export class RopeScene {
   private cable: InstancedMesh | null = null;
   private pulley: Group | null = null;
   private ground: Mesh | null = null;
+  /** El mar de nubes del valle (el del risco de la Travesía): bajo el horizonte tapa el suelo de la foto de fondo, que está
+   * hecha de pie en un prado (sin él, mirando al valle se veía la hierba de la foto, enorme); encima, las montañas de la foto. */
+  private readonly sea = new CloudSea([0.012, -0.004]);
+  private clock = 0;
   private groundMat: MeshStandardMaterial | null = null;
   private course: RopeCourse | null = null;
   private chunkFrom = -999;
@@ -61,8 +75,10 @@ export class RopeScene {
   private readonly sc = new Vector3();
   private readonly up = new Vector3(0, 1, 0);
 
-  constructor(parent: Object3D, private readonly arenaOf: () => Object3D[]) {
+  constructor(parent: Object3D, private readonly arenaOf: () => Object3D[], private readonly fogHex: () => number = () => 0xc8d6e4) {
     parent.add(this.root);
+    this.root.add(this.sea.mesh);
+    warmKeep(new Mesh(this.sea.mesh.geometry, this.sea.mesh.material));
     this.root.add(this.frame);
     this.frame.add(this.track);
     this.root.visible = false;
@@ -80,7 +96,7 @@ export class RopeScene {
         const im = new InstancedMesh(p.geo, p.mat, M.cap);
         im.count = 0;
         im.frustumCulled = false;
-        im.receiveShadow = true;
+        im.receiveShadow = false;
         this.track.add(im);
         warmKeep(new InstancedMesh(p.geo, p.mat, 1));
         return im;
@@ -117,21 +133,22 @@ export class RopeScene {
     if (C) this.buildGround(C);
   }
 
-  // la ladera de toda la ronda (una malla, hecha al empezar: en plena ronda no se crea nada), de color de hierba de montaña
+  // la ladera de toda la ronda (una malla, hecha al empezar: en plena ronda no se crea nada), de color de hierba de montaña;
+  // llega muy lejos (hasta perderse en la bruma), para que de la foto de fondo solo se vea lo de encima del horizonte
   private buildGround(C: RopeCourse): void {
     if (this.ground) {
       this.track.remove(this.ground);
       this.ground.geometry.dispose();
     }
     this.groundMat ??= new MeshStandardMaterial({ color: 0x86b25e, roughness: 1, metalness: 0 });
-    const hA = -60, hB = C.h(C.len) + 20, nh = Math.ceil((hB - hA) / GROUND_DH) + 1, nu = Math.ceil((2 * GROUND_U) / GROUND_DU) + 1;
-    const pos = new Float32Array(nh * nu * 3), idx: number[] = [];
+    const hEnd = C.h(C.len), hs = spread(-60, hEnd + 20, GROUND_DH, FAR), us = spread(-GROUND_U, GROUND_U, GROUND_DU, FAR);
+    const nh = hs.length, nu = us.length, pos = new Float32Array(nh * nu * 3), idx: number[] = [];
     for (let i = 0; i < nh; i++)
       for (let j = 0; j < nu; j++) {
-        const h = hA + i * GROUND_DH, u = -GROUND_U + j * GROUND_DU, k = (i * nu + j) * 3;
-        pos[k] = u;
-        pos[k + 1] = C.ground(h, u);
-        pos[k + 2] = -h;
+        const k = (i * nu + j) * 3;
+        pos[k] = us[j];
+        pos[k + 1] = C.ground(hs[i], us[j]);
+        pos[k + 2] = -hs[i];
       }
     for (let i = 0; i < nh - 1; i++)
       for (let j = 0; j < nu - 1; j++) {
@@ -143,9 +160,15 @@ export class RopeScene {
     g.setIndex(idx);
     g.computeVertexNormals();
     this.ground = new Mesh(g, this.groundMat);
-    this.ground.receiveShadow = true;
+    this.ground.receiveShadow = false; // (una ladera tan grande recibiendo sombras pesa mucho; desde la cuerda, no se ven)
+    this.ground.frustumCulled = false;
     this.ground.userData.noInk = true; // (el borde de tinta en una ladera entera, a rayas)
     this.track.add(this.ground);
+  }
+
+  /** Hacia dónde mira la escena (rad: lo alto de tu cabeza; la foto de fondo se gira igual). */
+  get yaw(): number {
+    return this.frame.rotation.y;
   }
 
   /** Al colgarte: dónde está la cuerda (el centro de las paralelas, a su altura, `x`, `y`, `z`), hacia dónde sube (`fx`,
@@ -162,6 +185,8 @@ export class RopeScene {
   update(show: boolean, s: number): void {
     const on = show && this.placed && !!this.course && this.build();
     this.setShown(on);
+    this.clock += 1 / 72;
+    this.sea.update(on, this.clock, this.fogHex());
     if (!on) return;
     const C = this.course!;
     // subir: el cañón baja y va hacia tus pies (lo de s queda en tus manos)

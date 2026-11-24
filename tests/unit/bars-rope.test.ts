@@ -2,7 +2,7 @@
 // una paralela o dos; la escena A: torres sobre un valle alpino): cables rectos de torre en torre que acaban en vertical hasta
 // la plataforma; cada remo sube y, sin remar, se resbala un poco, nunca más abajo de la plataforma de salida. Nada flota.
 import { describe, expect, it } from 'vitest';
-import { ROPE, ROPE_CHUNK, RopeCourse, RopeRun, ropeDecoPuts } from '../../src/modes/bars/rope';
+import { ROPE, ROPE_CHUNK, RopeCourse, RopeRun, ropeDecoPuts, ropePano } from '../../src/modes/bars/rope';
 
 const DEG = 180 / Math.PI;
 const lens = [10, 12, 14, 16, 18].map((r) => r * ROPE.perRep);
@@ -77,6 +77,24 @@ describe('el recorrido de la cuerda', () => {
     expect(trees).toBeGreaterThan(50);
     expect(docks).toBe(C.towers.length);
     expect(chests).toBe(lens.length);
+  });
+
+  it('el valle baja a los lados hasta su fondo, a lo lejos (la foto de fondo solo pone lo de encima del horizonte)', () => {
+    const h = C.h(20), g0 = C.ground(h, 0);
+    expect(C.ground(h, 60)).toBeLessThan(g0 - 10);
+    expect(C.ground(h, 2000)).toBeGreaterThan(g0 - 125);
+    expect(C.ground(h, 2000)).toBeLessThan(C.ground(h, 300) + 1e-6);
+  });
+
+  it('la foto de fondo cambia con la altura: los Alpes abajo y, en el último tramo, la cima', () => {
+    expect(ropePano(0, 1)).toBe('aldea');
+    const n = 7, list = Array.from({ length: n }, (_, i) => ropePano(i, n));
+    expect(list[0]).toBe('aldea');
+    expect(list[n - 1]).toBe('cumbre');
+    expect(list).toContain('montana');
+    expect(list).toContain('lago');
+    expect(ropePano(0, 2)).toBe('aldea');
+    expect(ropePano(1, 2)).toBe('cumbre');
   });
 
   it('el mismo paisaje cada vez que se pinta un trozo', () => {

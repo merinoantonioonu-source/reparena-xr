@@ -22,7 +22,7 @@ import { dipOne, eqName, eqPose, loadEquip, type Equip } from './equip.js';
 import type { BarEvent, BarsEnv, PlaceEnv } from './env.js';
 import { Placer, PLACE_HOLD, type PlaceEvent } from './place.js';
 import { BarField, HeadTarget, hangSecs, TGT } from './targets.js';
-import { ROPE, RopeCourse, RopeRun } from './rope.js';
+import { ROPE, RopeCourse, RopeRun, ropePano } from './rope.js';
 import { RopeScene } from './rope-scene.js';
 import { eqAxes } from './equip.js';
 import type { BarHits } from './detect.js';
@@ -111,7 +111,7 @@ export class BarsSystem extends createSystem({}) {
     // la arena de siempre (compuertas, suelo, valle y nubes), que de noche se esconde en el bosque (y en el cañón de la cuerda)
     const arena = ['arena-floor', 'gate-left', 'gate-center', 'gate-right', 'comic-valley', 'comic-clouds'];
     this.hang.arenaOf = () => arena.map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is NonNullable<typeof o> => !!o);
-    this.ropeScene = new RopeScene(this.root, this.hang.arenaOf);
+    this.ropeScene = new RopeScene(this.root, this.hang.arenaOf, () => (this.world.scene as unknown as { fog: { color: { getHex(): number } } | null }).fog?.color.getHex() ?? 0xc8d6e4);
     HOOKS.placeEq = (note) => this.startPlace(() => HOOKS.showMenu(''), note ?? '');
     HOOKS.eqPlaced = () => this.placed();
     HOOKS.placing = () => this.placing;
@@ -131,9 +131,20 @@ export class BarsSystem extends createSystem({}) {
   ropeOn(): boolean {
     return this.on && str('exercise') === 'row' && num('barRope') > 0;
   }
-  /** ¿Se ve el cañón de la cuerda? (el entorno de serie se aparta) */
+  /** ¿Se ve la escena de la cuerda? (el entorno de serie se aparta) */
   get ropeShown(): boolean {
     return !!this.ropeScene?.visible;
+  }
+  /** La foto de fondo de la cuerda (la del tramo, según la altura: rope.ts, `ropePano`) y hacia dónde mira (rad). */
+  get ropePano(): string {
+    const R = this.rope;
+    if (!R || !this.ropeShown) return '';
+    // (llegado a la plataforma, ya la del tramo siguiente: cambia mientras descansas)
+    const i = R.reached ? R.course.wave(R.end + 0.01) : R.course.wave(R.s);
+    return ropePano(Math.min(i, R.course.ends.length - 1), R.course.ends.length);
+  }
+  get ropeYaw(): number {
+    return this.ropeScene?.yaw ?? 0;
   }
 
   // las compuertas abiertas, de donde salen los bichos que no llegan por un lado

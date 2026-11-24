@@ -429,8 +429,11 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   pone pinos y piedras en él (`standPole`, `tiltPole`, `put` y `rockFit` de `pieces.ts`) y las torres (`TOWER`). `RopeScene`
   hace la malla de la ladera al empezar la ronda y esconde la arena; `EnvSystem` aparta el entorno de serie mientras se ve
   (`BarsSystem.ropeShown`). Visto en el emulador tumbado bajo dos paralelas (al empezar, en el cable y en la subida vertical);
-  mirando de lado, el navegador del emulador se caía (sin errores en el registro): falta verlo. **Pendiente con el usuario**:
-  los fondos realistas (tres propuestas: una foto, una por altura —la recomendada—, o con la hora) y probarlo en las gafas.
+  los fondos realistas según la altura (`ropePano`, girados con `EnvSystem.ropeYaw`, su bruma `ROPE_HAZE`) y, en el valle, el
+  mar de nubes del risco (`CloudSea` con `edge` más alto) para que no se vea el suelo de la foto. **El emulador de gafas se cae
+  con fondos realistas y con una malla grande que recibe sombras** (sin tarjeta gráfica; también en el modo de pompas con
+  «Fondo realista»): para mirar la escena, el modo «Probar en el ordenador» poniendo la cámara a mano en cada fotograma (la
+  ladera, ya sin sombras). **Pendiente con el usuario**: probarlo en las gafas.
 
 - **El press de pecho, desde el cielo, y las cuchillas más pequeñas** (pedido del usuario: tumbado no se ven las compuertas, la
   bola quedaba entre las piernas y las cuchillas de Arcos eran descomunales). Con `skyFoes()` (`src/core/rules.ts`) los

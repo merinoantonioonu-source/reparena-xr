@@ -18,7 +18,7 @@
  * Coordenadas del recorrido: `s`, lo que llevas de cuerda (m); `h`, lo que avanza en horizontal hacia lo alto de tu cabeza;
  * `y`, la altura; `u`, a un lado (a la derecha mirando hacia lo alto de tu cabeza, de pie en la cuerda).
  */
-import { put, rockFit, standPole, tiltPole, type Put } from '../trek/plat/pieces.js';
+import { put, standPole, tiltPole, type Put } from '../trek/plat/pieces.js';
 import { trekRng } from '../trek/path.js';
 
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
@@ -39,6 +39,24 @@ export const ROPE = { perRep: 1.7, v0: 0.75, vMax: 1.6, repT: 2.6, slide: 0.1, s
 const STEP = 0.25, ROUND = 5, TAIL = 140;
 /** El trozo del paisaje (m en horizontal). */
 export const ROPE_CHUNK = 12;
+/** Pasada la última torre, lo que sigue subiendo la ladera hasta la cima (m en horizontal), y lo hondo del fondo del valle
+ * bajo la ladera, a los lados (m). */
+const SUMMIT = 150, VALLEY = 120;
+
+/** Las fotos de fondo, según la altura (elegido por el usuario de las propuestas: «una foto por altura»; de `public/fondos`):
+ * abajo, los Alpes desde el valle; a media subida, la montaña y el valle y las colinas con nubes; en el último tramo, la vista
+ * desde la cima. Solo ponen lo lejano: el cielo y las montañas del horizonte (lo de debajo, el valle de la escena). */
+export const ROPE_PANOS = ['aldea', 'montana', 'lago', 'cumbre'] as const;
+/** La foto del tramo i de n. */
+/** La bruma de cada foto (el color de su horizonte) y lo espesa que es (la niebla de la escena: lo lejano se funde con la foto). */
+export const ROPE_HAZE: Record<string, number> = { aldea: 0xd6e6ee, montana: 0xccd9e6, lago: 0xd2e8f2, cumbre: 0xd9e5ee };
+export const ROPE_FOG = 0.006;
+export function ropePano(i: number, n: number): (typeof ROPE_PANOS)[number] {
+  if (n <= 1) return 'aldea';
+  if (i >= n - 1) return 'cumbre';
+  const p = i / (n - 1);
+  return p < 0.3 ? 'aldea' : p < 0.6 ? 'montana' : 'lago';
+}
 
 /** Una torre: dónde está (h), lo alto de su plataforma (`top`), su pie en el suelo (`base`) y dónde empieza la subida vertical
  * junto a ella (`vert`; en la de salida, nada). */
@@ -162,11 +180,13 @@ export class RopeCourse {
       let i = 0;
       while (i < T.length - 2 && T[i + 1].h < h) i++;
       const a = T[i], b = T[i + 1] ?? a;
-      // (pasada la última torre, la ladera sigue con la cuesta de los cables)
-      g = h > b.h ? b.base + (h - b.h) * Math.tan((ROPE.pitch[0] + ROPE.pitch[1]) / 2) : a.base + ((b.base - a.base) * (h - a.h)) / Math.max(1e-3, b.h - a.h);
+      // (pasada la última torre, la ladera sigue con la cuesta de los cables hasta la cima, y arriba, llano)
+      g = h > b.h ? b.base + Math.min(h - b.h, SUMMIT) * Math.tan((ROPE.pitch[0] + ROPE.pitch[1]) / 2) : a.base + ((b.base - a.base) * (h - a.h)) / Math.max(1e-3, b.h - a.h);
     }
-    // (los dos lados bajan al valle, y la ladera ondula un poco: nunca hacia arriba de la cuerda)
-    return g - 0.2 * Math.abs(u) - 0.0015 * u * u - 0.6 * (1 + Math.sin(h * 0.21 + u * 0.13) * Math.sin(u * 0.07 - h * 0.05));
+    // (los dos lados bajan al valle —cada vez más suave, hasta su fondo, a lo lejos— y la ladera ondula un poco: nunca hacia
+    // arriba de la cuerda)
+    const au = Math.abs(u), drop = au <= 120 ? 0.2 * au + 0.0015 * au * au : Math.min(VALLEY, 45.6 + 0.08 * (au - 120));
+    return g - drop - 0.6 * (1 + Math.sin(h * 0.21 + u * 0.13) * Math.sin(u * 0.07 - h * 0.05));
   }
 }
 
@@ -267,7 +287,7 @@ export class RopeRun {
 
 /** El paisaje del trozo `chunk` (de `chunk·ROPE_CHUNK` a `(chunk + 1)·ROPE_CHUNK` m en horizontal): pinos y alguna piedra en la
  * ladera (siempre apoyados en el suelo y lejos de la cuerda), las torres de madera que haya en él (patas en el suelo, aspas y
- * su plataforma, con el cofre) y, a lo lejos, los montes. Coordenadas: `ds` = h, `u` a un lado, `y` la altura. */
+ * su plataforma, con el cofre). Los montes lejanos, los de la foto de fondo. Coordenadas: `ds` = h, `u` a un lado, `y` la altura. */
 export function ropeDecoPuts(C: RopeCourse, chunk: number, out: Put[]): Put[] {
   const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ Math.imul(C.seed | 0, 0x85ebca6b) ^ 0x27d4eb2f) >>> 0);
   const between = (a: number, b: number): number => a + R() * (b - a);
@@ -283,11 +303,7 @@ export function ropeDecoPuts(C: RopeCourse, chunk: number, out: Put[]): Put[] {
     const sd = R() < 0.5 ? -1 : 1, u = sd * between(ROPE.treeU, 40), h = between(h0, h1), sc = between(0.6, 1.2);
     out.push(put('nature', (['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'] as const)[Math.floor(R() * 3)], h, u, C.ground(h, u) - 0.3 * sc, { ry: R() * TAU, sx: sc, sy: sc, sz: sc }));
   }
-  // los montes lejanos, a los lados (con nieve no hay modelo: rocas grandes que salen del valle)
-  if (R() < 0.5) {
-    const sd = R() < 0.5 ? -1 : 1, u = sd * between(150, 260), w = between(50, 90), h = between(h0, h1);
-    out.push(rockFit('island', R() < 0.5 ? 'Cliff3' : 'Cliff4', u - w / 2, u + w / 2, C.ground(h, 0) - 90, C.ground(h, 0) + between(40, 110), h - w / 2, h + w / 2, R() < 0.5));
-  }
+  // (los montes lejanos los pone la foto de fondo: las rocas grandes del kit se veían de cartón)
   // las torres de este trozo
   for (let i = 0; i < C.towers.length; i++) {
     const T = C.towers[i];
@@ -328,8 +344,6 @@ export const ROPE_MODELS: { kit: 'island' | 'nature'; n: string; cap: number }[]
   { kit: 'nature', n: 'Rock_Medium_1', cap: 20 },
   { kit: 'nature', n: 'Rock_Medium_2', cap: 20 },
   { kit: 'nature', n: 'Rock_Medium_3', cap: 20 },
-  { kit: 'island', n: 'Cliff3', cap: 20 },
-  { kit: 'island', n: 'Cliff4', cap: 20 },
   { kit: 'island', n: 'Dock_Pole', cap: 200 },
   { kit: 'island', n: 'Dock', cap: 12 },
   { kit: 'island', n: 'Chest_Closed', cap: 12 },

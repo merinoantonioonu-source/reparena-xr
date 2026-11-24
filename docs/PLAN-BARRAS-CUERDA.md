@@ -34,8 +34,11 @@ La pared rocosa (C) queda para las dominadas, donde de verdad cuelgas en vertica
   cada tramo y la plataforma con su cofre), el avance por remo (como la Travesía: más ritmo, más deprisa; bajar aguantando la
   carga ×2-×4, un tirón de más), resbalar sin remar (como mucho 10 cm/s, tras 1,2 s), la ladera con sus pinos y piedras, las
   torres, los montes lejanos y «Faltan N m» en el marcador. Cada tramo pide «Repeticiones por oleada» × 1,7 m.
-  *Pendiente de elegir*: los fondos realistas (fotos de `public/fondos/`), siempre con la lógica del mundo real (la foto,
-  solo lo lejano: el cielo y las montañas del horizonte; lo de debajo del horizonte, el valle propio).
+  **Los fondos realistas según la altura** (la propuesta 2, elegida por el usuario): `ropePano` (Alpes desde el valle →
+  montaña y valle → colinas con nubes → la cima en el último tramo; cambia al llegar a cada plataforma), girada hacia donde
+  subes (`EnvSystem.ropeYaw`), con la bruma de su color (`ROPE_HAZE`, `ROPE_FOG`) y el mar de nubes del risco (`CloudSea`, con
+  el borde más alto) tapando el suelo de la foto. Sin sombras en la ladera (en el emulador, sin tarjeta gráfica, se caía el
+  navegador; desde la cuerda no se ven).
 - [ ] **PR 2 · Retos y premios** (los movimientos que no son el remo): aguantar arriba, pegado a la cuerda (lo que pasa por
   debajo); quedarse abajo con los brazos estirados (un águila que pasa rozando el cable); la cabeza a un lado (piedras que caen
   de la torre, con su sombra); una explosiva (un tramo roto). Premios: frutas que se cogen al subir el pecho y el cofre de la

@@ -348,7 +348,12 @@ No las cambies sin preguntarle.
   junto a la torre hasta su plataforma (se ve sobre ti: el tramo superado). **Nada flota**: la ladera es un suelo de verdad,
   las torres apoyan en él sus patas y cada árbol, su tronco (y lejos de la cuerda). El cielo sigue arriba (el mundo no se
   inclina: subir es que el valle baje hacia tus pies). Con dos paralelas, dos cables; con una, un cable por encima y la barra
-  colgada de una polea. La pared rocosa vertical, para las dominadas.
+  colgada de una polea. **Fondo realista según la altura** (elegido por el usuario: «sigue tus propuestas», con la lógica del
+  mundo real: «no pongas el fondo en el cielo»): abajo, los Alpes desde el valle; a media subida, la montaña y el valle y las
+  colinas con nubes; en el último tramo, la vista desde la cima. La foto solo pone lo lejano (el cielo y las montañas del
+  horizonte, siempre derecho y a la altura de los ojos, girada hacia donde subes); por debajo del horizonte, la ladera del juego
+  y, más allá, **un mar de nubes en el valle** (las fotos están hechas de pie en un prado: sin él, se veía su hierba enorme). La
+  bruma, del color del horizonte de cada foto. La pared rocosa vertical, para las dominadas.
 
 **Repeticiones y disparo**
 - Cada repetición (sentadilla, zancada…) carga **un disparo por mano**, como mucho uno por mano y sin acumular.
