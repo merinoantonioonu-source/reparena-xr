@@ -439,7 +439,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   de `root`, girado y desplazado para que donde vuelas quede en tu cabeza; el suelo se mide con un rayo; sin cómic,
   `userData.noComic`, ni niebla; la cámara pinta hasta 25 km). El corredor, con `Runner.mapMode`: el recorrido solo con sus
   cofres y sin aterrizajes. **Pendiente con el usuario**: probarlo en las gafas (aquí la red no llega a Cesium: solo se ha
-  visto que lo pide); el rendimiento (`ERROR_TARGET`, `CACHE_BYTES`), el mareo al virar y la altura de los aros.
+  visto que lo pide); el rendimiento (`ERROR_TARGET`, `CACHE_BYTES`), el mareo al virar y la altura de los aros. La sincronización
+  (`src/services/hub.ts`, `SYNC_KEYS`) lleva además lo de RepArena XR que tiene que llegar a los otros aparatos: sus ajustes
+  (`reparenaxr-settings`) y la clave de Cesium (`reparenaxr-cesium`); `XFER_KEYS` sigue siendo el de RepArena (lo compara
+  `tests/compare/xfer.compare.test.ts`).
 
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):
   el centro del vuelo (`FlyBody`, y `BodyMoves.x0`) se tomaba al calibrar **antes** de que el mundo se deslizara 0,8 s para
