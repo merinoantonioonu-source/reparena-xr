@@ -1025,7 +1025,10 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.waveTarget = env.reps;
     // (RepArena XR: a veces, un suceso en la oleada: eclipse, meteoritos, niebla cerrada o lluvia de oro)
     const evCan: WaveEvent[] = ['eclipse', 'fog'];
-    if (!isFloor() && !tiny && settings.exercise !== 'dips') evCan.push('meteors', 'gold');
+    // (los meteoritos, no con la vista en la pesa —los curls, la elevación frontal, los antebrazos, el swing, el peso muerto—:
+    // mirándola no se ven caer, y con la barra en las manos no se paran; pedido del usuario)
+    if (!isFloor() && !tiny && settings.exercise !== 'dips') evCan.push('gold');
+    if (!isFloor() && !tiny && settings.exercise !== 'dips' && !GUIDE_TOAST_EX.includes(settings.exercise)) evCan.push('meteors');
     WAVE_EV.kind = settings.mode === 'combat' && on('cbEvents') ? pickWaveEvent(i, i > 0 ? this.prevEv : '', isBossWave(i, nWaves()), evCan, Math.random) : '';
     this.prevEv = WAVE_EV.kind as WaveEvent | '';
     if (arcsMode) this.arcs()?.startWave(env.reps); // (en Arcos, la oleada son los obstáculos que van saliendo)

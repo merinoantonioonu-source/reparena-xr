@@ -235,6 +235,7 @@ export class EnemySystem extends createSystem(
     this.bubbleMat = new MeshBasicMaterial({ color: 0x7ff6ff, transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false, toneMapped: false });
     for (const m of this.eliteMat.values()) warmKeep(new Mesh(this.eliteRing, m));
     warmKeep(new Mesh(this.bubbleGeo, this.bubbleMat));
+    warmKeep(this.rocks.shadeProto); // (la sombra de los meteoritos)
     this.physics = this.world.getSystem(PhysicsSystem)!;
     // el suelo: una caja estática de 60 × 60 m (su cara de arriba, a ras del suelo que se ve)
     const floor = this.world.createTransformEntity(new Group());

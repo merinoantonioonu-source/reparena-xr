@@ -488,7 +488,10 @@ No las cambies sin preguntarle.
 - **Sucesos en las oleadas** (elegidos por el usuario; Combate, «Sucesos en las oleadas», de serie): desde la segunda oleada,
   a veces una oleada trae uno (nunca dos oleadas seguidas ni en la del jefe), y su panel lo dice: **eclipse** (todo a oscuras,
   con estrellas: se ve lo que brilla, las cuentas de vida, los aros y los rayos), **lluvia de meteoritos** (rocas en llamas
-  que caen desde lo alto hacia donde estás: apartarse o pararlas con la mano, como las del lanzador), **niebla cerrada** (los
+  que caen desde lo alto hacia donde estás: apartarse o pararlas con la mano, como las del lanzador; **donde va a caer cada
+  una, una sombra en el suelo** que crece y se oscurece, y un silbido al acercarse: basta con salirse de ella; pedido del
+  usuario, que no las veía caer. No sale con la vista en la pesa —los curls, la elevación frontal, los antebrazos, el swing y
+  el peso muerto—), **niebla cerrada** (los
   enemigos aparecen de golpe) y **lluvia de oro** (al empezar la oleada, orbes de oro bajan flotando a tu alcance: se cogen
   con la mano o la cabeza y dan puntos). Tumbado, en plancha o sentado, solo el eclipse y la niebla.
 - Travesía: la roca del derrumbe se queda quieta del todo al embestirla (el golpe se ve en su cara). Una zancada hacia
