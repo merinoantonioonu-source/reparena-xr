@@ -2,7 +2,7 @@
  * Las cuchillas de Arcos (RepArena XR, pedido del usuario: «hachas o cuchillas de cierto tamaño que se aproximan describiendo
  * distintos movimientos que obligan a agacharse, retirar el tronco a un lado, saltar…; su vuelo no puede ser ni simple ni
  * totalmente impredecible»). Son hojas de los kits que ya hay (el sable del Capitán, las espadas de los tiburones y el ancla de
- * la isla pirata, elegidas por el usuario: no hay hachas), agrandadas y girando:
+ * la isla pirata, elegidas por el usuario: no hay hachas), a 85 cm y girando:
  *  - **La hélice** (`spin`): gira en horizontal a la altura de la cabeza: agacharse.
  *  - **La rueda** (`wheel`): gira de canto, como una sierra, y se planta cerca del centro: apartar el tronco a un lado.
  *  - **La rasante** (`sweep`): gira a ras del suelo: saltarla.
@@ -18,9 +18,9 @@ import type { ArcSpec } from './patterns.js';
 
 export type BladeKind = 'spin' | 'wheel' | 'sweep';
 export const BLADE_KINDS: readonly BladeKind[] = ['spin', 'wheel', 'sweep'];
-/** El radio de la hoja girando (m: una hoja de 1,4 m, «de cierto tamaño»), lo que se asienta antes de llegar (s, de serie)
- * y su giro (rad/s). */
-export const BLADE_R = 0.7, BLADE_SETTLE = 1.3, BLADE_SPIN = 9;
+/** El radio de la hoja girando (m: una hoja de 85 cm, «de cierto tamaño»; con 1,4 m el usuario las veía descomunales), lo
+ * que se asienta antes de llegar (s, de serie) y su giro (rad/s). */
+export const BLADE_R = 0.42, BLADE_SETTLE = 1.3, BLADE_SPIN = 9;
 /** La hélice: por debajo de lo alto de la cabeza (m, de menos a más difícil). La rueda: lo que hay que apartar la cabeza de
  * su plano (m). La rasante: su altura (m). */
 export const SPIN_DROP: [number, number] = [0.16, 0.3], WHEEL_CLEAR = 0.22, SWEEP_Y = 0.28;

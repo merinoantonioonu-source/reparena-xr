@@ -182,7 +182,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/combat/perks.ts`, `src/combat/rewards.ts` | Los premios (de RepArena): cartas de mejora, dorado, relámpago, cofre y carrera contra tu récord; su lógica, sin IWSDK, y en la partida |
 | `tests/vr/eval.mjs` | Para preparar pruebas en la VR simulada (ejecuta algo en la página) |
 | `src/combat/gait.ts` | Cómo andan los de tierra (de RepArena): el ritmo de la marcha, recto, zigzag, rachas, la amenaza y las esquivas, sin IWSDK |
-| `src/combat/flight.ts` | El vuelo de los voladores (el de RepArena: acercarse, bandazos, lanzarse a morder, empujones, salir por la compuerta), sin IWSDK |
+| `src/combat/flight.ts` | El vuelo de los voladores (el de RepArena: acercarse, bandazos, lanzarse a morder, empujones, salir por la compuerta; en el press de pecho, bajar del cielo: `skySpawn`, `Flight.toSky`), sin IWSDK |
 | `src/combat/journey.ts`, `src/combat/travel-system.ts` | El viaje por portales de Combate y Toques: el orden de los entornos de cada partida, cuándo se cruza un portal y la fauna de cada entorno (lógica pura, con pruebas); y el aro de luz que te pasa por encima con su destello |
 | `src/combat/elite.ts` | Los enemigos de élite (rápido, gigante, con escudo, que se divide, que parpadea) y el jefe errante: cuántos, cuáles y dónde en la cola de la oleada (lógica pura, con pruebas); los hace `enemies.ts` (su aro, la burbuja, los pequeños y el parpadeo) |
 | `src/combat/wave-events.ts`, `src/combat/wave-event-system.ts` | Los sucesos de las oleadas (eclipse, lluvia de meteoritos, niebla cerrada y lluvia de oro): cuándo sale cada uno (lógica pura, con pruebas) y, en la arena, los meteoritos y los orbes de oro; el eclipse y la niebla, en `EnvSystem` (`eventLook`, y el brillo del cómic) |

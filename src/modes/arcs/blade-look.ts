@@ -2,8 +2,8 @@
  * Cómo se ven las cuchillas de Arcos (src/modes/arcs/blades.ts): hojas de los kits que ya hay, elegidas por el usuario (no hay
  * hachas): el sable del Capitán (la hélice), la espada del tiburón (la rueda) y el ancla de la isla pirata (la rasante), del
  * Pirate Kit de Quaternius. Se sacan de sus modelos una vez (su malla y su material, compartidos: nada se crea en plena
- * ronda), se centran y se agrandan a 1,4 m, con la hoja a lo largo de su eje X; y, girando, un disco de luz tenue marca el
- * barrido de la hoja (se lee de un vistazo por dónde corta).
+ * ronda), se centran y se ponen a 85 cm (con 1,4 m se veían descomunales), con la hoja a lo largo de su eje X; y,
+ * girando, un disco de luz tenue marca el barrido de la hoja (se lee de un vistazo por dónde corta).
  */
 import { AdditiveBlending, AssetManager, Box3, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, Vector3, type Object3D } from '@iwsdk/core';
 import { warmKeep } from '../../style/warm.js';
@@ -38,10 +38,11 @@ function proto(kind: BladeKind): Object3D | null {
   if (size.y >= size.x && size.y >= size.z) rot.rotation.z = Math.PI / 2;
   else if (size.z >= size.x && size.z >= size.y) rot.rotation.y = Math.PI / 2;
   blade.position.set(-c.x, -c.y, -c.z);
-  // (a lo largo, 1,4 m; a lo ancho y de grueso, más aún: las hojas del kit son finas y de lejos apenas se veían)
+  // (a lo largo, 2·BLADE_R; a lo ancho y de grueso, algo más: las hojas del kit son finas y de lejos apenas se veían; con
+  // ×1,7 y 1,4 m de largo, el usuario las veía descomunales)
   const k = (2 * BLADE_R) / Math.max(1e-3, size.x, size.y, size.z), wrap = new Group();
   rot.scale.setScalar(k);
-  wrap.scale.set(1, 1.7, 1.7);
+  wrap.scale.set(1, 1.3, 1.3);
   wrap.add(rot);
   wrap.traverse((o) => {
     o.castShadow = false;

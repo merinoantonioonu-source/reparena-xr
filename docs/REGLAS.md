@@ -365,8 +365,13 @@ No las cambies sin preguntarle.
   bien), como la cabeza en la sentadilla: con los brazos estirados arriba (la postura de partida, donde se calibra), bajar las
   pesas al pecho («Bajada en el press de pecho», 28 cm de serie) carga; aguantando abajo, ×2, ×3 y ×4; al subirlas, el rayo
   sale hacia el cielo, al volador más cercano (los enemigos son los voladores, que llegan por arriba). Una mano que las gafas
-  pierden no se inventa. El marcador, en el techo, como en los abdominales. Su cortinilla, la de las flexiones hasta que el
-  usuario dé la suya.
+  pierden no se inventa. Su cortinilla, la de las flexiones hasta que el usuario dé la suya.
+  **Los voladores bajan del cielo** (pedido del usuario: tumbado no se ven las compuertas): salen muy alto, casi encima de ti,
+  y bajan despacio, frenando, hasta quedarse sobre tu cara (a 2-3 m); pasado un momento se lanzan a morderte y, tras morder
+  o con un disparo, vuelven a subir; derribados, caen a un lado. **Nada tapa su camino**: lo que hay encima de ti queda
+  libre; hacia los pies van, por orden, **la bola** (sobre el pecho, por encima de las pesas: se ve mirando arriba; antes
+  quedaba entre las piernas), los avisos y, más abajo, **el marcador** (a 40° del suelo, de cara a ti), y por ese lado los
+  voladores no bajan.
 - **Glúteos** (elegidos por el usuario de las propuestas; solo RepArena XR, en Combate): la **zancada lateral** (paso largo a
   un lado y bajar sobre esa pierna: cuenta si la cabeza baja lo pedido y se aparta a un lado, con carga ×2-×4 aguantando
   abajo como la zancada; luego, al otro lado) y el **patinador** (saltos de lado de una pierna a la otra: al salir de un lado,
@@ -471,7 +476,8 @@ No las cambies sin preguntarle.
   rango y la dificultad creciente llega hasta un 60 % más deprisa, **nunca a más de 6,5 km/h** (nunca tan rápido como los
   láseres de las sentadillas), y tras él hay algo menos de tiempo para levantarse (de 2,5 s a 2 s).
 - Arcos: **las cuchillas** (pedido del usuario: «hachas o cuchillas de cierto tamaño… su vuelo no puede ser ni simple ni
-  totalmente impredecible»; «Cuchillas que vuelan», 15 % de serie): hojas de 1,4 m de los kits que ya hay (no hay hachas: el
+  totalmente impredecible»; «Cuchillas que vuelan», 15 % de serie): hojas de 85 cm (con 1,4 m, el usuario las veía
+  descomunales) de los kits que ya hay (no hay hachas: el
   sable del Capitán, la espada del tiburón y el ancla de la isla pirata, elegidas por el usuario) girando hacia ti. **La
   hélice**, en horizontal a la altura de la cabeza: agacharse. **La rueda**, de canto cerca del centro: apartar el tronco a
   un lado. **La rasante**, a ras del suelo: saltarla. Entran desde un lado en curva, ondulando, y **en el último segundo y

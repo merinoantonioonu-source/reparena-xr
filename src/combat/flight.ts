@@ -9,6 +9,10 @@
  * solo pican después de dar tiempo a una repetición entera y nunca mientras aguantas arriba (RepArena: lowFly, SUP_ATK).
  * En la batalla diminuta (flexiones, plancha con un brazo) son pequeños (0,42), lentos (0,27) y salen de una trampilla
  * (RepArena: isTiny, push).
+ * Boca arriba en el press de pecho (RepArena XR, pedido del usuario: tumbado no se ven las compuertas) **bajan del cielo**:
+ * salen muy alto, casi encima de ti (`skySpawn`), bajan despacio, cada vez más lentos, hasta quedarse sobre tu cara, a 2-3 m
+ * (`Flight.toSky`), y desde ahí, pasado un momento, se lanzan a morderte; tras morder, o empujados por un disparo, vuelven a
+ * subir. Nunca bajan por el lado de los pies, donde van el marcador y los avisos (no tapan su camino).
  */
 import { Vector3 } from 'three';
 
@@ -77,6 +81,22 @@ const WANDER_K = 2.2; // el muelle (1/s²): critico, sin rebotes
 /** Lo más que se aparta del frente, a un lado (respecto a lo lejos que está de ti): ±35°. */
 const SIDE_MAX = 0.4; // (con el vaivén y lo que se acerca, no pasa de unos 35°)
 
+/** Bajando del cielo (el press de pecho): de dónde salen (lo alto sobre tus ojos, m, y lo que se apartan de la vertical,
+ * rad: hacia lo alto de tu cabeza, hasta `tilt[1]`; hacia los pies y los lados, solo `tiltLow`, que allí van la bola, los
+ * avisos y el marcador), dónde esperan (sobre tu cara, m), lo que esperan antes de lanzarse (s), lo que se frenan al llegar
+ * (m: a menos de eso, cada vez más despacio), su paso (respecto al de siempre) y lo más bajo que vuelan sobre tus ojos (m). */
+export const SKY = { hi: [13, 17] as [number, number], tilt: [0.08, 0.45] as [number, number], tiltLow: 0.2, hover: [2.1, 2.8] as [number, number], hoverX: 0.6, hoverZ: [-0.3, 0.35] as [number, number], wait: 1.6, brake: 5, speed: 0.75, floor: 0.55 };
+
+/** De dónde sale uno que baja del cielo (start) y dónde se queda esperando (hover), sobre tu cabeza (head, con los pies
+ * hacia −Z). */
+export function skySpawn(head: Vector3, rnd: () => number, start: Vector3, hover: Vector3): void {
+  const r = (a: number, b: number): number => a + rnd() * (b - a);
+  const az = r(0, TAU), tilt = r(SKY.tilt[0], Math.cos(az) > 0.5 ? SKY.tilt[1] : SKY.tiltLow), h = r(SKY.hi[0], SKY.hi[1]);
+  const off = h * Math.tan(tilt);
+  start.set(head.x + off * Math.sin(az), head.y + h, head.z + off * Math.cos(az));
+  hover.set(head.x + r(-SKY.hoverX, SKY.hoverX), head.y + r(SKY.hover[0], SKY.hover[1]), head.z + r(SKY.hoverZ[0], SKY.hoverZ[1]));
+}
+
 const _a = new Vector3(), _b = new Vector3(), _c = new Vector3(), _d = new Vector3(), _e = new Vector3(), _f = new Vector3();
 
 /** Un volador en vuelo (RepArena: Flyer, sin su modelo: eso lo pone el sistema). */
@@ -113,6 +133,8 @@ export class Flight {
   /** Lo que lleva esperando cerca de ti (el superman). */
   waitT = 0;
   gateOut = false;
+  /** Bajando del cielo (el press de pecho): dónde espera, respecto a tu cabeza (null: el vuelo de siempre). */
+  sky: Vector3 | null = null;
   /** Lo que ha pasado en el último paso: empieza a lanzarse (su voz), se lanza (el silbido) y te muerde. */
   evRoar = false;
   evWhoosh = false;
@@ -143,6 +165,16 @@ export class Flight {
     this.errSet = Math.max(0, erratic / 100);
   }
 
+  /** Que baje del cielo (el press de pecho): sale de start y espera en hover (los dos, en el mundo; head: tus ojos). */
+  toSky(start: Vector3, hover: Vector3, head: Vector3): this {
+    this.sky = new Vector3().subVectors(hover, head);
+    this.base.copy(start);
+    this.pos.copy(start);
+    this.last.copy(start);
+    this.gateOut = true;
+    return this;
+  }
+
   /** Lo que tarda la compuerta en dejarle salir (RepArena: openT). */
   static gateTime(kind: string, flySpeed: number): number {
     return Math.min(10, 1.2 + 1.2 / Math.max(0.05, (flySpeed / 3.6) * FLYER_KIND[kind].speed));
@@ -156,6 +188,10 @@ export class Flight {
   step(dt: number, env: FlyEnv): void {
     this.evRoar = this.evWhoosh = this.evBite = false;
     this.t += dt;
+    if (this.sky) {
+      this.skyStep(dt, env);
+      return;
+    }
     const HL = env.head;
     const low = env.low > 0, push = this.tiny;
     if (env.active) {
@@ -236,6 +272,60 @@ export class Flight {
     this.bank += (clamp(-lat * 0.25, -0.7, 0.7) - this.bank) * Math.min(1, dt * 5);
   }
 
+  // Bajando del cielo (el press de pecho): baja hacia donde espera, cada vez más despacio, con su vaivén; espera un momento
+  // (a la vista, sobre tu cara) y se lanza a morderte; tras morder, o si un disparo lo para, vuelve a subir
+  private skyStep(dt: number, env: FlyEnv): void {
+    const HL = env.head, tgt = _a.copy(HL).add(this.sky!);
+    const to = _b.subVectors(tgt, this.base), d = to.length(), reach = 0.25;
+    if (env.active) {
+      if (d > reach || this.retreat > 0) this.waitT = 0;
+      else this.waitT += dt;
+      if (this.retreat > 0) {
+        // (hacia arriba y hacia fuera, lejos de tu cara)
+        this.retreat -= dt;
+        const up = _c.subVectors(this.base, HL);
+        up.y = Math.max(up.y, 0.5);
+        this.base.addScaledVector(up.normalize(), this.speed * SKY.speed * 0.8 * dt); // (unos metros: vuelve enseguida)
+      } else if (d > reach) {
+        // (lejos, a su paso; al acercarse, frenando: se le ve llegar)
+        const v = this.speed * SKY.speed * clamp(d / SKY.brake, 0.3, 1);
+        this.base.addScaledVector(to.normalize(), Math.min(d - reach + 0.005, v * dt));
+      } else if (env.play && !this.windT && this.waitT >= SKY.wait) {
+        this.windT = 1e-3; // (se echa atrás antes de lanzarse, con su voz: aún da tiempo a dispararle)
+        this.evRoar = true;
+      }
+      if (this.windT > 0 && !env.play) this.windT = 0;
+      if (this.windT > 0) {
+        const was = this.windT;
+        this.windT += dt;
+        if (was < 0.45 && this.windT >= 0.45) this.evWhoosh = true;
+        if (this.windT >= 0.7) {
+          this.evBite = true;
+          this.retreat = 2.5 + this.parryT;
+          this.parryT = 0;
+          this.windT = 0;
+        }
+      }
+      this.wander(dt, Math.max(d, 1.5), false, false, HL);
+    }
+    if (this.pushV.lengthSq() > 1e-6) {
+      this.base.addScaledVector(this.pushV, dt);
+      this.pushV.multiplyScalar(Math.exp(-dt * SHOVE_K));
+    }
+    // (el vaivén, en el cielo: a los lados y adelante-atrás, y algo de arriba abajo)
+    this.last.copy(this.pos);
+    this.pos.set(this.base.x + this.dart.x, this.base.y + this.dart.y * 0.5, this.base.z + this.dart.z + this.dart.y * 0.4);
+    this.pos.y = Math.max(HL.y + SKY.floor, this.pos.y);
+    if (this.windT > 0) {
+      const to2 = _c.subVectors(HL, this.pos), d2 = to2.length(), w = this.windT;
+      const k = w < 0.45 ? -0.1 * smooth(w / 0.45) : -0.1 + (Math.max(0, d2 - 0.12) + 0.1) * smooth(Math.min(1, (w - 0.45) / 0.25));
+      if (d2 > 1e-3) this.pos.addScaledVector(to2, k / d2);
+    }
+    if (!this.windT && this.retreat <= 0 && this.pushV.lengthSq() < 0.01 && this.t > dt * 1.5) this.turnCap(HL, dt);
+    const lat = (this.pos.x - this.last.x) / Math.max(dt, 1e-3);
+    this.bank += (clamp(-lat * 0.25, -0.7, 0.7) - this.bank) * Math.min(1, dt * 5);
+  }
+
   // El desvío del vuelo suave: un objetivo que se mueve sin parar (dos vaivenes por eje, de frecuencias que no casan) y un
   // muelle amortiguado que lo sigue con la velocidad y la aceleración limitadas. d: lo lejos que está de donde quiere ir
   private wander(dt: number, d: number, push: boolean, low: boolean, HL: Vector3): void {
@@ -290,6 +380,13 @@ export class Flight {
   /** Empujón: lo aleja de ti dist metros (y hacia donde iba el golpe, dir), deslizándose (RepArena: Flyer.shove). */
   shove(dist: number, head: Vector3, dir: Vector3 | null): void {
     if (!(dist > 0)) return;
+    if (this.sky) {
+      // (bajando del cielo, el golpe lo sube: lejos de tu cara, no hacia los lados)
+      const b = _d.subVectors(this.base, head);
+      b.y = Math.max(b.y, 0.3);
+      this.pushV.addScaledVector(b.normalize(), dist * SHOVE_K);
+      return;
+    }
     const b = _d.subVectors(this.base, head), up = b.y * 0.3, vy = up / (Math.hypot(Math.hypot(b.x, b.z), up) || 1);
     shoveDir(b, dir);
     b.multiplyScalar(Math.sqrt(1 - vy * vy));
