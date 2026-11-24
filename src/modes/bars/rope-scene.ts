@@ -9,11 +9,13 @@
  * grupo (`track`) que se desplaza cada fotograma: el suelo (una malla de la ladera, hecha una vez por ronda), los pinos, las
  * piedras y las torres (instancias, al cambiar de trozo) y los cables (cada fotograma, sin crear nada).
  */
-import { BufferAttribute, BufferGeometry, CylinderGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, Quaternion, Euler, TorusGeometry, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CylinderGeometry, DoubleSide, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, Euler, ShaderMaterial, SphereGeometry, TorusGeometry, Vector3 } from '@iwsdk/core';
 import { kitParts } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import type { Put } from '../trek/plat/pieces.js';
-import { chestMouth, ROPE_CHUNK, ROPE_MODELS, ropeDecoPuts, type RopeCourse } from './rope.js';
+import { chestMouth, FALL, ROPE_CHUNK, ROPE_MODELS, ropeDecoPuts, type RopeCourse } from './rope.js';
+import { ROPE_WORLDS, type RopeWorldKey } from './rope-worlds.js';
+import { Sea } from '../trek/sea.js';
 import { CloudSea } from '../trek/cloud-sea.js';
 
 /** Lo que se ve de la cuerda hacia delante y hacia atrás (m) y el largo de cada trozo de cable (m). */
@@ -32,6 +34,19 @@ function spread(a: number, b: number, d: number, far: number): number[] {
   for (let x = out[out.length - 1] + d, g = d * 2; x < b + far; x += g, g *= 1.35) out.push(x);
   return out;
 }
+/** Las cascadas de la garganta que puede haber a la vista a la vez. */
+const FALLS = 12;
+/** El agua que cae: franjas claras que bajan deprisa por la cara de la roca, con espuma abajo y transparente por los bordes. */
+const FALL_VS = `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const FALL_FS = `uniform float uT; varying vec2 vUv;
+float h(float x){ return fract(sin(x * 91.7) * 43758.5); }
+void main() {
+  float col = floor(vUv.x * 18.0), sp = 0.6 + h(col) * 0.6, y = vUv.y * 6.0 + uT * 3.0 * sp + h(col + 3.0) * 7.0;
+  float streak = smoothstep(0.55, 1.0, fract(y)) * 0.6 + 0.4;
+  float edge = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x), foam = smoothstep(0.12, 0.0, vUv.y);
+  vec3 c = mix(vec3(0.62, 0.8, 0.9), vec3(1.0), streak * 0.6 + foam);
+  gl_FragColor = vec4(c, edge * (0.55 + 0.35 * streak) + foam * 0.3);
+}`;
 /** Con una paralela, lo que sube el cable sobre ella (m). */
 const PULLEY_UP = 0.32;
 
@@ -50,6 +65,16 @@ export class RopeScene {
   private cable: InstancedMesh | null = null;
   private pulley: Group | null = null;
   private ground: Mesh | null = null;
+  /** El mundo de ahora (rope-worlds.ts), el nivel del mar (la costa) y dónde está fondeado su barco (h). */
+  private world: RopeWorldKey = 'alps';
+  private seaY = -1e9;
+  private shipH = NaN;
+  private readonly ocean = new Sea();
+  private falls: Mesh[] = [];
+  private fallMat: ShaderMaterial | null = null;
+  /** El destello blanco al cambiar de mundo (como el portal de la Travesía). */
+  private flash: Mesh | null = null;
+  private flashT = 0;
   /** El mar de nubes del valle (el del risco de la Travesía): bajo el horizonte tapa el suelo de la foto de fondo, que está
    * hecha de pie en un prado (sin él, mirando al valle se veía la hierba de la foto, enorme); encima, las montañas de la foto. */
   private readonly sea = new CloudSea([0.012, -0.004]);
@@ -77,6 +102,7 @@ export class RopeScene {
 
   constructor(parent: Object3D, private readonly arenaOf: () => Object3D[], private readonly fogHex: () => number = () => 0xc8d6e4) {
     parent.add(this.root);
+    this.frame.add(this.ocean.mesh);
     this.root.add(this.sea.mesh);
     warmKeep(new Mesh(this.sea.mesh.geometry, this.sea.mesh.material));
     this.root.add(this.frame);
@@ -119,6 +145,22 @@ export class RopeScene {
     p.visible = false;
     this.frame.add(p);
     this.pulley = p;
+    // las cascadas (planos con el agua que cae; se colocan al pintar el paisaje)
+    this.fallMat = new ShaderMaterial({ uniforms: { uT: { value: 0 } }, vertexShader: FALL_VS, fragmentShader: FALL_FS, transparent: true, depthWrite: false, side: DoubleSide, toneMapped: false });
+    for (let i = 0; i < FALLS; i++) {
+      const m = new Mesh(new PlaneGeometry(1, 1).translate(0, 0.5, 0), this.fallMat);
+      m.visible = false;
+      m.userData.noInk = true;
+      this.track.add(m);
+      this.falls.push(m);
+    }
+    warmKeep(new Mesh(this.falls[0].geometry, this.fallMat));
+    // el destello: una esfera blanca alrededor de la cabeza, que se desvanece
+    this.flash = new Mesh(new SphereGeometry(1.5, 16, 8), new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: BackSide, depthTest: false, depthWrite: false, toneMapped: false, fog: false, blending: AdditiveBlending }));
+    this.flash.renderOrder = 1e6;
+    this.flash.visible = false;
+    this.flash.userData.noInk = true;
+    this.root.add(this.flash);
     this.built = true;
     return true;
   }
@@ -128,6 +170,11 @@ export class RopeScene {
     if (C === this.course) return;
     this.course = C;
     this.opened.clear();
+    this.world = 'alps';
+    this.seaY = -1e9;
+    this.shipH = NaN;
+    this.flashT = 0;
+    this.groundMat?.color.setHex(ROPE_WORLDS[0].ground);
     this.cache.clear();
     this.chunkFrom = -999;
     this.placed = false;
@@ -166,6 +213,20 @@ export class RopeScene {
     this.ground.userData.noInk = true; // (el borde de tinta en una ladera entera, a rayas)
     this.track.add(this.ground);
   }
+
+  /** Pasa al mundo `key` (al llegar a la plataforma del último tramo del anterior): su paisaje, su suelo y su mar, de golpe tras
+   * un destello blanco. `seaY`, el nivel del mar (la costa); `shipH`, dónde fondea su barco (h; NaN, sin barco). */
+  setWorld(key: RopeWorldKey, seaY = -1e9, shipH = NaN, flash = true): void {
+    this.world = key;
+    this.seaY = seaY;
+    this.shipH = shipH;
+    this.cache.clear();
+    this.chunkFrom = -999;
+    this.groundMat?.color.setHex(ROPE_WORLDS.find((w) => w.key === key)?.ground ?? 0x86b25e);
+    if (flash) this.flashT = 1;
+  }
+  /** Dónde está tu cabeza (para el destello). */
+  readonly eye = new Vector3();
 
   /** Los cofres ya abiertos (por su torre): se pintan llenos de oro. */
   private readonly opened = new Set<number>();
@@ -216,10 +277,21 @@ export class RopeScene {
     this.setShown(on);
     this.clock += 1 / 72;
     this.sea.update(on, this.clock, this.fogHex());
+    if (this.flash) {
+      this.flashT = Math.max(0, this.flashT - 1 / 72 / 0.9);
+      this.flash.visible = this.flashT > 0;
+      this.flash.position.copy(this.eye);
+      (this.flash.material as MeshBasicMaterial).opacity = this.flashT;
+    }
     if (!on) return;
     const C = this.course!;
     // subir: el cañón baja y va hacia tus pies (lo de s queda en tus manos)
     this.track.position.set(0, -C.y(s), C.h(s));
+    // el mar de la costa: a su nivel, con sus olas quietas en el recorrido (bajan contigo al subir)
+    const coast = this.world === 'coast';
+    this.ocean.update(coast, this.clock, 0, -C.h(s), 0, 0, this.fogHex(), 0.006, 0);
+    if (coast) this.ocean.mesh.position.y = this.seaY - C.y(s);
+    if (this.fallMat) this.fallMat.uniforms.uT.value = this.clock;
     const from = Math.floor(C.h(s) / ROPE_CHUNK) - CH_BACK;
     if (from !== this.chunkFrom) this.paintDeco(C, from);
     this.paintCable(C, s);
@@ -237,11 +309,23 @@ export class RopeScene {
     for (let c = from; c <= from + CH_BACK + CH_AHEAD; c++) {
       let L = this.cache.get(c);
       if (!L) {
-        L = ropeDecoPuts(C, c, [], this.opened);
+        L = ropeDecoPuts(C, c, [], this.opened, this.world, this.seaY, this.shipH);
         this.cache.set(c, L);
       }
       for (const P of L) this.put(P);
     }
+    // las cascadas: en la cara de su pared, de cara a la cuerda
+    let f = 0;
+    for (let c = from; c <= from + CH_BACK + CH_AHEAD; c++)
+      for (const P of this.cache.get(c) ?? [])
+        if (P.n === FALL && f < this.falls.length) {
+          const m = this.falls[f++];
+          m.position.set(P.u, P.y, -P.ds);
+          m.rotation.set(0, P.u < 0 ? Math.PI / 2 : -Math.PI / 2, 0);
+          m.scale.set(P.sx, P.sy, 1);
+          m.visible = true;
+        }
+    for (; f < this.falls.length; f++) this.falls[f].visible = false;
     for (const b of this.batches.values())
       for (const im of b.ims) {
         im.count = b.n;

@@ -18,7 +18,8 @@
  * Coordenadas del recorrido: `s`, lo que llevas de cuerda (m); `h`, lo que avanza en horizontal hacia lo alto de tu cabeza;
  * `y`, la altura; `u`, a un lado (a la derecha mirando hacia lo alto de tu cabeza, de pie en la cuerda).
  */
-import { put, standPole, tiltPole, type Put } from '../trek/plat/pieces.js';
+import { put, rockFit, standPole, tiltPole, type Put } from '../trek/plat/pieces.js';
+import type { RopeWorldKey } from './rope-worlds.js';
 import { trekRng } from '../trek/path.js';
 
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
@@ -43,20 +44,9 @@ export const ROPE_CHUNK = 12;
  * bajo la ladera, a los lados (m). */
 const SUMMIT = 150, VALLEY = 120;
 
-/** Las fotos de fondo, según la altura (elegido por el usuario de las propuestas: «una foto por altura»; de `public/fondos`):
- * abajo, los Alpes desde el valle; a media subida, la montaña y el valle y las colinas con nubes; en el último tramo, la vista
- * desde la cima. Solo ponen lo lejano: el cielo y las montañas del horizonte (lo de debajo, el valle de la escena). */
-export const ROPE_PANOS = ['aldea', 'montana', 'lago', 'cumbre'] as const;
-/** La foto del tramo i de n. */
 /** La bruma de cada foto (el color de su horizonte) y lo espesa que es (la niebla de la escena: lo lejano se funde con la foto). */
-export const ROPE_HAZE: Record<string, number> = { aldea: 0xd6e6ee, montana: 0xccd9e6, lago: 0xd2e8f2, cumbre: 0xd9e5ee };
+export const ROPE_HAZE: Record<string, number> = { aldea: 0xd6e6ee, montana: 0xccd9e6, lago: 0xd2e8f2, cumbre: 0xd9e5ee, bosque: 0xcfdde8, ocaso: 0xe8b996 };
 export const ROPE_FOG = 0.006;
-export function ropePano(i: number, n: number): (typeof ROPE_PANOS)[number] {
-  if (n <= 1) return 'aldea';
-  if (i >= n - 1) return 'cumbre';
-  const p = i / (n - 1);
-  return p < 0.3 ? 'aldea' : p < 0.6 ? 'montana' : 'lago';
-}
 
 /** Una torre: dónde está (h), lo alto de su plataforma (`top`), su pie en el suelo (`base`) y dónde empieza la subida vertical
  * junto a ella (`vert`; en la de salida, nada). */
@@ -205,6 +195,8 @@ export class RopeRun {
   /** Dónde empezó el tramo (no se resbala más abajo) y dónde acaba (la plataforma de la torre). */
   start = 0;
   end = 0;
+  /** Hasta dónde se puede subir (m de cuerda: el jefe corta el paso; Infinity, sin límite). Ahí, ni se sube ni se resbala. */
+  hold = Infinity;
   /** ¿Llegó a la plataforma del tramo? */
   reached = true;
   private slipping = false;
@@ -259,7 +251,7 @@ export class RopeRun {
     if (this.push > 0) this.v += Math.sign(this.want * vertK - this.v) * Math.min(Math.abs(this.want * vertK - this.v), dt * 0.7);
     else {
       // sin remar: frena y, al rato, resbala un poco cuesta abajo (más cuanto más empinado)
-      const slide = this.idle > ROPE.slideAfter ? -ROPE.slide * Math.sin(th) : 0;
+      const slide = this.idle > ROPE.slideAfter && this.s < this.hold - 0.05 ? -ROPE.slide * Math.sin(th) : 0;
       this.v += Math.sign(slide - this.v) * Math.min(Math.abs(slide - this.v), dt * 0.5);
     }
     let step = this.v * dt;
@@ -269,6 +261,12 @@ export class RopeRun {
       step += g;
     }
     this.s = Math.max(this.start, this.s + step);
+    if (this.s >= this.hold) {
+      // (el jefe corta el paso: quieto delante de él)
+      this.s = this.hold;
+      this.v = Math.min(0, this.v);
+      this.glide = 0;
+    }
     if (this.s <= this.start && this.v < 0) this.v = 0;
     const slipping = this.v < -0.03;
     if (slipping && !this.slipping) this.ev.push({ t: 'slip' });
@@ -292,32 +290,71 @@ export class RopeRun {
   }
 }
 
-/** El paisaje del trozo `chunk` (de `chunk·ROPE_CHUNK` a `(chunk + 1)·ROPE_CHUNK` m en horizontal): pinos y alguna piedra en la
- * ladera (siempre apoyados en el suelo y lejos de la cuerda), las torres de madera que haya en él (patas en el suelo, aspas y
- * su plataforma, con el cofre). Los montes lejanos, los de la foto de fondo. Coordenadas: `ds` = h, `u` a un lado, `y` la altura. */
-export function ropeDecoPuts(C: RopeCourse, chunk: number, out: Put[], opened: ReadonlySet<number> = NONE): Put[] {
+/** El paisaje del trozo `chunk` (de `chunk·ROPE_CHUNK` a `(chunk + 1)·ROPE_CHUNK` m en horizontal) en el mundo `world`
+ * (rope-worlds.ts): sus árboles y piedras en la ladera (siempre apoyados en el suelo y lejos de la cuerda), lo suyo (las paredes
+ * y las cascadas de la garganta, las palmeras y el barco de la costa) y las torres que haya en él (con su plataforma y su
+ * cofre). Los montes lejanos, los de la foto de fondo. `seaY`: el nivel del mar (la costa; nada por debajo). Coordenadas:
+ * `ds` = h, `u` a un lado, `y` la altura. */
+export function ropeDecoPuts(C: RopeCourse, chunk: number, out: Put[], opened: ReadonlySet<number> = NONE, world: RopeWorldKey = 'alps', seaY = -1e9, shipH = NaN): Put[] {
   const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ Math.imul(C.seed | 0, 0x85ebca6b) ^ 0x27d4eb2f) >>> 0);
   const between = (a: number, b: number): number => a + R() * (b - a);
-  const h0 = chunk * ROPE_CHUNK, h1 = h0 + ROPE_CHUNK;
-  // los pinos de la ladera, a los dos lados (más espesos lejos de la cuerda), con su tronco en el suelo
-  for (let i = 0; i < 9; i++) {
-    const sd = R() < 0.5 ? -1 : 1, u = sd * (ROPE.treeU + Math.pow(R(), 0.7) * 55), h = between(h0, h1), sc = between(0.9, 1.5);
-    const n = R() < 0.85 ? (['Pine_2', 'Pine_4', 'Pine_5'] as const)[Math.floor(R() * 3)] : 'DeadTree_1';
-    out.push(put('nature', n, h, u, C.ground(h, u) - 0.15, { ry: R() * TAU, sx: sc, sy: sc, sz: sc }));
+  const pick = <T>(l: readonly T[]): T => l[Math.min(l.length - 1, Math.floor(R() * l.length))];
+  const h0 = chunk * ROPE_CHUNK, h1 = h0 + ROPE_CHUNK, side = (): number => (R() < 0.5 ? -1 : 1);
+  /** Algo apoyado en el suelo, en (h, u): su pie, un poco hundido (`sink`); en la costa, solo si está por encima del mar. */
+  const onGround = (kit: 'nature' | 'island', n: string, h: number, u: number, sc: number, sink: number): void => {
+    const g = C.ground(h, u);
+    if (g < seaY + 0.4) return;
+    out.push(put(kit, n, h, u, g - sink, { ry: R() * TAU, sx: sc, sy: sc, sz: sc }));
+  };
+  if (world === 'alps') {
+    // los pinos de la ladera, a los dos lados (más espesos lejos de la cuerda). Cuántos, como en todo el paisaje: lo que se ve a la
+    // vez (unos 16 trozos) no pide más a la gráfica que el bosque de Combate (unos 50 árboles y 50 plantas)
+    for (let i = 0; i < 4; i++) {
+      const u = side() * (ROPE.treeU + Math.pow(R(), 0.7) * 55), h = between(h0, h1), sc = between(0.9, 1.5);
+      onGround('nature', R() < 0.85 ? pick(['Pine_2', 'Pine_4', 'Pine_5']) : 'DeadTree_1', h, u, sc, 0.15);
+    }
+  } else if (world === 'jungle') {
+    // la selva: árboles grandes y espesos, y matorral (helechos, plantas y arbustos) entre ellos
+    for (let i = 0; i < 4; i++) {
+      const u = side() * (ROPE.treeU + Math.pow(R(), 0.8) * 45), h = between(h0, h1), sc = between(1.4, 2.2);
+      onGround('nature', pick(['CommonTree_3', 'CommonTree_4', 'CommonTree_5']), h, u, sc, 0.15);
+    }
+    for (let i = 0; i < 3; i++) {
+      const u = side() * between(4, 40), h = between(h0, h1);
+      onGround('nature', pick(['Fern_1', 'Plant_1_Big', 'Plant_7_Big', 'Bush_Common']), h, u, between(1.5, 3), 0.1);
+    }
+  } else if (world === 'gorge') {
+    // la garganta: dos paredes de roca a los lados (lejos: no agobian), muy altas, con alguna cascada por su cara
+    for (const sd of [-1, 1]) {
+      const near = between(11, 14), w = between(8, 12), g = C.ground((h0 + h1) / 2, sd * near), top = C.ground((h0 + h1) / 2, 0) + between(26, 36);
+      out.push(rockFit('island', 'Cliff4', sd < 0 ? -near - w : near, sd < 0 ? -near : near + w, g - 8, top, h0 - between(2, 4), h1 + between(2, 4), R() < 0.5));
+      if (R() < 0.3) out.push(put('island', FALL, (h0 + h1) / 2, sd * (near - 0.2), g, { sx: between(2.5, 4), sy: top - g - 2, sz: 1 }));
+    }
+    if (R() < 0.6) onGround('nature', pick(['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3']), between(h0, h1), side() * between(5, 9), between(0.8, 1.5), 0.4);
+  } else {
+    // la costa: palmeras en la ladera (por encima del mar) y, al empezar, el barco pirata fondeado
+    for (let i = 0; i < 3; i++) {
+      const u = side() * (ROPE.treeU + Math.pow(R(), 0.8) * 40), h = between(h0, h1);
+      onGround('island', pick(['PalmTree_1', 'PalmTree_2', 'PalmTree_3']), h, u, between(1.3, 1.9), 0.1);
+    }
+    if (shipH >= h0 && shipH < h1) out.push(put('island', 'ShipLarge', shipH, -26, seaY + 0.8, { ry: 0.4 }));
   }
-  // alguna piedra medio enterrada
-  if (R() < 0.6) {
-    const sd = R() < 0.5 ? -1 : 1, u = sd * between(ROPE.treeU, 40), h = between(h0, h1), sc = between(0.6, 1.2);
-    out.push(put('nature', (['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'] as const)[Math.floor(R() * 3)], h, u, C.ground(h, u) - 0.3 * sc, { ry: R() * TAU, sx: sc, sy: sc, sz: sc }));
+  // alguna piedra medio enterrada (menos en la selva, tapada por el matorral)
+  if (world !== 'gorge' && R() < (world === 'jungle' ? 0.2 : 0.6)) {
+    const sc = between(0.6, 1.2);
+    onGround('nature', pick(['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3']), between(h0, h1), side() * between(ROPE.treeU, 40), sc, 0.3 * sc);
   }
-  // (los montes lejanos los pone la foto de fondo: las rocas grandes del kit se veían de cartón)
-  // las torres de este trozo
+  // las torres de este trozo, con el aspecto de su mundo
   for (let i = 0; i < C.towers.length; i++) {
     const T = C.towers[i];
-    if (T.h >= h0 && T.h < h1) towerPuts(C, T, i > 0, opened.has(i), out);
+    if (T.h >= h0 && T.h < h1) towerPuts(C, T, i > 0, opened.has(i), out, world);
   }
   return out;
 }
+
+/** La cascada de la garganta (no es un modelo de los kits: la pinta la escena, con su agua que cae). `sx`, su ancho; `sy`, su
+ * alto; el pie, en `y`. */
+export const FALL = 'Cascada';
 
 /** La torre de madera: cuatro patas desde el suelo, aspas a los lados y su plataforma a un lado de la cuerda (la cuerda fija
  * sube pegada a ella), con el cofre encima (`chest`). */
@@ -327,19 +364,29 @@ const NONE: ReadonlySet<number> = new Set();
 export function chestMouth(T: RopeTower): [number, number, number] {
   return [(TOWER.u0 + TOWER.u1) / 2 + 0.4, T.top - TOWER.deck + 0.55, T.h];
 }
-function towerPuts(C: RopeCourse, T: RopeTower, chest: boolean, open: boolean, out: Put[]): void {
-  const top = T.top - TOWER.deck, th = 0.9;
-  for (const u of [TOWER.u0 + 0.15, TOWER.u1 - 0.15])
+function towerPuts(C: RopeCourse, T: RopeTower, chest: boolean, open: boolean, out: Put[], world: RopeWorldKey = 'alps'): void {
+  const top = T.top - TOWER.deck, th = 0.9, style = world === 'gorge' ? 'rock' : world === 'jungle' ? 'tree' : 'wood';
+  if (style === 'rock') {
+    // un pilar de roca desde el fondo de la garganta, con la plataforma encima
+    const g = Math.min(C.ground(T.h - 1.8, TOWER.u1), C.ground(T.h + 1.8, TOWER.u1));
+    out.push(rockFit('island', 'Cliff4', TOWER.u0 + 0.1, TOWER.u1 + 0.8, g - 1, top - 0.05, T.h - 1.9, T.h + 1.9));
+  } else if (style === 'tree') {
+    // un árbol gigante, con la plataforma alrededor del tronco, en lo alto (la copa, por encima)
+    const g = C.ground(T.h, TREE_U), sc = Math.max(2.6, (top - g) / 5.5);
+    out.push(put('nature', 'CommonTree_4', T.h, TREE_U, g - 0.3 * sc, { ry: (T.h * 1.7) % TAU, sx: sc, sy: sc, sz: sc }));
+  } else {
+    for (const u of [TOWER.u0 + 0.15, TOWER.u1 - 0.15])
+      for (const dh of [-TOWER.d, TOWER.d]) {
+        const g = C.ground(T.h + dh, u);
+        out.push(standPole(T.h + dh, u, g - 0.4, top - g + 0.4, th));
+      }
+    // las aspas: de lado a lado, cada 3 m de alto
     for (const dh of [-TOWER.d, TOWER.d]) {
-      const g = C.ground(T.h + dh, u);
-      out.push(standPole(T.h + dh, u, g - 0.4, top - g + 0.4, th));
-    }
-  // las aspas: de lado a lado, cada 3 m de alto
-  for (const dh of [-TOWER.d, TOWER.d]) {
-    const g = Math.max(C.ground(T.h + dh, TOWER.u0), C.ground(T.h + dh, TOWER.u1));
-    for (let y = g + 0.5; y + 3 < top; y += 3) {
-      out.push(tiltPole(T.h + dh, TOWER.u0 + 0.15, y, TOWER.u1 - 0.15, y + 3, 0.5));
-      out.push(tiltPole(T.h + dh, TOWER.u1 - 0.15, y, TOWER.u0 + 0.15, y + 3, 0.5));
+      const g = Math.max(C.ground(T.h + dh, TOWER.u0), C.ground(T.h + dh, TOWER.u1));
+      for (let y = g + 0.5; y + 3 < top; y += 3) {
+        out.push(tiltPole(T.h + dh, TOWER.u0 + 0.15, y, TOWER.u1 - 0.15, y + 3, 0.5));
+        out.push(tiltPole(T.h + dh, TOWER.u1 - 0.15, y, TOWER.u0 + 0.15, y + 3, 0.5));
+      }
     }
   }
   // la plataforma: tablas de muelle de 3 × 3,2 m
@@ -347,13 +394,27 @@ function towerPuts(C: RopeCourse, T: RopeTower, chest: boolean, open: boolean, o
   // (el cofre, cerrado hasta que llegas; abierto, lleno de oro)
   if (chest) out.push(put('island', open ? 'Chest_Gold' : 'Chest_Closed', T.h, (TOWER.u0 + TOWER.u1) / 2 + 0.4, top + 0.02, { ry: -Math.PI / 2, sx: 0.6, sy: 0.6, sz: 0.6 }));
 }
+/** El tronco del árbol gigante de la selva, a un lado de la cuerda (m). */
+const TREE_U = 2.3;
 
 /** Los modelos que usa el paisaje de la cuerda (para preparar sus instancias). */
 export const ROPE_MODELS: { kit: 'island' | 'nature'; n: string; cap: number }[] = [
-  { kit: 'nature', n: 'Pine_2', cap: 160 },
-  { kit: 'nature', n: 'Pine_4', cap: 160 },
-  { kit: 'nature', n: 'Pine_5', cap: 160 },
-  { kit: 'nature', n: 'DeadTree_1', cap: 60 },
+  { kit: 'nature', n: 'CommonTree_3', cap: 40 },
+  { kit: 'nature', n: 'CommonTree_4', cap: 50 },
+  { kit: 'nature', n: 'CommonTree_5', cap: 40 },
+  { kit: 'nature', n: 'Fern_1', cap: 30 },
+  { kit: 'nature', n: 'Plant_1_Big', cap: 30 },
+  { kit: 'nature', n: 'Plant_7_Big', cap: 30 },
+  { kit: 'nature', n: 'Bush_Common', cap: 30 },
+  { kit: 'island', n: 'PalmTree_1', cap: 25 },
+  { kit: 'island', n: 'PalmTree_2', cap: 25 },
+  { kit: 'island', n: 'PalmTree_3', cap: 25 },
+  { kit: 'island', n: 'Cliff4', cap: 80 },
+  { kit: 'island', n: 'ShipLarge', cap: 2 },
+  { kit: 'nature', n: 'Pine_2', cap: 40 },
+  { kit: 'nature', n: 'Pine_4', cap: 40 },
+  { kit: 'nature', n: 'Pine_5', cap: 40 },
+  { kit: 'nature', n: 'DeadTree_1', cap: 20 },
   { kit: 'nature', n: 'Rock_Medium_1', cap: 20 },
   { kit: 'nature', n: 'Rock_Medium_2', cap: 20 },
   { kit: 'nature', n: 'Rock_Medium_3', cap: 20 },

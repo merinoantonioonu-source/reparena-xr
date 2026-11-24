@@ -365,6 +365,17 @@ No las cambies sin preguntarle.
   explosivo**. Si fallas, frenas a la mitad y se rompe la racha, sin vidas. Premios: **frutas** junto al cable, que se cogen
   **subiendo el pecho** al pasar (se encogen al llegar a los ojos), y **el cofre de cada plataforma**, que se abre al llegar y
   suelta sus premios flotando (los puntos y una gema). El primer tramo, solo frutas y enjambres; el cable roto, desde el tercero.
+  **Los mundos** (los de los bocetos: la A para empezar; la B, la C y la D, «los mundos siguientes»): **los Alpes** (torres de
+  madera), **la garganta** (pilares de roca entre dos paredes con cascadas, lejos de la cuerda), **la selva** (árboles gigantes con
+  la plataforma en lo alto) y **la costa** (del barco pirata al acantilado, con palmeras y el mar debajo), cada uno con su foto
+  de fondo (la costa acaba al ocaso). Con 4 tramos o menos, uno cada uno (se ven varios aunque la ronda sea corta); con más, a
+  partes iguales. Se pasa al siguiente al llegar a la plataforma, con un destello y su nombre («MUNDO 2 · La garganta»).
+  **El jefe** (el dragón, en el último tramo, antes de la subida final; con un solo tramo, sin jefe): te corta el paso (ni subes
+  ni resbalas) y, casi encima de ti, escupe bolas de fuego con aviso (se echa atrás y ruge): **a la cara, aparta la cabeza**;
+  **rasante por encima del cable, quédate abajo**. Tras tres, **se marea** y baja hasta encima de ti: **un remo explosivo o bajar
+  con la carga aguantada (×2 o más)** le da; a la tercera, derrotado y se va. Si no le das mareado, se recupera; tras dos veces,
+  vale cualquier remo (la pelea siempre se acaba). Si te da una bola, se rompe la racha, sin vidas. **El paisaje, ligero**: lo
+  que se ve a la vez no pide más que el bosque de Combate (unos 50 árboles y 50 plantas).
 
 **Repeticiones y disparo**
 - Cada repetición (sentadilla, zancada…) carga **un disparo por mano**, como mucho uno por mano y sin acumular.
