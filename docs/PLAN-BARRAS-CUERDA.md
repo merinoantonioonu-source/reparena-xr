@@ -39,10 +39,14 @@ La pared rocosa (C) queda para las dominadas, donde de verdad cuelgas en vertica
   subes (`EnvSystem.ropeYaw`), con la bruma de su color (`ROPE_HAZE`, `ROPE_FOG`) y el mar de nubes del risco (`CloudSea`, con
   el borde más alto) tapando el suelo de la foto. Sin sombras en la ladera (en el emulador, sin tarjeta gráfica, se caía el
   navegador; desde la cuerda no se ven).
-- [ ] **PR 2 · Retos y premios** (los movimientos que no son el remo): aguantar arriba, pegado a la cuerda (lo que pasa por
+- [x] **PR 2 · Retos y premios** (los movimientos que no son el remo): aguantar arriba, pegado a la cuerda (lo que pasa por
   debajo); quedarse abajo con los brazos estirados (un águila que pasa rozando el cable); la cabeza a un lado (piedras que caen
   de la torre, con su sombra); una explosiva (un tramo roto). Premios: frutas que se cogen al subir el pecho y el cofre de la
-  plataforma, que se abre.
+  plataforma, que se abre. Hecho así: el enjambre (abejas del catálogo) baja por el cable hasta tu cara (quedarse abajo), la
+  ráfaga (estelas de viento sobre ti: aguantar arriba), la piedra que cae hacia donde estaba tu cara (apartar la cabeza 8 cm) y
+  el cable deshilachado (un remo explosivo: el `fast` del detector); frutas del kit a la altura de tu cabeza arriba, y el cofre
+  de la plataforma, abierto (`Chest_Gold`) con sus premios (`HOOKS.prize`). En `rope-trials.ts` (lógica pura, con
+  `tests/unit/bars-rope-trials.test.ts`) y `rope-trials-look.ts`.
 - [ ] **PR 3 · Los mundos y el jefe**: la garganta de la cascada (B), los árboles gigantes de la selva (C) y del barco al
   faro del acantilado (D), de los bocetos; el jefe, un águila o el dragón que lanza cosas desde arriba.
 

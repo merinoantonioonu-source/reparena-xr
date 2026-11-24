@@ -13,7 +13,7 @@ import { BufferAttribute, BufferGeometry, CylinderGeometry, Group, InstancedMesh
 import { kitParts } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import type { Put } from '../trek/plat/pieces.js';
-import { ROPE_CHUNK, ROPE_MODELS, ropeDecoPuts, type RopeCourse } from './rope.js';
+import { chestMouth, ROPE_CHUNK, ROPE_MODELS, ropeDecoPuts, type RopeCourse } from './rope.js';
 import { CloudSea } from '../trek/cloud-sea.js';
 
 /** Lo que se ve de la cuerda hacia delante y hacia atrás (m) y el largo de cada trozo de cable (m). */
@@ -127,6 +127,7 @@ export class RopeScene {
   setCourse(C: RopeCourse | null): void {
     if (C === this.course) return;
     this.course = C;
+    this.opened.clear();
     this.cache.clear();
     this.chunkFrom = -999;
     this.placed = false;
@@ -164,6 +165,34 @@ export class RopeScene {
     this.ground.frustumCulled = false;
     this.ground.userData.noInk = true; // (el borde de tinta en una ladera entera, a rayas)
     this.track.add(this.ground);
+  }
+
+  /** Los cofres ya abiertos (por su torre): se pintan llenos de oro. */
+  private readonly opened = new Set<number>();
+  /** Abre el cofre de la torre i (al llegar a su plataforma) y deja en `out` dónde está su boca, en el mundo. */
+  openChest(i: number, out: Vector3): Vector3 | null {
+    const C = this.course, T = C?.towers[i];
+    if (!C || !T) return null;
+    this.opened.add(i);
+    this.cache.clear(); // (se rehace el paisaje: el cofre, abierto)
+    this.chunkFrom = -999;
+    const [u, y, h] = chestMouth(T);
+    this.track.updateMatrixWorld(true);
+    return this.track.localToWorld(out.set(u, y, -h));
+  }
+  /** El grupo del recorrido (lo que baja contigo al subir) y el de la cuerda (en tus paralelas, girado hacia donde subes). */
+  get trackGroup(): Group {
+    return this.track;
+  }
+  get frameGroup(): Group {
+    return this.frame;
+  }
+  /** Los cables: a qué lado van (m) y lo que suben sobre las paralelas (m). */
+  get laneList(): number[] {
+    return this.lanes;
+  }
+  get laneHeight(): number {
+    return this.laneY;
   }
 
   /** Hacia dónde mira la escena (rad: lo alto de tu cabeza; la foto de fondo se gira igual). */
@@ -208,7 +237,7 @@ export class RopeScene {
     for (let c = from; c <= from + CH_BACK + CH_AHEAD; c++) {
       let L = this.cache.get(c);
       if (!L) {
-        L = ropeDecoPuts(C, c, []);
+        L = ropeDecoPuts(C, c, [], this.opened);
         this.cache.set(c, L);
       }
       for (const P of L) this.put(P);

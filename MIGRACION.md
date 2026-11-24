@@ -172,7 +172,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
   mínimamente, en Barras, con una paralela o dos; plan en `docs/PLAN-BARRAS-CUERDA.md`)
   - [x] **PR 1 · El armazón jugable** (la escena A del usuario: cables rectos de torre en torre sobre un valle alpino, la
     subida vertical al final de cada tramo hasta la plataforma, el avance por remo, resbalar, y nada flota)
-  - [ ] PR 2 · Retos y premios
+  - [x] **PR 2 · Retos y premios** (el enjambre, la ráfaga, la piedra y el cable deshilachado; las frutas y el cofre que se abre)
   - [ ] PR 3 · Los mundos y el jefe
 - [ ] **Lo que se ve desde cada postura, el superman, las cuestas y Arcos** (plan trazado con el usuario el 22/11/2026, por
   bloques, un PR cada uno: `docs/PLAN-ERGONOMIA-Y-CUESTAS.md`; quién hace cada parte, en su apartado 0)
@@ -418,6 +418,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- **La cuerda, PR 2 (retos y premios)**: `RopeTrials` (`src/modes/bars/rope-trials.ts`, lógica pura) recibe cada fotograma
+  lo que mira de ti (`TrialEnv`: por dónde vas, lo subida y lo apartada que llevas la cabeza —en el marco de la cuerda, desde
+  donde te colgaste: `headAt0`—, si estás arriba y si acabas de hacer un remo explosivo, `o.fast` del detector) y devuelve
+  sucesos; `BarsSystem.stepTrials` los aplica (fallar: `RopeRun.stumble`, la racha a 0 y el aviso de cómo se hace) y
+  `RopeTrialsLook` los pinta (las abejas, `getGLTF('foe-bee')`; la piedra y las frutas, de los kits; lo quieto, colgado del
+  recorrido). El cofre de la plataforma se abre al llegar (`RopeScene.openChest`: `Chest_Gold` y `HOOKS.prize`). Para mirar
+  los retos sin gafas: «Probar en el ordenador», la cámara tumbada a mano y la pausa (`GAME.paused`) en el momento justo.
 
 - **Nada flota** (pedido del usuario al ver la cuerda: «los árboles nunca están flotando; creo que se repite también en
   Travesía»): los árboles de los kits tienen bien su pie (las raíces, 24 cm bajo su origen), pero se colocaban a ojo encima de

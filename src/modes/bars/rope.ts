@@ -235,6 +235,13 @@ export class RopeRun {
     this.idle = 0;
   }
 
+  /** Un reto fallado: frenas a la mitad (como en la Travesía) y lo que llevabas de tirón se pierde. */
+  stumble(): void {
+    this.v *= 0.5;
+    this.want *= 0.5;
+    this.glide = 0;
+  }
+
   /** Bajando con la carga aguantada arriba (×2-×4): un tirón de más, hacia arriba. */
   boost(p: number): void {
     if (!this.reached) this.glide += 0.5 * (p - 1);
@@ -288,7 +295,7 @@ export class RopeRun {
 /** El paisaje del trozo `chunk` (de `chunk·ROPE_CHUNK` a `(chunk + 1)·ROPE_CHUNK` m en horizontal): pinos y alguna piedra en la
  * ladera (siempre apoyados en el suelo y lejos de la cuerda), las torres de madera que haya en él (patas en el suelo, aspas y
  * su plataforma, con el cofre). Los montes lejanos, los de la foto de fondo. Coordenadas: `ds` = h, `u` a un lado, `y` la altura. */
-export function ropeDecoPuts(C: RopeCourse, chunk: number, out: Put[]): Put[] {
+export function ropeDecoPuts(C: RopeCourse, chunk: number, out: Put[], opened: ReadonlySet<number> = NONE): Put[] {
   const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ Math.imul(C.seed | 0, 0x85ebca6b) ^ 0x27d4eb2f) >>> 0);
   const between = (a: number, b: number): number => a + R() * (b - a);
   const h0 = chunk * ROPE_CHUNK, h1 = h0 + ROPE_CHUNK;
@@ -307,7 +314,7 @@ export function ropeDecoPuts(C: RopeCourse, chunk: number, out: Put[]): Put[] {
   // las torres de este trozo
   for (let i = 0; i < C.towers.length; i++) {
     const T = C.towers[i];
-    if (T.h >= h0 && T.h < h1) towerPuts(C, T, i > 0, out);
+    if (T.h >= h0 && T.h < h1) towerPuts(C, T, i > 0, opened.has(i), out);
   }
   return out;
 }
@@ -315,7 +322,12 @@ export function ropeDecoPuts(C: RopeCourse, chunk: number, out: Put[]): Put[] {
 /** La torre de madera: cuatro patas desde el suelo, aspas a los lados y su plataforma a un lado de la cuerda (la cuerda fija
  * sube pegada a ella), con el cofre encima (`chest`). */
 export const TOWER = { u0: 0.55, u1: 3.4, d: 1.4, deck: 0.35 };
-function towerPuts(C: RopeCourse, T: RopeTower, chest: boolean, out: Put[]): void {
+const NONE: ReadonlySet<number> = new Set();
+/** Dónde está la boca del cofre de una torre (en las coordenadas del recorrido: u, y, h): de ahí salen sus premios. */
+export function chestMouth(T: RopeTower): [number, number, number] {
+  return [(TOWER.u0 + TOWER.u1) / 2 + 0.4, T.top - TOWER.deck + 0.55, T.h];
+}
+function towerPuts(C: RopeCourse, T: RopeTower, chest: boolean, open: boolean, out: Put[]): void {
   const top = T.top - TOWER.deck, th = 0.9;
   for (const u of [TOWER.u0 + 0.15, TOWER.u1 - 0.15])
     for (const dh of [-TOWER.d, TOWER.d]) {
@@ -332,7 +344,8 @@ function towerPuts(C: RopeCourse, T: RopeTower, chest: boolean, out: Put[]): voi
   }
   // la plataforma: tablas de muelle de 3 × 3,2 m
   out.push(put('island', 'Dock', T.h + 0.04, (TOWER.u0 + TOWER.u1) / 2 - 0.0078 * 1.5, top - 0.488 * 0.5, { sx: (TOWER.u1 - TOWER.u0 + 0.2) / 1.98448, sy: 0.5, sz: (2 * TOWER.d + 0.4) / 2.08129 }));
-  if (chest) out.push(put('island', 'Chest_Closed', T.h, (TOWER.u0 + TOWER.u1) / 2 + 0.4, top + 0.02, { ry: -Math.PI / 2, sx: 0.6, sy: 0.6, sz: 0.6 }));
+  // (el cofre, cerrado hasta que llegas; abierto, lleno de oro)
+  if (chest) out.push(put('island', open ? 'Chest_Gold' : 'Chest_Closed', T.h, (TOWER.u0 + TOWER.u1) / 2 + 0.4, top + 0.02, { ry: -Math.PI / 2, sx: 0.6, sy: 0.6, sz: 0.6 }));
 }
 
 /** Los modelos que usa el paisaje de la cuerda (para preparar sus instancias). */
@@ -347,4 +360,5 @@ export const ROPE_MODELS: { kit: 'island' | 'nature'; n: string; cap: number }[]
   { kit: 'island', n: 'Dock_Pole', cap: 200 },
   { kit: 'island', n: 'Dock', cap: 12 },
   { kit: 'island', n: 'Chest_Closed', cap: 12 },
+  { kit: 'island', n: 'Chest_Gold', cap: 12 },
 ];

@@ -23,6 +23,9 @@ import type { BarEvent, BarsEnv, PlaceEnv } from './env.js';
 import { Placer, PLACE_HOLD, type PlaceEvent } from './place.js';
 import { BarField, HeadTarget, hangSecs, TGT } from './targets.js';
 import { ROPE, RopeCourse, RopeRun, ropePano } from './rope.js';
+import { buildTrials, RopeTrials, TRIAL_FAIL, TRIAL_PASS, type Trial, type TrialEnv } from './rope-trials.js';
+import { RopeTrialsLook, type LookFrame } from './rope-trials-look.js';
+import { barReq } from './detect.js';
 import { RopeScene } from './rope-scene.js';
 import { eqAxes } from './equip.js';
 import type { BarHits } from './detect.js';
@@ -68,8 +71,23 @@ export class BarsSystem extends createSystem({}) {
   /** La aventura en la cuerda del remo invertido (RepArena XR: rope.ts; «Remo invertido: aventura en la cuerda»). */
   private rope: RopeRun | null = null;
   private ropeScene!: RopeScene;
+  /** Los retos y premios de la cuerda (PR 2: rope-trials.ts), lo que se ve de ellos y lo que miran de ti cada fotograma. */
+  private trials: RopeTrials | null = null;
+  private trialsLook!: RopeTrialsLook;
+  private readonly trialLive: Trial[] = [];
+  private readonly tEnv: TrialEnv = { s: 0, up: 0, req: 0.3, top: false, side: 0, fast: false, playing: false };
+  private readonly lookF: LookFrame = { head: new Vector3(), up: new Vector3(0, 1, 0), fwd: new Vector3(), right: new Vector3() };
+  /** Tu cabeza al colgarte, en el marco de la cuerda (lo de a un lado se mide desde ahí; las frutas, a su altura arriba). */
+  private readonly headAt0 = new Vector3();
+  private readonly headLoc = new Vector3();
+  private readonly fruitAt = new Vector3();
+  private readonly chestAt = new Vector3();
+  private fastRep = false;
   private readonly ropeHits: BarHits = {
-    rep: (o) => this.rope?.rep(this.clock, o.perfect),
+    rep: (o) => {
+      this.rope?.rep(this.clock, o.perfect);
+      if (o.fast) this.fastRep = true; // (un remo explosivo: el que pasa el cable roto)
+    },
     blast: (p) => this.rope?.boost(p),
   };
 
@@ -112,6 +130,7 @@ export class BarsSystem extends createSystem({}) {
     const arena = ['arena-floor', 'gate-left', 'gate-center', 'gate-right', 'comic-valley', 'comic-clouds'];
     this.hang.arenaOf = () => arena.map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is NonNullable<typeof o> => !!o);
     this.ropeScene = new RopeScene(this.root, this.hang.arenaOf, () => (this.world.scene as unknown as { fog: { color: { getHex(): number } } | null }).fog?.color.getHex() ?? 0xc8d6e4);
+    this.trialsLook = new RopeTrialsLook(this.root, this.ropeScene.trackGroup);
     HOOKS.placeEq = (note) => this.startPlace(() => HOOKS.showMenu(''), note ?? '');
     HOOKS.eqPlaced = () => this.placed();
     HOOKS.placing = () => this.placing;
@@ -212,7 +231,12 @@ export class BarsSystem extends createSystem({}) {
       const lens: number[] = [];
       for (let i = 0, n = Math.min(60, Math.max(1, nWaves())); i < n; i++) lens.push(waveReps(i) * ROPE.perRep);
       this.rope = new RopeRun(new RopeCourse(lens, 1 + Math.floor(Math.random() * 9973)));
-    } else this.rope = null;
+      this.trials = new RopeTrials(buildTrials(this.rope.course));
+    } else {
+      this.rope = null;
+      this.trials = null;
+    }
+    this.trialsLook.reset();
     this.ropeScene.setCourse(this.rope?.course ?? null);
   }
 
@@ -296,8 +320,10 @@ export class BarsSystem extends createSystem({}) {
     this.hang?.clear();
     if (this.rig) this.rig.grp.visible = false;
     this.rope = null;
+    this.trials = null;
     this.ropeScene?.setCourse(null);
     this.ropeScene?.update(false, 0);
+    this.trialsLook?.update(0, false, this.trialLive, this.lookF, null, [0], 0, this.fruitAt, 0);
   }
 
   // ---------------------------------------------------------------- cada fotograma
@@ -343,18 +369,78 @@ export class BarsSystem extends createSystem({}) {
   private stepRope(dt: number): void {
     const R = this.rope;
     if (!R) return;
-    R.step(dt, this.mstate === 'play' && !GAME.between && !GAME.paused);
+    const playing = this.mstate === 'play' && !GAME.between && !GAME.paused;
+    R.step(dt, playing);
     this.ropeScene.update(true, R.s); // (con lo que has subido en este fotograma)
     for (const e of R.ev) {
       if (e.t === 'ledge') {
         HOOKS.say('¡PLATAFORMA!', '#ffd166', 1.6, false);
         HOOKS.score(50, true);
         SND.combo();
+        // el cofre de la plataforma se abre y suelta sus premios (los puntos y una gema), que suben flotando
+        const at = this.ropeScene.openChest(e.wave + 1, this.chestAt);
+        if (at) {
+          HOOKS.prize(at, [
+            { icon: 'coins', text: '+50 puntos', color: '#ffd166' },
+            { icon: 'gem', text: 'Gema', color: '#3cd8ff' },
+          ]);
+          HOOKS.sparks(at, 24, 0xffd166);
+        }
       } else if (e.t === 'slip') HOOKS.say('¡Resbalas! Sigue remando', WARN, 1.6, true);
       else if (e.t === 'chimney' && e.on) HOOKS.say('¡A la torre! Sube por la cuerda', '#3cf0c6', 1.6, false);
     }
     R.ev.length = 0;
+    this.stepTrials(dt, playing);
   }
+
+  // los retos y las frutas: lo que miran de ti (por dónde vas, lo subida y lo apartada que llevas la cabeza, si acabas de hacer
+  // un remo explosivo), lo que pasa (avisos, puntos, frenar) y lo que se ve
+  private stepTrials(dt: number, playing: boolean): void {
+    const R = this.rope, T = this.trials;
+    if (!R || !T || !this.ropeScene.placed) return;
+    const E = this.tEnv, frame = this.ropeScene.frameGroup;
+    frame.updateMatrixWorld();
+    frame.worldToLocal(this.headLoc.copy(head.p));
+    E.s = R.s;
+    E.up = head.p.y - this.bar.ref;
+    E.req = barReq(this.env);
+    E.top = this.bar.det === 'top';
+    E.side = this.headLoc.x - this.headAt0.x;
+    E.fast = this.fastRep;
+    E.playing = playing;
+    this.fastRep = false;
+    T.step(dt, E);
+    T.tick(dt);
+    for (const e of T.ev) {
+      const tr = e.tr, k = tr.kind;
+      if (e.t === 'start') {
+        if (k === 'swarm' || k === 'rock' || k === 'gust') SND.whoosh(head.p);
+      } else if (e.t === 'pass') {
+        HOOKS.say(TRIAL_PASS[k] ?? '¡Bien!', '#8fdc5a', 1.0, false);
+        HOOKS.score(15, true);
+        if (k === 'frayed') R.boost(3); // (el remo explosivo te lleva por encima del trozo roto)
+      } else if (e.t === 'fail') {
+        R.stumble();
+        GAME.combo = 0;
+        HOOKS.say(TRIAL_FAIL[k] ?? '¡Ay!', WARN, 2.4, true);
+        SND.partial();
+        if (k === 'rock' || k === 'swarm') HOOKS.sparks(this.v1.copy(head.p).setY(head.p.y + 0.3), 12, k === 'rock' ? 0xb0a090 : 0xffd23a);
+      } else if (e.t === 'fruit') {
+        HOOKS.score(10, true);
+        SND.orb(head.p);
+        HOOKS.sparks(this.v1.copy(head.p).setY(head.p.y + 0.15), 10, 0xff5a5a);
+      }
+    }
+    T.ev.length = 0;
+    // lo que se ve: con tu cabeza y sus ejes (hacia lo alto de tu cabeza y a un lado), y dónde queda tu cabeza arriba (las frutas)
+    const F = this.lookF, ry = frame.rotation.y;
+    F.head.copy(head.p);
+    F.fwd.set(-Math.sin(ry), 0, -Math.cos(ry));
+    F.right.set(Math.cos(ry), 0, -Math.sin(ry));
+    this.fruitAt.set(this.headAt0.x, this.bar.ref + E.req + 0.03 - frame.position.y, this.headAt0.z);
+    this.trialsLook.update(dt, this.ropeScene.visible, T.live(this.trialLive), F, R.course, this.ropeScene.laneList, this.ropeScene.laneHeight, this.fruitAt, this.clock);
+  }
+  private readonly v1 = new Vector3();
 
   // al colgarte la primera vez en la ronda: la cuerda pasa por tus paralelas, a lo largo de tu cuerpo, subiendo hacia lo alto
   // de tu cabeza (con dos paralelas, por cada una; con una, cruzada sobre ti, por encima de su centro)
@@ -367,6 +453,9 @@ export class BarsSystem extends createSystem({}) {
     if (upH.lengthSq() < 1e-4) upH.copy(along);
     const sg = along.dot(upH) >= 0 ? 1 : -1;
     this.ropeScene.place(e.x, num('dipH') / 100, e.z, along.x * sg, along.z * sg, one, num('dipGap') / 100);
+    const fr = this.ropeScene.frameGroup;
+    fr.updateMatrixWorld();
+    fr.worldToLocal(this.headAt0.copy(head.p));
   }
 
   // lo de debajo del que cuelga: el charco con tentáculos o el remolino, y el bosque de noche si cuelga
