@@ -435,6 +435,8 @@ export type PlatEv =
   /** El asistente del vuelo: su pregunta (las teclas Demasiado · Bien · Poco), quitarla y cambiar un ajuste del esquema. */
   | { t: 'coachAsk'; text: string }
   | { t: 'coachClose' }
+  /** Algo para el diagnóstico (no se ve). */
+  | { t: 'note'; text: string }
   | { t: 'set'; key: string; val: number }
   /** El jefe: empieza la pelea, lanza (`shot`: tarda `wind` en soltarla y `dur` en llegar a `aim`), lo esquivas o te da,
    * se marea, recibe un supersalto (y salta hacia atrás de `from` a `to`, o muere al final del salto) o se recupera. */

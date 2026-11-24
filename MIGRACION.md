@@ -421,7 +421,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   más tumbado, nunca en la muñeca, sin «✕ Cerrar», que no aligera la escena ni lo cierra la partida. Cada respuesta cambia el
   ajuste de siempre (suceso `set` → `setSetting`); ya no se guarda lo medido aparte (`reparenaxr-fly2` ya no se usa).
   **Pendiente con el usuario**: probarlo en las gafas (si las teclas quedan a mano en plancha y si los pasos de 3 cm son
-  buenos). **Los meteoritos**: su sombra en el suelo (`Rocks.throw(…, mark)`) y sin ellos con la vista en la pesa
+  buenos). Con su primera caja negra del asistente: empezaba a medio deslizarse el mundo al calibrar y tomaba el centro
+  a 60 cm (escorarse no movía nada); ahora espera `COACH_WAIT` y centra donde estás, y en el aire, si la cabeza está más de
+  `FLY_FAR` del centro un rato, se vuelve a centrar (sale en el diagnóstico). **Los meteoritos**: su sombra en el suelo (`Rocks.throw(…, mark)`) y sin ellos con la vista en la pesa
   (`GUIDE_TOAST_EX`).
 
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):

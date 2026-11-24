@@ -410,7 +410,7 @@ describe('el asistente del vuelo', () => {
   };
   it('la primera vez, ya calibrado y antes del primer tramo: el mundo espera y vuelas en el sitio', () => {
     const s = setup();
-    s.until(() => false, 10);
+    s.until(() => false, 72 * 1.5);
     expect(s.r.coaching).toBe(true);
     expect(s.of('say').some((e) => e.text.startsWith('Ajuste 1/4'))).toBe(true);
     s.until(() => false, 72 * 6);
@@ -419,7 +419,7 @@ describe('el asistente del vuelo', () => {
   });
   it('pregunta tras probarlo; Demasiado lo hace menos sensible y se prueba otra vez; Bien, al siguiente; al acabar, guardado', () => {
     const s = setup();
-    s.until(() => false, 10);
+    s.until(() => false, 72 * 1.5);
     // de lado: a la derecha y a la izquierda, y pregunta
     s.head.x = 0.08;
     s.until(() => false, 72);
@@ -460,7 +460,7 @@ describe('el asistente del vuelo', () => {
       s.load(course([mk(1, 'chest', 300, 0)]));
       s.env.state = 'ready';
       s.r.calibrate(0.45, 0, 0);
-      s.until(() => false, 10);
+      s.until(() => false, 72 * 1.5);
       expect(s.r.coaching).toBe(!!again);
     }
     // desde la pausa: en el próximo descanso (el cofre)
@@ -469,16 +469,40 @@ describe('el asistente del vuelo', () => {
     s.env.mem.set('reparenaxr-flytuto2', 1);
     s.load(course([mk(1, 'chest', 300, 0)]));
     s.r.calibrate(0.45, 0, 0);
-    s.until(() => false, 10);
+    s.until(() => false, 72 * 1.5);
     expect(s.r.coaching).toBe(false);
     s.r.coachAgain();
-    s.until(() => false, 10);
+    s.until(() => false, 72 * 1.5);
     expect(s.r.coaching).toBe(false); // (jugando, no: espera al descanso)
     s.env.state = 'rest';
-    s.until(() => false, 10);
+    s.until(() => false, 72 * 1.5);
     expect(s.r.coaching).toBe(true);
   });
-  it('antes de empezar (ya pasado el asistente), en el suelo; al empezar, despega hasta la altura de vuelo', () => {
+    it('espera a que el mundo acabe de recolocarte y toma el centro donde estás entonces (caja negra del usuario: se quedaba a 60 cm)', () => {
+    const s = setup();
+    // (el mundo se desliza 0,8 s: la cabeza va de −2,25 m a 0, como en las gafas)
+    s.head.x = -2.25;
+    for (let i = 0; i < 58; i++) s.until(() => ((s.head.x = -2.25 * (1 - Math.min(1, (i + 1) / 58))), true), 1);
+    s.head.x = 0;
+    expect(s.r.coaching).toBe(false);
+    s.until(() => s.r.coaching, 72 * 2);
+    expect(s.r.coaching).toBe(true);
+    s.until(() => false, 72);
+    expect(Math.abs(s.r.flyBody.side)).toBeLessThan(0.01);
+    s.head.x = 0.08;
+    s.until(() => false, 72 * 2);
+    expect(s.r.flyBody.side).toBeCloseTo(0.08, 2);
+    expect(s.r.glider.u).toBeGreaterThan(0.5); // (escorarte ya te lleva a un lado)
+  });
+  it('si la cabeza está imposiblemente lejos del centro un rato, el centro se vuelve a poner donde estás', () => {
+    const s = setup();
+    s.until(() => s.r.coaching, 72 * 3);
+    s.r.flyBody.set(-0.6, 0);
+    s.until(() => false, 72 * 2);
+    expect(Math.abs(s.r.flyBody.side)).toBeLessThan(0.01);
+    expect(s.of('note').length).toBe(1);
+  });
+it('antes de empezar (ya pasado el asistente), en el suelo; al empezar, despega hasta la altura de vuelo', () => {
     const s = new Sim({ pushDepth: 13, trekFly: 1 });
     s.env.ex = 'pushup';
     s.env.mem.set('reparenaxr-flytuto2', 1);
