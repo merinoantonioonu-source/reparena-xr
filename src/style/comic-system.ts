@@ -10,7 +10,8 @@ import { str } from '../core/values.js';
 import { COMIC, comicApply, comicScan, type SkipTest } from './comic.js';
 
 // los paneles de UIKit tienen sus propios materiales: el cómic no los toca
-const skipUI: SkipTest = (o: Object3D) => o instanceof UIKit.Component;
+// (los paneles de UIKit y lo que pide no llevarlo: los mapas de verdad del vuelo sobre el mapa, `userData.noComic`)
+const skipUI: SkipTest = (o: Object3D) => o instanceof UIKit.Component || !!o.userData.noComic;
 const lookComic = (): boolean => str('look') !== 'real';
 
 export class ComicSystem extends createSystem({ placed: { required: [Transform] } }, {}) {

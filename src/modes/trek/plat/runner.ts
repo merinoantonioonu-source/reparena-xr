@@ -261,6 +261,8 @@ export class Runner {
    * el tramo (`coachHover`: sin posarte y despegar otra vez) y si ya se dijo cómo se vuela. */
   readonly coach = new FlyCoach();
   coachWant = false;
+  /** Volando sobre el mapa de una ciudad (src/modes/trek/map/): sin retos del recorrido ni aterrizajes (lo pone TrekSystem). */
+  mapMode = false;
   private calibOk = false;
   /** Cuándo calibraste (s: el asistente espera a que el mundo acabe de recolocarte) y cuánto lleva la cabeza imposiblemente
    * lejos del centro del vuelo (s: se vuelve a centrar). */
@@ -429,6 +431,8 @@ export class Runner {
       moveCfg(this.sFn, this.cfg);
       for (const p of c.pieces) if (p.k === 'low' || p.k === 'dive' || p.k === 'tilt' || p.k === 'wave' || (p.k === 'cannon' && !p.n)) p.h = this.cfg.lowNeed + 0.01;
     }
+    // (sobre el mapa —«Volando: sobre el mapa»—, del recorrido solo queda el cofre: lo demás son los aros de la ciudad)
+    if (this.mapMode) c.pieces = c.pieces.filter((p) => p.k === 'chest');
     this.addCourse(c);
     // las cuestas del tramo (grade.ts; «Sendero con cuestas»: sin él, llano)
     if (this.env.s('trekHills') > 0) this.grades.push(buildGrade(c.pieces, start, c.end, WORLDS[worldNo(i, this.worldLen) % WORLDS.length].key, Math.max(0, Math.min(1, this.env.rank / 6)), i));
@@ -1297,7 +1301,7 @@ export class Runner {
     // suelo) puedes bajar hasta el suelo; al tocarlo, te posas. Solo si llegas al final aún en el aire, te baja él (lo que dura
     // `LAND_HELP` m)
     const c = this.nextHalt(), room = c ? c.at - STOP_AT - this.tk.dist : Infinity;
-    I.zone = play && !!c && room < LAND_D;
+    I.zone = play && !!c && room < LAND_D && !this.mapMode;
     if (I.zone && !this.landed && G.alt < LAND_TOUCH) {
       this.landed = true;
       this.score(100);
@@ -1310,6 +1314,8 @@ export class Runner {
     }
     // (antes de empezar —colocándote y calibrando—, en el suelo: se despega al empezar el tramo)
     I.land = this.stop || st === 'ready' || this.landed ? 1 : st !== 'play' && st !== 'rest' ? 0 : Math.max(0, Math.min(1, 1 - room / LAND_HELP));
+    // (sobre el mapa no se aterriza: en los cofres te quedas en el aire, quieto, hasta el tramo siguiente)
+    if (this.mapMode) I.land = st === 'ready' ? 1 : 0;
     // (con el asistente, vuelas en el sitio para notar cada movimiento; al acabar, sigues ahí hasta que empiece el tramo)
     if (coach || (this.coachHover && !play)) I.land = 0;
     // (con el asistente, la altura solo responde en su paso, el de subir y bajar: en los demás vuelas recto, sin que te suba

@@ -78,6 +78,7 @@ const APP_SECS: AppSec[] = [
   { g: 'Entrenar', id: 'secSession', i: 'list', c: '#ffd166', t: 'Sesión de entrenamiento', v: '' },
   { g: 'Ajustes', id: 'secCommon', i: 'sliders', c: '#b8a7ff', t: 'Opciones comunes', v: '' },
   { g: 'Ajustes', id: 'secMusic', i: 'music', c: '#8fdc5a', t: 'Sonido y música', v: '' },
+  { g: 'Ajustes', id: 'secMap', i: 'trail', c: '#3cf0c6', t: 'Volar sobre el mapa', v: '' },
   { g: 'Ajustes', id: 'devSection', i: 'wrench', c: '#a49fc8', t: 'Tabla del desarrollador', v: '' },
   { g: 'Tú', id: 'todayBox', i: 'sun', c: '#ffd166', t: 'Hoy, racha y misiones', v: '' },
   { g: 'Tú', id: 'secHist', i: 'chart', c: '#3cf0c6', t: 'Progreso e historial', v: '' },

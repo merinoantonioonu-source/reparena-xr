@@ -17,6 +17,7 @@ import { EnvSystem } from './env/env-system.js';
 import { BarsSystem } from './modes/bars/bars-system.js';
 import { TouchSystem } from './modes/touch/touch-system.js';
 import { TrekSystem } from './modes/trek/trek-system.js';
+import { MapSystem } from './modes/trek/map/map-system.js';
 import { VfxSystem } from './style/vfx-system.js';
 import { GameSystem } from './combat/game.js';
 import { GateSystem } from './combat/gates.js';
@@ -55,6 +56,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(TouchSystem, { priority: 5 });
   world.registerSystem(BarsSystem, { priority: 5 });
   world.registerSystem(TrekSystem, { priority: 5 });
+  world.registerSystem(MapSystem, { priority: 5 }); // (el vuelo sobre el mapa: detrás de la Travesía, que mueve el planeador)
   world.registerSystem(EnvSystem, { priority: 7 });
   world.registerSystem(TravelSystem, { priority: 7 }); // (el portal del viaje por portales de Combate y Toques)
   world.registerSystem(WaveEventSystem, { priority: 7 }); // (los sucesos de las oleadas: meteoritos y lluvia de oro)
@@ -72,6 +74,6 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(PerfSystem, { priority: 100 }); // (el medidor y el registro de tirones: después de todo)
   // (que un error en un fotograma no deje la imagen congelada para siempre: se apunta y se sigue; src/core/guard.ts)
   spriteRayFix(); // (el rayo de IWSDK no toca sprites: con él, la imagen se congelaba; src/input/sprite-ray.ts)
-  guardWorld(world, { PerfStartSystem, HandSystem, GateSystem, EnemySystem, FlyerSystem, HatchSystem, ArcsSystem, TouchSystem, BarsSystem, TrekSystem, EnvSystem, GameSystem, VfxSystem, RaMenuSystem, ViewSystem, GoalsSystem, GloveSystem, ComicSystem, SoundSystem, FitTextSystem, DiagSystem, PerfSystem });
+  guardWorld(world, { PerfStartSystem, HandSystem, GateSystem, EnemySystem, FlyerSystem, HatchSystem, ArcsSystem, TouchSystem, BarsSystem, TrekSystem, MapSystem, EnvSystem, GameSystem, VfxSystem, RaMenuSystem, ViewSystem, GoalsSystem, GloveSystem, ComicSystem, SoundSystem, FitTextSystem, DiagSystem, PerfSystem });
   pageWorld(world);
 });

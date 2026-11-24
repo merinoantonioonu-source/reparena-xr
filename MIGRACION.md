@@ -431,6 +431,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   (`TrekSystem.portalY`) y las frutas con sonido (`SND.orb` en `pick` y en `pass` de la fruta). **Los meteoritos**: su sombra en el suelo (`Rocks.throw(…, mark)`) y sin ellos con la vista en la pesa
   (`GUIDE_TOAST_EX`).
 
+- **El vuelo sobre el mapa** (pedido del usuario; vía A, Cesium ion): `src/modes/trek/map/` — la lógica pura
+  (`map-route.ts`: las ciudades y sus rutas de monumentos, `MapFlight`: virar escorándote, la altura y la velocidad a escala de
+  ciudad, los aros; `tests/unit/map-route.test.ts`), la clave del jugador (`map-key.ts`, `reparenaxr-cesium`; la pone en la
+  página, `src/page/map-page.ts`) y `MapSystem` (los mapas con `3d-tiles-renderer`: `CesiumIonAuthPlugin` con el recurso
+  2275207, `GLTFExtensionsPlugin` con Draco de `public/draco/`, `ReorientationPlugin` en el centro de la ciudad; el mapa cuelga
+  de `root`, girado y desplazado para que donde vuelas quede en tu cabeza; el suelo se mide con un rayo; sin cómic,
+  `userData.noComic`, ni niebla; la cámara pinta hasta 25 km). El corredor, con `Runner.mapMode`: el recorrido solo con sus
+  cofres y sin aterrizajes. **Pendiente con el usuario**: probarlo en las gafas (aquí la red no llega a Cesium: solo se ha
+  visto que lo pide); el rendimiento (`ERROR_TARGET`, `CACHE_BYTES`), el mareo al virar y la altura de los aros.
+
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):
   el centro del vuelo (`FlyBody`, y `BodyMoves.x0`) se tomaba al calibrar **antes** de que el mundo se deslizara 0,8 s para
   dejarte en (0, 0) mirando a −Z: quedaba desplazado (2,2 m en su diagnóstico) y girado (hasta 135°), y el lado y la pica
