@@ -2,15 +2,16 @@
  * Lo que se ve del vuelo para orientarse (docs/PLAN-VUELO.md, 3.3; el usuario no entendía los controles):
  * - **Tu sombra**, en el suelo del paisaje justo debajo de ti: una mancha con forma de ave que dice dónde vas de lado y, por su
  *   tamaño y lo clara que es, a qué altura. Se ladea con la escora, se estrecha en el picado y se abre en la pica.
- * - **La ventana de cada reto**, marcada en el propio reto con luz verde (como el canto verde del hueco en Arcos): el canto de
- *   abajo del puente; el lado libre de la columna, una franja en el suelo; la raja de la grieta. El aro ya se ve.
+ * - **La ventana de cada reto** (opción A del usuario: las franjas de luz se veían azul pálido y no se entendía qué eran): un
+ *   marco verde brillante, con su contorno oscuro, y cuatro flechas que señalan hacia dentro, «pasa por aquí», en la cara del
+ *   reto: bajo el puente, al lado libre de la columna y en la raja de la grieta. El aro ya se ve.
  * - **Las reglillas** («Vuelo: instrumentos»): en el suelo de la habitación, por delante de las manos (en plancha se mira ahí),
  *   una de lado a lado (dónde vas) y otra hacia delante (a qué altura), con una marca verde donde está la ventana del reto que
  *   viene. Hechas de piezas que se mueven: nada se repinta.
  *
  * Todo hecho al empezar (mallas lisas y una textura dibujada una vez); cada fotograma solo se mueven y se aclaran.
  */
-import { AdditiveBlending, DataTexture, DoubleSide, Group, LinearFilter, Mesh, MeshBasicMaterial, PlaneGeometry, RGBAFormat, UnsignedByteType } from '@iwsdk/core';
+import { DataTexture, DoubleSide, Group, LinearFilter, Mesh, MeshBasicMaterial, PlaneGeometry, RGBAFormat, UnsignedByteType } from '@iwsdk/core';
 import { warmKeep } from '../../style/warm.js';
 import { FLY } from './plat/fly.js';
 import type { Runner } from './plat/runner.js';
@@ -18,8 +19,9 @@ import { GROUND_Y } from './plat/pieces.js';
 import { ARCH_CLEAR, BERRY_R, CRACK_W, PILLAR_W, RING_R, UPDRAFT_W, type Piece } from './plat/types.js';
 import { WORLDS } from './plat/worlds.js';
 
-/** Lo que se ve de lejos (m) y el verde de las ventanas. */
-const SEE = 70, WIN_COL = 0x7dffb0;
+/** Lo que se ve de lejos (m), el verde de las ventanas y su contorno oscuro, el grueso del marco (m) y lo que miden sus
+ * flechas (m). */
+const SEE = 70, WIN_COL = 0x39ff88, WIN_DARK = 0x06301a, WIN_T = 0.14, ARROW = 0.7;
 /** Las reglillas: lo que miden (m), por delante de la cabeza (m) y la de la altura, a un lado (m). */
 const G_W = 0.5, G_L = 0.4, G_AHEAD = 0.55, G_SIDE = 0.34;
 
@@ -44,6 +46,67 @@ function birdTex(): DataTexture {
   return t;
 }
 
+/** Una flecha que apunta hacia arriba (+v): un cheurón verde con su contorno oscuro, dibujado una vez. */
+function arrowTex(): DataTexture {
+  const N = 64, d = new Uint8Array(N * N * 4);
+  for (let j = 0; j < N; j++)
+    for (let i = 0; i < N; i++) {
+      const x = ((i + 0.5) / N) * 2 - 1, y = ((j + 0.5) / N) * 2 - 1;
+      // (la distancia al cheurón: dos brazos que se juntan arriba)
+      const dist = Math.abs(y - (0.45 - 1.1 * Math.abs(x))) * 0.67;
+      const inside = Math.abs(x) < 0.85 && y > -0.75;
+      const a = inside ? Math.max(0, Math.min(1, (0.3 - dist) * 12)) : 0, core = inside && dist < 0.17;
+      d.set(core ? [57, 255, 136, 255] : [6, 48, 26, Math.round(255 * a)], (j * N + i) * 4);
+    }
+  const t = new DataTexture(d, N, N, RGBAFormat, UnsignedByteType);
+  t.magFilter = t.minFilter = LinearFilter;
+  t.needsUpdate = true;
+  return t;
+}
+
+/** Un marco de ventana: cuatro barras verdes (con su contorno oscuro detrás) y cuatro flechas por fuera que señalan hacia
+ * dentro. `set` lo ajusta a un rectángulo de `w` × `h` m (las barras y las flechas no se estiran). */
+class WinFrame {
+  readonly g = new Group();
+  private readonly bars: Mesh[] = [];
+  private readonly outs: Mesh[] = [];
+  private readonly arrows: Mesh[] = [];
+  constructor(plane: PlaneGeometry, bar: MeshBasicMaterial, out: MeshBasicMaterial, arrow: MeshBasicMaterial) {
+    for (let i = 0; i < 4; i++) {
+      const o = new Mesh(plane, out), b = new Mesh(plane, bar), a = new Mesh(plane, arrow);
+      for (const m of [o, b, a]) {
+        m.userData.noInk = true;
+        this.g.add(m);
+      }
+      o.renderOrder = 6;
+      b.renderOrder = 7;
+      a.renderOrder = 7;
+      this.outs.push(o);
+      this.bars.push(b);
+      this.arrows.push(a);
+    }
+    this.g.rotation.order = 'YXZ';
+    this.g.visible = false;
+  }
+  set(w: number, h: number, clock: number): void {
+    const hw = w / 2, hh = h / 2, bob = 0.12 * Math.sin(clock * 6);
+    // arriba, abajo, izquierda, derecha: dónde va cada barra y hacia dónde apunta su flecha (hacia dentro)
+    for (let i = 0; i < 4; i++) {
+      const hor = i < 2, sx = hor ? 0 : i === 2 ? -1 : 1, sy = hor ? (i === 0 ? 1 : -1) : 0;
+      const b = this.bars[i], o = this.outs[i], a = this.arrows[i];
+      b.position.set(sx * hw, sy * hh, 0.01);
+      b.scale.set(hor ? w + WIN_T : WIN_T, hor ? WIN_T : h + WIN_T, 1);
+      o.position.set(sx * hw, sy * hh, 0);
+      o.scale.set(hor ? w + WIN_T * 2.2 : WIN_T * 2.2, hor ? WIN_T * 2.2 : h + WIN_T * 2.2, 1);
+      const off = ARROW * 0.75 - bob;
+      a.position.set(sx * (hw + off), sy * (hh + off), 0.01);
+      a.scale.set(ARROW, ARROW, 1);
+      // (la flecha dibujada apunta arriba: se gira para que apunte al centro)
+      a.rotation.z = hor ? (sy > 0 ? Math.PI : 0) : sx > 0 ? Math.PI / 2 : -Math.PI / 2;
+    }
+  }
+}
+
 /** Dónde va algo del recorrido: rellena `out` (x, z) y devuelve hacia dónde gira el sendero ahí (la de `Trek.bend`). */
 export type Bend = (s: number, u: number, out: { x: number; z: number }) => number;
 
@@ -60,7 +123,8 @@ export class FlyLook {
   readonly inWorld = new Group();
   readonly inRoom = new Group();
   private readonly shadow: Mesh;
-  private readonly wins: Mesh[] = [];
+  private readonly wins: WinFrame[] = [];
+  private readonly winMats: MeshBasicMaterial[];
   private readonly g: Record<'hBar' | 'hWin' | 'hDot' | 'vBar' | 'vWin' | 'vDot' | 'vTgt', Mesh>;
   private readonly bp = { x: 0, z: 0 };
   /** Lo que lleva el batir de la sombra tras un aletazo (s). */
@@ -72,15 +136,15 @@ export class FlyLook {
     this.shadow = flat(new Mesh(plane, new MeshBasicMaterial({ color: 0x0c0a14, map: birdTex(), transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false })));
     this.shadow.renderOrder = 2;
     this.inWorld.add(this.shadow);
-    const glow = new MeshBasicMaterial({ color: WIN_COL, transparent: true, opacity: 0.45, depthWrite: false, blending: AdditiveBlending, side: DoubleSide, toneMapped: false, fog: false });
-    for (let i = 0; i < 6; i++) {
-      const m = new Mesh(plane, glow.clone());
-      m.rotation.order = 'YXZ';
-      m.userData.noInk = true;
-      m.renderOrder = 7;
-      m.visible = false;
-      this.wins.push(m);
-      this.inWorld.add(m);
+    // (de color liso, no de luz que se suma: sobre el cielo claro, la luz verde se veía azul pálida)
+    const bar = new MeshBasicMaterial({ color: WIN_COL, transparent: true, opacity: 0.95, depthWrite: false, side: DoubleSide, toneMapped: false, fog: false });
+    const out = new MeshBasicMaterial({ color: WIN_DARK, transparent: true, opacity: 0.7, depthWrite: false, side: DoubleSide, toneMapped: false, fog: false });
+    const arrow = new MeshBasicMaterial({ map: arrowTex(), transparent: true, opacity: 0.95, depthWrite: false, side: DoubleSide, toneMapped: false, fog: false });
+    this.winMats = [bar, out, arrow];
+    for (let i = 0; i < 4; i++) {
+      const f = new WinFrame(plane, bar, out, arrow);
+      this.wins.push(f);
+      this.inWorld.add(f.g);
     }
     const mk = (col: number, op: number): Mesh => {
       const m = flat(new Mesh(plane, new MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, toneMapped: false, fog: false })));
@@ -94,7 +158,7 @@ export class FlyLook {
     this.g.vBar.position.set(G_SIDE, 0, -G_L / 2);
     this.inWorld.visible = this.inRoom.visible = false;
     warmKeep(new Mesh(plane, this.shadow.material as MeshBasicMaterial));
-    warmKeep(new Mesh(plane, glow));
+    for (const m of this.winMats) warmKeep(new Mesh(plane, m));
   }
 
   /**
@@ -120,37 +184,26 @@ export class FlyLook {
     this.shadow.rotation.z = -bank * 0.25;
     this.shadow.scale.set(1.7 * (spread + beat) * k * Math.cos(bank * 0.5), 1.2 * k, 1);
     (this.shadow.material as MeshBasicMaterial).opacity = Math.max(0.12, 0.55 - 0.03 * G.alt) * Math.min(1, G.alt / 0.5);
-    // las ventanas de los retos
+    // las ventanas de los retos: el marco, en la cara del reto, alrededor de por dónde hay que pasar (lo de `winOf`)
     let wi = 0;
-    const next = R.flyNext();
+    const U = FLY.uMax;
     for (const p of R.live) {
       if (p.judged || wi >= this.wins.length || p.at - d > SEE) continue;
       if (p.k !== 'arch' && p.k !== 'pillar' && p.k !== 'crack') continue;
-      const m = this.wins[wi++], mat = m.material as MeshBasicMaterial;
-      mat.opacity = (p === next ? 0.55 : 0.3) * (0.85 + 0.15 * Math.sin(clock * 5 + p.id));
-      if (p.k === 'arch') {
-        // el canto de abajo del puente: un filo de luz de lado a lado, en su cara de delante (se ve al llegar)
-        const r = bend(p.at - 0.05, -R.uShift, this.bp);
-        m.position.set(this.bp.x, p.h + ref + gy(p.at) + 0.15, this.bp.z);
-        m.rotation.set(0, r, 0);
-        m.scale.set(8.4, 0.3, 1);
-      } else if (p.k === 'pillar') {
-        // el lado libre: una franja en el suelo que lleva hasta la columna
-        const free = Math.max(-FLY.uMax, Math.min(FLY.uMax, p.u - p.side * (PILLAR_W / 2 + 0.9)));
-        const r = bend(p.at - 3, free - R.uShift, this.bp);
-        m.position.set(this.bp.x, GROUND_Y + gy(p.at) + 0.06, this.bp.z);
-        m.rotation.set(-Math.PI / 2, r, 0);
-        m.scale.set(1, 7, 1);
-      } else {
-        // la grieta: su raja, encendida (en la cara de delante de la pared)
-        const r = bend(p.at - 0.35, p.u - R.uShift, this.bp);
-        m.position.set(this.bp.x, FLY.alt0 + ref + gy(p.at), this.bp.z);
-        m.rotation.set(0, r, 0);
-        m.scale.set(CRACK_W * 1.2, 9, 1);
-      }
-      m.visible = true;
+      const W = winOf(p);
+      if (!W) continue;
+      const f = this.wins[wi++];
+      // (de lado, lo de la ventana; de alto: bajo el puente, de lo más bajo a su canto; en la columna y la grieta, a tu altura)
+      const u0 = Math.max(-U, W.u0), u1 = Math.min(U, W.u1);
+      const a0 = p.k === 'arch' ? W.a0 : Math.max(FLY.altMin, G.alt - 1.3), a1 = p.k === 'arch' ? W.a1 : a0 + 2.6;
+      const at = p.k === 'crack' ? p.at - 0.4 : p.at - 0.1;
+      const r = bend(at, (u0 + u1) / 2 - R.uShift, this.bp);
+      f.g.position.set(this.bp.x, (a0 + a1) / 2 + ref + gy(p.at), this.bp.z);
+      f.g.rotation.set(0, r, 0);
+      f.set(Math.max(0.4, u1 - u0), Math.max(0.4, a1 - a0), clock + p.id);
+      f.g.visible = true;
     }
-    for (let i = wi; i < this.wins.length; i++) this.wins[i].visible = false;
+    for (let i = wi; i < this.wins.length; i++) this.wins[i].g.visible = false;
     if (!this.inRoom.visible) return;
     // las reglillas: en el suelo de la habitación, por delante de las manos, de cara a donde mira el cuerpo
     const B = R.flyBody;
@@ -165,7 +218,7 @@ export class FlyLook {
     this.g.vTgt.position.set(G_SIDE, 0.001, vz(G.tgtAlt));
     this.g.vTgt.scale.set(0.04, 0.012, 1);
     // la ventana del reto que viene (de lado y de altura): dónde hay que estar al llegar
-    const W = winOf(next);
+    const W = winOf(R.flyNext());
     this.g.hWin.visible = !!W && W.u0 < W.u1;
     if (W && this.g.hWin.visible) {
       this.g.hWin.position.set((hx(W.u0) + hx(W.u1)) / 2, 0.001, 0);

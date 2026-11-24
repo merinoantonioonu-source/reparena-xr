@@ -198,8 +198,9 @@ No las cambies sin preguntarle.
     el picado).
   - **Que se vea lo que haces**: tu **sombra** de ave en el suelo, con el pico hacia delante (se ladea con la escora, se pliega al picar, se abre en pica
     y bate en cada aletazo); **sin alas** (corregido por el usuario con su vídeo: pegadas a la cabeza salían delante y detrás
-    y tapaban la vista); el viento al picar, un golpe de aire al aletear y un siseo al frenar; la **ventana de cada reto**, con luz verde (el canto de abajo del puente, el lado
-    libre de la columna, la raja de la grieta); y **dos reglillas** en el suelo, por delante de las manos (dónde vas de lado y
+    y tapaban la vista); el viento al picar, un golpe de aire al aletear y un siseo al frenar; la **ventana de cada reto**: un **marco verde brillante con flechas que señalan hacia
+    dentro**, «pasa por aquí» (opción A del usuario: las franjas de luz se veían azul pálido y no se entendían), bajo el
+    puente, al lado libre de la columna y en la raja de la grieta; y **dos reglillas** en el suelo, por delante de las manos (dónde vas de lado y
     a qué altura, con la ventana del reto que viene en verde: «Vuelo: instrumentos», de serie sí).
   - **El asistente del vuelo** (elegido por el usuario: «paso a paso con preguntas»; sustituye a la práctica de vuelo, que
     empezaba sola en pleno vuelo y no se entendía): **solo la primera vez** (pedido del usuario: que no salga siempre; al
