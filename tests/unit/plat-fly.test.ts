@@ -1,7 +1,7 @@
 // El vuelo de la Travesía (src/modes/trek/plat/fly.ts y su juicio en el corredor): el planeador responde al cuerpo
 // (escorarse, picar, aletear, frenar en pica, la tabla) y los retos del aire se pasan como se espera.
 import { describe, expect, it } from 'vitest';
-import { boardSide, boardTilt, FLY, FlyBody, flyIn, flyModel, Glider, sideTarget, type FlyIn } from '../../src/modes/trek/plat/fly.js';
+import { boardSide, boardTilt, fastK, FLY, FlyBody, flyIn, flyModel, Glider, sideTarget, type FlyIn } from '../../src/modes/trek/plat/fly.js';
 import { FLY_KINDS, type PieceKind } from '../../src/modes/trek/plat/types.js';
 import { course, DT, piece as mk, Sim } from './plat-sim.js';
 
@@ -36,7 +36,7 @@ describe('el lado: tanto te escoras, tanto te apartas', () => {
   });
   it('escorado y quieto 10 s, el lado no cambia; al volver al centro, vuelve a 0 sin pasarse', () => {
     const g = new Glider();
-    run(g, 1.5, IN({ side: 0.08 }));
+    run(g, 3, IN({ side: 0.08 })); // (ya asentado: el muelle es suave)
     const u1 = g.u;
     run(g, 10, IN({ side: 0.08 }));
     expect(Math.abs(g.u - u1)).toBeLessThan(0.01);
@@ -57,6 +57,24 @@ describe('el lado: tanto te escoras, tanto te apartas', () => {
     B.read(0.08, 0);
     expect(B.side).toBeCloseTo(0.08, 6);
     expect(Math.abs(B.fwd)).toBeLessThan(1e-6);
+  });
+  it('sin sacudidas: el vaivén pequeño de cada flexión apenas te mueve; pero escorarte deprisa responde deprisa', () => {
+    // (±1,5 cm de lado dos veces por segundo, lo que se mueve la cabeza en las flexiones)
+    const g = new Glider();
+    let top = 0;
+    run(g, 4, (t) => ((top = Math.max(top, Math.abs(g.u))), IN({ side: 0.015 * Math.sin(t * 4 * Math.PI) })));
+    expect(top).toBeLessThan(0.05);
+    // deprisa: 12 cm en una décima de segundo; despacio: lo mismo en un segundo y medio
+    const quick = new Glider(), slow = new Glider();
+    let tq = -1, ts = -1;
+    run(quick, 3, (t) => ((tq < 0 && quick.u > 1 ? (tq = t) : 0), IN({ side: Math.min(0.12, (0.12 * t) / 0.1) })));
+    run(slow, 4, (t) => ((ts < 0 && slow.u > 1 ? (ts = t) : 0), IN({ side: Math.min(0.12, (0.12 * t) / 1.5) })));
+    expect(tq).toBeGreaterThan(0);
+    expect(tq).toBeLessThan(0.45); // (deprisa: en menos de medio segundo ya vas a un lado)
+    expect(ts - 1.5).toBeLessThan(tq); // (despacio, el vuelo te sigue al paso de la cabeza)
+    expect(fastK(0)).toBe(1);
+    expect(fastK(FLY.fastV)).toBeCloseTo(2, 6);
+    expect(fastK(5)).toBe(FLY.fastMax);
   });
   it('el centro del vuelo no sigue a la cabeza: escorado y quieto, la lectura no se va a cero', () => {
     const B = new FlyBody();
@@ -462,6 +480,8 @@ describe('el asistente del vuelo', () => {
       s.r.calibrate(0.45, 0, 0);
       s.until(() => false, 72 * 1.5);
       expect(s.r.coaching).toBe(!!again);
+      // (al empezar ya cuenta como visto, y el ajuste de la próxima partida se apaga solo)
+      if (again) expect(s.of('set').some((e) => e.key === 'flyPractice' && e.val === 0)).toBe(true);
     }
     // desde la pausa: en el próximo descanso (el cofre)
     const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });

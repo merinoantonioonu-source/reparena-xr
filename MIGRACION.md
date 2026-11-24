@@ -423,7 +423,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   **Pendiente con el usuario**: probarlo en las gafas (si las teclas quedan a mano en plancha y si los pasos de 3 cm son
   buenos). Con su primera caja negra del asistente: empezaba a medio deslizarse el mundo al calibrar y tomaba el centro
   a 60 cm (escorarse no movía nada); ahora espera `COACH_WAIT` y centra donde estás, y en el aire, si la cabeza está más de
-  `FLY_FAR` del centro un rato, se vuelve a centrar (sale en el diagnóstico). **Los meteoritos**: su sombra en el suelo (`Rocks.throw(…, mark)`) y sin ellos con la vista en la pesa
+  `FLY_FAR` del centro un rato, se vuelve a centrar (sale en el diagnóstico). Con su vídeo: sin sacudidas (lo que pide la
+  cabeza se suaviza, `FLY.sideIn`, y la altura, `MID.tau`) pero deprisa cuando te mueves deprisa (`fastK`, como el filtro
+  «1 €»); aros más grandes (`RING_R`) que al pasar se abren y se desvanecen (`TrekSystem.ringPop`); frutas del aire algo más
+  fáciles (`BERRY_R`); y el asistente, solo la primera vez o cuando se pida (`flyPractice` se apaga solo). **Los meteoritos**: su sombra en el suelo (`Rocks.throw(…, mark)`) y sin ellos con la vista en la pesa
   (`GUIDE_TOAST_EX`).
 
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):

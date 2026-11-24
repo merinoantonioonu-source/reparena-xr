@@ -72,7 +72,8 @@ export const FLY_KINDS: readonly PieceKind[] = ['ring', 'pillar', 'arch', 'crack
 /** El vuelo: el radio del aro (m: lo cerca de su centro que hay que pasar), el ancho de la columna (m), lo que hay que pasar
  * por debajo del puente (m), lo cerca de la grieta (m), el ancho de la corriente (m), lo cerca de cada fruta (m), a cuánto
  * del cofre se empieza a bajar para posarse (m) y la separación entre retos (s a velocidad máxima). */
-export const RING_R = 0.9, PILLAR_W = 1.4, ARCH_CLEAR = 0.6, CRACK_W = 0.7, UPDRAFT_W = 1.2, BERRY_R = 0.7, LAND_D = 22, FLY_GAP_S = 2.4;
+// (el aro, más grande —pasar por él era poco satisfactorio— y las frutas del aire, algo más fáciles de coger: alinearse costaba)
+export const RING_R = 1.25, PILLAR_W = 1.4, ARCH_CLEAR = 0.6, CRACK_W = 0.7, UPDRAFT_W = 1.2, BERRY_R = 0.85, LAND_D = 22, FLY_GAP_S = 2.4;
 /** Volando, el tiempo antes de cada reto (s a velocidad máxima: entre que se distingue y llega, 1,5 × lo que tarda su gesto y
  * 0,4 s; docs/PLAN-VUELO.md, 3.5): la grieta (ponerse de canto), el puente y el aro (bajar o subir), lo demás (escorarse).
  * En el primer tramo, `FLY_FIRST` × más. */
