@@ -39,12 +39,15 @@ import { PORTAL_AT, worldLenFor, worldNo, WORLD_LEN, WORLDS } from './worlds.js'
 import { formText } from './texts.js';
 import { buildGrade, gradeH, gradeK, gradeSlope, type Grade } from './grade.js';
 import { BodyMoves, WAVE_BACK, LUNGE_FWD, LUNGE_SIDE_K, moveCfg, PRONE_FWD, PRONE_SIDE_K, PRONE_SIDE_MIN, type MoveCfg } from './moves.js';
-import { boardSide, boardTilt, FLY, FlyBody, flyIn, flyModel, FlyPractice, Glider, PRACTICE, PRACTICE_GAP, PRACTICE_MAX, type FlyIn } from './fly.js';
-import { ARCH_CLEAR, BERRY_R, CRACK_W, FLY_FIT, FLY_TUTO, type FlyFit, FLY_KINDS, LAND_D, PILLAR_W, RING_R, UPDRAFT_W, ASK_AHEAD, LANE_NEED, ARMS_KINDS, CLIMB_SLOPE, CLIMB_SWAY, GRIP_NARROW, GRIP_WIDE, PAW_R, PAW_U, REACH_NEED, SLAP_VY, SLIT_ROLL, TILT_NEED, WAVE_WIN, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
+import { boardSide, boardTilt, FLY, FlyBody, flyIn, flyModel, Glider, type FlyIn } from './fly.js';
+import { FlyCoach, type CoachAnswer } from './fly-coach.js';
+import { ARCH_CLEAR, BERRY_R, CRACK_W, FLY_TUTO, FLY_KINDS, LAND_D, PILLAR_W, RING_R, UPDRAFT_W, ASK_AHEAD, LANE_NEED, ARMS_KINDS, CLIMB_SLOPE, CLIMB_SWAY, GRIP_NARROW, GRIP_WIDE, PAW_R, PAW_U, REACH_NEED, SLAP_VY, SLIT_ROLL, TILT_NEED, WAVE_WIN, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
 /** La Travesía de plataformas va más deprisa que la clásica (la «Velocidad de avance» por esto) y acelera antes (m/s² de
  * más mientras empuja una repetición). */
 export const PLAT_SPEED = 1.35, PLAT_ACCEL = 0.6;
+/** Lo de serie de los ajustes que cambia el asistente del vuelo (por si aún no están guardados). */
+const COACH_DEF: Record<string, number> = { flySide: 15, flyDown: 13, flyUp: 18, flyFlap: 100 };
 /** Cada salto: cuánto baja el mundo en lo más alto (m: como si te elevara) y lo que dura en el aire si no hay hueco (s). */
 export const JUMP_LIFT = 0.45, AIR_T = 0.55;
 /** El salto del hueco: lo que dura como poco y como mucho (s; si tu velocidad no te lleva al otro lado en HOP_MAX, el
@@ -247,11 +250,14 @@ export class Runner {
   readonly flyBody = new FlyBody();
   private flyRepN = 0;
   private wristsT = 0;
-  /** Lo que midió la práctica de vuelo (FLY_FIT: los recorridos de cada eje, m) o null. */
-  flyFit: FlyFit | null = null;
-  /** La práctica de vuelo (la primera vez, antes del primer tramo: el mundo espera) y si ya se miró si toca. */
-  readonly practice = new FlyPractice();
-  private practiceSeen = false;
+  /** El asistente del vuelo (fly-coach.ts: antes del primer tramo, o en un cofre si lo pides, con el mundo esperando), si
+   * toca (`coachWant`), si ya calibraste (no antes: el centro aún no está), si sigues en el sitio al acabar hasta que empiece
+   * el tramo (`coachHover`: sin posarte y despegar otra vez) y si ya se dijo cómo se vuela. */
+  readonly coach = new FlyCoach();
+  coachWant = false;
+  private calibOk = false;
+  private coachHover = false;
+  private howSaid = false;
   /** Las muñecas: su altura del fotograma anterior y su velocidad vertical (m/s; NaN, no se ven). */
   private readonly wy = [NaN, NaN];
   private readonly wvy = [0, 0];
@@ -363,11 +369,10 @@ export class Runner {
     this.sinceRep = 0;
     this.flyRepN = 0;
     this.wristsT = 0;
-    this.practice.step = -1;
-    this.practiceSeen = false;
+    this.coach.stop();
+    this.coachWant = this.fly && (!this.env.store(FLY_TUTO) || this.env.s('flyPractice') > 0);
+    this.calibOk = this.coachHover = this.howSaid = false;
     this.flyBody.set(this.env.head.x, this.env.head.z, this.env.head.yaw);
-    const F = this.env.store(FLY_FIT) as FlyFit | null;
-    this.flyFit = F && F.side > 0 && F.down > 0 && F.back > 0 ? F : null;
     this.uShift = 0;
     this.id = 1;
     const B = this.env.store(PLAT_GHOST) as PlatGhost | null;
@@ -381,6 +386,20 @@ export class Runner {
   calibrate(ref: number, x0: number, z0 = 0, yaw?: number): void {
     this.moves.reset(ref, x0, z0);
     this.flyBody.set(x0, z0, yaw ?? this.env.head.yaw);
+    this.calibOk = true;
+  }
+
+  /** El asistente del vuelo: ¿está en marcha? (la partida espera: no cuenta el descanso ni la cuenta atrás) */
+  get coaching(): boolean {
+    return this.coach.active;
+  }
+  /** La tecla de su pregunta. */
+  coachAnswer(a: CoachAnswer): void {
+    this.coach.answerWith(a);
+  }
+  /** Desde la pausa, «Ajustar el vuelo»: en el próximo cofre (o ya, si aún no ha empezado el primer tramo). */
+  coachAgain(): void {
+    if (this.fly && !this.coach.active) this.coachWant = true;
   }
 
   /** Monta el tramo i detrás de lo que ya hay (si no está): `len`, lo que mide hasta su cofre. */
@@ -1200,31 +1219,39 @@ export class Runner {
    * a despegar (en cuanto empieza el tramo siguiente). */
   private flyStep(dt: number, st: string): void {
     const M = this.moves, I = this.flyIn, A = this.env.hands, H = this.env.head, B = this.flyBody, G = this.glider, play = st === 'play';
-    const board = this.env.s('flyBoard') > 0, F = this.flyFit;
+    const board = this.env.s('flyBoard') > 0;
+    // el asistente: ya calibrado, antes del primer tramo o en el descanso de un cofre (el mundo espera)
+    if (this.coachWant && this.calibOk && (st === 'ready' || st === 'rest')) {
+      this.coachWant = false;
+      this.howSaid = true;
+      this.coach.begin(flyModel(this.env.s('flyAlt'), this.auto));
+      this.cheer('Ajuste del vuelo', COL_ASK, 3);
+    }
+    const coach = this.coach.active, live = play || coach;
+    if (play) this.coachHover = false;
     // (sin flexiones solo cuenta jugando y ya en el aire: antes de empezar, calibrando, despegando o entre tramos no se pierde
-    // altura; en la práctica, tampoco: sus pasos no son flexiones)
-    this.sinceRep = play && !this.practice.active && !G.rising ? this.sinceRep + dt : 0;
+    // altura)
+    this.sinceRep = play && !G.rising ? this.sinceRep + dt : 0;
     // posado (en plancha arriba, ante el cofre o antes de despegar): el centro se pone donde estás; en el aire, quieto
     if (G.alt < 0.3 && (this.stop || !play) && Math.abs(H.y - M.ref) < 0.05) B.follow(H.x, H.z, dt, 0.6);
     B.read(H.x, H.z);
     // la tabla: las dos muñecas a la vista y estables un instante
     this.wristsT = A.l.ok && A.r.ok ? this.wristsT + dt : 0;
     const tilt = board && this.wristsT > 0.15 ? boardSide(boardTilt(A.l, A.r)) : 0;
-    I.side = play ? B.side + tilt : 0;
-    I.back = play ? -B.fwd : 0;
-    I.down = play ? Math.max(M.down, board ? B.fwd - 0.02 : 0) : 0;
-    // (los recorridos, los de los ajustes «Vuelo: recorrido para bajar / para subir / de lado»; lo medido en la práctica, solo
-    // si es más largo: más corto, todo era hipersensible)
-    I.depth = Math.max(F ? F.down : 0, Math.max(0.04, (this.env.s('flyDown') || 13) / 100));
+    I.side = live ? B.side + tilt : 0;
+    I.back = live ? -B.fwd : 0;
+    I.down = live ? Math.max(M.down, board ? B.fwd - 0.02 : 0) : 0;
+    // (los recorridos, los de los ajustes «Vuelo: recorrido para bajar / para subir / de lado», que pone a tu gusto el asistente)
+    I.depth = Math.max(0.04, (this.env.s('flyDown') || 13) / 100);
     I.lowNeed = Math.min(this.cfg.lowNeed, I.depth * 0.6);
     // (el lado, siempre el ajuste «Vuelo: recorrido de lado»: lo que mida la práctica no lo pisa)
     I.range = Math.max(0.08, (this.env.s('flySide') || FLY.sideRange * 100) / 100);
-    I.backTo = Math.max(F ? F.back : 0, Math.max(FLY.pikeFrom + 0.03, (this.env.s('flyUp') || FLY.pikeTo * 100) / 100));
+    I.backTo = Math.max(FLY.pikeFrom + 0.03, (this.env.s('flyUp') || FLY.pikeTo * 100) / 100);
     I.flapK = Math.max(0.1, (this.env.s('flyFlap') || 100) / 100);
     I.rateK = Math.max(0.1, (this.env.s('flyRate') || 100) / 100);
-    I.rep = play ? this.flyRepN : 0;
+    I.rep = live ? this.flyRepN : 0;
     this.flyRepN = 0;
-    I.flap = play && M.takeoff;
+    I.flap = live && M.takeoff;
     I.pair = I.flap && M.deepT < 1e-6;
     I.auto = this.auto;
     I.model = flyModel(this.env.s('flyAlt'), this.auto);
@@ -1239,8 +1266,20 @@ export class Runner {
     const c = this.nextHalt(), room = c ? c.at - STOP_AT - this.tk.dist : Infinity;
     // (antes de empezar —colocándote y calibrando—, en el suelo: se despega al empezar el tramo)
     I.land = this.stop || st === 'ready' ? 1 : st !== 'play' && st !== 'rest' ? 0 : Math.max(0, Math.min(1, 1 - room / LAND_D));
-    if (this.practice.active) I.land = 0;
-    if (play) this.practiceStep(dt);
+    // (con el asistente, vuelas en el sitio para notar cada movimiento; al acabar, sigues ahí hasta que empiece el tramo)
+    if (coach || (this.coachHover && !play)) I.land = 0;
+    // (con el asistente, la altura solo responde en su paso, el de subir y bajar: en los demás vuelas recto, sin que te suba
+    // o te baje lo que no se está probando)
+    if (coach && this.coach.steps[this.coach.i]?.key !== 'alt') {
+      I.down = I.model === 'mid' ? I.depth / 2 : 0;
+      I.rep = 0;
+      I.flap = I.pair = false;
+    }
+    if (coach) this.coachStep(dt);
+    else if (play && !this.howSaid) {
+      this.howSaid = true;
+      this.say(this.flyHow(I.model), COL_ASK, 4, false);
+    }
     G.step(dt, I);
   }
 
@@ -1249,38 +1288,28 @@ export class Runner {
     return m === 'mid' ? 'Brazos estirados: subes · Media flexión: recto · Más abajo: bajas' : m === 'pos' ? 'Escórate: a un lado · Pecho abajo: bajas · Cadera arriba: subes' : 'Escórate: a un lado · Cada flexión, un aletazo · Abajo quieto: picas';
   }
 
-  /** La práctica de vuelo (fly.ts, `FlyPractice`): la primera vez que vuelas (o con «Vuelo: repetir la práctica»), al empezar;
-   * si no, lo que hay que hacer, en el aviso breve. */
-  private practiceStep(dt: number): void {
-    const P = this.practice, I = this.flyIn;
-    if (!this.practiceSeen) {
-      this.practiceSeen = true;
-      if (!this.env.store(FLY_TUTO) || this.env.s('flyPractice') > 0) P.begin();
-      else this.say(this.flyHow(I.model), COL_ASK, 4, false);
-    }
-    if (!P.active) return;
-    const r = P.update(dt, this.flyBody.side, I.down, I.back, this.moves.roll, I.rep > 0);
-    if (r === 'next') {
-      if (P.step === 0) this.cheer('Práctica de vuelo', COL_ASK, 2);
-      // (con su número: que se vea que es la práctica y no lo que viene)
-      this.say(`Práctica ${P.step + 1}/${PRACTICE.length} · ${PRACTICE[P.step].text}`, COL_ASK, PRACTICE_MAX, false);
-    } else if (r === 'ok') {
-      this.say(`✓ ${PRACTICE[P.step].done}`, COL_OK, PRACTICE_GAP, false);
-      this.snd('perfect', null);
-    } else if (r === 'skip') this.say('Seguimos', COL_ASK, PRACTICE_GAP, false);
-    else if (r === 'end') {
-      // lo medido (al 80 %): el vuelo, a tu medida; lo que no se midió, como estaba
-      const f = P.fit(), F = this.flyFit;
-      const fit: FlyFit = {
-        side: f.side ?? F?.side ?? Math.max(0.08, (this.env.s('flySide') || FLY.sideRange * 100) / 100),
-        down: f.down ?? F?.down ?? Math.max(0.05, (this.env.s('pushDepth') || 13) / 100),
-        back: f.back ?? F?.back ?? FLY.pikeTo,
-      };
-      this.flyFit = fit;
-      this.ev.push({ t: 'store', key: FLY_FIT, val: fit });
-      this.ev.push({ t: 'store', key: FLY_TUTO, val: 1 });
-      // (no «¡A volar!»: ya ibas volando; y, de paso, cómo se sube y se baja, que el usuario no lo sabía)
-      this.say(`✓ Práctica hecha · ${this.flyHow(I.model)}`, COL_OK, 5, false);
+  /** El asistente del vuelo (fly-coach.ts): cada paso en el aviso breve, la pregunta en sus teclas (TrekSystem), cada
+   * respuesta cambia su ajuste y, al acabar, cómo se vuela. */
+  private coachStep(dt: number): void {
+    const I = this.flyIn, C = this.coach;
+    const e = C.update(dt, this.flyBody.side, I.down, I.back, this.moves.roll, I.depth / 2, (k) => this.env.s(k) || COACH_DEF[k] || 0);
+    if (!e) return;
+    if (e.t === 'say') this.say(`Ajuste ${e.n}/${e.of} · ${e.text}`, COL_ASK, 60, false);
+    else if (e.t === 'ask') {
+      this.ev.push({ t: 'coachAsk', text: e.text });
+      this.say('Contesta con una mano', COL_ASK, 60, false);
+    } else if (e.t === 'set') {
+      this.ev.push({ t: 'coachClose' }, { t: 'set', key: e.key, val: e.val });
+      const S = C.steps[C.i];
+      this.say(`${e.edge ? 'Ya está al tope' : e.calmer ? 'Menos sensible' : 'Más sensible'} · ${S.text}`, COL_ASK, 60, false);
+    } else if (e.t === 'done') {
+      this.ev.push({ t: 'coachClose' });
+      this.say(e.text, e.text.startsWith('✓') ? COL_OK : COL_ASK, 1.4, false);
+      if (e.text.startsWith('✓')) this.snd('perfect', null);
+    } else {
+      this.ev.push({ t: 'coachClose' }, { t: 'store', key: FLY_TUTO, val: 1 });
+      this.coachHover = true;
+      this.say(`✓ Vuelo ajustado · ${this.flyHow(I.model)}`, COL_OK, 6, false);
       this.snd('victory', null);
     }
   }

@@ -1169,7 +1169,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       c.note = (holdsWeights() && ex !== 'dlrow') || oneArm() || ex === 'superman' || (aimManual() && settings.aim === 'hands' && handsFree()) || pistolOn() ? (hands.left.ok || hands.right.ok ? (BODY.now ? this.cBody : this.cHands) : this.cNoHands) : null;
       c.bar = Math.min(1, this.calibT / 2);
       VIEW.center = c;
-    } else if (!GAME.wave && !this.resting && this.restT > 0) {
+    } else if (!GAME.wave && !this.resting && this.restT > 0 && !this.trek()?.holding()) {
+      // (con el asistente del vuelo, ni la cuenta atrás ni la caricatura: sus pasos van en el aviso breve)
       this.cReady.count = String(Math.max(1, Math.ceil(this.restT)));
       VIEW.center = this.cReady;
     } else VIEW.center = null;
@@ -2022,8 +2023,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
           this.rw.lateStart = false;
           if (this.restT <= 3) this.restT = 3; // (elegida tarde: 3 s para prepararte)
         }
-        if (this.restT > 0) this.restT -= dt;
-        if (this.restT <= 0 && !(this.resting && this.rw.waits())) this.endRest();
+        // (con el asistente del vuelo en marcha, la Travesía espera: ni descanso ni cuenta atrás)
+        const hold = this.trek()?.holding() ?? false;
+        if (hold) this.restT = Math.max(this.restT, 3);
+        else if (this.restT > 0) this.restT -= dt;
+        if (!hold && this.restT <= 0 && !(this.resting && this.rw.waits())) this.endRest();
       } else if (!GAME.between && settings.mode === 'arcs') {
         if (!this.arcs()?.waveLeft()) this.waveCleared(); // (Arcos: sin nada por salir ni por pasar)
       } else if (!GAME.between && settings.mode === 'trek') {
