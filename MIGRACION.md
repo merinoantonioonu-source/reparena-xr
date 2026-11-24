@@ -443,6 +443,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   (`src/services/hub.ts`, `SYNC_KEYS`) lleva además lo de RepArena XR que tiene que llegar a los otros aparatos: sus ajustes
   (`reparenaxr-settings`) y la clave de Cesium (`reparenaxr-cesium`); `XFER_KEYS` sigue siendo el de RepArena (lo compara
   `tests/compare/xfer.compare.test.ts`).
+  **En las gafas no salía el mapa** («no carga» a los 12 s, sin ningún error de la librería): aquí, con un mapa falso
+  (Playwright sirviendo el punto de Cesium y un trozo), el juego lo pide y lo carga en unos 2 s, también en VR con el
+  emulador; así que el atasco está en la red de verdad (Cesium o Google). Para saber dónde, el registro del mapa
+  (`mapLog`, `reparenaxr-maplog`: cada paso —empieza, índice recibido, pidiendo trozos, primer trozo, errores con su
+  servidor— y, mientras no carga, cómo va cada 15 s: la raíz, los trozos en cola, bajando, procesando, cargados y fallidos)
+  sale en la página («Volar sobre el mapa») y en la cabecera del diagnóstico. Y hasta medir el suelo, cada ciudad trae su
+  altura (`City.h`: Madrid está a unos 700 m sobre el elipsoide y se empezaba bajo tierra); el aviso, a los 20 s.
 
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):
   el centro del vuelo (`FlyBody`, y `BodyMoves.x0`) se tomaba al calibrar **antes** de que el mundo se deslizara 0,8 s para
