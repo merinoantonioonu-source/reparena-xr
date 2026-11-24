@@ -336,6 +336,17 @@ No las cambies sin preguntarle.
   abre ya se ve y su letra pequeña no se leía). Medallones dibujados, no modelos: no hay llave ni gema en los kits.
 - El césped del suelo gira y corre con el mundo (en las curvas, lo apoyado no patina sobre la hierba).
 
+
+**Barras**
+- **La aventura en la cuerda del remo invertido** (pedido del usuario; elegido de las propuestas: «A con tramos de B»; plan en
+  `docs/PLAN-BARRAS-CUERDA.md`): una opción de Barras («Remo invertido: aventura en la cuerda», *en pruebas*), con **una
+  paralela o dos**. Cuelgas boca arriba de una cuerda tendida en una **cuesta muy empinada** sobre un cañón; cada remo te sube
+  por ella (más ritmo, más deprisa) y, si dejas de remar, **resbalas un poco** («mínimamente»: nunca más abajo de la repisa
+  de salida). Cada tramo acaba **en vertical** (la chimenea, entre dos paredes de roca) hasta una **repisa**, que se ve sobre
+  ti: el tramo superado. El cielo sigue arriba (el mundo no se inclina: subir es que el cañón baje hacia tus pies). Con dos
+  paralelas, dos cables; con una, un cable por encima y la barra colgada de una polea. La pared rocosa vertical, para las
+  dominadas.
+
 **Repeticiones y disparo**
 - Cada repetición (sentadilla, zancada…) carga **un disparo por mano**, como mucho uno por mano y sin acumular.
 - Con las manos desnudas no se dispara pellizcando. Se lanza con una **sacudida de la mano hacia el enemigo**: puede

@@ -9,7 +9,7 @@
 import { AnimationMixer, AssetManager, createSystem, DoubleSide, Group, LoopRepeat, Mesh, MeshBasicMaterial, CylinderGeometry, Vector3 } from '@iwsdk/core';
 import type { Material, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
-import { dv, nWaves, store } from '../../core/settings.js';
+import { dv, nWaves, store, waveReps } from '../../core/settings.js';
 import { GAME, HOOKS, type CenterInfo } from '../../core/state.js';
 import { num, settings, str } from '../../core/values.js';
 import { GateSystem } from '../../combat/gates.js';
@@ -22,6 +22,10 @@ import { dipOne, eqName, eqPose, loadEquip, type Equip } from './equip.js';
 import type { BarEvent, BarsEnv, PlaceEnv } from './env.js';
 import { Placer, PLACE_HOLD, type PlaceEvent } from './place.js';
 import { BarField, HeadTarget, hangSecs, TGT } from './targets.js';
+import { ROPE, RopeCourse, RopeRun } from './rope.js';
+import { RopeScene } from './rope-scene.js';
+import { eqAxes } from './equip.js';
+import type { BarHits } from './detect.js';
 
 /** Dónde está la partida de Barras: colgándose (la cuenta atrás), jugando o descansando. */
 type BState = 'off' | 'mount' | 'play' | 'rest';
@@ -61,6 +65,13 @@ export class BarsSystem extends createSystem({}) {
   private readonly cPlace: CenterInfo = { kind: 'calib', title: '', lines: [], note: null, status: null, count: '', bar: 0 };
   /** Dónde volver al acabar de colocar (el menú) y el aviso con el que se empezó. */
   private placeDone: (() => void) | null = null;
+  /** La aventura en la cuerda del remo invertido (RepArena XR: rope.ts; «Remo invertido: aventura en la cuerda»). */
+  private rope: RopeRun | null = null;
+  private ropeScene!: RopeScene;
+  private readonly ropeHits: BarHits = {
+    rep: (o) => this.rope?.rep(this.clock, o.perfect),
+    blast: (p) => this.rope?.boost(p),
+  };
 
   constructor(...a: ConstructorParameters<ReturnType<typeof createSystem>>) {
     super(...a);
@@ -97,9 +108,10 @@ export class BarsSystem extends createSystem({}) {
     this.line.visible = false;
     this.root.add(this.line);
     this.hang = new HangScene(this.root, this.world.scene);
-    // la arena de siempre (compuertas, suelo, valle y nubes), que de noche se esconde en el bosque
+    // la arena de siempre (compuertas, suelo, valle y nubes), que de noche se esconde en el bosque (y en el cañón de la cuerda)
     const arena = ['arena-floor', 'gate-left', 'gate-center', 'gate-right', 'comic-valley', 'comic-clouds'];
     this.hang.arenaOf = () => arena.map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is NonNullable<typeof o> => !!o);
+    this.ropeScene = new RopeScene(this.root, this.hang.arenaOf);
     HOOKS.placeEq = (note) => this.startPlace(() => HOOKS.showMenu(''), note ?? '');
     HOOKS.eqPlaced = () => this.placed();
     HOOKS.placing = () => this.placing;
@@ -113,6 +125,15 @@ export class BarsSystem extends createSystem({}) {
 
   private get on(): boolean {
     return settings.mode === 'bars';
+  }
+
+  /** ¿Se juega la aventura en la cuerda? (el remo invertido, con «Remo invertido: aventura en la cuerda») */
+  ropeOn(): boolean {
+    return this.on && str('exercise') === 'row' && num('barRope') > 0;
+  }
+  /** ¿Se ve el cañón de la cuerda? (el entorno de serie se aparta) */
+  get ropeShown(): boolean {
+    return !!this.ropeScene?.visible;
   }
 
   // las compuertas abiertas, de donde salen los bichos que no llegan por un lado
@@ -175,11 +196,19 @@ export class BarsSystem extends createSystem({}) {
     this.bar.reset();
     this.bar.toMount(0, false);
     this.mstate = 'mount';
+    // la cuerda de toda la ronda: cada tramo, lo que piden sus repeticiones
+    if (this.ropeOn()) {
+      const lens: number[] = [];
+      for (let i = 0, n = Math.min(60, Math.max(1, nWaves())); i < n; i++) lens.push(waveReps(i) * ROPE.perRep);
+      this.rope = new RopeRun(new RopeCourse(lens, 1 + Math.floor(Math.random() * 9973)));
+    } else this.rope = null;
+    this.ropeScene.setCourse(this.rope?.course ?? null);
   }
 
   /** La oleada i va a empezar (la partida ya la preparó): la cola de objetivos, o los segundos de colgado. */
   startWave(i: number): void {
-    this.field.startWave(this.env, i);
+    if (this.rope) this.rope.startWave(i);
+    else this.field.startWave(this.env, i);
     this.mstate = 'play';
   }
 
@@ -193,12 +222,13 @@ export class BarsSystem extends createSystem({}) {
   waveCleared(): boolean {
     if (this.mstate !== 'play') return false;
     if (str('exercise') === 'hang') return this.bar.hold >= this.bar.need || this.bar.failed;
+    if (this.rope) return this.rope.reached; // (la cuerda: al llegar a la repisa del tramo)
     return this.field.cleared();
   }
 
   /** Para el marcador. */
-  hud(): { hold: number; need: number; left: number; mount: boolean } {
-    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount' };
+  hud(): { hold: number; need: number; left: number; mount: boolean; ropeLeft: number | null } {
+    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount', ropeLeft: this.rope ? Math.ceil(this.rope.left) : null };
   }
 
   /** El aviso del centro de la vista: colocar el aparato o colgarse (RepArena: drawCenter); null si no toca. */
@@ -254,6 +284,9 @@ export class BarsSystem extends createSystem({}) {
     this.mstate = 'off';
     this.hang?.clear();
     if (this.rig) this.rig.grp.visible = false;
+    this.rope = null;
+    this.ropeScene?.setCourse(null);
+    this.ropeScene?.update(false, 0);
   }
 
   // ---------------------------------------------------------------- cada fotograma
@@ -274,6 +307,7 @@ export class BarsSystem extends createSystem({}) {
     } else this.line.visible = false;
     this.syncRig();
     this.stepHang(dt, time);
+    this.ropeScene.update(GAME.phase === 'playing' && this.mstate !== 'off' && !!this.rope, this.rope?.s ?? 0);
     if (GAME.phase !== 'playing' || this.mstate === 'off') return;
     if (GAME.paused) return;
     if (this.mstate === 'mount') {
@@ -281,16 +315,47 @@ export class BarsSystem extends createSystem({}) {
       this.applyAll();
     }
     if (this.mstate === 'play' && !GAME.between) {
-      this.bar.detect(time, dt, this.env, this.out, this.field);
+      this.bar.detect(time, dt, this.env, this.out, this.rope ? this.ropeHits : this.field);
       this.applyAll();
-      if (this.mstate === 'play') {
+      if (this.mstate === 'play' && !this.rope) {
         this.field.spawnStep(dt, this.env, this.out, 1, true);
         this.applyAll();
       }
     }
+    this.stepRope(dt);
     this.field.update(dt, time, this.env, this.out);
     this.applyAll();
     this.syncTargets(dt);
+  }
+
+  // la cuerda: subes remando y, sin remar, resbalas un poco; al llegar a la repisa, el tramo superado
+  private stepRope(dt: number): void {
+    const R = this.rope;
+    if (!R) return;
+    R.step(dt, this.mstate === 'play' && !GAME.between && !GAME.paused);
+    this.ropeScene.update(true, R.s); // (con lo que has subido en este fotograma)
+    for (const e of R.ev) {
+      if (e.t === 'ledge') {
+        HOOKS.say('¡REPISA!', '#ffd166', 1.6, false);
+        HOOKS.score(50, true);
+        SND.combo();
+      } else if (e.t === 'slip') HOOKS.say('¡Resbalas! Sigue remando', WARN, 1.6, true);
+      else if (e.t === 'chimney' && e.on) HOOKS.say('¡La chimenea! Arriba, la repisa', '#3cf0c6', 1.6, false);
+    }
+    R.ev.length = 0;
+  }
+
+  // al colgarte la primera vez en la ronda: la cuerda pasa por tus paralelas, a lo largo de tu cuerpo, subiendo hacia lo alto
+  // de tu cabeza (con dos paralelas, por cada una; con una, cruzada sobre ti, por encima de su centro)
+  private placeRope(): void {
+    if (!this.rope || this.ropeScene.placed) return;
+    const e = eqPose(this.eq, false, 'dip'), one = dipOne(str('dipBars'));
+    const ax = this.tmp, az = new Vector3(), upH = new Vector3(0, 1, 0).applyQuaternion(head.q).setY(0);
+    eqAxes(e, ax, az);
+    const along = one ? ax : az; // (con dos, a lo largo de las paralelas; con una, cruzado a ella)
+    if (upH.lengthSq() < 1e-4) upH.copy(along);
+    const sg = along.dot(upH) >= 0 ? 1 : -1;
+    this.ropeScene.place(e.x, num('dipH') / 100, e.z, along.x * sg, along.z * sg, one, num('dipGap') / 100);
   }
 
   // lo de debajo del que cuelga: el charco con tentáculos o el remolino, y el bosque de noche si cuelga
@@ -380,6 +445,7 @@ export class BarsSystem extends createSystem({}) {
         break;
       }
       case 'mounted':
+        this.placeRope();
         if (ev.resume) {
           this.mstate = 'play';
           HOOKS.say('¡Sigue!', '#3cf0c6', 1.2, false);

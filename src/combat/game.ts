@@ -713,7 +713,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       } else if (settings.mode === 'bars') {
         // Barras: lo que queda por reventar o los segundos colgado
         const h = this.bars()?.hud();
-        if (h) lines[0] = settings.exercise === 'hang' ? `Colgado ${Math.floor(h.hold)} de ${Math.round(h.need)} s` : `Quedan ${h.left}`;
+        if (h) lines[0] = settings.exercise === 'hang' ? `Colgado ${Math.floor(h.hold)} de ${Math.round(h.need)} s` : h.ropeLeft !== null ? `Faltan ${h.ropeLeft} m` : `Quedan ${h.left}`;
         const g = this.rw.ghostText();
         if (g) lines[1] = minus(g[0]);
       } else if (settings.mode === 'touch') {

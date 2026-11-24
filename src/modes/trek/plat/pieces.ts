@@ -87,7 +87,7 @@ export const KIT_MODELS: Record<Kit, string[]> = {
   food: ['Apple', 'Banana', 'Cherries', 'Orange', 'Pear', 'Strawberry', 'Pineapple', 'Watermelon', 'Lemon', 'Grapes'],
 };
 
-function put(kit: Kit, n: string, ds: number, u: number, y: number, o: Partial<Put> = {}): Put {
+export function put(kit: Kit, n: string, ds: number, u: number, y: number, o: Partial<Put> = {}): Put {
   return { kit, n, ds, u, y, ry: o.ry ?? 0, rx: o.rx ?? 0, rz: o.rz ?? 0, sx: o.sx ?? 1, sy: o.sy ?? 1, sz: o.sz ?? 1 };
 }
 
@@ -374,7 +374,7 @@ const BOX: Record<string, readonly [number, number, number, number, number, numb
 
 /** Una roca estirada para que su caja llene justo [u0, u1] a lo ancho, [y0, y1] a lo alto y [s0, s1] a lo largo (el sendero,
  * hacia delante). `flip`: de espaldas (ry = π), para que dos seguidas no sean iguales. */
-function rockFit(kit: Kit, n: string, u0: number, u1: number, y0: number, y1: number, s0: number, s1: number, flip = false): Put {
+export function rockFit(kit: Kit, n: string, u0: number, u1: number, y0: number, y1: number, s0: number, s1: number, flip = false): Put {
   const [x0, by0, z0, x1, by1, z1] = BOX[n], sx = (u1 - u0) / (x1 - x0), sy = (y1 - y0) / (by1 - by0), sz = (s1 - s0) / (z1 - z0), f = flip ? -1 : 1;
   // (con ry = π, x y z cambian de signo; el sendero va en −z: s = ds − z)
   return put(kit, n, (s0 + s1) / 2 + f * ((z0 + z1) / 2) * sz, (u0 + u1) / 2 - f * ((x0 + x1) / 2) * sx, y0 - by0 * sy, { ry: flip ? Math.PI : 0, sx, sy, sz });
