@@ -4,6 +4,7 @@
  * delante. Lo grande nunca va delante entre las compuertas y tú, ni cerca de ti; siempre sale igual para una misma distancia de
  * las compuertas (el mismo azar de siempre). Sin IWSDK: devuelve la lista de lo que se pone y el juego lo dibuja.
  */
+import { placedFlat, placedTop } from './rock-top.js';
 const TAU = Math.PI * 2;
 
 /** El mismo azar con semilla de RepArena (rng). */
@@ -255,6 +256,9 @@ export function cliffLayout(D: number, gates: Gate[], M: Models, seed = 0): Layo
 
 /** Las islas en el cielo: estás en lo alto de una isla de hierba que flota; alrededor, el borde de rocas y, a lo lejos, otras
  * islas flotando sobre el mar de nubes, algunas con árboles. */
+/** Dónde probar a poner el árbol de una isla lejana (m a escala 1, desde su centro): el medio y, alrededor, más lejos. */
+const ISLE_SPOTS: [number, number][] = [[0, 0], [0.8, 0], [-0.8, 0], [0, 0.8], [0, -0.8], [1.5, 1], [-1.5, -1], [1, -1.5], [-1, 1.5]];
+
 export function skyLayout(D: number, gates: Gate[], M: Models, seed = 0): Layout {
   const K = kit(D, gates, M, 83, seed), { R, add, scatter, side } = K, top = (n: string): number => M.top?.(n) ?? 1;
   // el borde de la isla: rocas todo alrededor (detrás de las compuertas también, que no salen de la nada)
@@ -270,9 +274,17 @@ export function skyLayout(D: number, gates: Gate[], M: Models, seed = 0): Layout
   // otras islas a lo lejos, a distintas alturas; en lo alto de algunas, árboles
   for (let i = 0; i < 11; i++) {
     const a = (i / 11) * TAU + (R() - 0.5) * 0.3, r = 32 + R() * 32, sc = 1.2 + R() * 1.6, y = -10 + R() * 16, n = i % 3 ? 'Cliff3' : 'Cliff1';
-    const x = Math.sin(a) * r, z = -Math.cos(a) * r;
-    add(n, x, z, sc, R() * TAU, 0, y);
-    if (i % 2 === 0) add(['CommonTree_3', 'CommonTree_4', 'Pine_4'][i % 3], x, z, sc * 0.7, R() * TAU, 0, y + top(n) * sc - 0.3);
+    const x = Math.sin(a) * r, z = -Math.cos(a) * r, ry = R() * TAU;
+    add(n, x, z, sc, ry, 0, y);
+    // (el árbol, apoyado en la roca de la isla, en un sitio llano cerca del medio: en lo alto de su caja, que no siempre está
+    // en el medio, quedaba en el aire)
+    if (i % 2 === 0)
+      for (const [ox, oz] of ISLE_SPOTS) {
+        const tx = x + ox * sc, tz = z + oz * sc, t = placedTop(n, x, y, z, ry, sc, sc, sc, tx, tz);
+        if (t === null || !placedFlat(n, x, y, z, ry, sc, sc, sc, tx, tz, 0.5 * sc, 0.4 * sc)) continue;
+        add(['CommonTree_3', 'CommonTree_4', 'Pine_4'][i % 3], tx, tz, sc * 0.7, R() * TAU, 0, t - 0.2);
+        break;
+      }
   }
   // en la isla: árboles a los lados y detrás, arbustos, flores y hierba
   scatter(9, 8, SKY_EDGE - 3, (x, z, r) => side(x, z, r, 2), (x, z) => add(['CommonTree_3', 'CommonTree_4', 'CommonTree_5'][Math.floor(R() * 3)], x, z, 0.8 + R() * 0.4, R() * TAU, 2));
