@@ -51,6 +51,10 @@ pulsación sólida, pegada y con imán).
 No las cambies sin preguntarle.
 
 **Estilo**
+- **Nada flota** (pedido del usuario: «los árboles nunca están flotando»): cada árbol, palmera, piedra o adorno se apoya en el
+  suelo o en la roca que tiene debajo (su pie, en ella o un poco hundido; nunca en el aire). Lo que va encima de una roca se
+  coloca con la altura real de su cara de arriba (`src/env/rock-tops.ts`), no a ojo, y una prueba lo comprueba
+  (`tests/unit/no-float.test.ts`).
 - **Todo se diseña para el estilo Cómic** (`src/38_comic.js`), que es el de serie: en Realista, con la resolución alta, las
   gafas no llegan y va a saltos. Lo nuevo se prueba y se mira en Cómic; Realista queda como opción.
 

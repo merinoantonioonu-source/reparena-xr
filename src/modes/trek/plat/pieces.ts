@@ -22,6 +22,7 @@
  * - Frutas (tabla `FRUITS`): de 0,13 (el ancho de la fresa) a 0,63 m (el largo del plátano), con la base en y = 0.
  */
 import { trekRng, TREK_CH } from '../path.js';
+import { placedFlat, placedTop } from '../../../env/rock-top.js';
 import { HEAD_TOP } from '../env.js';
 import { BOARD_CLEAR_U } from '../board-spot.js';
 import { CRACK_W, PILLAR_W, PAW_U, SHIP_U, LEDGE_W, BOX_CLEAR, FORK_RAMP, FORK_U, FRUIT_U, GLIDE_LIFT, GOLD_Y, glideArc, glideU, LAND_PAST, SPRING_LIFT, type Piece } from './types.js';
@@ -235,7 +236,28 @@ export function skyFloorPuts(s0: number, s1: number, holes: ReadonlyArray<readon
 /** El paisaje de las islas en el trozo `chunk`: otras islas flotando a los lados, a distintas alturas y tamaños, algunas
  * con un árbol encima (las de muy lejos, sin él: no se distinguiría). */
 export function skyDecoPuts(chunk: number, out: Put[], clear: -1 | 0 | 1 = 0): Put[] {
-  const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ 0x7f4a7c15) >>> 0), s0 = chunk * TREK_CH;
+  const me = skyIslands(chunk, clear), near = [...skyIslands(chunk - 1, clear).rocks, ...me.rocks, ...skyIslands(chunk + 1, clear).rocks];
+  out.push(...me.rocks);
+  // (los árboles, apoyados en la isla: sobre la roca más alta en ese punto —las islas vecinas se solapan—, o ninguno)
+  const P = trekRng((Math.imul(chunk | 0, 0x7feb352d) ^ 0x846ca68b) >>> 0);
+  for (const T of me.wish) {
+    const at = restOn(near, P, T.ds, T.u, 1);
+    if (at) out.push(put('nature', T.n, at[1], at[2], at[0] - SINK, { ry: T.ry, sx: T.sc, sy: T.sc, sz: T.sc }));
+  }
+  return out;
+}
+
+/** Lo que quiere ir encima de una roca: qué, dónde (más o menos), su giro y su tamaño. */
+interface Wish {
+  n: string;
+  ds: number;
+  u: number;
+  ry: number;
+  sc: number;
+}
+/** Las islas del cielo del trozo `chunk` (la losa y la panza colgando) y los árboles que querrían ir encima. */
+function skyIslands(chunk: number, clear: -1 | 0 | 1): { rocks: Put[]; wish: Wish[] } {
+  const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ 0x7f4a7c15) >>> 0), s0 = chunk * TREK_CH, rocks: Put[] = [], wish: Wish[] = [];
   const between = (a: number, b: number): number => a + R() * (b - a);
   const n = 1 + Math.floor(R() * 3);
   for (let i = 0; i < n; i++) {
@@ -244,12 +266,23 @@ export function skyDecoPuts(chunk: number, out: Put[], clear: -1 | 0 | 1 = 0): P
     // (del lado del marcador, el islote cercano, más allá de él: si no, lo atravesaba)
     if (side === clear) u = side * Math.max(Math.abs(u), BOARD_CLEAR_U + w / 2 + 1);
     const ds = between(s0, s0 + TREK_CH), y = near ? between(-6, 3) : between(-14, 14), deep = w * between(0.6, 1.1);
-    out.push(rockFit('island', 'Cliff1', u - w / 2, u + w / 2, y - w * 0.12, y, ds - w / 2, ds + w / 2, R() < 0.5));
-    out.push(hangFit('Cliff3', u - w * 0.42, u + w * 0.42, y - w * 0.08, y - w * 0.08 - deep, ds - w * 0.4, ds + w * 0.4, { ry: R() * 6.28 }));
-    if (near && R() < 0.7) {
-      const sc = between(0.7, 1.1);
-      out.push(put('nature', R() < 0.5 ? 'CommonTree_4' : 'Pine_4', ds + between(-1, 1), u + between(-1, 1), y - 0.05, { ry: R() * 6.28, sx: sc, sy: sc, sz: sc }));
-    }
+    rocks.push(rockFit('island', 'Cliff1', u - w / 2, u + w / 2, y - w * 0.12, y, ds - w / 2, ds + w / 2, R() < 0.5));
+    rocks.push(hangFit('Cliff3', u - w * 0.42, u + w * 0.42, y - w * 0.08, y - w * 0.08 - deep, ds - w * 0.4, ds + w * 0.4, { ry: R() * 6.28 }));
+    if (near && R() < 0.7) wish.push({ sc: between(0.7, 1.1), n: R() < 0.5 ? 'CommonTree_4' : 'Pine_4', ry: R() * 6.28, ds: ds + between(-1, 1), u: u + between(-1, 1) });
+  }
+  return { rocks, wish };
+}
+
+/** La pared del risco en el trozo `chunk`: `Cliff4` sin girar, con su pico del lado del camino (su cara alta es el tercio del
+ * medio a lo largo: cada roca, tres veces más larga que su paso, así siempre hay pared alta junto al camino); a trozos de 3 a
+ * 5 m, cada uno algo distinto. Con su propio azar: la misma para el trozo y para sus vecinos (los pinos se apoyan en ella). */
+function cliffWall(chunk: number): Put[] {
+  const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ 0x632be5ab) >>> 0), s0 = chunk * TREK_CH, out: Put[] = [];
+  const between = (a: number, b: number): number => a + R() * (b - a);
+  for (let s = s0; s < s0 + TREK_CH; ) {
+    const L = between(3, 5), e = Math.min(s0 + TREK_CH, s + L), m = (s + e) / 2, h = between(5, 8);
+    out.push(rockFit('island', 'Cliff4', -between(7, 9), -DOCK_W / 2 - between(0.2, 0.5), -between(2, 4), h, m - 1.5 * L, m + 1.5 * L));
+    s = e;
   }
   return out;
 }
@@ -259,16 +292,15 @@ export function skyDecoPuts(chunk: number, out: Put[], clear: -1 | 0 | 1 = 0): P
 export function cliffDecoPuts(chunk: number, out: Put[]): Put[] {
   const R = trekRng((Math.imul(chunk | 0, 0x85ebca6b) ^ 0xc2b2ae35) >>> 0), s0 = chunk * TREK_CH;
   const between = (a: number, b: number): number => a + R() * (b - a);
-  // la pared: `Cliff4` sin girar, con su pico del lado del camino (su cara alta es el tercio del medio a lo largo: cada roca,
-  // tres veces más larga que su paso, así siempre hay pared alta junto al camino); a trozos de 3 a 5 m, cada uno algo distinto
-  for (let s = s0; s < s0 + TREK_CH; ) {
-    const L = between(3, 5), e = Math.min(s0 + TREK_CH, s + L), m = (s + e) / 2, h = between(5, 8);
-    out.push(rockFit('island', 'Cliff4', -between(7, 9), -DOCK_W / 2 - between(0.2, 0.5), -between(2, 4), h, m - 1.5 * L, m + 1.5 * L));
-    if (R() < 0.3) {
-      const sc = between(0.6, 0.9);
-      out.push(put('nature', R() < 0.5 ? 'Pine_4' : 'Pine_2', m, -between(5, 7), between(5, 8), { ry: R() * 6.28, sx: sc, sy: sc, sz: sc }));
-    }
-    s = e;
+  // la pared (de este trozo y, para apoyar los pinos, la de los vecinos, que se solapa con ella)
+  const walls = cliffWall(chunk), near = [...cliffWall(chunk - 1), ...walls, ...cliffWall(chunk + 1)];
+  out.push(...walls);
+  // algún pino en un rellano de la pared: apoyado en la roca, nunca en el aire (con su propio azar: la pared es la misma)
+  const P = trekRng((Math.imul(chunk | 0, 0x27d4eb2f) ^ 0x165667b1) >>> 0), pb = (a: number, b: number): number => a + P() * (b - a);
+  for (const W of walls) {
+    if (P() >= 0.3) continue;
+    const sc = pb(0.6, 0.9), n = P() < 0.5 ? 'Pine_4' : 'Pine_2', ry = P() * 6.28, at = restOn(near, P, W.ds, -pb(5, 7), 1.5);
+    if (at) out.push(put('nature', n, at[1], at[2], at[0] - SINK, { ry, sx: sc, sy: sc, sz: sc }));
   }
   // más arriba, detrás de la pared, la montaña
   out.push(rockFit('island', 'Cliff3', -between(22, 30), -between(9, 12), -CLIFF_DEPTH, between(18, 26), s0 - 2, s0 + TREK_CH + 2, R() < 0.5));
@@ -278,6 +310,25 @@ export function cliffDecoPuts(chunk: number, out: Put[]): Put[] {
     out.push(rockFit('island', R() < 0.5 ? 'Cliff3' : 'Cliff4', u, u + w, CLIFF_FLOOR_Y, CLIFF_FLOOR_Y + h, ds, ds + w, R() < 0.5));
   }
   return out;
+}
+
+/** Los islotes de la costa del trozo `chunk` y lo que querría ir encima (palmeras, a veces huesos o calaveras); R: su azar (el
+ * del trozo, que sigue luego con lo que flota). */
+function coastIslets(chunk: number, clear: -1 | 0 | 1, R = trekRng((Math.imul(chunk | 0, 0x2545f491) ^ 0x6a09e667) >>> 0)): { rocks: Put[]; wish: (Wish & { r?: number })[] } {
+  const s0 = chunk * TREK_CH, rocks: Put[] = [], wish: (Wish & { r?: number })[] = [];
+  const between = (a: number, b: number): number => a + R() * (b - a);
+  const side = (): -1 | 1 => (R() < 0.5 ? -1 : 1);
+  const n = 1 + Math.floor(R() * 2);
+  for (let i = 0; i < n; i++) {
+    const sd = side(), w0 = between(7, 22), ds = s0 + ((i + R()) / n) * TREK_CH, w = between(4, 8), top = SEA_Y + between(0.3, 0.7);
+    // (del lado del marcador, el islote y sus palmeras, más allá de él)
+    const u = sd * (sd === clear ? Math.max(w0, BOARD_CLEAR_U + w / 2) : w0);
+    rocks.push(rockFit('island', 'Rock_1', u - w / 2, u + w / 2, SEA_Y - 1.2, top, ds - w / 2, ds + w / 2, R() < 0.5));
+    const palms = 1 + Math.floor(R() * 3);
+    for (let j = 0; j < palms; j++) wish.push({ sc: between(1.1, 1.6), n: `PalmTree_${1 + Math.floor(R() * 3)}`, ry: R() * 6.28, ds: ds + between(-w, w) * 0.15, u: u + between(-w, w) * 0.15, r: w * 0.1 }); // (como antes, a ±w/4 del centro, como mucho)
+    if (R() < 0.35) wish.push({ n: R() < 0.6 ? 'LargeBones' : 'Skulls', ry: R() * 6.28, sc: 0.45, ds, u, r: w * 0.1 });
+  }
+  return { rocks, wish };
 }
 
 /** La costa: a qué altura está el mar (m, bajo las tablas; el mismo que pinta `Sea`) y el centro del barco a lo largo de su
@@ -302,19 +353,17 @@ export function coastDecoPuts(chunk: number, out: Put[], clear: -1 | 0 | 1 = 0):
   const R = trekRng((Math.imul(chunk | 0, 0x2545f491) ^ 0x6a09e667) >>> 0), s0 = chunk * TREK_CH;
   const between = (a: number, b: number): number => a + R() * (b - a);
   const side = (): -1 | 1 => (R() < 0.5 ? -1 : 1);
-  // los islotes con palmeras
-  const n = 1 + Math.floor(R() * 2);
-  for (let i = 0; i < n; i++) {
-    const sd = side(), w0 = between(7, 22), ds = s0 + ((i + R()) / n) * TREK_CH, w = between(4, 8), top = SEA_Y + between(0.3, 0.7);
-    // (del lado del marcador, el islote y sus palmeras, más allá de él)
-    const u = sd * (sd === clear ? Math.max(w0, BOARD_CLEAR_U + w / 2) : w0);
-    out.push(rockFit('island', 'Rock_1', u - w / 2, u + w / 2, SEA_Y - 1.2, top, ds - w / 2, ds + w / 2, R() < 0.5));
-    const palms = 1 + Math.floor(R() * 3);
-    for (let j = 0; j < palms; j++) {
-      const sc = between(1.1, 1.6);
-      out.push(put('island', `PalmTree_${1 + Math.floor(R() * 3)}`, ds + between(-w, w) * 0.25, u + between(-w, w) * 0.25, top - 0.15, { ry: R() * 6.28, sx: sc, sy: sc, sz: sc }));
-    }
-    if (R() < 0.35) out.push(put('island', R() < 0.6 ? 'LargeBones' : 'Skulls', ds, u, top - 0.1, { ry: R() * 6.28, sx: 0.45, sy: 0.45, sz: 0.45 }));
+  // los islotes, y lo que va encima (palmeras, huesos): apoyado en el islote —en su borde redondeado se quedaban en el aire—,
+  // sobre la roca más alta en ese punto (contando los islotes de los trozos vecinos), o nada
+  const me = coastIslets(chunk, clear, R), near = [...coastIslets(chunk - 1, clear).rocks, ...me.rocks, ...coastIslets(chunk + 1, clear).rocks];
+  out.push(...me.rocks);
+  const P = trekRng((Math.imul(chunk | 0, 0x58f38ded) ^ 0x0d35a2d9) >>> 0);
+  for (const T of me.wish) {
+    const at = restOn(near, P, T.ds, T.u, T.r ?? 0.6);
+    if (!at) continue;
+    // (del lado del marcador, la copa de la palmera no puede pasar por él)
+    if (T.n.startsWith('Palm') && clear !== 0 && Math.sign(at[2]) === clear && Math.abs(at[2]) - PALM_CROWN * T.sc < BOARD_CLEAR_U - 1.35) continue;
+    out.push(put('island', T.n, at[1], at[2], at[0] - (T.n.startsWith('Palm') ? 0.15 : 0.1), { ry: T.ry, sx: T.sc, sy: T.sc, sz: T.sc }));
   }
   // barriles y botellas flotando cerca del muelle, y postes sueltos de un muelle viejo
   for (let i = 0; i < 3; i++) {
@@ -346,6 +395,40 @@ function layPole(ds: number, u: number, bottom: number, len: number, th: number)
 /** Lo que ocupa a lo ancho una roca del paisaje (m, [desde, hasta] en u; null si no es una roca de `BOX`): exacto sin girar
  * (o girada media vuelta, como las de `rockFit`); girada de otra forma, lo más que puede ocupar. Para comprobar que nada
  * atraviesa el marcador (tests/unit/trek-board.test.ts). */
+/** Lo alto de la roca `P` (puesta con `rockFit` o `put`, sin volcar) en (ds, u) del sendero; null si no hay roca debajo. Para
+ * apoyar en ella lo que va encima (pedido del usuario: «los árboles nunca están flotando»). */
+export function putTop(P: Put, ds: number, u: number): number | null {
+  return placedTop(P.n, P.u, P.y, -P.ds, P.ry, P.sx, P.sy, P.sz, u, -ds);
+}
+/** ¿Es la roca `P` casi llana en (ds, u), como para que algo se tenga en pie encima? */
+export function putFlat(P: Put, ds: number, u: number, r = 0.5, drop = 0.6): boolean {
+  return placedFlat(P.n, P.u, P.y, -P.ds, P.ry, P.sx, P.sy, P.sz, u, -ds, r, drop);
+}
+/** Lo que abre la copa de una palmera a un lado (m, a escala 1). */
+const PALM_CROWN = 2.5;
+/** Lo que se hunde en la roca o en el suelo lo que se apoya en ella (m: las raíces, dentro; nunca flotando). */
+export const SINK = 0.2;
+/** Lo más alto de las rocas de `list` en (ds, u) (las que se pisan: sin volcar), y cuál es; null si no hay ninguna debajo. */
+export function topOf(list: readonly Put[], ds: number, u: number): [number, Put] | null {
+  let best: [number, Put] | null = null;
+  for (const P of list) {
+    if (!BOX[P.n] || Math.abs(P.rx) > 1e-6 || Math.abs(P.rz) > 1e-6) continue;
+    const t = putTop(P, ds, u);
+    if (t !== null && (!best || t > best[0])) best = [t, P];
+  }
+  return best;
+}
+/** Busca en las rocas de `rocks` un sitio casi llano cerca de (ds, u) (hasta `tries` intentos, en un radio `r`), sobre la más
+ * alta en ese punto (las rocas vecinas se solapan: si no, el árbol quedaba dentro de la de al lado), y devuelve su altura y su
+ * sitio, o null (entonces no se pone nada: mejor nada que algo flotando). */
+function restOn(rocks: readonly Put[], R: () => number, ds: number, u: number, r: number, tries = 6): [number, number, number] | null {
+  for (let k = 0; k < tries; k++) {
+    const d = k === 0 ? 0 : r, a = R() * 6.2832, cds = ds + Math.cos(a) * d * R(), cu = u + Math.sin(a) * d * R(), T = topOf(rocks, cds, cu);
+    if (T && putFlat(T[1], cds, cu) && Math.abs((topOf(rocks, cds + 0.4, cu)?.[0] ?? -99) - T[0]) < 0.6 && Math.abs((topOf(rocks, cds, cu + 0.4)?.[0] ?? -99) - T[0]) < 0.6) return [T[0], cds, cu];
+  }
+  return null;
+}
+
 export function putSpanU(P: Put): [number, number] | null {
   const b = BOX[P.n];
   if (!b) return null;

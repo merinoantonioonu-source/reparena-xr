@@ -419,6 +419,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Nada flota** (pedido del usuario al ver la cuerda: «los árboles nunca están flotando; creo que se repite también en
+  Travesía»): los árboles de los kits tienen bien su pie (las raíces, 24 cm bajo su origen), pero se colocaban a ojo encima de
+  las rocas: los pinos de la pared del risco a una altura al azar, las palmeras y los huesos en el borde redondeado de los
+  islotes de la costa, los árboles de las islas del cielo (y en Combate, los de las islas lejanas, en lo alto de su caja, que no
+  siempre está en el medio). Ahora `src/env/rock-tops.ts` (hecho con `node tests/rock-tops.mjs` de los .glb) guarda la cara de
+  arriba de cada roca y lo que va encima se apoya en la más alta en ese punto (las vecinas se solapan: la pared del risco, las
+  islas y los islotes se calculan también para los trozos de al lado, con su propio azar), en un sitio llano, o no se pone.
+  Lo comprueba `tests/unit/no-float.test.ts`. El paisaje del risco, las islas y la costa sale algo distinto (otro azar).
+
 - **La aventura en la cuerda del remo invertido, PR 1** (`docs/PLAN-BARRAS-CUERDA.md`): con `barRope` (solo RepArena XR, de
   serie apagado: *en pruebas*), `BarsSystem` crea al empezar la ronda un `RopeCourse` con todos los tramos (cada uno,
   `waveReps(i) × ROPE.perRep`) y un `RopeRun`; el detector de siempre le pasa los remos y las ondas (`ropeHits` en vez de las
