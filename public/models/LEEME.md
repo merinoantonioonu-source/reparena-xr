@@ -24,6 +24,13 @@ gratuitos como CC0 (dominio público). El Dinosaur Animated Pack, CC0.
 | `nature.glb` y `tex/nature/*` | El **claro del bosque de día** (Stylized Nature MegaKit, de Quaternius, CC0): árboles, pinos, árboles secos, arbustos, rocas, hierba, flores, helechos y setas, simplificados y juntos, cada uno bajo un nodo con su nombre; sus texturas, reducidas, aparte. Son los de RepArena. Se usan con Entorno → «Bosque» y con el fondo realista. |
 
 Los retratos de cada enemigo para sus fichas del menú (`../retratos/*.png`, 128 px) salen de la hoja de RepArena
-(`models/retratos.png`, hecha con estos modelos por su `tests/retratos.js`), cortada una vez.
+(`models/retratos.png`, hecha con estos modelos por su `tests/retratos.js`), cortada una vez. Los de los esqueletos de KayKit
+(`skelminion`, `skelwarrior`, `skelmage`), con sus modelos, por `tests/retratos-xr.mjs`.
 
 | `frutas.glb` | Las **frutas** de la Travesía (Food Kit, de [Kenney](https://kenney.nl), **CC0** 1.0, dominio público): manzana, plátano, cerezas, naranja, pera, fresa, piña, sandía, limón y uvas, cada una bajo un nodo de primer nivel con su nombre en inglés (`Apple`, `Banana`, `Cherries`, `Orange`, `Pear`, `Strawberry`, `Pineapple`, `Watermelon`, `Lemon`, `Grapes`), de colores lisos y sin texturas (unos 3.000 triángulos en total). Copiados de [m4gr3d/Godot-Android-Samples](https://github.com/m4gr3d/Godot-Android-Samples) (`apps/gltf_viewer/godot/gltfs/food_kit`) y unidos en un solo archivo con `tests/frutas-glb.mjs` (junta sus mallas y colores sin tocarlos; solo quita las extensiones VRM y «sin luz» y los UV, que sin texturas no hacen falta). |
+
+| `kaykit/cementerio.glb` | El **cementerio** (Halloween Bits 1.0, de [Kay Lousberg](https://kaylousberg.com) · KayKit, **CC0**): cripta, tumbas, lápidas, vallas, arco con verja, farolas y faroles, calabazas, árboles secos y pinos de otoño, santuarios, ataúdes, huesos y calaveras, cada pieza bajo un nodo de primer nivel con su nombre y una sola textura. Hecho con `tests/kaykit-glb.mjs` desde su repositorio de GitHub. |
+| `kaykit/esqueleto_*.glb` | Los **esqueletos** (Character Pack: Skeletons 1.0, KayKit, **CC0**): el esbirro (con hacha), el guerrero (espada y escudo) y el mago (bastón), con su arma en la mano y solo las animaciones que usa el juego: reposo, andar, correr, tajo, hechizo, recibir golpe, morir, celebrar, provocar y **salir del suelo**. Hechos con `tests/kaykit-glb.mjs`. |
+
+Licencia de KayKit: cada pack trae su `LICENSE.txt`: Creative Commons Zero (CC0), libre para uso personal, educativo y
+comercial (agradecer a Kay Lousberg no es obligatorio).

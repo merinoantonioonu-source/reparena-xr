@@ -1489,7 +1489,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.rw.onSpawn(hs.spawn(beast, who.boss, at, spec.hp), who.boss);
       return true;
     }
-    if (this.gates && this.gates.queries.gates.entities.size > 0) {
+    // los que salen del suelo (los esqueletos): delante de ti, sin compuerta
+    const rise = !!FOE_DEF[who.k]?.rise;
+    if (this.gates && this.gates.queries.gates.entities.size > 0 && !rise) {
       const slot = this.pending.find((p) => !p.gate), g = slot ? (who.boss && this.gates.centerGate()) || this.gates.freeGate() : null;
       if (!slot || !g) return false;
       Object.assign(slot, { kind: who.k, boss: who.boss, hp: spec.hp, elite: (spec.elite ?? '') as Elite | '' });
@@ -1500,8 +1502,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       return true;
     }
     for (let tries = 0; tries < 12; tries++) {
-      const a = (Math.random() - 0.5) * (Math.PI * 0.75); // (±67°)
-      const d = 9 + Math.random() * 4;
+      const a = (Math.random() - 0.5) * (Math.PI * (rise ? 0.55 : 0.75)); // (±67°; los que salen del suelo, ±50°)
+      const d = rise ? 5.5 + Math.random() * 2.5 : 9 + Math.random() * 4;
       const x = GAME.head.x + Math.sin(a) * d, z = GAME.head.z - Math.cos(a) * d;
       let ok = true;
       for (const e of this.queries.foes.entities) {

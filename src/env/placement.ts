@@ -303,3 +303,49 @@ export function villageLayout(D: number, gates: Gate[], M: Models, seed = 0): La
   scatter(140, 1.8, 22, (x, z, r) => r > 1.7 && !K.nearGate(x, z, 2.2), (x, z) => add(['Grass_Common_Short', 'Grass_Common_Tall', 'Grass_Wispy_Short', 'Flower_3_Group'][Math.floor(R() * 4)], x, z, 0.2 + R() * 0.15));
   return { puts: K.puts, solids: K.solids };
 }
+
+/** El cementerio (RepArena XR, con el pack Halloween Bits de KayKit, CC0; elegido por el usuario): una verja de hierro en corro
+ * (abierta por delante, hacia las compuertas) con su arco detrás de ti, tumbas y lápidas a los lados y detrás, la cripta a un
+ * lado, farolas y faroles, calabazas, árboles secos dentro y un bosque de otoño fuera; siempre de noche. Las piezas del pack
+ * miden a su escala (`CEM_S`: una persona, 1,8 m). */
+export const CEM_S = 0.68, CEM_RING = 14.5;
+export function cemeteryLayout(D: number, gates: Gate[], M: Models, seed = 0): Layout {
+  const K = kit(D, gates, M, 131, seed), { R, add, scatter, side, face } = K, S = CEM_S;
+  // la verja: tramos de 2,7 m alrededor, sin cerrar el abanico de las compuertas; algunos rotos, con sus pilares
+  const seg = 4 * S, n = Math.floor((TAU * CEM_RING) / seg);
+  for (let i = 0; i < n; i++) {
+    const a = (i + 0.5) * (TAU / n), x = Math.sin(a) * CEM_RING, z = -Math.cos(a) * CEM_RING;
+    if (Math.abs(Math.atan2(x, -z)) < 0.95 || K.nearGate(x, z, 4)) continue;
+    // (detrás de ti, el arco de la entrada)
+    if (Math.abs(Math.abs(a) - Math.PI) < (seg / CEM_RING) * 0.6) {
+      add('arch_gate', x, z, S, -a, 0);
+      continue;
+    }
+    add(R() < 0.25 ? 'fence_broken' : 'fence', x, z, S, -a);
+    const pa = (i + 1) * (TAU / n);
+    add(R() < 0.2 ? 'fence_pillar_broken' : 'fence_pillar', Math.sin(pa) * CEM_RING, -Math.cos(pa) * CEM_RING, S, -pa);
+  }
+  // la cripta, a un lado y detrás, de cara al centro
+  scatter(1, 18, 22, (x, z, r, ang) => Math.abs(ang) > 1.6 && Math.abs(ang) < 2.6 && side(x, z, r, 3.5), (x, z) => add('crypt', x, z, S, face(x, z), M.rad('crypt') * S + 0.5));
+  // las tumbas: en filas sueltas a los lados y detrás, de cara al centro
+  const graves = ['grave_A', 'grave_B', 'gravestone', 'gravestone', 'gravemarker_A', 'gravemarker_B', 'grave_A_destroyed'];
+  scatter(26, 5.5, 13, (x, z, r) => side(x, z, r, 0.9), (x, z) => add(graves[Math.floor(R() * graves.length)], x, z, S * (0.9 + R() * 0.2), face(x, z) + (R() - 0.5) * 0.3, 0.9));
+  // farolas con calavera y faroles: luz entre las tumbas
+  scatter(5, 6, 12, (x, z, r) => side(x, z, r, 0.7), (x, z) => add(R() < 0.6 ? 'post_lantern' : 'post_skull', x, z, S, face(x, z), 0.6));
+  scatter(6, 4.5, 12, (x, z, r) => side(x, z, r, 0.4), (x, z) => add('lantern_standing', x, z, S, R() * TAU, 0.4));
+  // santuarios, ataúdes, un banco y velas
+  scatter(2, 8, 13, (x, z, r) => side(x, z, r, 1), (x, z) => add(R() < 0.5 ? 'shrine' : 'shrine_candles', x, z, S, face(x, z), 1));
+  scatter(2, 7, 13, (x, z, r) => side(x, z, r, 1.3), (x, z) => add(R() < 0.5 ? 'coffin' : 'coffin_decorated', x, z, S, R() * TAU, 1.3));
+  scatter(1, 6, 10, (x, z, r) => side(x, z, r, 1), (x, z) => add('bench', x, z, S, face(x, z) + Math.PI, 1));
+  scatter(5, 5, 12, (x, z, r) => side(x, z, r, 0.3), (x, z) => add(R() < 0.5 ? 'candle_triple' : 'skull_candle', x, z, S, R() * TAU, 0.3));
+  // calabazas (algunas, farolillos) y huesos sueltos
+  const pumpkins = ['pumpkin_orange', 'pumpkin_orange_jackolantern', 'pumpkin_yellow', 'pumpkin_yellow_jackolantern', 'pumpkin_orange_small'];
+  scatter(14, 4.8, 13, (x, z, r) => side(x, z, r, 0.5), (x, z) => add(pumpkins[Math.floor(R() * pumpkins.length)], x, z, S * (0.8 + R() * 0.4), face(x, z) + (R() - 0.5) * 0.8, 0.5));
+  scatter(10, 4.5, 13, (x, z, r) => side(x, z, r, 0.3), (x, z) => add(['bone_A', 'bone_B', 'ribcage', 'skull'][Math.floor(R() * 4)], x, z, S * 0.8, R() * TAU, 0));
+  // árboles secos dentro y, fuera de la verja, un bosque de otoño
+  scatter(6, 7, 13, (x, z, r) => side(x, z, r, 1.2), (x, z) => add(['tree_dead_large', 'tree_dead_medium', 'tree_dead_small', 'tree_dead_large_decorated'][Math.floor(R() * 4)], x, z, S * (0.9 + R() * 0.4), R() * TAU, 1.2));
+  scatter(34, CEM_RING + 3, 40, (x, z) => !K.nearGate(x, z, 5) && K.free(x, z, 2.2), (x, z) => add(['tree_pine_orange_large', 'tree_pine_orange_medium', 'tree_pine_yellow_large', 'tree_pine_yellow_medium', 'tree_dead_large', 'tree_dead_medium'][Math.floor(R() * 6)], x, z, S * (0.9 + R() * 0.5), R() * TAU, 2.2));
+  // y la hierba de siempre (del bosque), entre las tumbas
+  scatter(110, 1.8, 22, (x, z, r) => r > 1.7 && !K.nearGate(x, z, 2.2), (x, z) => add(['Grass_Common_Short', 'Grass_Wispy_Short', 'Grass_Common_Tall'][Math.floor(R() * 3)], x, z, 0.18 + R() * 0.15));
+  return { puts: K.puts, solids: K.solids };
+}

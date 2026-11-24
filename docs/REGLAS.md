@@ -280,6 +280,16 @@ No las cambies sin preguntarle.
   árboles, rocas, casas e islas, otros desniveles a lo lejos (colinas y hondonadas pasadas las compuertas; donde se juega,
   siempre llano), el sol por otro lado y otra hora para empezar. Se prepara al acabar la partida anterior (en el menú), no al
   empezar.
+- **El cementerio** (elegido por el usuario: «Sí, KayKit», la propuesta de los paquetes gratuitos; en Combate y Toques, en
+  «Entorno (en VR)» y en el viaje por portales): de noche siempre (estrellas, niebla azulada y el cómic algo más oscuro), con
+  una verja de hierro en corro abierta hacia las compuertas y su arco detrás, tumbas y lápidas a los lados y detrás, la cripta,
+  farolas con calavera, faroles, velas, calabazas, árboles secos y, fuera de la verja, un bosque de otoño; y búhos. Del pack
+  **Halloween Bits de KayKit** (CC0), que se baja desde las sesiones (está en GitHub).
+- **Los esqueletos de KayKit salen del suelo** (de la misma propuesta): el **esbirro** (con hacha), el **guerrero** (espada y
+  escudo) y el **mago** (bastón; ataca con un hechizo), del Character Pack: Skeletons de KayKit (CC0). No salen por las
+  compuertas: **aparecen delante, a 5,5-8 m, saliendo de la tierra** (con su animación y un reventón de tierra) y, al acabar,
+  echan a andar. Son la fauna del cementerio (con los zombis y los murciélagos) y se pueden elegir en Rivales; van con los
+  ajustes de los zombis («Zombis: rapidez de gestos…»).
 - **Viaje por portales** (elegido por el usuario: «que nunca tenga la sensación de pasar siempre por el mismo entorno»; en
   Combate y Toques, «Viaje por portales», de serie): cada **«Oleadas en cada entorno»** (2 de serie), al empezar la oleada, un
   aro de luz con su remolino llega desde el frente, te pasa por encima y, con un destello blanco, estás en otro entorno (la

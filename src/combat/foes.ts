@@ -67,10 +67,17 @@ export interface FoeDef {
   boss?: boolean;
   /** Un robot de RepArena (geométrico, hecho en código: src/combat/robots.ts), con las animaciones de la biblioteca. */
   robot?: 'ripper' | 'destroyer' | 'colossus';
+  /** Sale del suelo (los esqueletos de KayKit): su animación de salir; aparece delante, sin compuerta, y no se mueve hasta
+   * acabarla. */
+  rise?: string;
 }
 
 const ZOMBIE2_CLIPS: FoeClips = { idle: 'Idle', walk: 'Walk', run: 'Run', attack: 'Punch', hit: 'HitReact', death: 'Death', dance: 'Idle_Attack' };
 const PIRATE_CLIPS: FoeClips = { idle: 'Idle', walk: 'Walk', run: 'Run', attack: 'Sword', hit: 'HitReact', death: 'Death', dance: 'Wave' };
+// los esqueletos de KayKit (CC0): su andar de esqueleto, tajo (el mago, su hechizo), y celebran al esperar
+const SKEL_CLIPS: FoeClips = { idle: 'Idle', walk: 'Walking_D_Skeletons', run: 'Running_A', attack: '1H_Melee_Attack_Chop', hit: 'Hit_A', death: 'Death_C_Skeletons', dance: 'Cheer', taunt: 'Taunt' };
+// (sus modelos miden 2,59 de alto con el arma: a su tamaño, unos 1,8 m)
+const skel = (asset: string, h: number, attack = SKEL_CLIPS.attack): FoeDef => ({ asset, h, k: h / 2.4, r: 0.4, stop: 1.15, speedF: 0.95, heavy: false, walk: 0.75, run: 2.6, minTs: 0.5, maxTs: 2.2, clips: { ...SKEL_CLIPS, attack }, atk: [0.2, 0.4], voice: 'skeleton', grp: 'zombie', ctr: 0.55, rise: 'Spawn_Ground_Skeletons' });
 const CUTE_CLIPS: FoeClips = { idle: 'Idle', walk: 'Walk', run: 'Walk', attack: 'Bite_Front', hit: 'HitRecieve', death: 'Death', dance: 'Jump' };
 
 const zombie2 = (asset: string, h: number, voice: string): FoeDef => ({ asset, h, k: 1, r: 0.4, stop: 1.1, speedF: 0.9, heavy: false, walk: 0.6, run: 2.4, minTs: 0.5, maxTs: 2.2, clips: ZOMBIE2_CLIPS, atk: [0.25, 0.45], voice, grp: 'zombie', ctr: 0.62 });
@@ -95,6 +102,9 @@ export const FOE_DEF: Record<string, FoeDef> = {
   skull: cute('foe-skull', 1.55, 1.0, 'skull'),
   alien: cute('foe-alien', 2.06, 1.2, 'alien'),
   alientall: cute('foe-alientall', 2.11, 1.35, 'alientall'),
+  skelminion: skel('foe-skelminion', 1.7),
+  skelwarrior: skel('foe-skelwarrior', 1.85),
+  skelmage: skel('foe-skelmage', 1.8, 'Spellcast_Shoot'),
 };
 // (el zombi verde y el gordo, algo más grandes que en RepArena, como en el prototipo: que se vean bien de lejos)
 FOE_DEF.zgreen.k = 1.2;
@@ -162,7 +172,7 @@ export const foeName = (k: string): string => [...FOE_GATE, ...FOE_FLY].find((o)
 /** Lo que aguanta cada uno de serie si no es 1 (las de las compuertas, 2) (RepArena: DEV_FOE_HP). */
 export const DEV_FOE_HP: Record<string, number> = { 'g:robot_h': 3, 'g:puglin': 1, 'g:zchubby': 3, 'g:yeti': 3, 'g:cyclops': 3, 'g:captain': 3, 'h:spider': 2, 'h:spider_h': 3, 'f:bomber': 2, 'f:cthulhu': 2 };
 /** En qué tramo de la escalera entra cada uno (RepArena: FOE_TIER). */
-export const FOE_TIER: Record<string, number> = { zombie: 1, zgreen: 1, puglin: 1, mushroom: 1, crab: 1, drone: 1, bee: 1, robot: 2, imp: 2, skeleton: 2, sharky: 2, alien: 2, spider: 2, skull: 2, hornet: 2, bat: 2, zchubby: 3, raptor: 3, thrower: 3, demon: 3, greendemon: 3, mako: 3, alientall: 3, cthulhu: 3, cyclops: 4, yeti: 4, captain: 4 };
+export const FOE_TIER: Record<string, number> = { zombie: 1, zgreen: 1, puglin: 1, mushroom: 1, crab: 1, drone: 1, bee: 1, robot: 2, imp: 2, skeleton: 2, sharky: 2, alien: 2, spider: 2, skull: 2, hornet: 2, bat: 2, zchubby: 3, raptor: 3, thrower: 3, demon: 3, greendemon: 3, mako: 3, alientall: 3, cthulhu: 3, cyclops: 4, yeti: 4, captain: 4, skelminion: 1, skelwarrior: 2, skelmage: 3 };
 
 const devFoeDefHp = (key: string): number => DEV_FOE_HP[key] || (key.startsWith('g:') ? 2 : 1);
 type FoeRow = { hp?: number; str?: number; tier?: number };
