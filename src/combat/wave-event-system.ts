@@ -78,7 +78,7 @@ export class WaveEventSystem extends createSystem({}) {
     if (!rocks) return;
     const s = Math.random() < 0.5 ? -1 : 1;
     this.from.set(GAME.head.x + s * (3 + Math.random() * 4), 13 + Math.random() * 3, GAME.head.z - 6 - Math.random() * 6);
-    rocks.throw(this.from, 1.15);
+    rocks.throw(this.from, 1.15, true); // (con su sombra en el suelo)
   }
 
   /** La lluvia de oro: salen orbes a tu alcance (delante y a los lados, del pecho a algo por encima de la cabeza), bajan
