@@ -2,7 +2,8 @@
 // una paralela o dos; la escena A: torres sobre un valle alpino): cables rectos de torre en torre que acaban en vertical hasta
 // la plataforma; cada remo sube y, sin remar, se resbala un poco, nunca más abajo de la plataforma de salida. Nada flota.
 import { describe, expect, it } from 'vitest';
-import { ROPE, ROPE_CHUNK, RopeCourse, RopeRun, ropeDecoPuts, ropePano } from '../../src/modes/bars/rope';
+import { FALL, ROPE, ROPE_CHUNK, RopeCourse, RopeRun, ropeDecoPuts } from '../../src/modes/bars/rope';
+import { ROPE_WORLDS, worldOf, worldPano, worldStarts } from '../../src/modes/bars/rope-worlds';
 
 const DEG = 180 / Math.PI;
 const lens = [10, 12, 14, 16, 18].map((r) => r * ROPE.perRep);
@@ -86,15 +87,50 @@ describe('el recorrido de la cuerda', () => {
     expect(C.ground(h, 2000)).toBeLessThan(C.ground(h, 300) + 1e-6);
   });
 
-  it('la foto de fondo cambia con la altura: los Alpes abajo y, en el último tramo, la cima', () => {
-    expect(ropePano(0, 1)).toBe('aldea');
-    const n = 7, list = Array.from({ length: n }, (_, i) => ropePano(i, n));
-    expect(list[0]).toBe('aldea');
-    expect(list[n - 1]).toBe('cumbre');
-    expect(list).toContain('montana');
-    expect(list).toContain('lago');
-    expect(ropePano(0, 2)).toBe('aldea');
-    expect(ropePano(1, 2)).toBe('cumbre');
+  it('los mundos: con 4 tramos o menos, uno cada uno; con más, a partes iguales; y su foto, la de su mundo', () => {
+    expect([0, 1, 2, 3].map((i) => worldOf(i, 4).key)).toEqual(['alps', 'gorge', 'jungle', 'coast']);
+    expect([0, 1, 2].map((i) => worldOf(i, 3).key)).toEqual(['alps', 'gorge', 'jungle']);
+    expect(Array.from({ length: 8 }, (_, i) => worldOf(i, 8).key)).toEqual(['alps', 'alps', 'gorge', 'gorge', 'jungle', 'jungle', 'coast', 'coast']);
+    expect(worldStarts(2, 8)).toBe(true);
+    expect(worldStarts(1, 8)).toBe(false);
+    expect(worldStarts(0, 8)).toBe(false);
+    // (los Alpes, según la altura: abajo, desde el valle; arriba, la montaña; la costa acaba al ocaso)
+    expect(worldPano(0, 8)).toBe('aldea');
+    expect(worldPano(1, 8)).toBe('montana');
+    expect(worldPano(7, 8)).toBe('ocaso');
+    expect(worldPano(0, 1)).toBe('aldea');
+    for (const W of ROPE_WORLDS) expect(W.panos.length).toBeGreaterThan(0);
+  });
+
+  it('nada flota en ningún mundo: árboles, palmeras, plantas y piedras, en el suelo (y en la costa, por encima del mar)', () => {
+    const hEnd = C.h(C.len), seaY = C.towers[0].base - 3;
+    for (const w of ['jungle', 'coast', 'gorge'] as const) {
+      let n = 0;
+      for (let c = -5; c * ROPE_CHUNK < hEnd; c++)
+        for (const P of ropeDecoPuts(C, c, [], undefined, w, w === 'coast' ? seaY : -1e9, w === 'coast' ? 3 : NaN)) {
+          if (!/Tree|Pine|Palm|Fern|Plant|Bush|Rock_Medium/.test(P.n) || (w === 'jungle' && P.n === 'CommonTree_4' && Math.abs(P.u) < 4)) continue;
+          n++;
+          const g = C.ground(P.ds, P.u);
+          expect(P.y, `${w}: ${P.n}`).toBeLessThanOrEqual(g + 1e-6);
+          expect(P.y, `${w}: ${P.n}`).toBeGreaterThan(g - 0.6);
+          if (w === 'coast') expect(g).toBeGreaterThan(seaY);
+          if (/Tree|Palm/.test(P.n)) expect(Math.abs(P.u)).toBeGreaterThanOrEqual(ROPE.treeU - 1e-6);
+        }
+      expect(n, w).toBeGreaterThan(w === 'gorge' ? 5 : 20); // (la garganta, casi solo roca)
+    }
+  });
+
+  it('la garganta: paredes lejos de la cuerda (no agobian) y alguna cascada; la costa, su barco', () => {
+    let falls = 0, ship = 0;
+    for (let c = 0; c < 30; c++) {
+      for (const P of ropeDecoPuts(C, c, [], undefined, 'gorge')) {
+        if (P.n === FALL) falls++;
+        if (P.n === 'Cliff4' && Math.abs(P.u) > 6) expect(Math.abs(P.u)).toBeGreaterThan(11);
+      }
+      for (const P of ropeDecoPuts(C, c, [], undefined, 'coast', -20, 5)) if (P.n === 'ShipLarge') ship++;
+    }
+    expect(falls).toBeGreaterThan(3);
+    expect(ship).toBe(1);
   });
 
   it('el mismo paisaje cada vez que se pinta un trozo', () => {

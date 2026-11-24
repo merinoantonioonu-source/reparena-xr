@@ -173,7 +173,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
   - [x] **PR 1 · El armazón jugable** (la escena A del usuario: cables rectos de torre en torre sobre un valle alpino, la
     subida vertical al final de cada tramo hasta la plataforma, el avance por remo, resbalar, y nada flota)
   - [x] **PR 2 · Retos y premios** (el enjambre, la ráfaga, la piedra y el cable deshilachado; las frutas y el cofre que se abre)
-  - [ ] PR 3 · Los mundos y el jefe
+  - [x] **PR 3 · Los mundos y el jefe** (los Alpes, la garganta, la selva y la costa; el dragón del último tramo)
 - [ ] **Lo que se ve desde cada postura, el superman, las cuestas y Arcos** (plan trazado con el usuario el 22/11/2026, por
   bloques, un PR cada uno: `docs/PLAN-ERGONOMIA-Y-CUESTAS.md`; quién hace cada parte, en su apartado 0)
 
@@ -418,6 +418,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- **La cuerda, PR 3 (mundos y jefe)**: el plan de la cuerda está entero (`docs/PLAN-BARRAS-CUERDA.md`). Los mundos se eligen
+  por tramo (`rope-worlds.ts`) y se cambian al llegar a la plataforma (`BarsSystem.enterWorld` → `RopeScene.setWorld`: rehace el
+  paisaje con el estilo del mundo; la foto la pone `EnvSystem` con `ropePano`, que ahora es la del mundo). El dragón
+  (`RopeBoss`) para la cuerda con `RopeRun.hold` y le da `strikeRep` (un remo explosivo o una onda ×2+). **El emulador sin
+  tarjeta gráfica se cae** con muchos árboles con hojas transparentes a la vista: la densidad del paisaje se dejó como el bosque de
+  Combate (unos 50 árboles y 50 plantas a la vez). **Pendiente con el usuario**: probar la cuerda entera en las gafas (es la
+  primera vez que la ve: mareo, ritmo, si se leen los retos y el dragón tumbado, y con una sola paralela).
 
 - **La cuerda, PR 2 (retos y premios)**: `RopeTrials` (`src/modes/bars/rope-trials.ts`, lógica pura) recibe cada fotograma
   lo que mira de ti (`TrialEnv`: por dónde vas, lo subida y lo apartada que llevas la cabeza —en el marco de la cuerda, desde

@@ -47,8 +47,13 @@ La pared rocosa (C) queda para las dominadas, donde de verdad cuelgas en vertica
   el cable deshilachado (un remo explosivo: el `fast` del detector); frutas del kit a la altura de tu cabeza arriba, y el cofre
   de la plataforma, abierto (`Chest_Gold`) con sus premios (`HOOKS.prize`). En `rope-trials.ts` (lógica pura, con
   `tests/unit/bars-rope-trials.test.ts`) y `rope-trials-look.ts`.
-- [ ] **PR 3 · Los mundos y el jefe**: la garganta de la cascada (B), los árboles gigantes de la selva (C) y del barco al
-  faro del acantilado (D), de los bocetos; el jefe, un águila o el dragón que lanza cosas desde arriba.
+- [x] **PR 3 · Los mundos y el jefe**: la garganta de la cascada (B), los árboles gigantes de la selva (C) y del barco al
+  faro del acantilado (D), de los bocetos; el jefe, un águila o el dragón que lanza cosas desde arriba. Hecho así: `rope-worlds.ts`
+  (qué mundo y qué foto en cada tramo: `worldOf`, `worldPano`, `worldStarts`), `ropeDecoPuts(…, world, seaY, shipH)` (lo de
+  cada mundo y las torres de cada estilo: madera, pilar de roca, árbol gigante), `RopeScene.setWorld` (el suelo, el mar de la
+  costa —`Sea` de la Travesía—, las cascadas y el destello); el jefe, `rope-boss.ts` (lógica pura: `RopeBoss`, con
+  `tests/unit/bars-rope-boss.test.ts`; la cuerda se para con `RopeRun.hold`) y `rope-boss-look.ts` (el dragón del catálogo y
+  las bolas de fuego de los jefes de la Travesía, `Missile`).
 
 ## Dónde está
 

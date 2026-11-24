@@ -22,9 +22,12 @@ import { dipOne, eqName, eqPose, loadEquip, type Equip } from './equip.js';
 import type { BarEvent, BarsEnv, PlaceEnv } from './env.js';
 import { Placer, PLACE_HOLD, type PlaceEvent } from './place.js';
 import { BarField, HeadTarget, hangSecs, TGT } from './targets.js';
-import { ROPE, RopeCourse, RopeRun, ropePano } from './rope.js';
+import { ROPE, RopeCourse, RopeRun } from './rope.js';
+import { worldNo, worldOf, worldPano, worldStarts } from './rope-worlds.js';
 import { buildTrials, RopeTrials, TRIAL_FAIL, TRIAL_PASS, type Trial, type TrialEnv } from './rope-trials.js';
 import { RopeTrialsLook, type LookFrame } from './rope-trials-look.js';
+import { BOSS, BOSS_SAY, RopeBoss, type BossEnv } from './rope-boss.js';
+import { RopeBossLook } from './rope-boss-look.js';
 import { barReq } from './detect.js';
 import { RopeScene } from './rope-scene.js';
 import { eqAxes } from './equip.js';
@@ -83,12 +86,23 @@ export class BarsSystem extends createSystem({}) {
   private readonly fruitAt = new Vector3();
   private readonly chestAt = new Vector3();
   private fastRep = false;
+  /** El jefe del último tramo (PR 3: rope-boss.ts), lo que se ve de él y lo que mira de ti: si acabas de darle (un remo explosivo
+   * o bajar con la carga ×2 o más) o de hacer un remo cualquiera. */
+  private boss: RopeBoss | null = null;
+  private bossLook!: RopeBossLook;
+  private readonly bEnv: BossEnv = { s: 0, up: 0, req: 0.3, side: 0, strike: false, rep: false, playing: false };
+  private strikeRep = false;
+  private anyRep = false;
   private readonly ropeHits: BarHits = {
     rep: (o) => {
       this.rope?.rep(this.clock, o.perfect);
-      if (o.fast) this.fastRep = true; // (un remo explosivo: el que pasa el cable roto)
+      if (o.fast) this.fastRep = this.strikeRep = true; // (un remo explosivo: el que pasa el cable roto y le da al jefe)
+      this.anyRep = true;
     },
-    blast: (p) => this.rope?.boost(p),
+    blast: (p) => {
+      this.rope?.boost(p);
+      if (p >= 2) this.strikeRep = true; // (bajar con la carga aguantada también le da al jefe)
+    },
   };
 
   constructor(...a: ConstructorParameters<ReturnType<typeof createSystem>>) {
@@ -131,6 +145,7 @@ export class BarsSystem extends createSystem({}) {
     this.hang.arenaOf = () => arena.map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is NonNullable<typeof o> => !!o);
     this.ropeScene = new RopeScene(this.root, this.hang.arenaOf, () => (this.world.scene as unknown as { fog: { color: { getHex(): number } } | null }).fog?.color.getHex() ?? 0xc8d6e4);
     this.trialsLook = new RopeTrialsLook(this.root, this.ropeScene.trackGroup);
+    this.bossLook = new RopeBossLook(this.root, (p, n, c) => HOOKS.sparks(p, n, c));
     HOOKS.placeEq = (note) => this.startPlace(() => HOOKS.showMenu(''), note ?? '');
     HOOKS.eqPlaced = () => this.placed();
     HOOKS.placing = () => this.placing;
@@ -160,7 +175,7 @@ export class BarsSystem extends createSystem({}) {
     if (!R || !this.ropeShown) return '';
     // (llegado a la plataforma, ya la del tramo siguiente: cambia mientras descansas)
     const i = R.reached ? R.course.wave(R.end + 0.01) : R.course.wave(R.s);
-    return ropePano(Math.min(i, R.course.ends.length - 1), R.course.ends.length);
+    return worldPano(Math.min(i, R.course.ends.length - 1), R.course.ends.length);
   }
   get ropeYaw(): number {
     return this.ropeScene?.yaw ?? 0;
@@ -232,12 +247,15 @@ export class BarsSystem extends createSystem({}) {
       for (let i = 0, n = Math.min(60, Math.max(1, nWaves())); i < n; i++) lens.push(waveReps(i) * ROPE.perRep);
       this.rope = new RopeRun(new RopeCourse(lens, 1 + Math.floor(Math.random() * 9973)));
       this.trials = new RopeTrials(buildTrials(this.rope.course));
+      this.boss = this.rope.course.ends.length > 1 ? new RopeBoss(this.rope.course) : null; // (con un solo tramo, sin jefe)
     } else {
       this.rope = null;
       this.trials = null;
+      this.boss = null;
     }
     this.trialsLook.reset();
     this.ropeScene.setCourse(this.rope?.course ?? null);
+    if (this.rope) this.enterWorld(0, false);
   }
 
   /** La oleada i va a empezar (la partida ya la preparó): la cola de objetivos, o los segundos de colgado. */
@@ -262,8 +280,9 @@ export class BarsSystem extends createSystem({}) {
   }
 
   /** Para el marcador. */
-  hud(): { hold: number; need: number; left: number; mount: boolean; ropeLeft: number | null } {
-    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount', ropeLeft: this.rope ? Math.ceil(this.rope.left) : null };
+  hud(): { hold: number; need: number; left: number; mount: boolean; ropeLeft: number | null; bossLeft: number | null } {
+    const B = this.boss;
+    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount', ropeLeft: this.rope ? Math.ceil(this.rope.left) : null, bossLeft: B && B.blocking ? BOSS.hits - B.hits : null };
   }
 
   /** El aviso del centro de la vista: colocar el aparato o colgarse (RepArena: drawCenter); null si no toca. */
@@ -321,6 +340,8 @@ export class BarsSystem extends createSystem({}) {
     if (this.rig) this.rig.grp.visible = false;
     this.rope = null;
     this.trials = null;
+    this.boss = null;
+    this.bossLook?.update(0, false, null, this.lookF, 0.3);
     this.ropeScene?.setCourse(null);
     this.ropeScene?.update(false, 0);
     this.trialsLook?.update(0, false, this.trialLive, this.lookF, null, [0], 0, this.fruitAt, 0);
@@ -371,12 +392,15 @@ export class BarsSystem extends createSystem({}) {
     if (!R) return;
     const playing = this.mstate === 'play' && !GAME.between && !GAME.paused;
     R.step(dt, playing);
+    this.ropeScene.eye.copy(head.p);
     this.ropeScene.update(true, R.s); // (con lo que has subido en este fotograma)
     for (const e of R.ev) {
       if (e.t === 'ledge') {
         HOOKS.say('¡PLATAFORMA!', '#ffd166', 1.6, false);
         HOOKS.score(50, true);
         SND.combo();
+        // pasado el último tramo de un mundo, al siguiente (con un destello y su nombre)
+        if (worldStarts(e.wave + 1, R.course.ends.length)) this.enterWorld(e.wave + 1, true);
         // el cofre de la plataforma se abre y suelta sus premios (los puntos y una gema), que suben flotando
         const at = this.ropeScene.openChest(e.wave + 1, this.chestAt);
         if (at) {
@@ -439,8 +463,68 @@ export class BarsSystem extends createSystem({}) {
     F.right.set(Math.cos(ry), 0, -Math.sin(ry));
     this.fruitAt.set(this.headAt0.x, this.bar.ref + E.req + 0.03 - frame.position.y, this.headAt0.z);
     this.trialsLook.update(dt, this.ropeScene.visible, T.live(this.trialLive), F, R.course, this.ropeScene.laneList, this.ropeScene.laneHeight, this.fruitAt, this.clock);
+    this.stepBoss(dt, playing);
+  }
+
+  // el dragón del último tramo: te corta el paso hasta derrotarlo (lo que mira de ti, lo que pasa y lo que se ve)
+  private stepBoss(dt: number, playing: boolean): void {
+    const R = this.rope, B = this.boss, F = this.lookF;
+    if (!R || !B) return;
+    const E = this.bEnv;
+    E.s = R.s;
+    E.up = this.tEnv.up;
+    E.req = this.tEnv.req;
+    E.side = this.tEnv.side;
+    E.strike = this.strikeRep;
+    E.rep = this.anyRep;
+    E.playing = playing && R.course.wave(R.s) === B.wave && !R.reached;
+    this.strikeRep = this.anyRep = false;
+    B.step(dt, E);
+    R.hold = B.blocking || (B.st === 'off' && R.course.wave(R.s) === B.wave) ? B.at : Infinity;
+    for (const e of B.ev) {
+      if (e.t === 'appear') {
+        HOOKS.say(BOSS_SAY.appear, '#ff8a3d', 2.4, true);
+        SND.roar(head.p, 0.7, 'dragon');
+      } else if (e.t === 'wind') SND.roar(head.p, 0.9, 'dragon');
+      else if (e.t === 'throw') SND.whoosh(head.p);
+      else if (e.t === 'dodge') {
+        this.bossLook.dodged();
+        HOOKS.say('¡Esquivada!', '#8fdc5a', 0.9, false);
+        HOOKS.score(20, true);
+      } else if (e.t === 'burn') {
+        this.bossLook.burned(F);
+        GAME.combo = 0;
+        SND.hurt();
+        HOOKS.say(e.shot === 'ball' ? BOSS_SAY.burnBall : BOSS_SAY.burnSweep, WARN, 2.2, true);
+      } else if (e.t === 'dizzy') HOOKS.say(BOSS_SAY.dizzy, '#ffd166', 2.4, true);
+      else if (e.t === 'recover') HOOKS.say(BOSS_SAY.recover, '#a49fc8', 1.4, false);
+      else if (e.t === 'hit') {
+        SND.boltHit(head.p, 2);
+        HOOKS.sparks(this.v1.copy(head.p).setY(head.p.y + 2.5), 26, 0xff8a3d);
+        HOOKS.say(`¡Le has dado! Le quedan ${e.left}`, '#ffd166', 1.6, false);
+        HOOKS.score(40, true);
+      } else if (e.t === 'down') {
+        HOOKS.trophy(BOSS_SAY.down, 'La cuerda está libre', '#ffd166');
+        HOOKS.score(200, true);
+        SND.explosion(this.v1.copy(head.p).setY(head.p.y + 4), true);
+      }
+    }
+    B.ev.length = 0;
+    this.bossLook.update(dt, this.ropeScene.visible, B, F, this.tEnv.req);
   }
   private readonly v1 = new Vector3();
+
+  // el mundo del tramo i (rope-worlds.ts): su paisaje y, en la costa, su mar (bajo el pie de la torre de donde sale) y su barco
+  private enterWorld(i: number, flash: boolean): void {
+    const R = this.rope;
+    if (!R) return;
+    const n = R.course.ends.length, W = worldOf(i, n), T = R.course.towers[Math.min(i, R.course.towers.length - 1)];
+    this.ropeScene.setWorld(W.key, W.key === 'coast' ? T.base - 3 : -1e9, W.key === 'coast' ? T.h - 12 : NaN, flash);
+    if (flash) {
+      HOOKS.say(`MUNDO ${worldNo(i, n) + 1} · ${W.name}`, '#ffd166', 3, false);
+      SND.horn();
+    }
+  }
 
   // al colgarte la primera vez en la ronda: la cuerda pasa por tus paralelas, a lo largo de tu cuerpo, subiendo hacia lo alto
   // de tu cabeza (con dos paralelas, por cada una; con una, cruzada sobre ti, por encima de su centro)
