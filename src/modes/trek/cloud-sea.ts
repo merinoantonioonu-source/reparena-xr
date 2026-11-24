@@ -19,6 +19,7 @@ void main() {
 const FRAG = /* glsl */ `
 uniform float uT;
 uniform vec3 uHaze;
+uniform vec2 uEdge;
 varying vec3 vDir;
 // (sin seno: en las Quest, sin(números grandes) pierde precisión)
 float hash(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
@@ -39,7 +40,7 @@ void main() {
   col = mix(col, uHaze, far * 0.7);
   // casi opacas bajo los pies; en el horizonte, bruma que deja ver las montañas de la foto
   // (la bruma, solo en la franja del horizonte: más abajo, el suelo de la foto se veía como una llanura tras las nubes)
-  float a = smoothstep(0.015, -0.03, h) * mix(0.85 + 0.15 * top, 1.0, smoothstep(-0.15, -0.4, h));
+  float a = smoothstep(uEdge.x, uEdge.y, h) * mix(0.85 + 0.15 * top, 1.0, smoothstep(-0.15, -0.4, h));
   gl_FragColor = vec4(col, a);
 }`;
 
@@ -49,8 +50,10 @@ export class CloudSea {
   readonly mesh: Mesh;
   private readonly mat: ShaderMaterial;
 
-  constructor() {
-    this.mat = new ShaderMaterial({ uniforms: { uT: { value: 0 }, uHaze: { value: new Color(0xc8d6e4) } }, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, depthTest: true, fog: false, toneMapped: false, side: BackSide });
+  /** edge: dónde empiezan las nubes y dónde ya tapan del todo (la altura de la dirección de la mirada: 0, el horizonte; de
+   * serie, la del risco; la cuerda del remo invertido, más arriba: tapan también la franja del prado de la foto). */
+  constructor(edge: [number, number] = [0.015, -0.03]) {
+    this.mat = new ShaderMaterial({ uniforms: { uT: { value: 0 }, uHaze: { value: new Color(0xc8d6e4) }, uEdge: { value: edge } }, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, depthTest: true, fog: false, toneMapped: false, side: BackSide });
     this.mesh = new Mesh(new SphereGeometry(1, 48, 24), this.mat);
     this.mesh.name = 'travesia-mar-de-nubes';
     // (justo detrás de la foto de fondo y de las nubes del cielo: lo demás de la escena, delante)

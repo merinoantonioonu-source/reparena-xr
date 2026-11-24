@@ -168,6 +168,12 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
   - [x] **Fase 2 · Arreglos del detector** (tras el ajuste «Manos: filtro nuevo», apagado de serie: una mano solo vale estable, la que no casa con la otra no está en la pesa, perdidas subiendo espera a verlas —opción A del usuario— y al quitar la pausa la pesa empieza de cero; probado con la caja negra del usuario) — #54
   - [ ] **Fase 3 · Los demás ejercicios con pesas**: el **curl a un brazo** (mancuerna; su caja negra: un rayo al llegar arriba por un salto falso de la mano al reaparecer) — #60; con su segunda caja negra, la mano que reaparece arriba carga, tras perderla abajo vuelve a cargar, una imagen suelta no carga ni dispara y con la mano escondida nunca dispara (opción 1 del usuario, también en el curl con barra) — #63; faltan la elevación frontal y los de dos tiempos (sentadilla con press, con elevación y swing), cuando haya cajas negras suyas
   - [ ] Fase 4 · Cierre (encendido de serie cuando el usuario lo dé por bueno)
+- [ ] **Barras: la aventura en la cuerda del remo invertido** (elegido por el usuario: «A con tramos de B», resbalar
+  mínimamente, en Barras, con una paralela o dos; plan en `docs/PLAN-BARRAS-CUERDA.md`)
+  - [x] **PR 1 · El armazón jugable** (la escena A del usuario: cables rectos de torre en torre sobre un valle alpino, la
+    subida vertical al final de cada tramo hasta la plataforma, el avance por remo, resbalar, y nada flota)
+  - [ ] PR 2 · Retos y premios
+  - [ ] PR 3 · Los mundos y el jefe
 - [ ] **Lo que se ve desde cada postura, el superman, las cuestas y Arcos** (plan trazado con el usuario el 22/11/2026, por
   bloques, un PR cada uno: `docs/PLAN-ERGONOMIA-Y-CUESTAS.md`; quién hace cada parte, en su apartado 0)
 
@@ -412,6 +418,22 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- **La aventura en la cuerda del remo invertido, PR 1** (`docs/PLAN-BARRAS-CUERDA.md`): con `barRope` (solo RepArena XR, de
+  serie apagado: *en pruebas*), `BarsSystem` crea al empezar la ronda un `RopeCourse` con todos los tramos (cada uno,
+  `waveReps(i) × ROPE.perRep`) y un `RopeRun`; el detector de siempre le pasa los remos y las ondas (`ropeHits` en vez de las
+  pompas de `BarField`) y la oleada se supera al llegar a la plataforma (`RopeRun.reached`). La cuerda se coloca al colgarte la
+  primera vez (`placeRope`: a lo largo de las paralelas con dos; cruzada a ella con una; hacia lo alto de tu cabeza). La
+  escena es la A de los bocetos (el usuario rechazó el cañón): `RopeCourse` hace cables rectos (`ROPE.pitch`, comba `sag`) y la
+  subida vertical (`verts`) con las esquinas redondeadas, y el suelo (`ground`) de pie de torre a pie de torre; `ropeDecoPuts`
+  pone pinos y piedras en él (`standPole`, `tiltPole`, `put` y `rockFit` de `pieces.ts`) y las torres (`TOWER`). `RopeScene`
+  hace la malla de la ladera al empezar la ronda y esconde la arena; `EnvSystem` aparta el entorno de serie mientras se ve
+  (`BarsSystem.ropeShown`). Visto en el emulador tumbado bajo dos paralelas (al empezar, en el cable y en la subida vertical);
+  los fondos realistas según la altura (`ropePano`, girados con `EnvSystem.ropeYaw`, su bruma `ROPE_HAZE`) y, en el valle, el
+  mar de nubes del risco (`CloudSea` con `edge` más alto) para que no se vea el suelo de la foto. **El emulador de gafas se cae
+  con fondos realistas y con una malla grande que recibe sombras** (sin tarjeta gráfica; también en el modo de pompas con
+  «Fondo realista»): para mirar la escena, el modo «Probar en el ordenador» poniendo la cámara a mano en cada fotograma (la
+  ladera, ya sin sombras). **Pendiente con el usuario**: probarlo en las gafas.
 
 - **El press de pecho, desde el cielo, y las cuchillas más pequeñas** (pedido del usuario: tumbado no se ven las compuertas, la
   bola quedaba entre las piernas y las cuchillas de Arcos eran descomunales). Con `skyFoes()` (`src/core/rules.ts`) los

@@ -87,7 +87,7 @@ export const KIT_MODELS: Record<Kit, string[]> = {
   food: ['Apple', 'Banana', 'Cherries', 'Orange', 'Pear', 'Strawberry', 'Pineapple', 'Watermelon', 'Lemon', 'Grapes'],
 };
 
-function put(kit: Kit, n: string, ds: number, u: number, y: number, o: Partial<Put> = {}): Put {
+export function put(kit: Kit, n: string, ds: number, u: number, y: number, o: Partial<Put> = {}): Put {
   return { kit, n, ds, u, y, ry: o.ry ?? 0, rx: o.rx ?? 0, rz: o.rz ?? 0, sx: o.sx ?? 1, sy: o.sy ?? 1, sz: o.sz ?? 1 };
 }
 
@@ -331,7 +331,7 @@ export function coastDecoPuts(chunk: number, out: Put[], clear: -1 | 0 | 1 = 0):
 /* ------------------------------------------------------------------ las piezas */
 
 /** Un `Dock_Pole` de pie: de `y0` a `y0 + len` (m), con grosor `th` (escala en x y z). */
-function standPole(ds: number, u: number, y0: number, len: number, th: number): Put {
+export function standPole(ds: number, u: number, y0: number, len: number, th: number): Put {
   const sy = len / PL_LEN;
   return put('island', 'Dock_Pole', ds, u, y0 - PL.y0 * sy, { sx: th, sy, sz: th });
 }
@@ -374,7 +374,7 @@ const BOX: Record<string, readonly [number, number, number, number, number, numb
 
 /** Una roca estirada para que su caja llene justo [u0, u1] a lo ancho, [y0, y1] a lo alto y [s0, s1] a lo largo (el sendero,
  * hacia delante). `flip`: de espaldas (ry = π), para que dos seguidas no sean iguales. */
-function rockFit(kit: Kit, n: string, u0: number, u1: number, y0: number, y1: number, s0: number, s1: number, flip = false): Put {
+export function rockFit(kit: Kit, n: string, u0: number, u1: number, y0: number, y1: number, s0: number, s1: number, flip = false): Put {
   const [x0, by0, z0, x1, by1, z1] = BOX[n], sx = (u1 - u0) / (x1 - x0), sy = (y1 - y0) / (by1 - by0), sz = (s1 - s0) / (z1 - z0), f = flip ? -1 : 1;
   // (con ry = π, x y z cambian de signo; el sendero va en −z: s = ds − z)
   return put(kit, n, (s0 + s1) / 2 + f * ((z0 + z1) / 2) * sz, (u0 + u1) / 2 - f * ((x0 + x1) / 2) * sx, y0 - by0 * sy, { ry: flip ? Math.PI : 0, sx, sy, sz });
@@ -394,7 +394,7 @@ const FRUITS: Record<string, readonly [number, number, number, number, number, n
   Grapes: [-0.1395, 0, -0.1193, 0.1395, 0.4226, 0.1193],
 };
 /** Un `Dock_Pole` tumbado a lo ancho e inclinado: su eje, de (`u0`, `y0`) a (`u1`, `y1`) (m), con grosor `th`. */
-function tiltPole(ds: number, u0: number, y0: number, u1: number, y1: number, th: number): Put {
+export function tiltPole(ds: number, u0: number, y0: number, u1: number, y1: number, th: number): Put {
   const du = u1 - u0, dy = y1 - y0, len = Math.hypot(du, dy), sy = len / PL_LEN;
   // (girado rz alrededor de su origen: su largo, el y del modelo, va a (−sin rz, cos rz); el centro del eje, a su sitio)
   const rz = Math.atan2(-du, dy), c = Math.cos(rz), sn = Math.sin(rz);

@@ -336,6 +336,25 @@ No las cambies sin preguntarle.
   abre ya se ve y su letra pequeña no se leía). Medallones dibujados, no modelos: no hay llave ni gema en los kits.
 - El césped del suelo gira y corre con el mundo (en las curvas, lo apoyado no patina sobre la hierba).
 
+
+**Barras**
+- **La aventura en la cuerda del remo invertido** (pedido del usuario; elegido de las propuestas: «A con tramos de B»; plan en
+  `docs/PLAN-BARRAS-CUERDA.md`): una opción de Barras («Remo invertido: aventura en la cuerda», *en pruebas*), con **una
+  paralela o dos**. Cuelgas boca arriba de un cable y cada remo te sube por él (más ritmo, más deprisa); si dejas de remar,
+  **resbalas un poco** («mínimamente»: nunca más abajo de la plataforma de salida). La escena, la A de los bocetos
+  (elegida por el usuario: lo primero, un cañón de rocas con la cuerda ondulante, era «muy poco atractivo»): **torres de madera
+  sobre un valle alpino**. **Como una tirolina de verdad**: cada tramo, **un cable recto y tenso** (con una comba leve) de la
+  plataforma de una torre a la siguiente, con su cuesta fija (de 30° a 42°), y lo último, **en vertical** por una cuerda fija
+  junto a la torre hasta su plataforma (se ve sobre ti: el tramo superado). **Nada flota**: la ladera es un suelo de verdad,
+  las torres apoyan en él sus patas y cada árbol, su tronco (y lejos de la cuerda). El cielo sigue arriba (el mundo no se
+  inclina: subir es que el valle baje hacia tus pies). Con dos paralelas, dos cables; con una, un cable por encima y la barra
+  colgada de una polea. **Fondo realista según la altura** (elegido por el usuario: «sigue tus propuestas», con la lógica del
+  mundo real: «no pongas el fondo en el cielo»): abajo, los Alpes desde el valle; a media subida, la montaña y el valle y las
+  colinas con nubes; en el último tramo, la vista desde la cima. La foto solo pone lo lejano (el cielo y las montañas del
+  horizonte, siempre derecho y a la altura de los ojos, girada hacia donde subes); por debajo del horizonte, la ladera del juego
+  y, más allá, **un mar de nubes en el valle** (las fotos están hechas de pie en un prado: sin él, se veía su hierba enorme). La
+  bruma, del color del horizonte de cada foto. La pared rocosa vertical, para las dominadas.
+
 **Repeticiones y disparo**
 - Cada repetición (sentadilla, zancada…) carga **un disparo por mano**, como mucho uno por mano y sin acumular.
 - Con las manos desnudas no se dispara pellizcando. Se lanza con una **sacudida de la mano hacia el enemigo**: puede
