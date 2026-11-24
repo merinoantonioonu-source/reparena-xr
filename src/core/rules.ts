@@ -22,6 +22,8 @@ export const isFloor = (): boolean => ['pushup', 'pike', 'plank1', 'plankrow', '
 export const isSeated = (): boolean => settings.exercise === 'dips';
 // Tumbado boca arriba (abdominales)
 export const isSupine = (): boolean => settings.exercise === 'abs' || settings.exercise === 'fpress' || (settings.exercise === 'combo' && settings.comboBase === 'abs');
+// Los voladores bajan del cielo (el press de pecho en Combate; RepArena XR, pedido del usuario: tumbado no se ven las compuertas)
+export const skyFoes = (): boolean => isCombat() && settings.exercise === 'fpress';
 // Batalla diminuta bajo tu cara (flexiones y plancha); en el superman los bichos vuelan de frente a tamaño normal
 export const isTiny = (): boolean => settings.mode !== 'touch' && settings.mode !== 'trek' && (settings.exercise === 'pushup' || settings.exercise === 'pike' || settings.exercise === 'inchworm' || oneArm());
 

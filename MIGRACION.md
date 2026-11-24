@@ -413,6 +413,18 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **El press de pecho, desde el cielo, y las cuchillas más pequeñas** (pedido del usuario: tumbado no se ven las compuertas, la
+  bola quedaba entre las piernas y las cuchillas de Arcos eran descomunales). Con `skyFoes()` (`src/core/rules.ts`) los
+  voladores no salen por las compuertas: `skySpawn` los saca a 13-17 m sobre tu cabeza, casi en la vertical (hacia los pies y
+  los lados, como mucho `SKY.tiltLow`), y `Flight.toSky` los baja frenando hasta 2-3 m sobre tu cara (`skyStep`): esperan
+  `SKY.wait`, muerden y vuelven a subir; el empujón los sube y, derribados, caen a un lado (`FlyerSystem.kill`); miran a tus
+  ojos con la cabeza hacia +Z. Hacia los pies, por orden: la bola (`GAME.head` + 0,38 m hacia los pies y 0,85 m arriba), los
+  avisos (`SKY_C`, `SKY_T` en `view-panels.ts`, con el camino como amenaza: `SKY_LANE`) y el marcador (`FP_BOARD_EL`, a 40°
+  del suelo y 2 m). Visto en el emulador mirando al cielo (abejas bajando, la bola y el aviso breve a un lado). Las cuchillas:
+  `BLADE_R` 0,42 (hojas de 85 cm, antes 1,4 m) y a lo ancho ×1,3 (antes ×1,7). **Pendiente con el usuario**: probarlo en las
+  gafas (si el marcador, al borde de la vista hacia los pies, se lee bien; si bajan a buen ritmo; y el tamaño de las
+  cuchillas).
+
 - **El asistente del vuelo** (elegido por el usuario: «paso a paso con preguntas»; sustituye a la práctica, que empezaba sola
   en pleno vuelo): `FlyCoach` (`src/modes/trek/plat/fly-coach.ts`, lógica pura con `tests/unit/fly-coach.test.ts`) corre en
   el corredor (`Runner.coachStep`) ya calibrado y antes del primer tramo (o en el descanso de un cofre, con «Ajustar el

@@ -41,7 +41,7 @@ import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
 import { CALIB_LINES, IDLE, PLACE } from '../exercise/how.js';
 import { FLOOR_EX, FloorDetector, floorDefaults, iwReach, type FloorCfg, type FloorInput } from '../exercise/floor.js';
-import { aimForced, aimManual, deepOn, flyList, foes, groundList, handsFree, holdsWeights, isFloor, isSupine, isTiny, oneArm, pistolOn, twoShots } from '../core/rules.js';
+import { aimForced, aimManual, deepOn, flyList, foes, groundList, handsFree, holdsWeights, isFloor, isSupine, isTiny, oneArm, pistolOn, skyFoes, twoShots } from '../core/rules.js';
 import { HatchSystem, hatchFoes } from './hatch-foes.js';
 import { devFoe, flyFoes, FOE_DEF, foeName, foeReady, gateFoes } from './foes.js';
 import { faunaOf, legOf, PLACE_NAME, placeAt, travelsAt, type Place } from './journey.js';
@@ -71,7 +71,7 @@ import { dayBoard, dayLive, type DayBoard } from '../core/today.js';
 import type { LiveStats } from '../core/career.js';
 import { PERKS } from './perks.js';
 import { buildWave, foeTierOf, isBossWave, killPoints, rampAfter, rampK, repPoints, repTimeOf, spawnGap, xrFoe, type WaveEnv, type WaveSpec } from './waves.js';
-import { Flight, type FlyGate } from './flight.js';
+import { Flight, skySpawn, type FlyGate } from './flight.js';
 import { FlyerSystem } from './flyers.js';
 import { ArcsSystem } from '../modes/arcs/arcs-system.js';
 import { BarsSystem } from '../modes/bars/bars-system.js';
@@ -160,6 +160,8 @@ const BLACK_R = 25;
 
 /** El marcador de los ejercicios de suelo (la batalla diminuta): lo que se levanta del suelo, como un atril (rad). */
 const BOARD_TILT = Math.PI / 4;
+/** El marcador del press de pecho: lo alto que queda sobre el suelo visto desde tu cabeza, hacia los pies (rad). */
+const FP_BOARD_EL = (40 * Math.PI) / 180;
 
 export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) {
   private fx!: Effects;
@@ -252,6 +254,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private gates: GateSystem | null = null;
   private pending = Array.from({ length: 6 }, () => ({ gate: null as Entity | null, t: 0, kind: '', boss: false, hp: 1, elite: '' as Elite | '' }));
   private fg: FlyGate = { x: 0, z: 0, ry: 0, scale: 1 };
+  /** De dónde sale y dónde espera el siguiente que baja del cielo (el press de pecho). */
+  private readonly sky = { start: new Vector3(), hover: new Vector3() };
   private spawnT = 0;
   /** El suceso de la oleada anterior (nunca dos seguidas). */
   private prevEv: WaveEvent | '' = '';
@@ -780,6 +784,18 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       o.rotation.set(-a, 0, 0);
       o.scale.setScalar(S);
       this.boardSpot(o.position, 0.45);
+      return;
+    }
+    if (playing && mode !== 'gate' && skyFoes()) {
+      // el press de pecho (boca arriba, con los voladores bajando del cielo; pedido del usuario: que nada tape su camino): no
+      // en el techo sobre la cara, sino más abajo, hacia los pies (a 40° del suelo, a 2 m), de cara a tus ojos y con lo de
+      // arriba hacia tu cabeza; se ve bajando un poco la vista y deja libre lo que hay encima de ti (y la bola y los avisos,
+      // entre los dos)
+      const W = 1.4, a = FP_BOARD_EL, D = 2.0;
+      o.position.set(0, 0.22 + D * Math.sin(a), -D * Math.cos(a));
+      o.rotation.set(a, 0, 0);
+      o.scale.setScalar(W / 0.64);
+      this.boardSpot(o.position, W / 2);
       return;
     }
     if (playing && mode !== 'gate' && isSupine()) {
@@ -1493,6 +1509,15 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.rw.onSpawn(hs.spawn(beast, who.boss, at, spec.hp), who.boss);
       return true;
     }
+    // boca arriba en el press de pecho, los voladores bajan del cielo, casi encima de ti (las compuertas no se ven)
+    if (skyFoes() && FOE_DEF[who.k]?.fly) {
+      const flyers = this.world.getSystem(FlyerSystem);
+      if (!flyers?.ready(who.k)) return true; // (aún cargando: este no sale)
+      skySpawn(GAME.head, Math.random, this.sky.start, this.sky.hover);
+      this.rw.onSpawn(flyers.spawn(who.k, this.fg, spec.hp, dv('flySpeed', this.rampLvl), dv('erratic', this.rampLvl), false, this.sky), who.boss);
+      if (spec.roam) this.message('¡JEFE ERRANTE!', 2, '#ff8a3d');
+      return true;
+    }
     // los que salen del suelo (los esqueletos): delante de ti, sin compuerta
     const rise = !!FOE_DEF[who.k]?.rise;
     if (this.gates && this.gates.queries.gates.entities.size > 0 && !rise) {
@@ -2075,6 +2100,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const sup = settings.exercise === 'superman' && settings.mode === 'combat';
     if (lift) this.ballTarget.copy(hands[lift].wrist).setY(hands[lift].wrist.y + 0.06);
     else if (sup) this.supBallAt(this.ballTarget);
+    else if (skyFoes()) {
+      // el press de pecho (boca arriba): encima del pecho, por encima de las pesas con los brazos estirados (a 90 cm de los
+      // ojos, a unos 24° de la vertical hacia los pies, fuera del camino de los voladores), donde se ve mirando arriba; antes
+      // iba a un metro hacia los pies, a ras de suelo, y quedaba entre las piernas
+      this.ballTarget.set(GAME.head.x + GAME.fwd.x * 0.38, GAME.head.y + 0.85 + 0.012 * Math.sin(time * 1.7), GAME.head.z + GAME.fwd.z * 0.38);
+    }
     else {
       // (de 32 cm bajo los ojos de pie a 12 cm con la cabeza baja, sin saltos: antes, al cruzar 1 m —la sentadilla honda, los
       // fondos—, la bola subía 20 cm de golpe justo cuando la miras para soltarla; docs/ERGONOMIA.md, C1)
