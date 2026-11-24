@@ -237,6 +237,9 @@ export class TrekSystem extends createSystem({}) {
   /** Los portales (un aro de luz con su remolino; dos: el que viene y el que dejas atrás), el destello al cruzarlo, las rocas
    * de los desprendimientos y lo que lleva soplando cada racha (s). */
   private readonly portals: Group[] = [];
+  /** Volando, a qué altura va cada portal (m, por su tramo): sigue la tuya, suave, para que lo cruces de verdad (pedido del
+   * usuario: el portal quedaba abajo, en la pasarela, y nunca se pasaba por él). */
+  private readonly portalY = new Map<number, number>();
   private portalMat!: ShaderMaterial;
   private flash!: Mesh;
   private flashT = 0;
@@ -1042,10 +1045,15 @@ export class TrekSystem extends createSystem({}) {
         HOOKS.trophy(e.title, e.sub);
         break;
       case 'pick': {
-        // una fruta del arco, comida: chispas de colores donde estaba
-        const P = e.p, u = (e.i + 0.5) / Math.max(1, P.n), gl = P.k === 'glide';
-        const y = gl ? GLIDE_LIFT * glideArc((u * P.len) / (P.len + LAND_PAST)) : 0.45 * 4 * u * (1 - u);
-        HOOKS.sparks(this.world3({ s: P.at + u * P.len, u: gl ? glideU(P, e.i) : 0, y: this.calibRef - 0.05 + y }, this.at), 8, [0xff6a8a, 0xffd166, 0x8cff99, 0xff9a3c][e.i % 4]);
+        // una fruta comida (la del arco, la del planeo o la del aire): chispas de colores y su sonido (pedido del usuario: sin
+        // sonido no se sabía si se había cogido). Volando, las chispas algo por delante (pegadas a los ojos no se ven)
+        const P = e.p, u = (e.i + 0.5) / Math.max(1, P.n), gl = P.k === 'glide', col = [0xff6a8a, 0xffd166, 0x8cff99, 0xff9a3c][e.i % 4];
+        if (P.k === 'berries') HOOKS.sparks(this.world3({ s: P.at + u * P.len + 1.4, u: P.u, y: P.h + this.calibRef }, this.at), 10, col);
+        else {
+          const y = gl ? GLIDE_LIFT * glideArc((u * P.len) / (P.len + LAND_PAST)) : 0.45 * 4 * u * (1 - u);
+          HOOKS.sparks(this.world3({ s: P.at + u * P.len, u: gl ? glideU(P, e.i) : 0, y: this.calibRef - 0.05 + y }, this.at), 8, col);
+        }
+        SND.orb(this.at.copy(head.p), false);
         break;
       }
       case 'gold': {
@@ -1085,7 +1093,8 @@ export class TrekSystem extends createSystem({}) {
         this.diag(e.t, e.p);
         if (e.p.k === 'ring') this.ringPop(e.p);
         if (e.p.k === 'fruit') {
-          // la fruta cogida: chispas de su color y se encoge (se la come)
+          // la fruta cogida: chispas de su color, su sonido y se encoge (se la come)
+          SND.orb(this.at.copy(head.p), !!e.p.special);
           this.gone.set(e.p.id, { t: 0, dir: 0 });
           HOOKS.sparks(this.world3({ s: e.p.at, u: e.p.side * FRUIT_U, y: this.calibRef }, this.at), e.p.special ? 30 : 14, e.p.special ? 0xc8ff3a : 0xffd166);
         }
@@ -1871,15 +1880,23 @@ export class TrekSystem extends createSystem({}) {
       if (!worldEnd(j, R.worldLen)) continue;
       const P = R.ends[j] + PORTAL_AT;
       if (P < R.dist - BACK || P > R.dist + AHEAD) continue;
-      const g = this.portals[n++], ry = R.tk.bend(P, -R.uShift, this.bp);
-      g.position.set(this.bp.x, PORTAL_R + 0.05 + this.gy(P), this.bp.z);
+      // (volando, a tu altura y delante de ti: tu lado es el que lleva el mundo desplazado, `uShift`)
+      const fly = R.fly && R.glider.alt > 0.3, want = R.glider.alt + this.calibRef;
+      let py = PORTAL_R + 0.05;
+      if (fly) {
+        const was = this.portalY.get(j) ?? want;
+        py = was + (want - was) * Math.min(1, dt / 0.8);
+        this.portalY.set(j, py);
+      } else this.portalY.delete(j);
+      const g = this.portals[n++], ry = R.tk.bend(P, fly ? 0 : -R.uShift, this.bp);
+      g.position.set(this.bp.x, py + this.gy(P), this.bp.z);
       g.rotation.set(0, ry, 0);
       g.visible = !lite;
       // (chispas que suben por el aro)
       if (playing && !GAME.paused && !lite && Math.random() < dt * 30) {
         const a = Math.random() * 6.283;
-        R.tk.bend(P, Math.cos(a) * PORTAL_R - R.uShift, this.bp);
-        HOOKS.sparks(this.at.set(this.bp.x, PORTAL_R + 0.05 + Math.sin(a) * PORTAL_R + R.dip + this.gy(P), this.bp.z), 2, Math.random() < 0.5 ? 0x8ff0ff : 0xff9cf0);
+        R.tk.bend(P, Math.cos(a) * PORTAL_R - (fly ? 0 : R.uShift), this.bp);
+        HOOKS.sparks(this.at.set(this.bp.x, py + Math.sin(a) * PORTAL_R + R.dip + this.gy(P), this.bp.z), 2, Math.random() < 0.5 ? 0x8ff0ff : 0xff9cf0);
       }
     }
     for (let i = n; i < this.portals.length; i++) this.portals[i].visible = false;

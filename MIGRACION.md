@@ -426,7 +426,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `FLY_FAR` del centro un rato, se vuelve a centrar (sale en el diagnóstico). Con su vídeo: sin sacudidas (lo que pide la
   cabeza se suaviza, `FLY.sideIn`, y la altura, `MID.tau`) pero deprisa cuando te mueves deprisa (`fastK`, como el filtro
   «1 €»); aros más grandes (`RING_R`) que al pasar se abren y se desvanecen (`TrekSystem.ringPop`); frutas del aire algo más
-  fáciles (`BERRY_R`); y el asistente, solo la primera vez o cuando se pida (`flyPractice` se apaga solo). **Los meteoritos**: su sombra en el suelo (`Rocks.throw(…, mark)`) y sin ellos con la vista en la pesa
+  fáciles (`BERRY_R`); y el asistente, solo la primera vez o cuando se pida (`flyPractice` se apaga solo). Después: aterrizas
+  tú (`FlyIn.zone`, `LAND_HELP`, `LAND_TOUCH`; el marco del suelo, `FlyLook.pad`), el portal volando a tu altura
+  (`TrekSystem.portalY`) y las frutas con sonido (`SND.orb` en `pick` y en `pass` de la fruta). **Los meteoritos**: su sombra en el suelo (`Rocks.throw(…, mark)`) y sin ellos con la vista en la pesa
   (`GUIDE_TOAST_EX`).
 
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):

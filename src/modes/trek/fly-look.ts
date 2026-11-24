@@ -16,7 +16,7 @@ import { warmKeep } from '../../style/warm.js';
 import { FLY } from './plat/fly.js';
 import type { Runner } from './plat/runner.js';
 import { GROUND_Y } from './plat/pieces.js';
-import { ARCH_CLEAR, BERRY_R, CRACK_W, PILLAR_W, RING_R, UPDRAFT_W, type Piece } from './plat/types.js';
+import { ARCH_CLEAR, BERRY_R, CRACK_W, LAND_D, PILLAR_W, RING_R, STOP_AT, UPDRAFT_W, type Piece } from './plat/types.js';
 import { WORLDS } from './plat/worlds.js';
 
 /** Lo que se ve de lejos (m), el verde de las ventanas y su contorno oscuro, el grueso del marco (m) y lo que miden sus
@@ -125,6 +125,8 @@ export class FlyLook {
   private readonly shadow: Mesh;
   private readonly wins: WinFrame[] = [];
   private readonly winMats: MeshBasicMaterial[];
+  /** La zona de aterrizaje ante el cofre: un marco verde tumbado en el suelo, donde te posas (aterrizas tú). */
+  private readonly pad: WinFrame;
   private readonly g: Record<'hBar' | 'hWin' | 'hDot' | 'vBar' | 'vWin' | 'vDot' | 'vTgt', Mesh>;
   private readonly bp = { x: 0, z: 0 };
   /** Lo que lleva el batir de la sombra tras un aletazo (s). */
@@ -146,6 +148,8 @@ export class FlyLook {
       this.wins.push(f);
       this.inWorld.add(f.g);
     }
+    this.pad = new WinFrame(plane, bar, out, arrow);
+    this.inWorld.add(this.pad.g);
     const mk = (col: number, op: number): Mesh => {
       const m = flat(new Mesh(plane, new MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, toneMapped: false, fog: false })));
       m.renderOrder = 9;
@@ -204,6 +208,17 @@ export class FlyLook {
       f.g.visible = true;
     }
     for (let i = wi; i < this.wins.length; i++) this.wins[i].g.visible = false;
+    // la zona de aterrizaje: tumbada en el suelo donde te posas ante el cofre (hasta que ya estás en él)
+    let chest: Piece | null = null;
+    for (const p of R.live) if (p.k === 'chest' && !p.judged && (!chest || p.at < chest.at)) chest = p;
+    const padAt = chest ? chest.at - STOP_AT : 0;
+    this.pad.g.visible = !!chest && padAt - d < LAND_D + 25 && G.alt > 0.3;
+    if (chest && this.pad.g.visible) {
+      const r = bend(padAt, -R.uShift, this.bp);
+      this.pad.g.position.set(this.bp.x, GROUND_Y + gy(padAt) + 0.08, this.bp.z);
+      this.pad.g.rotation.set(-Math.PI / 2, r, 0);
+      this.pad.set(2.6, 2.6, clock);
+    }
     if (!this.inRoom.visible) return;
     // las reglillas: en el suelo de la habitación, por delante de las manos, de cara a donde mira el cuerpo
     const B = R.flyBody;

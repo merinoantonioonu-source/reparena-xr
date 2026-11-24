@@ -140,14 +140,16 @@ export interface FlyIn {
   sinceRep: number;
   /** Dentro de una corriente de aire. */
   updraft: boolean;
-  /** Posarse (de 0 a 1: al acercarte al cofre, la altura va a 0). */
+  /** Posarse (de 0 a 1: al acercarte al cofre, la altura va a 0) y si estás ya sobre la zona de aterrizaje (ahí se puede bajar
+   * por debajo de la altura mínima: aterrizas tú). */
   land: number;
+  zone: boolean;
   /** El mando de altura. */
   model: FlyModel;
 }
 
 /** Un `FlyIn` vacío (para reservarlo una vez). */
-export const flyIn = (): FlyIn => ({ side: 0, down: 0, back: 0, depth: 0.13, lowNeed: 0.078, range: FLY.sideRange, backTo: FLY.pikeTo, flapK: 1, rateK: 1, rep: 0, flap: false, pair: false, auto: true, sinceRep: 0, updraft: false, land: 0, model: 'pos' });
+export const flyIn = (): FlyIn => ({ side: 0, down: 0, back: 0, depth: 0.13, lowNeed: 0.078, range: FLY.sideRange, backTo: FLY.pikeTo, flapK: 1, rateK: 1, rep: 0, flap: false, pair: false, auto: true, sinceRep: 0, updraft: false, land: 0, zone: false, model: 'pos' });
 
 const clamp = (v: number, a: number, b: number): number => (v < a ? a : v > b ? b : v);
 
@@ -257,7 +259,7 @@ export class Glider {
     if (I.model === 'mid') this.stepMid(dt, I);
     else if (I.model === 'pos') this.stepPos(dt, I, b);
     else this.stepFlap(dt, I, b);
-    if (this.alt < FLY.altMin) {
+    if (this.alt < FLY.altMin && !I.zone) {
       // (por debajo de lo mínimo —al despegar del cofre—: subes suave hasta ella; nunca te caes)
       this.vAlt = Math.max(this.vAlt, FLY.takeoff);
       if (this.alt < 0) this.alt = 0;

@@ -223,6 +223,12 @@ No las cambies sin preguntarle.
     **puentes** de roca (picar para pasar por debajo), **grietas** en una pared de roca (de canto, por la raja), **corrientes
     de aire** (te suben sin aletear) y **frutas en fila**. Las columnas, los puentes y las grietas, si fallas: frenas a la mitad
     y se rompe la racha, sin vidas; los aros, las corrientes y las frutas son premios. Sin jefe ni barriles.
+  - **Aterrizas tú** (pedido del usuario: el juego tomaba el control demasiado pronto y te bajaba a la pasarela): ante cada
+    cofre, un **marco verde tumbado en el suelo** marca dónde posarte; sobre esa zona (los últimos 22 m) puedes bajar hasta el
+    suelo y, al tocarlo, te posas («¡Buen aterrizaje!», con puntos). Solo si llegas a los últimos 5 m aún en el aire, te baja
+    el juego. **El portal entre mundos, a tu altura** (pedido del usuario: quedaba abajo y nunca se cruzaba): volando, se
+    pone delante de ti y sigue tu altura, suave, para que lo atravieses. **Las frutas suenan al cogerlas** (pedido del
+    usuario: sin sonido no se sabía si se habían cogido), también en la Travesía a pie.
   - En la dura, sin flexiones un rato vas perdiendo altura poco a poco (nunca te caes); en la suave, el vuelo la mantiene. La
     caja negra del vuelo (`reparenaxr-flybox`, con el diagnóstico) graba los últimos 40 s para afinar los números con tu vuelo.
 - Travesía de plataformas, **el desprendimiento** (pedido del usuario, para la plancha: mirando al suelo no se veían las rocas):
