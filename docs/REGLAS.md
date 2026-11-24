@@ -358,6 +358,13 @@ No las cambies sin preguntarle.
   horizonte, siempre derecho y a la altura de los ojos, girada hacia donde subes); por debajo del horizonte, la ladera del juego
   y, más allá, **un mar de nubes en el valle** (las fotos están hechas de pie en un prado: sin él, se veía su hierba enorme). La
   bruma, del color del horizonte de cada foto. La pared rocosa vertical, para las dominadas.
+  **Retos y premios** (los del plan, «sigue tus propuestas»): piden **otro movimiento que el remo** y llegan por donde se ven
+  tumbado (desde lo alto o por el cable), sin aviso antes (al fallar, se dice cómo se hace): **el enjambre** baja por el cable
+  hacia tu cara (**quédate abajo**, brazos estirados); **la ráfaga** cruza el cielo (**aguanta arriba**, pegado al cable);
+  **la piedra** cae de lo alto hacia tu cara (**aparta la cabeza** a un lado); **el cable deshilachado** se pasa con **un remo
+  explosivo**. Si fallas, frenas a la mitad y se rompe la racha, sin vidas. Premios: **frutas** junto al cable, que se cogen
+  **subiendo el pecho** al pasar (se encogen al llegar a los ojos), y **el cofre de cada plataforma**, que se abre al llegar y
+  suelta sus premios flotando (los puntos y una gema). El primer tramo, solo frutas y enjambres; el cable roto, desde el tercero.
 
 **Repeticiones y disparo**
 - Cada repetición (sentadilla, zancada…) carga **un disparo por mano**, como mucho uno por mano y sin acumular.
