@@ -1065,6 +1065,9 @@ export class TrekSystem extends createSystem({}) {
       case 'coachClose':
         HOOKS.closeScreen();
         break;
+      case 'note':
+        diagEvent(`Travesía: ${e.text}`);
+        break;
       case 'halt':
       case 'go':
       case 'pass':

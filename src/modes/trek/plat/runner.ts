@@ -48,6 +48,9 @@ import { ARCH_CLEAR, BERRY_R, CRACK_W, FLY_TUTO, FLY_KINDS, LAND_D, PILLAR_W, RI
 export const PLAT_SPEED = 1.35, PLAT_ACCEL = 0.6;
 /** Lo de serie de los ajustes que cambia el asistente del vuelo (por si aún no están guardados). */
 const COACH_DEF: Record<string, number> = { flySide: 15, flyDown: 13, flyUp: 18, flyFlap: 100 };
+/** Lo que espera el asistente tras calibrar (s: lo que tarda el mundo en recolocarte, 0,8 s, y algo más), lo más lejos que
+ * puede ir la cabeza del centro del vuelo en plancha (m) y cuánto así para volver a centrarlo (s). */
+const COACH_WAIT = 1.2, FLY_FAR = 0.35, FLY_FAR_T = 1.5;
 /** Cada salto: cuánto baja el mundo en lo más alto (m: como si te elevara) y lo que dura en el aire si no hay hueco (s). */
 export const JUMP_LIFT = 0.45, AIR_T = 0.55;
 /** El salto del hueco: lo que dura como poco y como mucho (s; si tu velocidad no te lleva al otro lado en HOP_MAX, el
@@ -256,6 +259,10 @@ export class Runner {
   readonly coach = new FlyCoach();
   coachWant = false;
   private calibOk = false;
+  /** Cuándo calibraste (s: el asistente espera a que el mundo acabe de recolocarte) y cuánto lleva la cabeza imposiblemente
+   * lejos del centro del vuelo (s: se vuelve a centrar). */
+  private calibAt = -9;
+  private farT = 0;
   private coachHover = false;
   private howSaid = false;
   /** Las muñecas: su altura del fotograma anterior y su velocidad vertical (m/s; NaN, no se ven). */
@@ -387,6 +394,7 @@ export class Runner {
     this.moves.reset(ref, x0, z0);
     this.flyBody.set(x0, z0, yaw ?? this.env.head.yaw);
     this.calibOk = true;
+    this.calibAt = this.time;
   }
 
   /** El asistente del vuelo: ¿está en marcha? (la partida espera: no cuenta el descanso ni la cuenta atrás) */
@@ -1221,9 +1229,12 @@ export class Runner {
     const M = this.moves, I = this.flyIn, A = this.env.hands, H = this.env.head, B = this.flyBody, G = this.glider, play = st === 'play';
     const board = this.env.s('flyBoard') > 0;
     // el asistente: ya calibrado, antes del primer tramo o en el descanso de un cofre (el mundo espera)
-    if (this.coachWant && this.calibOk && (st === 'ready' || st === 'rest')) {
+    // (al calibrar, el mundo se desliza 0,8 s para recolocarte: el asistente espera a que acabe y toma el centro donde estás
+    // entonces; antes lo tomaba a medio deslizar, se quedaba a 60 cm y escorarte no movía nada: caja negra del usuario)
+    if (this.coachWant && this.calibOk && (st === 'ready' || st === 'rest') && this.time - this.calibAt > COACH_WAIT) {
       this.coachWant = false;
       this.howSaid = true;
+      B.set(H.x, H.z);
       this.coach.begin(flyModel(this.env.s('flyAlt'), this.auto));
       this.cheer('Ajuste del vuelo', COL_ASK, 3);
     }
@@ -1235,6 +1246,15 @@ export class Runner {
     // posado (en plancha arriba, ante el cofre o antes de despegar): el centro se pone donde estás; en el aire, quieto
     if (G.alt < 0.3 && (this.stop || !play) && Math.abs(H.y - M.ref) < 0.05) B.follow(H.x, H.z, dt, 0.6);
     B.read(H.x, H.z);
+    // (en plancha, con las manos apoyadas, la cabeza no puede irse a más de un palmo y medio del centro: si lo está un rato,
+    // el centro está mal puesto y se vuelve a poner donde estás)
+    this.farT = Math.abs(B.side) > FLY_FAR || Math.abs(B.fwd) > FLY_FAR ? this.farT + dt : 0;
+    if (this.farT > FLY_FAR_T) {
+      this.farT = 0;
+      B.set(H.x, H.z);
+      B.read(H.x, H.z);
+      this.ev.push({ t: 'note', text: 'vuelo: centro vuelto a poner (la cabeza estaba lejos)' });
+    }
     // la tabla: las dos muñecas a la vista y estables un instante
     this.wristsT = A.l.ok && A.r.ok ? this.wristsT + dt : 0;
     const tilt = board && this.wristsT > 0.15 ? boardSide(boardTilt(A.l, A.r)) : 0;
