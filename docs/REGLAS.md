@@ -190,8 +190,8 @@ No las cambies sin preguntarle.
     aleteo): **aguantando a media flexión vuelas recto**; con los brazos estirados (la cabeza arriba), **subes**; con el pecho
     más abajo de la mitad, **bajas**, más deprisa cuanto más lejos (la mitad, la de «Vuelo: recorrido para bajar»). Al
     despegar subes solo hasta la altura de vuelo. **La pica frena** (y manda: en pica ni subes ni bajas). Una explosiva, un
-    empujón hacia arriba (nunca hace falta); de canto, un **tonel**. Los otros mandos, para comparar en «Vuelo: mando de
-    altura»: **posición** (tu altura sale de tu pecho; la pica sube) y **aleteo** (cada flexión, un aletazo; abajo quieto,
+    empujón hacia arriba (nunca hace falta); de canto, un **giro** (se llamaba «tonel» y, con los barriles de los premios,
+    se entendía como un barril que no estaba). Los otros mandos, para comparar en «Vuelo: mando de altura»: **posición** (tu altura sale de tu pecho; la pica sube) y **aleteo** (cada flexión, un aletazo; abajo quieto,
     el picado).
   - **Que se vea lo que haces**: tu **sombra** de ave en el suelo, con el pico hacia delante (se ladea con la escora, se pliega al picar, se abre en pica
     y bate en cada aletazo); **sin alas** (corregido por el usuario con su vídeo: pegadas a la cabeza salían delante y detrás

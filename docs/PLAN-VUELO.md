@@ -38,7 +38,7 @@ tabla, además, de las muñecas.
 | **Flexión explosiva** | La cabeza sube a más de 0,5 m/s y llega arriba (`takeoff`) | **Aletazo**: un empujón hacia arriba (unos 1,4 m) | `PRONE_VY`, `FLY.flap` |
 | **Dos explosivas seguidas** (menos de 1,6 s) | `deepT` | **Gran remonte** (unos 2,7 m más) | `PAIR_T`, `FLY.pair` |
 | **Subir la cadera (pica)** | La cabeza va 6 cm hacia atrás (`fwd ≤ −WAVE_BACK`) | **Frena** y sube a 1,2 m/s | `FLY.brake`, `brakeUp` |
-| **Ponerte de canto** | La cabeza gira de lado más de 40° (`roll`) | **Tonel**: solo sirve para pasar las grietas | `SLIT_ROLL` |
+| **Ponerte de canto** | La cabeza gira de lado más de 40° (`roll`) | **Giro** (antes «tonel»): solo sirve para pasar las grietas | `SLIT_ROLL` |
 | **Tabla: inclinarla a un lado** | Una muñeca más baja que la otra (`boardTilt`) | Se suma a escorarse | `FLY.tilt` = 4 |
 | **Tabla: peso adelante** | La cabeza va 6 cm adelante | Picado (todo o nada) | `flyStep`: `tiltDive` |
 | Nada (en la dura) | 2,5 s sin flexiones | Pierdes altura a 0,45 m/s, hasta 2 m | `FLY.idle`, `sink`, `altMin` |
@@ -86,7 +86,7 @@ Un solo principio: **el vuelo va donde va tu cabeza, en proporción y sin memori
 | A los lados | Escorarte | **Posición de lado**: tanto te escoras, tanto te apartas; vuelves al centro y el vuelo vuelve |
 | Abajo | Bajar el pecho | **Bajar**, en proporción a lo que bajas |
 | Atrás | Subir la cadera (pica) | **Remontar y frenar**, en proporción |
-| Giro | De canto | Tonel (las grietas) |
+| Giro | De canto | Giro (las grietas) |
 | — | Flexión (bajar y subir) | **Aletazo**: sube un poco y empuja. Explosiva: sube más (nunca hace falta) |
 
 ### 3.1 El lado (sin dudas: se hace así)
@@ -148,11 +148,12 @@ En plancha se mira al suelo, por delante de las manos: todo esto va ahí o por d
 
 - La **primera vez** (y con «Vuelo: repetir la práctica»), antes del primer tramo, una práctica sin retos: seis pasos, cada
   uno espera a que lo hagas y lo marca con ✓ y un sonido: «Escórate a la derecha» · «…a la izquierda» · «Baja el pecho:
-  bajas» · «Haz una flexión: aletazo» · «Cadera arriba: frenas y subes» · «De canto: tonel». El texto, en el aviso breve de
+  bajas» · «Haz una flexión: aletazo» · «Cadera arriba: frenas y subes» · «Ponte de canto: giras» (cada paso, con su número: «Práctica 1/6 · …»). El texto, en el aviso breve de
   la vista (en plancha, en el suelo bajo la cara), con la sombra y las alas ya a la vista.
 - De paso, **mide al jugador**: lo que se escora cómodo a cada lado, lo que baja y lo que va atrás en pica. El recorrido
-  completo de cada eje se pone al 80 % de lo medido (se guarda en `reparenaxr-fly`; se puede rehacer).
-- Que se ha hecho la práctica se guarda en `reparenaxr-flytuto`.
+  completo de cada eje se pone al 80 % de lo medido (se guarda en `reparenaxr-fly2`; se puede rehacer).
+- Que se ha hecho la práctica se guarda en `reparenaxr-flytuto2` (el «2»: lo de antes del arreglo del centro, que quedaba
+  desplazado al calibrar, se descarta y la práctica se repite una vez).
 - Durante el vuelo, lo que haces mal ante un reto se sigue diciendo al fallar (ya está: «¡Pica para pasar por debajo!»).
 
 ### 3.5 Los retos, a la medida de los gestos

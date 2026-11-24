@@ -377,10 +377,10 @@ export class Runner {
     this.moves.reset(this.env.calibRef, this.env.head.x);
   }
 
-  /** Tu altura de pie y el centro, al calibrar. */
-  calibrate(ref: number, x0: number, z0 = 0): void {
+  /** Tu altura de pie y el centro, al calibrar (y hacia dónde mira el cuerpo: `yaw`; sin él, el de la cabeza ahora). */
+  calibrate(ref: number, x0: number, z0 = 0, yaw?: number): void {
     this.moves.reset(ref, x0, z0);
-    this.flyBody.set(x0, z0, this.env.head.yaw);
+    this.flyBody.set(x0, z0, yaw ?? this.env.head.yaw);
   }
 
   /** Monta el tramo i detrás de lo que ya hay (si no está): `len`, lo que mide hasta su cofre. */
@@ -1244,6 +1244,11 @@ export class Runner {
     G.step(dt, I);
   }
 
+  /** Cómo se vuela con cada mando de altura (el aviso de al empezar y al acabar la práctica). */
+  private flyHow(m: FlyIn['model']): string {
+    return m === 'mid' ? 'Brazos estirados: subes · Media flexión: recto · Más abajo: bajas' : m === 'pos' ? 'Escórate: a un lado · Pecho abajo: bajas · Cadera arriba: subes' : 'Escórate: a un lado · Cada flexión, un aletazo · Abajo quieto: picas';
+  }
+
   /** La práctica de vuelo (fly.ts, `FlyPractice`): la primera vez que vuelas (o con «Vuelo: repetir la práctica»), al empezar;
    * si no, lo que hay que hacer, en el aviso breve. */
   private practiceStep(dt: number): void {
@@ -1251,13 +1256,14 @@ export class Runner {
     if (!this.practiceSeen) {
       this.practiceSeen = true;
       if (!this.env.store(FLY_TUTO) || this.env.s('flyPractice') > 0) P.begin();
-      else this.say(I.model === 'mid' ? 'Media flexión: recto · Arriba: subes · Abajo: bajas' : I.model === 'pos' ? 'Escórate: a un lado · Pecho abajo: bajas · Cadera arriba: subes' : 'Escórate: a un lado · Cada flexión, un aletazo · Abajo quieto: picas', COL_ASK, 4, false);
+      else this.say(this.flyHow(I.model), COL_ASK, 4, false);
     }
     if (!P.active) return;
     const r = P.update(dt, this.flyBody.side, I.down, I.back, this.moves.roll, I.rep > 0);
     if (r === 'next') {
       if (P.step === 0) this.cheer('Práctica de vuelo', COL_ASK, 2);
-      this.say(PRACTICE[P.step].text, COL_ASK, PRACTICE_MAX, false);
+      // (con su número: que se vea que es la práctica y no lo que viene)
+      this.say(`Práctica ${P.step + 1}/${PRACTICE.length} · ${PRACTICE[P.step].text}`, COL_ASK, PRACTICE_MAX, false);
     } else if (r === 'ok') {
       this.say(`✓ ${PRACTICE[P.step].done}`, COL_OK, PRACTICE_GAP, false);
       this.snd('perfect', null);
@@ -1273,7 +1279,8 @@ export class Runner {
       this.flyFit = fit;
       this.ev.push({ t: 'store', key: FLY_FIT, val: fit });
       this.ev.push({ t: 'store', key: FLY_TUTO, val: 1 });
-      this.say('¡A volar!', COL_OK, 2, false);
+      // (no «¡A volar!»: ya ibas volando; y, de paso, cómo se sube y se baja, que el usuario no lo sabía)
+      this.say(`✓ Práctica hecha · ${this.flyHow(I.model)}`, COL_OK, 5, false);
       this.snd('victory', null);
     }
   }
@@ -1354,7 +1361,7 @@ export class Runner {
         if (p.bad) {
           p.judged = true;
           p.ok = false;
-        } else won('¡Tonel por la grieta!', 200);
+        } else won('¡Giro por la grieta!', 200);
       }
       return;
     }

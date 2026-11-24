@@ -13,7 +13,7 @@
  * `startWave`, `waveLeft`, `rep`, `hud`, `end` y `clear`.
  */
 import { AdditiveBlending, BackSide, BufferAttribute, DoubleSide, ShaderMaterial, SphereGeometry, TorusGeometry, CircleGeometry, AnimationMixer, AssetManager, BoxGeometry, CanvasTexture, Color, createSystem, DataTexture, DomeTexture, Euler, Group, InstancedMesh, LinearFilter, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, RGBAFormat, Sprite, SpriteMaterial, UnsignedByteType, Vector3 } from '@iwsdk/core';
-import { bodyDir } from '../../input/body-dir.js';
+import { bodyDir, headRoll } from '../../input/body-dir.js';
 import { FB } from '../../core/flybox.js';
 import { FlyLook } from './fly-look.js';
 import { playSound } from '../../audio/sound.js';
@@ -329,9 +329,9 @@ export class TrekSystem extends createSystem({}) {
         get z() {
           return head.p.z;
         },
+        // de canto (src/input/body-dir.ts: la línea de las orejas, no hacia dónde mira la cara)
         get roll() {
-          const f = self.rollF.set(0, 0, -1).applyQuaternion(head.q);
-          return f.y < -0.05 || Math.abs(f.x) > 0.3 ? Math.abs(Math.atan2(f.x, -f.y)) : 0;
+          return headRoll(head.q);
         },
         // hacia dónde mira el cuerpo (el vuelo mide escorarse en perpendicular a ella: src/input/body-dir.ts)
         get yaw() {
@@ -551,10 +551,13 @@ export class TrekSystem extends createSystem({}) {
     this.applyEvents();
   }
 
-  /** Ya calibrado (de pie, quieto 2 s): tu altura de pie y el centro, donde estás. */
-  calibrated(y: number): void {
+  /** Ya calibrado (quieto 2 s): tu altura y el centro. Si la partida te recoloca (`turned`: el mundo se desliza 0,8 s hasta
+   * dejar tu cabeza en (0, 0) mirando a −Z), el centro es ese, el de después, y no donde estás ahora: tomado antes, quedaba
+   * desplazado y girado (la caja negra del usuario: el vuelo, apartado 2,2 m y sin hacer caso a la cabeza). */
+  calibrated(y: number, turned = false): void {
     this.calibRef = y;
-    this.runner.calibrate(y, head.p.x, head.p.z);
+    if (turned) this.runner.calibrate(y, 0, 0, 0);
+    else this.runner.calibrate(y, head.p.x, head.p.z);
   }
 
   /** Empieza el tramo i: el cofre del anterior se esfuma y el siguiente se monta ya (para verlo llegar de lejos). */
@@ -1085,7 +1088,10 @@ export class TrekSystem extends createSystem({}) {
   // para arreglar con datos de las gafas: lo que pasa con cada pieza y cómo estaba la cabeza (lo subido, bajado y apartado)
   private diag(what: string, p: Piece): void {
     const M = this.runner.moves, w = { halt: 'parado ante', go: 'cruza', pass: 'supera', hit: 'choca con' }[what] ?? what;
-    diagEvent(`Travesía: ${w} ${p.k} (${Math.round(p.at)} m) · cabeza +${M.up.toFixed(2)} −${M.down.toFixed(2)} lado ${M.dx.toFixed(2)}${p.k === 'log' ? ` · subió ${p.maxUp.toFixed(2)}${p.fast ? ' deprisa' : ''}` : ''}`);
+    // (volando, lo que lee el vuelo: el lado y lo de atrás respecto a su centro, y lo que bajas el pecho)
+    const B = this.runner.flyBody, f = (v: number): string => (v >= 0 ? '+' : '') + v.toFixed(2);
+    const how = this.runner.fly ? `vuelo: lado ${f(B.side)} atrás ${f(-B.fwd)} abajo ${f(M.down)} · cabeza ${f(head.p.x)},${f(head.p.z)} · centro ${f(B.x0)},${f(B.z0)}` : `cabeza sube ${f(M.up)} baja ${f(M.down)} lado ${f(M.dx)}`;
+    diagEvent(`Travesía: ${w} ${p.k} (${Math.round(p.at)} m) · ${how}${p.k === 'log' ? ` · subió ${p.maxUp.toFixed(2)}${p.fast ? ' deprisa' : ''}` : ''}`);
   }
 
   private sound(name: string, at: PlatPos | null, arg?: string | boolean): void {

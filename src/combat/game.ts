@@ -1188,11 +1188,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     if (stand) {
       // de pie: tu postura, y el mundo se desliza hasta quedar delante de ti (RepArena: calibrate, arenaGlideToHead)
       this.stReset(y);
-      this.recenter();
+      const turned = this.recenter();
       this.placeBoard();
       this.restT = 3;
       SND.charge();
-      this.trek()?.calibrated(y);
+      this.trek()?.calibrated(y, turned);
       this.message(nWaves() ? `PREPÁRATE · ${nWaves()} ${settings.mode === 'trek' ? 'TRAMOS' : 'OLEADAS'}` : 'PREPÁRATE · AL FALLO', 3);
       return;
     }
@@ -1212,7 +1212,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.placeBoard();
     this.restT = 3;
     SND.charge();
-    this.trek()?.calibrated(y); // (la Travesía en plancha: la altura de la cabeza arriba de la plancha)
+    this.trek()?.calibrated(y, turned); // (la Travesía en plancha: la altura de la cabeza arriba de la plancha)
     this.message(settings.mode === 'trek' ? `PREPÁRATE · ${nWaves() ? `${nWaves()} TRAMOS` : 'SIN FIN'}` : '¡Bien! A punto', 3);
   }
 

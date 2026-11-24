@@ -15,7 +15,7 @@
  *     es el picado, en proporción a lo hondo; la pica remonta y frena.
  *   De serie, P en la suave (el recorrido viene solo) y A en la dura (cada flexión te empuja): «Vuelo: mando de altura».
  *   **La pica manda sobre el picado** (en pica también baja la cabeza: no es picar).
- * - **De canto** (giro abierto): un tonel, para pasar las grietas (lo juzga el corredor).
+ * - **De canto** (giro abierto): un giro, para pasar las grietas (lo juzga el corredor).
  * - **Con la tabla de equilibrio**: su inclinación (las muñecas) se suma a escorarse y echar el peso adelante, a bajar.
  *
  * Nunca te caes (como poco, `FLY.altMin`). Al acercarte al cofre del tramo bajas solo hasta posarte en él y luego despegas.
@@ -31,13 +31,14 @@ export const FLY = {
   /** Lo que te puedes apartar del centro (a cada lado). */
   uMax: 2.4,
   /** El lado: la zona muerta (m de cabeza), el recorrido de serie (m), la curva (exponente: más de 1, suave cerca del centro y
-   * más fuerte hacia el borde; el usuario lo notaba hipersensible), lo que tarda en llegar (s, sin rebote) y su tope de
-   * velocidad (m/s). */
+   * más fuerte hacia el borde; el usuario lo notaba hipersensible), la rapidez del muelle (rad/s: amortiguado justo, sin
+   * rebote; arranca y se para suave, como un ala: antes iba a tirones de velocidad fija, «brusco y lineal», dijo el usuario) y
+   * su tope de velocidad (m/s). */
   sideDead: 0.025,
   sideRange: 0.15,
   sideCurve: 1.4,
-  uTau: 0.35,
-  uV: 3,
+  uW: 5.5,
+  uV: 2.4,
   /** P: la zona muerta de bajar el pecho (m) y lo que baja la flexión entera (m de vuelo). */
   downDead: 0.02,
   downAlt: 3.5,
@@ -192,9 +193,12 @@ export class Glider {
     this.flapped = false;
     // el lado: la posición que pide la cabeza, con un muelle sin rebote y su tope de velocidad
     this.tgtU = sideTarget(I.side, I.range);
-    const wantU = clamp((this.tgtU - this.u) / FLY.uTau, -FLY.uV, FLY.uV);
-    this.vU += (wantU - this.vU) * Math.min(1, dt / 0.06);
-    this.u = clamp(this.u + this.vU * dt, -FLY.uMax, FLY.uMax);
+    // (un muelle amortiguado justo, en pasos cortos para que no dependa de las imágenes por segundo)
+    const w = FLY.uW;
+    for (let n = Math.ceil(dt / 0.01), h = dt / n; n > 0; n--) {
+      this.vU = clamp(this.vU + (w * w * (this.tgtU - this.u) - 2 * w * this.vU) * h, -FLY.uV, FLY.uV);
+      this.u = clamp(this.u + this.vU * h, -FLY.uMax, FLY.uMax);
+    }
     // la pica (la cabeza atrás) manda sobre el picado, con su margen para no parpadear entre los dos
     if (this.pike) this.pike = I.back >= FLY.pikeOff;
     else this.pike = I.back >= FLY.pikeOn;
@@ -392,7 +396,8 @@ export const PRACTICE: readonly { key: 'right' | 'left' | 'down' | 'rep' | 'pike
   { key: 'down', text: 'Baja el pecho: bajas', done: 'Bajas' },
   { key: 'rep', text: 'Haz una flexión', done: 'Flexión' },
   { key: 'pike', text: 'Cadera arriba: frenas', done: 'Frenas' },
-  { key: 'roll', text: 'De canto: tonel', done: 'Tonel' },
+  // (un giro, no un tonel: con los barriles de los premios, «tonel» se entendía como un barril que no estaba)
+  { key: 'roll', text: 'Ponte de canto: giras', done: 'Giro' },
 ];
 /** La práctica: lo que hay que llegar a hacer en cada paso (m, rad), lo que se sigue midiendo al llegar (s: lo más que te
  * escoras, bajas o vas atrás), lo que dura cada paso como mucho (s: si no sale, se salta) y la pausa entre uno y otro (s). Lo

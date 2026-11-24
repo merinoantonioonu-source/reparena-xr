@@ -13,7 +13,7 @@ const TOP = 0.45;
 function flight(): { text: string; s: Sim } {
   const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1, flyAlt: 1 });
   s.env.ex = 'pushup';
-  s.env.mem.set('reparenaxr-flytuto', 1); // (la práctica de vuelo, ya hecha)
+  s.env.mem.set('reparenaxr-flytuto2', 1); // (la práctica de vuelo, ya hecha)
   s.env.calibRef = TOP;
   s.head.y = TOP;
   s.r.calibrate(TOP, 0, 0);
