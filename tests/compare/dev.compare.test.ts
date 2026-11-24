@@ -4,7 +4,7 @@
 // guardadas al azar; tienen que quedar iguales lo exportado, lo guardado en el navegador y lo que se lee (el ojo, las
 // filas, la dureza, cada enemigo). (Se salta sin RA_DIR: ver tests/compare/ra.ts.)
 import { describe, expect, it } from 'vitest';
-import { EX_NAMES, exFor, MODE_EX, MODE_NAMES, RANKS, XR_ONLY_EX } from '../../src/core/catalog.js';
+import { EX_NAMES, exFor, MODE_EX, MODE_NAMES, RANKS, XR_ONLY_EX, XR_ONLY_FOES } from '../../src/core/catalog.js';
 import { DEV } from '../../src/core/dev-state.js';
 import * as D from '../../src/core/dev.js';
 import { FIELD, SCHEMA } from '../../src/core/schema.js';
@@ -38,7 +38,8 @@ const COMBOS = Object.keys(RA_MODE_EX).flatMap((m) => RA_MODE_EX[m].map((x) => m
 // (sin las filas que solo tiene RepArena XR: RepArena no las conoce)
 const DEVROW = SCHEMA.filter((f) => P.devRowOk(f) && !f.xr);
 const XRK = new Set(SCHEMA.filter((f) => f.xr).map((f) => f.key));
-const FOES = D.devFoes().map((x) => x[0]);
+// (los enemigos que solo tiene RepArena XR, fuera: RepArena no los conoce)
+const FOES = D.devFoes().map((x) => x[0]).filter((k) => !XR_ONLY_FOES.includes(k.slice(2)));
 
 /** Un valor al azar para una casilla: dentro, fuera de límites, texto o vacío. */
 function cellVal(r: () => number, k: string): unknown {
@@ -170,7 +171,7 @@ describe.skipIf(!RA_DIR)('el modo desarrollador, igual que RepArena', { timeout:
       expect(D.exSongs('lunge')).toEqual(O.exSongs('lunge' as never));
       expect(mp.getItem('reparena3-exsongs')).toBe(mo.getItem('reparena3-exsongs'));
       // al acabar: cada enemigo, su dureza, las filas que manda el rango y cómo se enseña cada valor
-      expect(D.devFoes()).toEqual(O.devFoes());
+      expect(D.devFoes().filter((x) => !XR_ONLY_FOES.includes(x[0].slice(2)))).toEqual(O.devFoes()); // (sin los que solo tiene RepArena XR)
       for (const k of FOES) expect(D.devFoe(k), k).toEqual(O.devFoe(k as never));
       for (const k of [...new Set(FOES.map((x) => x.slice(2)))]) expect(D.foeTier(k), k).toBe(O.foeTier(k as never));
       for (const f of DEVROW) {

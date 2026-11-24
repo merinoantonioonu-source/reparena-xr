@@ -12,13 +12,14 @@ export const LEGACY_MODES: Record<string, { foes: string; aim: string }> = { wal
 // (en las flexiones y las planchas sobre una mano, en el suelo) y los voladores. Cada uno es [clave, nombre]
 export const FOE_GATE: [string, string][] = [['robot', 'Robots'], ['imp', 'Diablillo'], ['puglin', 'Puglin'], ['thrower', 'Lanzador'], ['zombie', 'Zombi'], ['zgreen', 'Zombi verde'], ['zchubby', 'Zombi gordo'], ['raptor', 'Velociraptor'],
   ['skeleton', 'Esqueleto pirata'], ['captain', 'Capitán Barbarroja'], ['sharky', 'Tiburón'], ['mako', 'Tiburón gris'],
-  ['demon', 'Demonio'], ['greendemon', 'Demonio verde'], ['cyclops', 'Cíclope'], ['yeti', 'Yeti'], ['skull', 'Calavera'], ['alien', 'Alien'], ['alientall', 'Alien alto']];
+  ['demon', 'Demonio'], ['greendemon', 'Demonio verde'], ['cyclops', 'Cíclope'], ['yeti', 'Yeti'], ['skull', 'Calavera'], ['alien', 'Alien'], ['alientall', 'Alien alto'],
+  ['skelminion', 'Esqueleto esbirro'], ['skelwarrior', 'Esqueleto guerrero'], ['skelmage', 'Esqueleto mago']];
 export const FOE_HATCH: [string, string][] = [['spider', 'Arañas'], ['crab', 'Cangrejo'], ['mushroom', 'Seta'], ['skull', 'Calavera']];
 export const FOE_FLY: [string, string][] = [['drone', 'Drones'], ['hornet', 'Avispones'], ['bee', 'Abeja'], ['bat', 'Murciélago'], ['cthulhu', 'Cthulhu'], ['dragon', 'Dragón (jefe)']];
 export const PIRATE_GATE = ['skeleton', 'captain', 'sharky', 'mako']; // los piratas (Pirate Kit)
 // Sus retratos, en este orden, en models/retratos.png (hechos con sus modelos; un enemigo nuevo sale sin retrato hasta rehacer la hoja)
 export const FOE_PIC = ['robot', 'imp', 'puglin', 'thrower', 'zombie', 'zgreen', 'zchubby', 'raptor', 'skeleton', 'captain', 'sharky', 'mako', 'demon', 'greendemon', 'cyclops', 'yeti', 'skull', 'alien', 'alientall',
-  'spider', 'crab', 'mushroom', 'drone', 'hornet', 'bee', 'bat', 'cthulhu', 'dragon'];
+  'spider', 'crab', 'mushroom', 'drone', 'hornet', 'bee', 'bat', 'cthulhu', 'dragon', 'skelminion', 'skelwarrior', 'skelmage'];
 export const CUTE_GATE = ['demon', 'greendemon', 'cyclops', 'yeti', 'skull', 'alien', 'alientall']; // los monstruitos (Cute Animated Monsters)
 // Atajo de antes (y de los bloques de una sesión): solo los de tierra, solo voladores o los dos
 export const FOE_CATS: [string, string][] = [['robots', 'Por tierra'], ['flyers', 'Voladores'], ['mix', 'Mezcla']];
@@ -37,6 +38,8 @@ export const MODE_EX: Record<string, string[]> = {
   trek: ['squat', 'lunge', 'jsquat', 'frontsq', 'curl', 'curl2', 'pushup'] // (de pie se avanza por el sendero; con flexiones, en plancha: RepArena XR)
 };/** Lo que solo tiene RepArena XR (los modos y ejercicios que RepArena no ofrece): la Travesía con flexiones (en plancha).
  * Las comparaciones con RepArena se lo saltan (tests/compare). */
+/** Los enemigos que solo tiene RepArena XR (los esqueletos de KayKit): RepArena no los conoce. */
+export const XR_ONLY_FOES = ['skelminion', 'skelwarrior', 'skelmage'];
 export const XR_ONLY_EX: Record<string, string[]> = { trek: ['pushup'], combat: ['slunge', 'skater', 'fpress'] };
 
 // Zonas del cuerpo, para ordenar los ejercicios por lo que trabajan (opcional)

@@ -418,7 +418,9 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   por portales y la fauna de cada entorno (`src/combat/journey.ts`, `travel-system.ts`; `Scenery` guarda montados los del
   viaje); los enemigos de élite y el jefe errante (`src/combat/elite.ts`); los sucesos de las oleadas (`wave-events.ts`); el press de pecho en el suelo (`fpress`, `FloorDetector.fpress`: las manos con `VertDetector`; boca arriba, con los voladores). **Pendiente**: que el usuario lo pruebe en las gafas (sobre todo el press: la bajada y si los voladores se ven bien mirando al techo); y, con los paquetes que
   elija el usuario, entornos y enemigos nuevos (KayKit se puede bajar desde las sesiones: está en GitHub; Quaternius y
-  Kenney, no: el proxy bloquea sus webs).
+  Kenney, no: el proxy bloquea sus webs). **Hecho con KayKit (el usuario: «Sí, KayKit»)**: el cementerio y los esqueletos
+  que salen del suelo (`tests/kaykit-glb.mjs`, `cemeteryLayout`, `FoeDef.rise`). Quedan propuestos, si los quiere: la
+  mazmorra (Dungeon Remastered), la colonia alienígena (Space Base Bits) y los aventureros (caballero, bárbaro…).
 
 - **Arcos y los robots** (pedido del usuario: cuchillas, plancha y burpee más duros, orbes y «trae a los robots de
   RepArena»): las cuchillas (`src/modes/arcs/blades.ts`, lógica pura: `BladeCore`, `bladeMix`; lo que se ve, `blade-look.ts`;

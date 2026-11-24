@@ -58,8 +58,8 @@ export function moteFit(p: [number, number, number], R: () => number): [number, 
  * verde, naranja, azul y amarillo, vivos, en `MOTE_TINT_P` de ellas; las demás, del amarillo de siempre. */
 const MOTE_TINTS = [0xff3fb4, 0x1fe0ff, 0x9a5cff, 0x3dff7a, 0xff8a1f, 0x3f7bff, 0xffe23a], MOTE_TINT_P = 0.75;
 /** Los entornos de día que se pueden elegir y el orden de «Alternar». */
-const SCENE_KINDS: SceneKind[] = ['nature', 'island', 'cliff', 'sky', 'village'];
-const MIX_NEXT: Record<string, 'arena' | SceneKind> = { arena: 'nature', nature: 'island', island: 'cliff', cliff: 'sky', sky: 'village', village: 'arena' };
+const SCENE_KINDS: SceneKind[] = ['nature', 'island', 'cliff', 'sky', 'village', 'cemetery'];
+const MIX_NEXT: Record<string, 'arena' | SceneKind> = { arena: 'nature', nature: 'island', island: 'cliff', cliff: 'sky', sky: 'village', village: 'cemetery', cemetery: 'arena' };
 const FONDOS = ['aldea', 'bosque', 'montana', 'cumbre', 'lago', 'atardecer', 'ocaso'];
 const fondoUrl = (k: string): string => `${import.meta.env.BASE_URL}fondos/${k}.jpg`;
 
@@ -280,7 +280,7 @@ export class EnvSystem extends createSystem({}) {
     const on = this.scenery.visible;
     if (!night && settings.mode !== 'trek') for (const o of this.floor) o.visible = !on && !(this.panoWanted() && o !== this.floor[0]); // (la Travesía los esconde ella)
     this.scenery.lite(LITE.on); // (con un menú abierto en las gafas, sin el bosque: va más fluido)
-    this.scenery.update(dt, time, head.p, (at, isl) => (isl ? SND.gull(this.tmp.copy(at)) : SND.bird(this.tmp.copy(at))));
+    this.scenery.update(dt, time, head.p, (at, isl, night) => (night ? SND.owl(this.tmp.copy(at)) : isl ? SND.gull(this.tmp.copy(at)) : SND.bird(this.tmp.copy(at)))); // (en el cementerio, búhos)
     this.stepSky(dt, time, want);
   }
 
@@ -290,15 +290,16 @@ export class EnvSystem extends createSystem({}) {
     const playing = GAME.phase === 'playing', mode = settings.mode, cyc = on('envCycle') && (mode === 'combat' || mode === 'touch' || mode === 'arcs');
     if (cyc && playing && GAME.wave > 0) {
       const w = wavePlan(GAME.wave, want, isBossWave(GAME.wave - 1, nWaves()), this.seed % 5);
-      skyLook(w.phase, w.weather, this.lookTo);
-    } else skyLook('dia', 'claro', this.lookTo);
+      skyLook(want === 'cemetery' ? 'noche' : w.phase, w.weather, this.lookTo); // (el cementerio, siempre de noche)
+    } else skyLook(want === 'cemetery' ? 'noche' : 'dia', 'claro', this.lookTo);
     // (el suceso de la oleada: el eclipse o la niebla cerrada; también en la fortaleza)
     const ev = playing && settings.mode === 'combat' && (WAVE_EV.kind === 'eclipse' || WAVE_EV.kind === 'fog') ? WAVE_EV.kind : '';
     if (ev) eventLook(this.lookTo, ev);
     this.evK += ((ev ? 1 : 0) - this.evK) * Math.min(1, dt * 0.8);
     // (el estilo cómic no usa las luces: en el eclipse se apaga su brillo; lo que brilla por sí mismo —las cuentas de vida, los
     // aros, los rayos— se sigue viendo)
-    this.eclK += ((ev === 'eclipse' ? 1 : 0) - this.eclK) * Math.min(1, dt * 0.8);
+    // (el cementerio, de noche, algo más oscuro que los demás)
+    this.eclK += ((ev === 'eclipse' ? 1 : want === 'cemetery' && this.scenery.visible ? 0.4 : 0) - this.eclK) * Math.min(1, dt * 0.8);
     if (this.comicK0 < 0) this.comicK0 = COMIC.uK.value;
     COMIC.uK.value = this.comicK0 * (1 - 0.68 * this.eclK);
     lerpLook(this.look, this.lookTo, Math.min(1, dt * 0.6));

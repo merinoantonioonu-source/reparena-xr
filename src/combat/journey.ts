@@ -7,11 +7,11 @@
  */
 
 /** Un sitio donde se juega: la fortaleza (la escena de IWSDK) o uno de los entornos de día. */
-export type Place = 'arena' | 'nature' | 'island' | 'cliff' | 'sky' | 'village';
-export const PLACES: readonly Place[] = ['arena', 'nature', 'village', 'cliff', 'sky', 'island'];
+export type Place = 'arena' | 'nature' | 'island' | 'cliff' | 'sky' | 'village' | 'cemetery';
+export const PLACES: readonly Place[] = ['arena', 'nature', 'village', 'cliff', 'sky', 'island', 'cemetery'];
 
 /** Su nombre (en el panel entre oleadas al cruzar el portal). */
-export const PLACE_NAME: Record<Place, string> = { arena: 'La fortaleza', nature: 'El bosque', island: 'La isla pirata', cliff: 'El risco', sky: 'Las islas del cielo', village: 'La aldea' };
+export const PLACE_NAME: Record<Place, string> = { arena: 'La fortaleza', nature: 'El bosque', island: 'La isla pirata', cliff: 'El risco', sky: 'Las islas del cielo', village: 'La aldea', cemetery: 'El cementerio' };
 
 /** La fauna de cada sitio: los de tierra y los voladores (el dragón solo sale de jefe). De los que ya hay. */
 export const FAUNA: Record<Place, { ground: string[]; fly: string[] }> = {
@@ -21,6 +21,8 @@ export const FAUNA: Record<Place, { ground: string[]; fly: string[] }> = {
   cliff: { ground: ['skull', 'demon', 'yeti', 'cyclops'], fly: ['bat', 'dragon'] },
   sky: { ground: ['alien', 'greendemon', 'alientall', 'demon'], fly: ['bee', 'cthulhu', 'dragon'] },
   village: { ground: ['zombie', 'zgreen', 'skull', 'zchubby', 'thrower'], fly: ['bat'] },
+  // (el cementerio: los esqueletos de KayKit, que salen del suelo, y los zombis)
+  cemetery: { ground: ['skelminion', 'zombie', 'skelwarrior', 'skelmage'], fly: ['bat'] },
 };
 
 /** El azar de cada partida (el mismo con la misma semilla). */

@@ -9,12 +9,12 @@ import {
   RingGeometry, ShaderMaterial, SphereGeometry, SRGBColorSpace, Vector3,
 } from '@iwsdk/core';
 import type { Material, Texture } from '@iwsdk/core';
-import { CLIFF_EDGE, cliffLayout, hillH, ISL_SHORE, islandLayout, natureLayout, rng, SKY_EDGE, skyLayout, villageLayout, type Gate, type Models, type Put } from './placement.js';
+import { cemeteryLayout, CLIFF_EDGE, cliffLayout, hillH, ISL_SHORE, islandLayout, natureLayout, rng, SKY_EDGE, skyLayout, villageLayout, type Gate, type Models, type Put } from './placement.js';
 import { CloudSea } from '../modes/trek/cloud-sea.js';
 import type { SkyLook } from './sky-plan.js';
 
 /** Los entornos de día: el bosque y la isla pirata (los de RepArena) y los mundos de la Travesía (RepArena XR). */
-export type SceneKind = 'nature' | 'island' | 'cliff' | 'sky' | 'village';
+export type SceneKind = 'nature' | 'island' | 'cliff' | 'sky' | 'village' | 'cemetery';
 
 const TAU = Math.PI * 2;
 const UP = new Vector3(0, 1, 0);
@@ -96,10 +96,33 @@ void main(){
 }
 
 /** El suelo: manchas de colores que se mezclan, con su grano (hierba o arena), en una textura que se repite. */
-export function groundTexture(kind: 'nature' | 'island' | 'cliff'): CanvasTexture {
+export function groundTexture(kind: 'nature' | 'island' | 'cliff' | 'cemetery'): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
-  const x = c.getContext('2d') as CanvasRenderingContext2D, R = rng(kind === 'nature' ? 11 : kind === 'cliff' ? 29 : 17);
+  const x = c.getContext('2d') as CanvasRenderingContext2D, R = rng(kind === 'nature' ? 11 : kind === 'cliff' ? 29 : kind === 'cemetery' ? 37 : 17);
+  if (kind === 'cemetery') {
+    // (el cementerio: hierba oscura y musgosa, con calvas de tierra y hojas secas)
+    x.fillStyle = '#3d4a2e';
+    x.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 230; i++) {
+      const rr = 6 + R() * 22, X = R() * 256, Y = R() * 256, k = R();
+      x.fillStyle = k < 0.45 ? 'rgba(48,60,36,0.4)' : k < 0.75 ? 'rgba(92,74,50,0.3)' : 'rgba(150,92,40,0.22)';
+      for (const [dx, dy] of [[0, 0], [256, 0], [-256, 0], [0, 256], [0, -256]]) {
+        x.beginPath();
+        x.arc(X + dx, Y + dy, rr, 0, TAU);
+        x.fill();
+      }
+    }
+    for (let i = 0; i < 3500; i++) {
+      x.fillStyle = R() < 0.5 ? 'rgba(28,36,20,0.5)' : 'rgba(120,130,70,0.35)';
+      x.fillRect(R() * 256, R() * 256, 1, 2 + R() * 2);
+    }
+    const t = new CanvasTexture(c);
+    t.wrapS = t.wrapT = RepeatWrapping;
+    t.repeat.set(40, 40);
+    t.colorSpace = SRGBColorSpace;
+    return t;
+  }
   if (kind === 'cliff') {
     // (el risco: roca gris parda, con manchas de liquen y grano)
     x.fillStyle = '#8b857a';
@@ -147,10 +170,10 @@ export function groundTexture(kind: 'nature' | 'island' | 'cliff'): CanvasTextur
 
 /** Las piezas de un kit (el bosque, la isla o las frutas), cargadas una vez y compartidas: cada modelo (nodo de primer nivel), en metros
  * y con +Y hacia arriba, con su material mate (lo usan el entorno y la Travesía). Nulo mientras carga. */
-const KIT_PARTS: Record<'nature' | 'island' | 'food', Record<string, Part[]> | null> = { nature: null, island: null, food: null };
-export function kitParts(kind: 'nature' | 'island' | 'food'): Record<string, Part[]> | null {
+const KIT_PARTS: Record<'nature' | 'island' | 'food' | 'cemetery', Record<string, Part[]> | null> = { nature: null, island: null, food: null, cemetery: null };
+export function kitParts(kind: 'nature' | 'island' | 'food' | 'cemetery'): Record<string, Part[]> | null {
   if (KIT_PARTS[kind]) return KIT_PARTS[kind];
-  const gltf = AssetManager.getGLTF(kind === 'nature' ? 'nature-kit' : kind === 'food' ? 'food-kit' : 'island-kit');
+  const gltf = AssetManager.getGLTF(kind === 'nature' ? 'nature-kit' : kind === 'food' ? 'food-kit' : kind === 'cemetery' ? 'cemetery-kit' : 'island-kit');
   if (!gltf) return null;
   const mats: Record<string, Material> = {};
   if (kind === 'nature') {
@@ -231,6 +254,11 @@ export class Scenery {
   // ---------------------------------------------------------------- cargar los modelos
   private load(kind: SceneKind): Record<string, Part[]> | null {
     if (kind === 'nature' || kind === 'island') return kitParts(kind);
+    // (el cementerio: su kit de KayKit y la hierba del bosque)
+    if (kind === 'cemetery') {
+      const c = kitParts('cemetery'), n = kitParts('nature');
+      return c && n ? { ...n, ...c } : null;
+    }
     // (los mundos de la Travesía usan los dos kits: los nombres no se repiten)
     const n = kitParts('nature'), i = kitParts('island');
     return n && i ? { ...n, ...i } : null;
@@ -305,7 +333,7 @@ export class Scenery {
       this.builtTail = tail;
     }
     // (con la semilla de la partida, otro reparto cada vez; 0, el de siempre)
-    const M = this.models(kind, P), L = kind === 'nature' ? natureLayout(D, op, gates, M, seed) : kind === 'island' ? islandLayout(D, gates, M, seed) : kind === 'cliff' ? cliffLayout(D, gates, M, seed) : kind === 'sky' ? skyLayout(D, gates, M, seed) : villageLayout(D, gates, M, seed);
+    const M = this.models(kind, P), L = kind === 'nature' ? natureLayout(D, op, gates, M, seed) : kind === 'island' ? islandLayout(D, gates, M, seed) : kind === 'cliff' ? cliffLayout(D, gates, M, seed) : kind === 'sky' ? skyLayout(D, gates, M, seed) : kind === 'cemetery' ? cemeteryLayout(D, gates, M, seed) : villageLayout(D, gates, M, seed);
     const plants = new Group();
     this.place(P, L.puts, plants);
     const [ground, sea] = this.makeGround(kind, seed);
@@ -349,7 +377,7 @@ export class Scenery {
     // la niebla clara de cada sitio
     const sc = this.scene as { fog: FogExp2 | null };
     if (sc.fog && !this.looked) {
-      sc.fog.color.setHex(kind === 'island' ? 0xbfe2ee : kind === 'cliff' ? 0xc9d6e2 : kind === 'sky' ? 0xd8dfee : 0xc4dcea);
+      sc.fog.color.setHex(kind === 'island' ? 0xbfe2ee : kind === 'cliff' ? 0xc9d6e2 : kind === 'sky' ? 0xd8dfee : kind === 'cemetery' ? 0x1b2430 : 0xc4dcea);
       sc.fog.density = this.fogBase();
     }
     return true;
@@ -358,7 +386,7 @@ export class Scenery {
   /** La niebla de cada sitio (la del mar de nubes, más ligera: se ve lejos). */
   fogBase(): number {
     const k = this.kind;
-    return k === 'island' ? 0.009 : k === 'cliff' || k === 'sky' ? 0.007 : 0.014;
+    return k === 'island' ? 0.009 : k === 'cliff' || k === 'sky' ? 0.007 : k === 'cemetery' ? 0.022 : 0.014;
   }
 
   /** ¿Está puesta la hora y el tiempo de la oleada? (entonces la niebla la pone ella) */
@@ -419,7 +447,7 @@ export class Scenery {
    * la isla, el mar. */
   private makeGround(kind: SceneKind, seed = 0): [Mesh, Mesh | null] {
     const hilly = (kind === 'nature' || kind === 'village') && seed !== 0;
-    const tex = kind === 'island' ? 'island' : kind === 'cliff' ? 'cliff' : 'nature', rad = kind === 'nature' || kind === 'village' ? 70 : kind === 'cliff' ? CLIFF_EDGE : kind === 'sky' ? SKY_EDGE : 30;
+    const tex = kind === 'island' ? 'island' : kind === 'cliff' ? 'cliff' : kind === 'cemetery' ? 'cemetery' : 'nature', rad = kind === 'nature' || kind === 'village' || kind === 'cemetery' ? 70 : kind === 'cliff' ? CLIFF_EDGE : kind === 'sky' ? SKY_EDGE : 30;
     // (con desniveles: un anillo con muchas vueltas, cada punto a la altura del terreno; llano donde se juega)
     let geo: BufferGeometry = new CircleGeometry(rad, 72);
     if (hilly) {
@@ -465,7 +493,7 @@ export class Scenery {
   }
 
   /** Cada fotograma: el cielo y el mar se mueven (el cielo, siempre centrado en ti) y, de vez en cuando, canta un pájaro o grita una gaviota. */
-  update(dt: number, t: number, head: Vector3, bird: (at: Vector3, island: boolean) => void): void {
+  update(dt: number, t: number, head: Vector3, bird: (at: Vector3, island: boolean, night: boolean) => void): void {
     if (!this.root.visible) return;
     this.sky.uniforms.time.value = t % 600;
     this.sea.uniforms.time.value = t % 600;
@@ -478,7 +506,7 @@ export class Scenery {
     if (this.birdT <= 0) {
       const isl = this.kind === 'island', a = TAU * Math.random(), r = isl ? 12 + Math.random() * 18 : 8 + Math.random() * 10;
       this.birdT = isl ? 3 + Math.random() * 6 : 2.5 + Math.random() * 4.5;
-      bird(new Vector3(Math.sin(a) * r, (isl ? 5 : 3) + Math.random() * (isl ? 7 : 4), -Math.cos(a) * r), isl);
+      bird(new Vector3(Math.sin(a) * r, (isl ? 5 : 3) + Math.random() * (isl ? 7 : 4), -Math.cos(a) * r), isl, this.kind === 'cemetery');
     }
   }
 }

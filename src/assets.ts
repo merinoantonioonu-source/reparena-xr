@@ -71,6 +71,10 @@ export default defineAssets({
   'foe-dragon': foe('monstruitos/yellowdragon.glb', 'Dragón'),
   // el diablillo y el puglin (Bestiary), con las animaciones de la biblioteca (Universal Animation Library) y tres colores
   'foe-imp': foe('imp.glb', 'Diablillo'),
+  // los esqueletos de KayKit (CC0): salen del suelo
+  'foe-skelminion': foe('kaykit/esqueleto_minion.glb', 'Esqueleto esbirro'),
+  'foe-skelwarrior': foe('kaykit/esqueleto_warrior.glb', 'Esqueleto guerrero'),
+  'foe-skelmage': foe('kaykit/esqueleto_mage.glb', 'Esqueleto mago'),
   'foe-puglin': foe('puglin.glb', 'Puglin'),
   'foe-anims': foe('anims.glb', 'Animaciones de la biblioteca (diablillo y puglin)'),
   ...Object.fromEntries(['imp', 'puglin'].flatMap((k) => [1, 2, 3].map((v) => [`foe-${k}-color${v}`, { url: publicAssetUrl(`models/tex/${k}_color${v}.jpg`), type: AssetType.Texture, name: `${k === 'imp' ? 'Diablillo' : 'Puglin'}: color ${v}`, priority: 'background' as const }]))),
@@ -83,6 +87,8 @@ export default defineAssets({
   'toast-card': uikitml('toast.uikitml', 'Aviso breve en la vista'),
   // la isla pirata (Pirate Kit): de momento, solo su cofre (el del descanso de Combate)
   'island-kit': foe('island.glb', 'Isla pirata (Pirate Kit)'),
+  // el cementerio (KayKit Halloween Bits, CC0)
+  'cemetery-kit': foe('kaykit/cementerio.glb', 'Cementerio (KayKit Halloween Bits)'),
   // el claro del bosque de día (Stylized Nature MegaKit, de Quaternius, CC0) y sus texturas
   'nature-kit': foe('nature.glb', 'Bosque de día (Stylized Nature MegaKit)'),
   // las frutas de la Travesía (Food Kit de Kenney, CC0): una por nodo de primer nivel, de colores lisos

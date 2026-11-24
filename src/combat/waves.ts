@@ -45,7 +45,7 @@ export interface WaveEnv {
 }
 
 /** Su dureza de serie, de 1 (los fáciles y lentos) a 4 (RepArena: FOE_TIER). */
-export const FOE_TIER: Record<string, number> = { zombie: 1, zgreen: 1, puglin: 1, mushroom: 1, crab: 1, drone: 1, bee: 1, robot: 2, imp: 2, skeleton: 2, sharky: 2, alien: 2, spider: 2, skull: 2, hornet: 2, bat: 2, zchubby: 3, raptor: 3, thrower: 3, demon: 3, greendemon: 3, mako: 3, alientall: 3, cthulhu: 3, cyclops: 4, yeti: 4, captain: 4 };
+export const FOE_TIER: Record<string, number> = { zombie: 1, zgreen: 1, puglin: 1, mushroom: 1, crab: 1, drone: 1, bee: 1, robot: 2, imp: 2, skeleton: 2, sharky: 2, alien: 2, spider: 2, skull: 2, hornet: 2, bat: 2, zchubby: 3, raptor: 3, thrower: 3, demon: 3, greendemon: 3, mako: 3, alientall: 3, cthulhu: 3, cyclops: 4, yeti: 4, captain: 4, skelminion: 1, skelwarrior: 2, skelmage: 3 };
 
 /** Su dureza: la de la tabla del desarrollador o la de serie (RepArena: foeTier). */
 export const foeTierOf = (devTier: (key: string) => number, k: string): number => devTier('g:' + k) || devTier('h:' + k) || devTier('f:' + k) || FOE_TIER[k] || 2;

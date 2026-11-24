@@ -120,6 +120,9 @@ interface FoeRuntime {
   blinkT: number;
   blinkOn: number;
   mini: boolean;
+  /** Saliendo del suelo (los esqueletos): lo que le queda (s) y su animación. */
+  riseT: number;
+  riseAct: AnimationAction | null;
   /** Su puesto de ataque (y cada cuánto busca uno mejor), y desde dónde estabas al buscarlo. */
   sf: SlotFoe;
   slotT: number;
@@ -412,7 +415,7 @@ export class EnemySystem extends createSystem(
     const plan = gaitPlan(Math.hypot(sf.slot.x - x, sf.slot.z - z), dv('walkTime', GAME.ramp), d.speedF, d.heavy, travel);
     const gait = new Gait(Gait.pick(str('move_' + d.grp)), plan, pace);
     if (import.meta.env.DEV) console.info(`rxdbg marcha ${kind}: ${gait.style}, ${plan.vWalk.toFixed(2)} m/s andando, ${plan.vMove.toFixed(2)} desplazándose, gestos ×${pace.toFixed(2)}`); // (para probar en el emulador)
-    const rt: FoeRuntime = { kind, def: d, mass: massOf(d), maxHp: hp, str: strength, model, mixer, actions, current: '', yaw, charged: false, attackT: 0, throwCD: 0, struck: false, kick: false, stun: STAGGER, fade: null, target, sf, slotT: 0.6, slotAt: GAME.head.clone(), gait, pace, from: new Vector3(x, 0, z), out: false, hitNow: false, elite, shield: elite === 'shield' ? SHIELD_HITS : 0, bubble: null, blinkT: 2.5 + Math.random() * 1.5, blinkOn: 0, mini };
+    const rt: FoeRuntime = { kind, def: d, mass: massOf(d), maxHp: hp, str: strength, model, mixer, actions, current: '', yaw, charged: false, attackT: 0, throwCD: 0, struck: false, kick: false, stun: STAGGER, fade: null, target, sf, slotT: 0.6, slotAt: GAME.head.clone(), gait, pace, from: new Vector3(x, 0, z), out: false, hitNow: false, elite, shield: elite === 'shield' ? SHIELD_HITS : 0, bubble: null, blinkT: 2.5 + Math.random() * 1.5, blinkOn: 0, mini, riseT: 0, riseAct: null };
     if (elite) {
       // su aro de color a los pies (y el escudo, su burbuja)
       const ring = new Mesh(this.eliteRing, this.eliteMat.get(elite)!);
@@ -433,7 +436,19 @@ export class EnemySystem extends createSystem(
     e.addComponent(Foe, { hp, speed: plan.vWalk, state: FoeState.Walk, timer: 0, side: Math.random() < 0.5 ? -1 : 1, radius: d.r });
     e.addComponent(PhysicsShape, { shape: PhysicsShapeType.Capsules, dimensions: [d.r, d.h, 0], density: rt.mass * 60, friction: 0.15, restitution: 0.05 });
     e.addComponent(PhysicsBody, { state: PhysicsState.Dynamic, linearDamping: 0.2, angularDamping: 6 });
-    this.anim(rt, 'walk', 0);
+    // los esqueletos salen del suelo: su animación entera, quietos, con un reventón de tierra
+    const riseClip = d.rise ? gltf.animations.find((c) => c.name === d.rise) : undefined;
+    if (riseClip) {
+      const a = mixer.clipAction(riseClip);
+      a.setLoop(LoopOnce, 1);
+      a.clampWhenFinished = true;
+      a.timeScale = 1.25;
+      a.play();
+      rt.riseAct = a;
+      rt.riseT = riseClip.duration / 1.25;
+      HOOKS.sparks(this.tmp.set(x, 0.05, z), 26, 0x6b5a45);
+      SND.creak(this.tmp);
+    } else this.anim(rt, 'walk', 0);
     if (d.heavy || hp >= 3 || Math.random() < 0.5) roar(root.position, d.voice, boss ? 0.65 : 1);
     return target; // (al salir: la mitad de las veces; los fuertes, siempre)
   }
@@ -872,6 +887,18 @@ export class EnemySystem extends createSystem(
       // si cae fuera del mundo o lo lanzan lejos, se quita
       if (p.y < -5 || Math.abs(p.x) > 40 || Math.abs(p.z) > 40) {
         this.remove(e);
+        continue;
+      }
+      // saliendo del suelo: quieto (y, al acabar, echa a andar)
+      if (rt.riseT > 0) {
+        rt.riseT -= dt;
+        if (Math.abs(vel[0]) + Math.abs(vel[2]) > 1e-3) this.setVel(e, 0, vel[1], 0, null);
+        if (rt.riseT <= 0 && rt.riseAct) {
+          rt.riseAct.fadeOut(0.25);
+          rt.riseAct = null;
+          rt.current = '';
+          this.anim(rt, 'walk', 0);
+        }
         continue;
       }
       const toX = GAME.head.x - p.x, toZ = GAME.head.z - p.z, dist = Math.hypot(toX, toZ), faceP = Math.atan2(toX, toZ);
