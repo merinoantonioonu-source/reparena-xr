@@ -278,6 +278,9 @@ export class TrekSystem extends createSystem({}) {
   private readonly goldGlow: Sprite[] = [];
   /** Los aros de luz del vuelo. */
   private readonly flyRings: Mesh[] = [];
+  /** El aro conseguido: se abre a tu alrededor y se desvanece (pedido del usuario: pasar por los aros era poco satisfactorio);
+   * cuándo empezó cada uno (s del reloj; −1, libre). */
+  private readonly ringPops: { m: Mesh; t0: number }[] = [];
   /** Lo que se ve del vuelo para orientarse (fly-look.ts) y, para el sonido, si picabas o ibas en pica. */
   private flyLook!: FlyLook;
   private flyWas = { dive: false, pike: false };
@@ -511,7 +514,7 @@ export class TrekSystem extends createSystem({}) {
     warmKeep(new Sprite(goldMat));
     // los aros de luz del vuelo (dorados, que brillan): unos pocos, reutilizados
     const flyMat = new MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.85, depthWrite: false, blending: AdditiveBlending, toneMapped: false, side: DoubleSide });
-    const flyGeo = new TorusGeometry(RING_R, 0.08, 10, 48);
+    const flyGeo = new TorusGeometry(RING_R, 0.12, 10, 56);
     for (let i = 0; i < 6; i++) {
       const m = new Mesh(flyGeo, flyMat.clone());
       m.userData.noInk = true;
@@ -521,6 +524,14 @@ export class TrekSystem extends createSystem({}) {
       this.flyRings.push(m);
     }
     warmKeep(new Mesh(flyGeo, flyMat));
+    for (let i = 0; i < 3; i++) {
+      const m = new Mesh(flyGeo, flyMat.clone());
+      m.userData.noInk = true;
+      m.renderOrder = 6;
+      m.visible = false;
+      this.root.add(m);
+      this.ringPops.push({ m, t0: -1 });
+    }
     this.flyLook = new FlyLook();
     this.root.add(this.flyLook.inWorld);
     this.world.createTransformEntity(this.flyLook.inRoom);
@@ -1072,6 +1083,7 @@ export class TrekSystem extends createSystem({}) {
       case 'go':
       case 'pass':
         this.diag(e.t, e.p);
+        if (e.p.k === 'ring') this.ringPop(e.p);
         if (e.p.k === 'fruit') {
           // la fruta cogida: chispas de su color y se encoge (se la come)
           this.gone.set(e.p.id, { t: 0, dir: 0 });
@@ -1190,6 +1202,37 @@ export class TrekSystem extends createSystem({}) {
         }
       }
     for (let i = ri; i < this.flyRings.length; i++) this.flyRings[i].visible = false;
+    // los aros conseguidos: se abren (hasta casi 3 veces) y se desvanecen en 0,7 s
+    for (const P of this.ringPops) {
+      if (P.t0 < 0) continue;
+      const k = (this.clock - P.t0) / 0.7;
+      if (k >= 1 || lite) {
+        P.m.visible = false;
+        P.t0 = -1;
+        continue;
+      }
+      P.m.scale.setScalar(1 + 1.8 * k * (2 - k));
+      (P.m.material as MeshBasicMaterial).opacity = 0.95 * (1 - k) * (1 - k);
+    }
+  }
+
+  /** El aro conseguido: se abre desde donde estaba, chispas doradas por delante (pegadas a los ojos no se ven), su sonido y
+   * una vibración en las dos manos. */
+  private ringPop(p: Piece): void {
+    const R = this.runner, P = this.ringPops.reduce((a, b) => (a.t0 <= b.t0 ? a : b));
+    const ry = R.tk.bend(p.at, p.u - R.uShift, this.bp);
+    P.m.position.set(this.bp.x, p.h + this.calibRef + this.gy(p.at), this.bp.z);
+    P.m.rotation.set(0, ry, 0);
+    P.m.scale.setScalar(1);
+    P.m.visible = true;
+    P.t0 = this.clock;
+    for (let i = 0; i < 2; i++) {
+      const at = this.world3({ s: p.at + 1.6 + i * 0.8, u: p.u + (i ? 0.6 : -0.6), y: p.h + this.calibRef }, this.at);
+      HOOKS.sparks(at, 22, i ? 0xffffff : 0xffd166);
+    }
+    SND.perfect();
+    haptic('left', 0.6, 70);
+    haptic('right', 0.6, 70);
   }
 
   private draw(): void {

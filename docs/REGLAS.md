@@ -181,7 +181,10 @@ No las cambies sin preguntarle.
   donde te posas. Lo que hay que ver va **por debajo de ti o sube desde abajo** (en plancha se mira al suelo).
   - **A, en plancha** (la base; afinado con `docs/PLAN-VUELO.md`, «aplica todas tus sugerencias»): **la cabeza es la palanca**,
     respecto a un centro que no se mueve en el aire. **Escorarte es la posición de lado**: tanto te escoras, tanto te apartas
-    y, al volver al centro, el vuelo vuelve; el mundo se desplaza a tu lado. **Suave cerca del centro** (corregido por el usuario:
+    y, al volver al centro, el vuelo vuelve; el mundo se desplaza a tu lado. **Sin sacudidas** (pedido del usuario: costaba alinearse con las frutas): lo que pide la cabeza se suaviza y el vuelo
+    arranca y frena suave, a los lados y al subir y bajar; las frutas del aire, algo más fáciles de coger. **Deprisa, deprisa**
+    (pedido del usuario: para esquivar algo rápido): cuanto más deprisa mueves la cabeza, menos se suaviza y más rápido
+    responde el vuelo (quieto o con el vaivén de las flexiones, suave). **Suave cerca del centro** (corregido por el usuario:
     «hipersensible»): 2,5 cm sin efecto y del todo a un lado con lo que diga «Vuelo: recorrido de lado» (15 cm de serie, de 8
     a 30: más, menos sensible); el asistente lo cambia a tu gusto. **La sensibilidad de cada eje, en los ajustes** (pedido del
     usuario como desarrollador): «Vuelo: recorrido de lado», «Vuelo: recorrido para bajar» (13 cm de serie), «Vuelo: recorrido
@@ -199,8 +202,9 @@ No las cambies sin preguntarle.
     libre de la columna, la raja de la grieta); y **dos reglillas** en el suelo, por delante de las manos (dónde vas de lado y
     a qué altura, con la ventana del reto que viene en verde: «Vuelo: instrumentos», de serie sí).
   - **El asistente del vuelo** (elegido por el usuario: «paso a paso con preguntas»; sustituye a la práctica de vuelo, que
-    empezaba sola en pleno vuelo y no se entendía): la primera vez (y con «Vuelo: asistente en cada partida»; o desde la
-    pausa, «Ajustar el vuelo», en el próximo cofre), ya calibrado y antes del primer tramo, **con el mundo esperando** y
+    empezaba sola en pleno vuelo y no se entendía): **solo la primera vez** (pedido del usuario: que no salga siempre; al
+    empezar ya cuenta como visto) y **cuando tú quieras**: «Vuelo: asistente en la próxima partida» (se apaga solo) o, desde
+    la pausa, «Ajustar el vuelo» (en el próximo cofre); ya calibrado y antes del primer tramo, **con el mundo esperando** y
     volando en el sitio: te explica cada movimiento (de lado, subir y bajar, frenar con la cadera arriba y de canto), lo
     pruebas y pregunta **«¿Cómo lo has notado?»** con tres teclas, **Demasiado · Bien · Poco**, que se pulsan con una mano:
     Demasiado lo hace menos sensible y Poco, más (cambian «Vuelo: recorrido de lado / para bajar / para subir» o la fuerza
@@ -213,7 +217,8 @@ No las cambies sin preguntarle.
   - **B, con la tabla de equilibrio** («Volando: con tabla de equilibrio»): inclinarla a un lado (una muñeca más baja) se suma
     a escorarte (solo con las dos muñecas a la vista y estables, y pasados unos 2°) y echar el peso adelante baja en proporción.
   - **C, la pica**: subir la cadera (la cabeza atrás) frena en el aire y remonta, en proporción.
-  - Los retos: **aros de luz** que flotan bajos (por dentro, en picado), **columnas** de roca (escorarse al otro lado),
+  - Los retos: **aros de luz** que flotan bajos (por dentro, en picado; **grandes, y al pasar por uno se abre a tu alrededor y
+    se desvanece, con chispas doradas delante, sonido y vibración**: pedido del usuario, era poco satisfactorio), **columnas** de roca (escorarse al otro lado),
     **puentes** de roca (picar para pasar por debajo), **grietas** en una pared de roca (de canto, por la raja), **corrientes
     de aire** (te suben sin aletear) y **frutas en fila**. Las columnas, los puentes y las grietas, si fallas: frenas a la mitad
     y se rompe la racha, sin vidas; los aros, las corrientes y las frutas son premios. Sin jefe ni barriles.

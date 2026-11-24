@@ -1235,6 +1235,9 @@ export class Runner {
       this.coachWant = false;
       this.howSaid = true;
       B.set(H.x, H.z);
+      // (ya visto: no vuelve a salir solo, aunque lo dejes a medias; «Vuelo: asistente en la próxima partida» se apaga al usarse)
+      this.ev.push({ t: 'store', key: FLY_TUTO, val: 1 });
+      if (this.env.s('flyPractice') > 0) this.ev.push({ t: 'set', key: 'flyPractice', val: 0 });
       this.coach.begin(flyModel(this.env.s('flyAlt'), this.auto));
       this.cheer('Ajuste del vuelo', COL_ASK, 3);
     }

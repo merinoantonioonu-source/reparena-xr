@@ -37,8 +37,16 @@ export const FLY = {
   sideDead: 0.025,
   sideRange: 0.15,
   sideCurve: 1.4,
-  uW: 5.5,
-  uV: 2.4,
+  uW: 4.2,
+  uV: 2,
+  /** Lo que se suaviza lo que lees de la cabeza antes del muelle (s): el vaivén de cada flexión movía la cabeza unos
+   * centímetros y el vuelo daba sacudidas a los lados (vídeo del usuario: costaba alinearse con las frutas). */
+  sideIn: 0.25,
+  /** Rápido, rápido (pedido del usuario: para esquivar algo deprisa): cuanto más deprisa mueves la cabeza, menos se suaviza y
+   * más deprisa responde el vuelo, como el filtro «1 €» (quieto, suave; deprisa, al momento). La velocidad de la cabeza
+   * (m/s) a la que ya responde el doble y lo más que se aviva (veces). */
+  fastV: 0.2,
+  fastMax: 3,
   /** P: la zona muerta de bajar el pecho (m) y lo que baja la flexión entera (m de vuelo). */
   downDead: 0.02,
   downAlt: 3.5,
@@ -103,7 +111,8 @@ export function flyModel(setting: number, _auto: boolean): FlyModel {
 
 /** El mando de media flexión (elegido por el usuario: «media flexión = recto»): la zona muerta alrededor de la mitad (× media
  * bajada) y lo deprisa que se sube y se baja del todo (m/s: con los brazos estirados y con el pecho abajo del todo). */
-export const MID = { dead: 0.15, up: 2.2, down: 3, tau: 0.3 } as const;
+// (tau: lo que tarda en coger la velocidad de subir o bajar; con 0,3 s cada flexión daba un tirón de altura)
+export const MID = { dead: 0.15, up: 2.2, down: 3, tau: 0.5 } as const;
 
 /** Lo que manda el cuerpo en este fotograma (de `FlyBody`, la marcha y las muñecas). */
 export interface FlyIn {
@@ -142,6 +151,11 @@ export const flyIn = (): FlyIn => ({ side: 0, down: 0, back: 0, depth: 0.13, low
 
 const clamp = (v: number, a: number, b: number): number => (v < a ? a : v > b ? b : v);
 
+/** Lo que se aviva el vuelo con la cabeza moviéndose a `v` m/s: 1 quieta; el doble a `FLY.fastV`; como mucho `FLY.fastMax`. */
+export function fastK(v: number): number {
+  return Math.min(FLY.fastMax, 1 + Math.max(0, v) / FLY.fastV);
+}
+
 /** El lado que pide la cabeza (m de vuelo, + derecha): `side` m escorado con un recorrido entero de `range` m. */
 export function sideTarget(side: number, range: number): number {
   const r = Math.max(FLY.sideDead + 0.02, range), n = clamp((Math.abs(side) - FLY.sideDead) / (r - FLY.sideDead), 0, 1);
@@ -153,6 +167,10 @@ export class Glider {
   u = 0;
   alt: number = FLY.alt0;
   vU = 0;
+  /** Lo que pide la cabeza de lado, suavizado (m), lo que pedía antes (m) y lo deprisa que se mueve (m/s, suavizado). */
+  sideF = 0;
+  private sideL = NaN;
+  private sideV = 0;
   vAlt = 0;
   /** Lo que piden el cuerpo y el aire ahora: el lado y (en P) la altura (para las reglillas). */
   tgtU = 0;
@@ -178,7 +196,8 @@ export class Glider {
   }
 
   reset(alt: number = FLY.alt0): void {
-    this.u = this.vU = this.vAlt = this.tgtU = 0;
+    this.u = this.vU = this.vAlt = this.tgtU = this.sideF = this.sideV = 0;
+    this.sideL = NaN;
     this.alt = alt;
     this.tgtAlt = this.cruise = FLY.alt0;
     this.diving = this.pike = this.flapped = false;
@@ -192,11 +211,18 @@ export class Glider {
     if (dt <= 0) return;
     this.flapped = false;
     // el lado: la posición que pide la cabeza, con un muelle sin rebote y su tope de velocidad
-    this.tgtU = sideTarget(I.side, I.range);
+    // (lo que pide la cabeza, suavizado: sin las sacudidas del vaivén de cada flexión; pero deprisa, deprisa)
+    const sv = Number.isNaN(this.sideL) ? 0 : (I.side - this.sideL) / dt;
+    this.sideL = I.side;
+    // (sube enseguida y baja despacio: el empujón dura todo el gesto, no solo mientras la cabeza se mueve)
+    this.sideV += (Math.abs(sv) - this.sideV) * Math.min(1, dt / (Math.abs(sv) > this.sideV ? 0.05 : 0.5));
+    const fast = fastK(this.sideV);
+    this.sideF += (I.side - this.sideF) * Math.min(1, (dt * fast) / FLY.sideIn);
+    this.tgtU = sideTarget(this.sideF, I.range);
     // (un muelle amortiguado justo, en pasos cortos para que no dependa de las imágenes por segundo)
-    const w = FLY.uW;
+    const w = FLY.uW * fast, vMax = FLY.uV * fast;
     for (let n = Math.ceil(dt / 0.01), h = dt / n; n > 0; n--) {
-      this.vU = clamp(this.vU + (w * w * (this.tgtU - this.u) - 2 * w * this.vU) * h, -FLY.uV, FLY.uV);
+      this.vU = clamp(this.vU + (w * w * (this.tgtU - this.u) - 2 * w * this.vU) * h, -vMax, vMax);
       this.u = clamp(this.u + this.vU * h, -FLY.uMax, FLY.uMax);
     }
     // la pica (la cabeza atrás) manda sobre el picado, con su margen para no parpadear entre los dos
@@ -271,7 +297,8 @@ export class Glider {
       this.flapped = true;
     }
     if (I.rep) this.flapped = true;
-    this.vAlt += (want - this.vAlt) * Math.min(1, dt / MID.tau);
+    // (bajar o subir la cabeza deprisa, el vuelo responde deprisa: como de lado)
+    this.vAlt += (want - this.vAlt) * Math.min(1, (dt * fastK(Math.abs(this.vDown))) / MID.tau);
     this.alt += this.vAlt * dt;
     if (this.alt > FLY.altMax) this.vAlt = Math.min(0, this.vAlt);
     // (para la reglilla: dónde estarás en un segundo y medio si sigues así)

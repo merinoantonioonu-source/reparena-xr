@@ -149,8 +149,8 @@ En plancha se mira al suelo, por delante de las manos: todo esto va ahí o por d
 *(Sustituye a la práctica de vuelo, que empezaba sola en pleno vuelo y no se entendía: el usuario eligió «paso a paso con
 preguntas».)*
 
-- La **primera vez** (con «Vuelo: asistente en cada partida», en cada una; y desde la pausa, «Ajustar el vuelo», en el
-  próximo cofre), ya calibrado y antes del primer tramo, **con el mundo esperando** y volando en el sitio: cuatro pasos,
+- Solo la **primera vez** (al empezar ya cuenta como visto) y cuando el jugador quiera: «Vuelo: asistente en la próxima
+  partida» (se apaga solo) y, desde la pausa, «Ajustar el vuelo» (en el próximo cofre); ya calibrado y antes del primer tramo, **con el mundo esperando** y volando en el sitio: cuatro pasos,
   «Ajuste 1/4 · …» en el aviso breve: de lado, subir y bajar (según el mando de altura), frenar con la cadera arriba y de
   canto (el giro de las grietas).
 - Cada paso se prueba (al menos 5 s, y hasta hacerlo de verdad; a los 20 s pregunta igual) y sale la pregunta, «¿Cómo has
