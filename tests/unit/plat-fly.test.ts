@@ -45,6 +45,19 @@ describe('el lado: tanto te escoras, tanto te apartas', () => {
     expect(Math.abs(g.u)).toBeLessThan(0.02);
     expect(min).toBeGreaterThan(-0.05);
   });
+  it('al calibrar recolocado, el centro es el de después (0, 0, mirando a −Z), no donde estaba la cabeza (caja negra del usuario)', () => {
+    const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });
+    // (antes de recolocar: la cabeza a 2,2 m y el cuerpo girado; el mundo aún no se ha deslizado)
+    Object.assign(s.env.head, { x: 2.2, z: -0.7, yaw: 0.8 });
+    s.r.calibrate(0.45, 0, 0, 0);
+    const B = s.r.flyBody;
+    expect([B.x0, B.z0, B.fx]).toEqual([0, 0, 0]);
+    expect(B.fz).toBeCloseTo(-1, 6);
+    // ya recolocado: escorarse 8 cm a la derecha es 8 cm de lado, y nada atrás
+    B.read(0.08, 0);
+    expect(B.side).toBeCloseTo(0.08, 6);
+    expect(Math.abs(B.fwd)).toBeLessThan(1e-6);
+  });
   it('el centro del vuelo no sigue a la cabeza: escorado y quieto, la lectura no se va a cero', () => {
     const B = new FlyBody();
     B.set(0, 0);
@@ -154,7 +167,7 @@ describe('la Travesía volando con media flexión', () => {
   it('despega solo; a media flexión, recto; y el aro se pasa bajando un poco más hasta su altura', () => {
     const TOP = 0.45, HALF = 0.065, s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });
     s.env.ex = 'pushup';
-    s.env.mem.set('reparenaxr-flytuto', 1);
+    s.env.mem.set('reparenaxr-flytuto2', 1);
     s.env.calibRef = TOP;
     s.head.y = TOP - HALF;
     s.r.calibrate(TOP, 0, 0);
@@ -266,7 +279,7 @@ describe('la Travesía volando', () => {
     // (con el mando de posición: los retos se juzgan igual con cualquiera)
     const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1, flyAlt: 1 });
     s.env.ex = 'pushup';
-    s.env.mem.set('reparenaxr-flytuto', 1); // (la práctica de vuelo, ya hecha)
+    s.env.mem.set('reparenaxr-flytuto2', 1); // (la práctica de vuelo, ya hecha)
     s.env.calibRef = TOP;
     s.head.y = TOP;
     s.r.calibrate(TOP, 0, 0);
@@ -397,7 +410,7 @@ describe('la práctica de vuelo', () => {
     s.until(() => false, 72);
     const P = s.r.practice;
     expect(P.active).toBe(true);
-    expect(s.of('say').some((e) => e.text === 'Escórate a la derecha')).toBe(true);
+    expect(s.of('say').some((e) => e.text.endsWith('Escórate a la derecha'))).toBe(true);
     // escorado a la derecha y quieto ahí: se marca enseguida (antes había que volver al centro y se quedaba esperando)
     s.head.x = 0.1;
     expect(s.until(() => P.step === 1, 72 * 3)).toBe(true);
@@ -420,7 +433,7 @@ describe('la práctica de vuelo', () => {
     expect(fit.side).toBeCloseTo(0.09 * 0.8, 2);
     expect(fit.down).toBeCloseTo(0.12 * 0.8, 2);
     expect(fit.back).toBeCloseTo(0.15 * 0.8, 2);
-    expect(s.of('store').some((e) => e.key === 'reparenaxr-flytuto')).toBe(true);
+    expect(s.of('store').some((e) => e.key === 'reparenaxr-flytuto2')).toBe(true);
     expect(s.r.dist).toBeGreaterThan(0.5); // (avanzaste con la flexión)
     // durante la práctica no te hundes (sus pasos no son flexiones)
     expect(s.r.flyAlt).toBeGreaterThan(4);
@@ -438,7 +451,7 @@ describe('la práctica de vuelo', () => {
   it('antes de empezar, en el suelo; en la dura, sin hundirse esperando: al empezar, despega hasta la altura de vuelo', () => {
     const s = new Sim({ pushDepth: 13, trekFly: 1 });
     s.env.ex = 'pushup';
-    s.env.mem.set('reparenaxr-flytuto', 1);
+    s.env.mem.set('reparenaxr-flytuto2', 1);
     s.env.calibRef = s.head.y = 0.45;
     s.r.calibrate(0.45, 0, 0);
     s.load(course([mk(1, 'chest', 400, 0)]));
@@ -454,7 +467,7 @@ describe('la práctica de vuelo', () => {
     for (const again of [0, 1]) {
       const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1, flyPractice: again });
       s.env.ex = 'pushup';
-      s.env.mem.set('reparenaxr-flytuto', 1);
+      s.env.mem.set('reparenaxr-flytuto2', 1);
       s.load(course([mk(1, 'chest', 300, 0)]));
       s.until(() => false, 10);
       expect(s.r.practice.active).toBe(!!again);

@@ -23,3 +23,12 @@ export function bodyDir(q: Quaternion, out: Vector3, gazeOnly = false): Vector3 
   if (out.lengthSq() < 1e-8) out.set(0, 0, -1);
   return out.normalize();
 }
+
+const _r = new Vector3();
+/** De canto (rad): lo que se pone vertical la línea de las orejas (0 boca abajo o mirando al frente; π/2 de lado, como en la
+ * plancha lateral). No sale de hacia dónde mira la cara: levantar la cabeza para ver lo que viene, algo ladeada, se leía como
+ * de canto (la caja negra del vuelo del usuario: más de 40° casi la mitad del tiempo). */
+export function headRoll(q: Quaternion): number {
+  const r = _r.set(1, 0, 0).applyQuaternion(q);
+  return Math.asin(Math.min(1, Math.abs(r.y)));
+}

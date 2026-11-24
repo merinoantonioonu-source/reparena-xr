@@ -65,15 +65,17 @@ export const FLUID: readonly PieceKind[] = ['gap', 'step', 'crawl', 'low', 'side
  * lo que hay que llevar la cabeza al otro lado mientras dura (m, desde el centro: más que escorarse). */
 export const LANE_MIN = 3, LANE_MAX = 5, LANE_NEED = 0.26;
 /** Lo que midió la práctica de vuelo (docs/PLAN-VUELO.md, 3.4): el recorrido entero de cada eje (m de cabeza: escorarte,
- * bajar el pecho y la pica), al 80 % de lo que hiciste. */
-export const FLY_FIT = 'reparenaxr-fly';
+ * bajar el pecho y la pica), al 80 % de lo que hiciste. (El «2»: lo medido antes de arreglar el centro del vuelo, que quedaba
+ * desplazado al calibrar, no vale y se vuelve a medir.) */
+export const FLY_FIT = 'reparenaxr-fly2';
 export interface FlyFit {
   side: number;
   down: number;
   back: number;
 }
-/** Ya hiciste la práctica de vuelo (no sale más, salvo con «Vuelo: repetir la práctica»). */
-export const FLY_TUTO = 'reparenaxr-flytuto';
+/** Ya hiciste la práctica de vuelo (no sale más, salvo con «Vuelo: repetir la práctica»; el «2», como el de FLY_FIT: se repite
+ * una vez con el centro ya bien puesto). */
+export const FLY_TUTO = 'reparenaxr-flytuto2';
 /** Lo que hay en el vuelo (`CourseEnv.fly`). */
 export const FLY_KINDS: readonly PieceKind[] = ['ring', 'pillar', 'arch', 'crack', 'updraft', 'berries'];
 /** El vuelo: el radio del aro (m: lo cerca de su centro que hay que pasar), el ancho de la columna (m), lo que hay que pasar

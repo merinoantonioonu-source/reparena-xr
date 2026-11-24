@@ -413,6 +413,17 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):
+  el centro del vuelo (`FlyBody`, y `BodyMoves.x0`) se tomaba al calibrar **antes** de que el mundo se deslizara 0,8 s para
+  dejarte en (0, 0) mirando a −Z: quedaba desplazado (2,2 m en su diagnóstico) y girado (hasta 135°), y el lado y la pica
+  iban a tope todo el rato. Ahora la partida le dice a la Travesía si te recoloca (`calibrated(y, turned)`) y el centro es el
+  de después. «De canto» se leía de hacia dónde mira la cara y salía al levantar la cabeza (`headRoll`, la línea de las
+  orejas). El muelle del lado, amortiguado justo (`FLY.uW`). El «tonel» se llama giro (se confundía con los barriles) y la
+  práctica numera sus pasos; lo medido antes (`reparenaxr-fly`, `reparenaxr-flytuto`) se descarta: claves con «2».
+  **Pendiente con el usuario**: probarlo en las gafas con la tabla de equilibrio apagada (la tenía puesta, y con ella echar
+  la cabeza adelante te baja) y los recorridos de serie; si su flexión es muy honda (la cabeza le baja 30-50 cm), quizá
+  «Vuelo: recorrido para bajar» más largo.
+
 - **Variedad (pedido del usuario: «que nunca tenga la sensación de pasar siempre por el mismo entorno y los mismos
   enemigos»; eligió todo menos las oleadas temáticas y, de ejercicios, solo el press de pecho en el suelo)**. Hecho: el viaje
   por portales y la fauna de cada entorno (`src/combat/journey.ts`, `travel-system.ts`; `Scenery` guarda montados los del
