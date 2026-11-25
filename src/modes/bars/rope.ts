@@ -15,8 +15,8 @@
  * torres y el terreno), el avance (`RopeRun`) y lo que hay en cada trozo (`ropeDecoPuts`: árboles, piedras, torres y montes
  * lejanos, con los modelos de los kits que ya hay). Lo pinta src/modes/bars/rope-scene.ts.
  *
- * Coordenadas del recorrido: `s`, lo que llevas de cuerda (m); `h`, lo que avanza en horizontal hacia lo alto de tu cabeza;
- * `y`, la altura; `u`, a un lado (a la derecha mirando hacia lo alto de tu cabeza, de pie en la cuerda).
+ * Coordenadas del recorrido: `s`, lo que llevas de cuerda (m); `h`, lo que avanza en horizontal hacia donde subes (tus pies);
+ * `y`, la altura; `u`, a un lado (a la derecha mirando hacia donde subes).
  */
 import { put, rockFit, standPole, tiltPole, type Put } from '../trek/plat/pieces.js';
 import type { RopeWorldKey } from './rope-worlds.js';

@@ -456,7 +456,7 @@ export class BarsSystem extends createSystem({}) {
       }
     }
     T.ev.length = 0;
-    // lo que se ve: con tu cabeza y sus ejes (hacia lo alto de tu cabeza y a un lado), y dónde queda tu cabeza arriba (las frutas)
+    // lo que se ve: con tu cabeza y sus ejes (hacia donde subes —tus pies— y a un lado), y dónde queda tu cabeza arriba (las frutas)
     const F = this.lookF, ry = frame.rotation.y;
     F.head.copy(head.p);
     F.fwd.set(-Math.sin(ry), 0, -Math.cos(ry));
@@ -526,8 +526,10 @@ export class BarsSystem extends createSystem({}) {
     }
   }
 
-  // al colgarte la primera vez en la ronda: la cuerda pasa por tus paralelas, a lo largo de tu cuerpo, subiendo hacia lo alto
-  // de tu cabeza (con dos paralelas, por cada una; con una, cruzada sobre ti, por encima de su centro)
+  // al colgarte la primera vez en la ronda: la cuerda pasa por tus paralelas, a lo largo de tu cuerpo, subiendo hacia tus pies
+  // (tumbado, es lo que se ve sin echar la cabeza atrás: lo que se acerca, a la vista; pedido del usuario, que lo veía «al
+  // revés»: subía hacia lo alto de la cabeza y había que mirar atrás) (con dos paralelas, por cada una; con una, cruzada sobre
+  // ti, por encima de su centro)
   private placeRope(): void {
     if (!this.rope || this.ropeScene.placed) return;
     const e = eqPose(this.eq, false, 'dip'), one = dipOne(str('dipBars'));
@@ -535,7 +537,7 @@ export class BarsSystem extends createSystem({}) {
     eqAxes(e, ax, az);
     const along = one ? ax : az; // (con dos, a lo largo de las paralelas; con una, cruzado a ella)
     if (upH.lengthSq() < 1e-4) upH.copy(along);
-    const sg = along.dot(upH) >= 0 ? 1 : -1;
+    const sg = along.dot(upH) >= 0 ? -1 : 1; // (lo alto de tu cabeza, al revés: hacia tus pies)
     this.ropeScene.place(e.x, num('dipH') / 100, e.z, along.x * sg, along.z * sg, one, num('dipGap') / 100);
     const fr = this.ropeScene.frameGroup;
     fr.updateMatrixWorld();

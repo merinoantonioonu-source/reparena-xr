@@ -26,7 +26,7 @@ La pared rocosa (C) queda para las dominadas, donde de verdad cuelgas en vertica
   gravedad que sientes casa con lo que ves) y, en la subida vertical, la plataforma de la torre se ve sobre ti.
 - La cuerda pasa por lo que agarras: con **dos paralelas**, dos cables (cada paralela es un trozo del suyo); con **una**,
   cruzada sobre ti, un cable por encima de su centro y la barra colgada de una polea.
-- Subir es que el valle entero baje y vaya hacia tus pies; las paralelas virtuales no se mueven (son tu ancla).
+- Subir es que el valle entero baje y venga hacia ti (la cuerda sube hacia tus pies: tumbado, lo que se acerca se ve sin echar la cabeza atrás); las paralelas virtuales no se mueven (son tu ancla).
 
 ## Los PR
 
