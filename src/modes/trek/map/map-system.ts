@@ -13,6 +13,7 @@ import { AdditiveBlending, CanvasTexture, ConeGeometry, createSystem, DoubleSide
 import type { Material, PerspectiveCamera, WebGLRenderer } from '@iwsdk/core';
 // (el descompresor de los modelos de Google: el mismo paquete de Three que reexporta IWSDK —IWSDK lo importa igual—)
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { Scheduler } from '3d-tiles-renderer/core';
 import { TilesRenderer } from '3d-tiles-renderer/three';
 import { CesiumIonAuthPlugin, GLTFExtensionsPlugin, ReorientationPlugin } from '3d-tiles-renderer/plugins';
 import { SND } from '../../../audio/sound.js';
@@ -197,6 +198,9 @@ export class MapSystem extends createSystem({}) {
       this.cam = cam;
     }
     tiles.setResolutionFromRenderer(cam, r);
+    // las colas de descarga de la librería van con el reloj de la página, que en las gafas se para dentro de la VR: con el
+    // de la sesión de VR (si no, el índice llegaba y los trozos se quedaban en cola para siempre)
+    Scheduler.setXRSession((r.xr.isPresenting ? r.xr.getSession() : null) as XRSession);
     tiles.update();
   }
 
@@ -275,6 +279,7 @@ export class MapSystem extends createSystem({}) {
     }
     // (al acabar la partida se sueltan los mapas: ocupan mucha memoria)
     this.disposeTiles();
+    Scheduler.setXRSession(null as unknown as XRSession); // (vuelve al reloj de la página)
   }
 
   private disposeTiles(): void {

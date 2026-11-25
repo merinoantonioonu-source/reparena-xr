@@ -450,6 +450,10 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   servidor— y, mientras no carga, cómo va cada 15 s: la raíz, los trozos en cola, bajando, procesando, cargados y fallidos)
   sale en la página («Volar sobre el mapa») y en la cabecera del diagnóstico. Y hasta medir el suelo, cada ciudad trae su
   altura (`City.h`: Madrid está a unos 700 m sobre el elipsoide y se empezaba bajo tierra); el aviso, a los 20 s.
+  **La causa** (con ese registro, de las gafas: «raíz 4 · en cola 20 · bajando 0»): el índice llegaba, pero los trozos se
+  quedaban en cola para siempre. Las colas de `3d-tiles-renderer` avanzan con `requestAnimationFrame` de la página, que el
+  navegador de las Quest para dentro de la VR (el emulador no: por eso aquí cargaba). Se arregla con su `Scheduler.setXRSession`
+  (la sesión de VR cuando se está en ella; en `MapSystem.update`, antes de `tiles.update()`).
 
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):
   el centro del vuelo (`FlyBody`, y `BodyMoves.x0`) se tomaba al calibrar **antes** de que el mundo se deslizara 0,8 s para
