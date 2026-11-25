@@ -56,6 +56,30 @@ export class DiagSystem extends createSystem({}, {}) {
   private hdrT = 0;
 
   init(): void {
+    // la sesión de VR: con qué empieza y cuándo se acaba, y si la gráfica se pierde o un error se escapa (el usuario entraba y
+    // la sesión se cerraba sola al segundo, sin ningún error apuntado)
+    const xr = this.world.renderer.xr, cv = this.world.renderer.domElement;
+    const onStart = (): void => {
+      const s = xr.getSession() as (XRSession & { enabledFeatures?: string[]; frameRate?: number }) | null;
+      diagEvent(`sesión de VR: empieza · ${s?.frameRate ?? '?'} img/s · con ${s?.enabledFeatures?.join(', ') ?? '?'}`);
+      s?.addEventListener('visibilitychange', () => diagEvent(`sesión de VR: ${s.visibilityState}`));
+    };
+    const onEnd = (): void => diagEvent('sesión de VR: se acaba');
+    const onLost = (): void => diagEvent('ERROR: la gráfica se ha perdido (webglcontextlost)');
+    const onErr = (e: ErrorEvent): void => diagEvent(`ERROR sin atrapar: ${String(e.message).slice(0, 160)}`);
+    const onRej = (e: PromiseRejectionEvent): void => diagEvent(`ERROR en una promesa: ${String((e.reason as Error)?.message ?? e.reason).slice(0, 160)}`);
+    xr.addEventListener('sessionstart', onStart);
+    xr.addEventListener('sessionend', onEnd);
+    cv.addEventListener('webglcontextlost', onLost);
+    window.addEventListener('error', onErr);
+    window.addEventListener('unhandledrejection', onRej);
+    this.cleanupFuncs.push(() => {
+      xr.removeEventListener('sessionstart', onStart);
+      xr.removeEventListener('sessionend', onEnd);
+      cv.removeEventListener('webglcontextlost', onLost);
+      window.removeEventListener('error', onErr);
+      window.removeEventListener('unhandledrejection', onRej);
+    });
     // los avisos y errores de la consola, también (sin los de depuración del emulador)
     let last = '';
     for (const k of ['warn', 'error'] as const) {

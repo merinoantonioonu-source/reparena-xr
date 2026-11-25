@@ -13,8 +13,7 @@
       "mode": "vr",
       "offer": "none",
       "features": {
-        "handTracking": true,
-        "anchors": true
+        "handTracking": true
       }
     },
     "input": {
@@ -45,7 +44,7 @@
         "updateFrequency": 60,
         "interpolation": true
       },
-      "sceneUnderstanding": true,
+      "sceneUnderstanding": false,
       "environmentRaycast": false,
       "spatialUI": {
         "kit": "horizon",
