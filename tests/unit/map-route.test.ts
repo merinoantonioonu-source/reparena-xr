@@ -187,6 +187,32 @@ describe('el vuelo sobre el mapa', () => {
     expect(F.alt).toBeGreaterThan(alt0 + 40); // (el mapa se había hundido unos 50 m)
     expect(F.toNext().dist).toBeCloseTo(d0, -2);
   });
+  it('desde un lugar cualquiera (sin ruta): encima de él, mirando al norte, sin aros; y sabe dónde está', () => {
+    const F = new MapFlight({ id: 'place', name: 'Tu lugar', lat: 27.9881, lon: 86.925, h: 0, route: [] });
+    expect(F.rings.length).toBe(0);
+    expect(F.x).toBe(0);
+    expect(F.z).toBe(0);
+    expect(F.judge()).toBe(false);
+    expect(F.toNext().dist).toBe(0);
+    // el suelo de verdad (el Everest: 8.800 m), al medirlo la primera vez: a tu altura de salida sobre él
+    expect(F.placed).toBe(false);
+    F.setGround(8800);
+    expect(F.agl).toBeCloseTo(MAP.alt0, 6);
+    F.setGround(8700); // (luego ya no te recoloca: solo es lo que hay debajo)
+    expect(F.alt).toBeCloseTo(8800 + MAP.alt0, 6);
+    // hacia el norte: la latitud sube y la longitud no cambia
+    run(F, 20, IN());
+    const W = F.where({ lat: 0, lon: 0 });
+    expect(W.lat).toBeGreaterThan(27.9881 + 0.003);
+    expect(W.lon).toBeCloseTo(86.925, 4);
+    expect(F.reanchor()).toBe(false);
+  });
+  it('«donde lo dejaste»: a la altura que llevabas', () => {
+    const F = new MapFlight({ id: 'last', name: 'Donde lo dejaste', lat: 40.4, lon: -3.7, h: 0, route: [] });
+    F.startAgl = 1200;
+    F.setGround(650);
+    expect(F.agl).toBeCloseTo(1200, 6);
+  });
   it('el rumbo: 0 hacia −z, + hacia −x', () => {
     expect(headingTo(0, 0, 0, -10)).toBeCloseTo(0, 6);
     expect(headingTo(0, 0, -10, 0)).toBeCloseTo(Math.PI / 2, 6);

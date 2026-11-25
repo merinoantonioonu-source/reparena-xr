@@ -21,13 +21,13 @@ import { CesiumIonAuthPlugin, GLTFExtensionsPlugin, ReorientationPlugin, TilesFa
 import { SND } from '../../../audio/sound.js';
 import { diagEvent } from '../../../core/diag.js';
 import { GAME, HOOKS, MAPVIEW } from '../../../core/state.js';
-import { num, on as isOn, settings, str } from '../../../core/values.js';
+import { num, on as isOn, settings } from '../../../core/values.js';
 import { head } from '../../../input/hand-model.js';
 import { haptic } from '../../../input/hand-system.js';
 import { FLY } from '../plat/fly.js';
 import { TrekSystem } from '../trek-system.js';
-import { GOOGLE_3D_ASSET, mapKey, mapLog } from './map-key.js';
-import { cityOf, headingTo, MAP, MapFlight, type MapIn } from './map-route.js';
+import { GOOGLE_3D_ASSET, mapKey, mapLog, mapStart, setMapLast } from './map-key.js';
+import { headingTo, MAP, MapFlight, type MapIn } from './map-route.js';
 
 const DEG = Math.PI / 180, RE = 6371000;
 /** Lo más cerca que se pone el fondo de lo que se pinta (m: la ciudad entera; más alto, hasta el horizonte), cada cuánto se
@@ -73,6 +73,8 @@ export class MapSystem extends createSystem({}) {
   private wallT = 0;
   private ringPt = 0;
   private gearSaid = false;
+  private lastT = 0;
+  private readonly spot = { lat: 0, lon: 0 };
   /** La calima (la niebla de la escena: lo que traía, para devolverlo), la nitidez de ahora (× la del ajuste) y las imágenes
    * por segundo desde el último apunte del registro. */
   private fogWas: { color: number; density: number } | null = null;
@@ -212,7 +214,7 @@ export class MapSystem extends createSystem({}) {
     if (this.groundT <= 0) {
       this.groundT = GROUND_T;
       const g = this.topAt(F.x, F.z, F.alt);
-      if (!Number.isNaN(g)) F.ground = g;
+      if (!Number.isNaN(g)) F.setGround(g);
     }
     // (los rayos cuestan: lo de delante, solo en marcha y cerca del suelo; los aros, un punto cada vez y solo de cerca)
     this.aheadT -= dt;
@@ -223,7 +225,14 @@ export class MapSystem extends createSystem({}) {
     this.ringT -= dt;
     if (this.ringT <= 0) {
       this.ringT = RING_T;
-      if (F.toward.dist < 5000) this.measureRing(F, F.next);
+      if (F.rings.length && F.toward.dist < 5000) this.measureRing(F, F.next);
+    }
+    // donde lo dejas (para «Donde lo dejaste»): cada pocos segundos, ya sobre el suelo de verdad
+    this.lastT -= dt;
+    if (this.lastT <= 0 && F.placed && T!.playing()) {
+      this.lastT = 5;
+      const W = F.where(this.spot);
+      setMapLast({ lat: +W.lat.toFixed(6), lon: +W.lon.toFixed(6), agl: Math.round(F.agl), heading: +F.heading.toFixed(3) });
     }
     // el mapa, girado (y ladeado un poco al virar, como un ave) y desplazado para que donde vuelas quede en tu cabeza (el
     // centro del vuelo, quieto: lo de la Travesía)
@@ -233,17 +242,22 @@ export class MapSystem extends createSystem({}) {
     this.root.position.set(B.x0 - this.v.x, eye - this.v.y, B.z0 - this.v.z);
     this.root.updateMatrixWorld(true);
     // los aros: el que viene y el siguiente, por encima de lo que tengan debajo y de cara a ti (se entra por donde vengas)
+    // (desde un lugar cualquiera no hay ruta: ni aros ni flecha)
+    const route = F.rings.length > 0;
     for (let k = 0; k < 2; k++) {
-      const i = (F.next + k) % F.rings.length, r = F.rings[i], m = this.rings[k];
+      const m = this.rings[k];
+      m.visible = route;
+      if (!route) continue;
+      const i = (F.next + k) % F.rings.length, r = F.rings[i];
       m.position.set(r.x, F.ringAlt(i), r.z);
       m.rotation.set(0, headingTo(F.x, F.z, r.x, r.z), 0);
       (m.material as MeshBasicMaterial).opacity = k ? 0.4 : 0.9;
-      m.visible = true;
     }
     this.beam.position.copy(this.rings[0].position);
     this.beam.position.y += MAP.ringR;
     this.beam.scale.set(1, 2500, 1);
-    this.beam.visible = true;
+    this.beam.visible = route;
+    this.arrow.visible = route;
     if (this.popT >= 0) {
       this.popT += dt;
       const k = this.popT / 0.8;
@@ -304,11 +318,12 @@ export class MapSystem extends createSystem({}) {
 
   /** Empieza el vuelo sobre el mapa: la ciudad, sus mapas (con la clave del jugador) y lo lejos que se ve. */
   private start(): boolean {
-    const city = cityOf(str('flyMap')), key = mapKey();
-    if (!city || !key) return false;
+    const from = mapStart(), key = mapKey();
+    if (!from || !key) return false;
+    const city = from.city, cid = `${city.id}:${city.lat},${city.lon}`;
     this.active = true;
     this.errSaid = false;
-    if (!this.tiles || this.cityId !== city.id) {
+    if (!this.tiles || this.cityId !== cid) {
       this.disposeTiles();
       const tiles = new TilesRenderer();
       tiles.registerPlugin(new CesiumIonAuthPlugin({ apiToken: key, assetId: GOOGLE_3D_ASSET, autoRefreshToken: true }));
@@ -364,7 +379,7 @@ export class MapSystem extends createSystem({}) {
       tiles.group.userData.noComic = true;
       this.root.add(tiles.group);
       this.tiles = tiles;
-      this.cityId = city.id;
+      this.cityId = cid;
       this.loaded = this.asked = false;
     }
     this.errK = 1;
@@ -373,6 +388,10 @@ export class MapSystem extends createSystem({}) {
     const fog = (this.world.scene as unknown as { fog: { color: Color; density: number } | null }).fog;
     if (fog) this.fogWas = { color: fog.color.getHex(), density: fog.density };
     this.flight = new MapFlight(city);
+    // («donde lo dejaste»: a la altura y con el rumbo que llevabas)
+    if (from.agl !== undefined) this.flight.startAgl = Math.max(30, Math.min(20000, from.agl));
+    if (from.heading !== undefined) this.flight.heading = from.heading;
+    this.lastT = 8;
     this.reorient?.transformLatLonHeightToOrigin(city.lat * DEG, city.lon * DEG);
     this.waitT = 0;
     this.nextState = 6;
@@ -390,19 +409,21 @@ export class MapSystem extends createSystem({}) {
     const cam = this.world.camera as PerspectiveCamera;
     this.farWas = cam.far;
     this.farNow = 0;
-    HOOKS.say(`${city.name} · vuelo libre · sigue los aros`, '#3cf0c6', 4, false);
+    HOOKS.say(city.route.length ? `${city.name} · vuelo libre · sigue los aros` : `${city.name} · vuelo libre`, '#3cf0c6', 4, false);
     this.log(`${city.name}: empieza (clave …${key.slice(-4)})`);
     return true;
   }
 
   /** Lo que enseñan el marcador y el panel de la ronda (null: sin mapa). Sin crear nada en cada fotograma. */
-  private readonly hudOut = { city: '', next: '', dist: 0, dy: 0, kmh: 0, agl: 0, got: 0 };
-  hud(): { city: string; next: string; dist: number; dy: number; kmh: number; agl: number; got: number } | null {
+  private readonly hudOut = { city: '', next: '', dist: 0, dy: 0, kmh: 0, agl: 0, got: 0, gear: 0, lat: 0, lon: 0 };
+  hud(): { city: string; next: string; dist: number; dy: number; kmh: number; agl: number; got: number; gear: number; lat: number; lon: number } | null {
     const F = this.flight;
     if (!this.active || !F) return null;
     const H = this.hudOut;
     H.city = F.city.name;
-    H.next = F.city.route[F.next].name;
+    H.next = F.city.route[F.next]?.name ?? '';
+    H.gear = F.gear;
+    F.where(H);
     H.dist = F.toward.dist;
     H.dy = F.toward.dy;
     H.kmh = F.speed * 3.6;

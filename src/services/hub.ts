@@ -13,13 +13,13 @@ import { Spotify, type SpotifyEnv, type SpState } from './spotify.js';
 import { exSongs } from '../core/dev.js';
 import { makeBrowserPulseEnv, Pulse } from './pulse.js';
 import { SYNC_DB, Sync, Xfer, XFER_KEYS, type XferEnv } from './xfer.js';
-import { CESIUM_KEY } from '../modes/trek/map/map-key.js';
+import { CESIUM_KEY, MAP_PLACE_KEY } from '../modes/trek/map/map-key.js';
 import { XR_STORE_KEY } from '../core/settings.js';
 
 /** Lo que se pasa y se sincroniza: lo de RepArena (las mismas claves) y lo de RepArena XR que tiene que llegar a los otros
  * aparatos: sus ajustes propios (el vuelo, la ciudad del mapa…) y la clave de Cesium ion (pedido del usuario: la pegó en el
  * móvil y no llegaba a las gafas). Todo va cifrado con tu código. */
-const SYNC_KEYS: readonly string[] = [...XFER_KEYS, XR_STORE_KEY, CESIUM_KEY];
+const SYNC_KEYS: readonly string[] = [...XFER_KEYS, XR_STORE_KEY, CESIUM_KEY, MAP_PLACE_KEY];
 
 const xferEnv = (): XferEnv => ({
   keys: SYNC_KEYS,

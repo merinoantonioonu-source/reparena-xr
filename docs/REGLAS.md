@@ -272,7 +272,7 @@ No las cambies sin preguntarle.
       virar (unos 9°; «Volando sobre el mapa: ladearse al virar» lo quita si marea). Subir, bajar y la marcha, igual: sin
       tirones.
     - **No se atraviesa nada** (pedido del usuario: «si me tropiezo con un edificio, entro dentro de él»): el suelo y los
-      tejados te sostienen (nunca a menos de 14 m) y ante una pared frenas hasta pararte a unos metros («¡Un edificio! Vira o
+      tejados te sostienen (nunca a menos de 7 m) y ante una pared frenas hasta pararte a unos metros («¡Un edificio! Vira o
       sube»).
     - **Los aros, por encima de los monumentos** (el usuario los veía enterrados en edificios: estaban al otro lado de la
       ciudad, con el este y el norte al revés): cada aro, grande (40 m de radio), con su borde de abajo 30 m por encima de lo
@@ -285,8 +285,14 @@ No las cambies sin preguntarle.
       lo de debajo llegaba lo último y el juego iba a 17 imágenes por segundo): solo se pide lo que se va a ver, lo más
       cercano primero; se ve hasta unas 30 veces tu altura (a 260 m, unos 8 km), con **calima** al fondo; y mientras hay cola
       la nitidez se afloja sola (volando deprisa, algo menos de detalle; al ir despacio, se afina).
+    - **Desde cualquier lugar del mundo** (elegido por el usuario: «1 y 2»; «¿por qué hay que limitar a ciudades concretas?»):
+      en «Volando: sobre el mapa», además de las cuatro ciudades, **«Tu lugar»** (unas coordenadas o un enlace largo de Google
+      Maps pegados en la página, en «Volar sobre el mapa» → «Tu lugar»; viaja con la sincronización) y **«Donde lo dejaste»**
+      (donde acabó tu último vuelo, a la altura y con el rumbo que llevabas). Desde un lugar no hay aros ni flecha: vuelo
+      libre, y el marcador dice por dónde vas (las coordenadas) y la marcha. Empiezas a 260 m sobre lo que haya debajo, sea
+      una playa o el Everest. Los aros siguen solo en las ciudades.
     Los créditos del mapa («Google», lo exigen) se ven junto a la flecha. Solo en la Travesía (en Barras no sale). Sin clave o
-    sin ciudad, la Travesía de siempre. *En pruebas* hasta que el usuario lo dé por bueno en las gafas.
+    sin de dónde salir, la Travesía de siempre. *En pruebas* hasta que el usuario lo dé por bueno en las gafas.
   - En la dura, sin flexiones un rato vas perdiendo altura poco a poco (nunca te caes); en la suave, el vuelo la mantiene. La
     caja negra del vuelo (`reparenaxr-flybox`, con el diagnóstico) graba los últimos 40 s para afinar los números con tu vuelo.
 - Travesía de plataformas, **el desprendimiento** (pedido del usuario, para la plancha: mirando al suelo no se veían las rocas):

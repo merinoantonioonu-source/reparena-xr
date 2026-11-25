@@ -20,7 +20,8 @@ export interface Landmark {
   lon: number;
 }
 
-/** Una ciudad: su nombre, su centro (donde se centra el mapa) y su ruta de aros, en orden. */
+/** Una ciudad: su nombre, su centro (donde se centra el mapa) y su ruta de aros, en orden (sin ruta: un lugar cualquiera
+ * del mundo, vuelo libre sin aros). */
 export interface City {
   id: string;
   name: string;
@@ -169,6 +170,9 @@ export class MapFlight {
   dive = 0;
   top = NaN;
   private nF = NaN;
+  /** La altura sobre el suelo a la que empiezas (m) y si ya estás puesto sobre el suelo de verdad (al medirlo la primera vez). */
+  startAgl: number = MAP.alt0;
+  placed = false;
   /** Lo que hay debajo de ti (m, la altura de su superficie: la calle o el tejado; lo pone quien pinta el mapa) y lo libre
    * que queda por delante (m; Infinity: nada a la vista). */
   ground = 0;
@@ -203,11 +207,18 @@ export class MapFlight {
 
   /** Al principio de la ruta: un poco antes del primer aro, mirando hacia él, a la altura de salida. */
   restart(): void {
-    const a = this.rings[0], b = this.rings[1 % this.rings.length];
-    const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
-    this.x = a.x - (dx / L) * MAP.startBack;
-    this.z = a.z - (dz / L) * MAP.startBack;
-    this.heading = headingTo(this.x, this.z, a.x, a.z);
+    if (this.rings.length) {
+      const a = this.rings[0], b = this.rings[1 % this.rings.length];
+      const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
+      this.x = a.x - (dx / L) * MAP.startBack;
+      this.z = a.z - (dz / L) * MAP.startBack;
+      this.heading = headingTo(this.x, this.z, a.x, a.z);
+    } else {
+      // (un lugar sin ruta: encima de él, mirando al norte)
+      this.x = this.z = 0;
+      this.heading = Math.PI;
+    }
+    this.placed = false;
     this.ground = this.city.h;
     this.alt = this.city.h + MAP.alt0;
     this.bank = this.speed = this.vs = this.flown = this.climb = this.dive = 0;
@@ -225,6 +236,23 @@ export class MapFlight {
   get scale(): number {
     return Math.max(1, this.agl / MAP.scaleAlt);
   }
+  /** Lo que hay debajo (m, medido en el mapa). La primera vez, te pone a tu altura de salida sobre ese suelo (el de verdad:
+   * el de una ciudad se sabe más o menos; el de un lugar cualquiera, no). */
+  setGround(g: number): void {
+    this.ground = g;
+    if (this.placed) return;
+    this.placed = true;
+    this.alt = g + this.startAgl;
+    this.vs = 0;
+  }
+
+  /** Dónde estás (grados), en `out`. */
+  where(out: { lat: number; lon: number }): { lat: number; lon: number } {
+    out.lat = this.anchor.lat + this.z / RE / K;
+    out.lon = this.anchor.lon - this.x / (RE * Math.cos(this.anchor.lat * K)) / K;
+    return out;
+  }
+
   /** La altura del centro del aro `i` (m). */
   ringAlt(i: number): number {
     const y = this.ringY[i];
@@ -287,6 +315,7 @@ export class MapFlight {
   /** ¿Has pasado por el aro que viene? (Por dentro: cerca de su centro, también en altura.) Pasado, el siguiente (y, al
    * acabar la ruta, vuelta a empezar por el primero). No hay aros fallados: el que viene espera. */
   judge(): boolean {
+    if (!this.rings.length) return false;
     const r = this.rings[this.next];
     if (Math.hypot(r.x - this.x, r.z - this.z, this.ringAlt(this.next) - this.alt) > MAP.ringR + MAP.slack) return false;
     this.got++;
@@ -296,6 +325,10 @@ export class MapFlight {
 
   /** Hacia dónde queda el aro que viene respecto a hacia dónde vas (rad: + a la izquierda), a cuánto (m) y cuánto más alto (m). */
   toNext(): { bearing: number; dist: number; dy: number } {
+    if (!this.rings.length) {
+      this.toward.bearing = this.toward.dist = this.toward.dy = 0;
+      return this.toward;
+    }
     const r = this.rings[this.next], h = headingTo(this.x, this.z, r.x, r.z);
     this.toward.bearing = wrap(h - this.heading);
     this.toward.dist = Math.hypot(r.x - this.x, r.z - this.z);

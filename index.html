@@ -231,9 +231,13 @@
 
   <section class="secMap" id="secMap" data-toc="Volar sobre el mapa">
     <h2>Volar sobre el mapa</h2>
-    <p class="note">En la Travesía con «Flexiones» y «Volando», puedes volar sobre una ciudad de verdad (los mapas 3D de Google, a través de Cesium ion) con los mismos movimientos: escorarte te hace virar y una ruta de aros pasa por sus monumentos. Pega aquí tu clave de Cesium ion (en <b>ion.cesium.com</b> → Access Tokens) y elige la ciudad en «Volando: sobre el mapa». La clave se queda en este navegador (y, si sincronizas, cifrada, en tus otros aparatos).</p>
+    <p class="note">En la Travesía con «Flexiones» y «Volando», puedes volar libre sobre el mundo de verdad (los mapas 3D de Google, a través de Cesium ion): escorarte te hace virar, la flexión manda la altura y cada impulso adelante es una marcha más. Pega aquí tu clave de Cesium ion (en <b>ion.cesium.com</b> → Access Tokens) y elige de dónde sales en «Volando: sobre el mapa»: una ciudad (con su ruta de aros por los monumentos), tu lugar o donde lo dejaste. La clave se queda en este navegador (y, si sincronizas, cifrada, en tus otros aparatos).</p>
     <div class="profsave"><input type="password" id="cesiumKey" placeholder="Tu clave de Cesium ion" autocomplete="off" spellcheck="false"><button class="btn small alt" id="btnCesiumSave">Guardar</button><button class="btn small" id="btnCesiumClear">Quitar</button></div>
     <p class="status" id="cesiumStatus" aria-live="polite"></p>
+    <h3>Tu lugar</h3>
+    <p class="note">Para empezar a volar en cualquier sitio del mundo, pega aquí sus coordenadas o un enlace de Google Maps. En Google Maps: mantén pulsado el punto (en el ordenador, clic derecho) y copia las coordenadas; o copia el enlace largo de la barra de direcciones. Al guardarlo se elige «Tu lugar» en «Volando: sobre el mapa». Con «Donde lo dejaste», empiezas donde acabó tu último vuelo.</p>
+    <div class="profsave"><input type="text" id="mapPlace" placeholder="40.4169, -3.7035 o un enlace de Google Maps" autocomplete="off" spellcheck="false"><button class="btn small alt" id="btnPlaceSave">Guardar lugar</button><button class="btn small" id="btnPlaceClear">Quitar</button></div>
+    <p class="status" id="placeStatus" aria-live="polite"></p>
   </section>
 
   <section class="secDev" id="devSection" data-toc="Tabla del desarrollador" hidden>
