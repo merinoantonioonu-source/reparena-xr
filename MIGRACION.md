@@ -520,6 +520,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   pone 20); las fotos, con filtro anisótropo; los cambios de detalle, fundidos (`TilesFadePlugin`); y de dos en dos al
   prepararlos (`parseQueue.maxJobs`). Sin mundos sobre el mapa (`Runner.worldAt` da 0) y el marcador y el panel de cada tramo,
   con lo de la ciudad (`MapSystem.hud`).
+- **El vuelo, con la línea de las manos** (propuesta del usuario): `HandLine` (`fly.ts`, con `HL`; pruebas en
+  `tests/unit/hand-line.test.ts`): con las dos muñecas apoyadas (bajo `HL.floor`) y a la vista, lo que adelanta la cabeza la
+  línea que las une respecto a como estaba al calibrar (suavizado `HL.tau`). Delante, `push` sube la marcha hasta
+  `1 + HL.boost` la máxima (en el corredor, tras el picado y la pica); detrás, es `FlyIn.back` (la pica). Sin manos, el centro
+  del vuelo (`FlyBody.fwd`), como antes. Se toma de nuevo con cada `FlyBody.set` (calibrar, el asistente, el centro vuelto a
+  poner). Sobre el mapa, la velocidad tope pasa a 60 m/s (`MAP.speedMax`) para que se note.
 
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):
   el centro del vuelo (`FlyBody`, y `BodyMoves.x0`) se tomaba al calibrar **antes** de que el mundo se deslizara 0,8 s para

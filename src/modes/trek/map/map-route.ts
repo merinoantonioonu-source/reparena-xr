@@ -108,7 +108,7 @@ export function toLocal(c: { lat: number; lon: number }, lat: number, lon: numbe
  * Travesía, en m/s) y su tope (m/s), lo que mide un aro (m de radio), lo que se perdona al cruzarlo (m), a qué altura flota
  * sobre el suelo (m), de dónde empiezas (m antes del primero) y desde cuánto se da por pasado (m de más tras acercarse).
  */
-export const MAP = { turn: 0.45, alt0: 110, altK: 22, altMin: 25, speedK: 20, speedMax: 45, ringR: 22, slack: 10, ringAgl: 100, startBack: 450, missBack: 60 } as const;
+export const MAP = { turn: 0.45, alt0: 110, altK: 22, altMin: 25, speedK: 20, speedMax: 60, ringR: 22, slack: 10, ringAgl: 100, startBack: 450, missBack: 60 } as const;
 
 /** Lo que manda el cuerpo (del planeador de la Travesía) en cada fotograma. */
 export interface MapIn {
