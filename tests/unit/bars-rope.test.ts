@@ -4,7 +4,7 @@
 // todo nace de algo (opción 1: el río viene de las cascadas, y cada cascada, de un arroyo que nace en un manantial) y nada
 // flota. Cada remo, un tirón; sin remar, se resbala un poco, nunca más abajo del final del tramo anterior.
 import { describe, expect, it } from 'vitest';
-import { CHEST, chestAt, GORGE, PULL, ROPE, ROPE_CHUNK, RopeCourse, RopeRun, ropeDecoPuts } from '../../src/modes/bars/rope';
+import { CHEST, chestAt, GORGE, PULL, ROPE, ROPE_CHUNK, RopeCourse, RopeRun, ropeDecoPuts, TURBO } from '../../src/modes/bars/rope';
 import { ROPE_WORLDS, worldPano, zoneNo, zoneWeight } from '../../src/modes/bars/rope-worlds';
 
 const DEG = 180 / Math.PI;
@@ -260,6 +260,42 @@ describe('el avance por la cuerda', () => {
     }
     expect(R.s).toBeGreaterThan(ROPE.perRep * PULL.share * 0.4);
     expect(R.s).toBeLessThan(ROPE.perRep * PULL.share * 0.55);
+  });
+
+  it('el turbo: seis remos seguidos a buen ritmo lo encienden (cada remo sube más); un parón o un fallo lo apagan', () => {
+    const R = new RopeRun(new RopeCourse(lens.map((l) => l * 3), 3));
+    R.startWave(0);
+    const ev: boolean[] = [];
+    let t = 0;
+    const rep = (gap: number) => {
+      for (let k = 0; k < gap / DT; k++, t += DT) R.step(DT, true);
+      const s0 = R.s;
+      R.rep(t, false);
+      for (let k = 0; k < 1.5 / DT; k++) R.step(DT, true);
+      t += 1.5;
+      for (const e of R.ev) if (e.t === 'turbo') ev.push(e.on);
+      R.ev.length = 0;
+      return R.s - s0;
+    };
+    const plain = rep(1);
+    for (let i = 0; i < TURBO.n - 2; i++) rep(1);
+    expect(R.turbo).toBe(false);
+    rep(1);
+    expect(R.turbo).toBe(true);
+    expect(ev).toEqual([true]);
+    expect(rep(1)).toBeGreaterThan(plain * 1.15);
+    // (un parón lo apaga)
+    for (let k = 0; k < (TURBO.idle + 0.5) / DT; k++) R.step(DT, true);
+    expect(R.turbo).toBe(false);
+    // (un remo lento no cuenta para la racha)
+    for (let i = 0; i < TURBO.n - 1; i++) rep(1);
+    rep(TURBO.gap + 1);
+    expect(R.turbo).toBe(false);
+    // (y un reto fallado lo apaga)
+    for (let i = 0; i < TURBO.n; i++) rep(1);
+    expect(R.turbo).toBe(true);
+    R.stumble();
+    expect(R.turbo).toBe(false);
   });
 
   it('colgado sin jugar (colgándote, en el descanso o en la pausa), ni subes ni resbalas', () => {

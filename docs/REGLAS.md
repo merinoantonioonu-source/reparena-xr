@@ -437,7 +437,18 @@ No las cambies sin preguntarle.
   **la piedra** cae de lo alto hacia tu cara (**aparta la cabeza** a un lado); **el cable deshilachado** se pasa con **un remo
   explosivo**. Si fallas, frenas a la mitad y se rompe la racha, sin vidas. Premios: **frutas** junto al cable, que se cogen
   **subiendo el pecho** al pasar (se encogen al llegar a los ojos), y **el cofre de cada tramo**, que se abre al llegar y suelta
-  sus premios flotando (los puntos y una gema). El primer tramo, solo frutas y enjambres; el cable roto, desde el tercero.
+  sus premios flotando (los puntos y una gema).
+  **Más emocionante** (pedido del usuario: «enemigos que esquivar colgado, colgarse de una mano…»; elegidos de «Retos en la
+  cuerda»: todos menos la persecución y los cofres con sorpresa): **los murciélagos** pasan en bandadas de dos o tres pasadas
+  rozándote la cara, cada una por un lado (**aparta la cabeza al otro**); **el cangrejo** baja andando por el cable hacia una de
+  tus manos (**suéltala** cuando llega, colgado un instante de la otra, y vuelve a agarrar); **el tirador**, un cíclope (o el yeti
+  en la cima) de pie en el suelo, a un lado y por delante, se echa atrás y lanza **a la cara** (aparta la cabeza), **rasante por
+  encima** (quédate abajo) o **baja** (sube del todo); **la abeja** se te planta delante de la cara (**un remo explosivo** la
+  aparta). **Cada zona, sus retos** (la subida va a más): el valle, el enjambre y la ráfaga; el bosque, murciélagos, cangrejo,
+  abeja y piedra; la garganta, tiradores, el cable roto y murciélagos; la cima, tiradores, piedra, ráfaga y cangrejo (por lo que
+  llevas de la ronda: en una ronda corta también se ven). **El turbo por racha**: seis remos seguidos a buen ritmo (como mucho
+  3,8 s entre uno y otro) lo encienden; cada remo sube un 25 % más, los puntos valen el doble, te pasan estelas de viento a los
+  lados y el marcador lo dice; un parón de 3,5 s o un reto fallado lo apagan.
   **El jefe** (el dragón, en el último tramo, antes de la estación de la cima; con un solo tramo, sin jefe): te corta el paso (ni subes
   ni resbalas) y, casi encima de ti, escupe bolas de fuego con aviso (se echa atrás y ruge): **a la cara, aparta la cabeza**;
   **rasante por encima del cable, quédate abajo**. Tras tres, **se marea** y baja hasta encima de ti: **un remo explosivo o bajar

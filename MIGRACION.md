@@ -430,6 +430,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Retos en la cuerda, parte 1 (esquivar y turbo)**: el usuario eligió de «Retos en la cuerda» todos menos la persecución (9) y
+  los cofres con sorpresa (12); van en tres PR. Este: `bats`, `crab`, `shooter` y `bee` en `rope-trials.ts` (con `side`, `n`,
+  `k` y `shot` en cada `Trial`; `TrialEnv.free`, qué mano está suelta: `BarsSystem.handFree`, la muñeca separada de la barra o
+  sin ver; `handSide`, qué mano va a cada lado), por zonas (`ZONE_TRIALS`, `trialZone`: por lo que llevas de la ronda); lo que
+  se ve, `rope-foes-look.ts` (monstruitos del catálogo; las bolas, `Missile`); y el turbo en `RopeRun` (`TURBO`, suceso
+  `turbo`; `GAME.ptsK`, el marcador y las luciérnagas). Falta: la parte 2 (remo a una mano, coger con una mano, aguantar a media
+  altura, remos lentos) y la 3 (un jefe en cada zona).
+
 - **La cuerda, rehecha (opción A e idea 1 del usuario)**: `RopeCourse` es ahora un solo cable (su cuesta, `pitchOf`, crece
   de `p0` a `p1` con lo subido de la montaña; tabla cada 0,25 m; `sAt` es su inversa), con las estaciones del valle (s = −8) y
   de la cima (`top`, el final del último tramo; el cable acaba en `len`) y `ends[i]`, el cofre de cada tramo (`chestAt`,
