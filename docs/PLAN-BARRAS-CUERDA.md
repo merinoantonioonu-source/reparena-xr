@@ -83,6 +83,6 @@ la cuerda»), todos menos la persecución (9) y los cofres con sorpresa (12):
   por racha (11); cada zona, sus retos.
 - [x] **Parte 2 · Agarre y fuerza**: el remo a una mano (5), coger con una mano (6), aguantar a media altura (7) y los remos
   lentos (8).
-- [ ] **Parte 3 · Un jefe en cada zona** (10): el demonio en el bosque, el cíclope en la garganta y el yeti en la cima, además del
+- [x] **Parte 3 · Un jefe en cada zona** (10): el demonio en el bosque, el cíclope en la garganta y el yeti en la cima, además del
   dragón.
 

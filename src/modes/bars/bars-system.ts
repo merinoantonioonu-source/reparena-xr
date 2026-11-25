@@ -32,8 +32,9 @@ import { ROPE_WORLDS, worldPano } from './rope-worlds.js';
 import { buildTrials, RopeTrials, shooterOf, TRIAL_FAIL, TRIAL_PASS, trialKey, type Trial, type TrialEnv } from './rope-trials.js';
 import { RopeTrialsLook, type LookFrame } from './rope-trials-look.js';
 import { RopeFoesLook } from './rope-foes-look.js';
-import { BOSS, BOSS_SAY, RopeBoss, type BossEnv } from './rope-boss.js';
+import { BOSS_NAME, BOSS_SAY, bossAppear, bossDown, RopeBoss, ropeBosses, type BossEnv } from './rope-boss.js';
 import { RopeBossLook } from './rope-boss-look.js';
+import { RopeMiniLook } from './rope-mini-look.js';
 import { barReq } from './detect.js';
 import { RopeScene } from './rope-scene.js';
 import { eqAxes } from './equip.js';
@@ -116,7 +117,10 @@ export class BarsSystem extends createSystem({}) {
   /** El jefe del último tramo (PR 3: rope-boss.ts), lo que se ve de él y lo que mira de ti: si acabas de darle (un remo explosivo
    * o bajar con la carga ×2 o más) o de hacer un remo cualquiera. */
   private boss: RopeBoss | null = null;
+  /** Los jefes de la ronda, por orden (uno en cada zona y el dragón: rope-boss.ts, `ropeBosses`); `boss`, el que toca. */
+  private bosses: RopeBoss[] = [];
   private bossLook!: RopeBossLook;
+  private miniLook!: RopeMiniLook;
   private readonly bEnv: BossEnv = { s: 0, up: 0, req: 0.3, side: 0, strike: false, rep: false, playing: false };
   private strikeRep = false;
   private anyRep = false;
@@ -178,6 +182,7 @@ export class BarsSystem extends createSystem({}) {
     this.trialsLook = new RopeTrialsLook(this.root, this.ropeScene.trackGroup);
     this.foesLook = new RopeFoesLook(this.root, this.ropeScene.trackGroup, (p, n, c) => HOOKS.sparks(p, n, c));
     this.bossLook = new RopeBossLook(this.root, (p, n, c) => HOOKS.sparks(p, n, c));
+    this.miniLook = new RopeMiniLook(this.root, this.ropeScene.trackGroup, (p, n, c) => HOOKS.sparks(p, n, c));
     HOOKS.placeEq = (note) => this.startPlace(() => HOOKS.showMenu(''), note ?? '');
     HOOKS.eqPlaced = () => this.placed();
     HOOKS.placing = () => this.placing;
@@ -279,14 +284,20 @@ export class BarsSystem extends createSystem({}) {
       for (let i = 0, n = Math.min(60, Math.max(1, nWaves())); i < n; i++) lens.push(waveReps(i) * ROPE.perRep);
       this.rope = new RopeRun(new RopeCourse(lens, 1 + Math.floor(Math.random() * 9973)));
       this.trials = new RopeTrials(buildTrials(this.rope.course), this.rope.course);
-      this.boss = this.rope.course.ends.length > 1 ? new RopeBoss(this.rope.course) : null; // (con un solo tramo, sin jefe)
+      // (los jefes: uno en cada zona y el dragón del último tramo; los retos, lejos de donde cortan el paso)
+      this.bosses = ropeBosses(this.rope.course);
+      this.boss = this.bosses[0] ?? null;
+      const list = this.trials.list.filter((T) => this.bosses.every((B) => Math.abs(T.s - B.at) > 6));
+      this.trials = new RopeTrials(list, this.rope.course);
     } else {
       this.rope = null;
       this.trials = null;
       this.boss = null;
+      this.bosses = [];
     }
     this.trialsLook.reset();
     this.foesLook.reset();
+    this.miniLook.reset();
     this.ropeScene.setCourse(this.rope?.course ?? null);
   }
 
@@ -312,9 +323,9 @@ export class BarsSystem extends createSystem({}) {
   }
 
   /** Para el marcador. */
-  hud(): { hold: number; need: number; left: number; mount: boolean; ropeLeft: number | null; bossLeft: number | null; turbo: boolean } {
+  hud(): { hold: number; need: number; left: number; mount: boolean; ropeLeft: number | null; bossLeft: number | null; bossName: string; turbo: boolean } {
     const B = this.boss;
-    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount', ropeLeft: this.rope ? Math.ceil(this.rope.left) : null, bossLeft: B && B.blocking ? BOSS.hits - B.hits : null, turbo: !!this.rope?.turbo };
+    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount', ropeLeft: this.rope ? Math.ceil(this.rope.left) : null, bossLeft: B && B.blocking ? B.nHits - B.hits : null, bossName: B ? BOSS_NAME[B.kind].replace(/^El /, '').replace(/^./, (c) => c.toUpperCase()) : '', turbo: !!this.rope?.turbo };
   }
   /** ¿Va la cuerda con el turbo? (las luciérnagas destellan, como en la Travesía) */
   get ropeTurbo(): boolean {
@@ -377,7 +388,9 @@ export class BarsSystem extends createSystem({}) {
     this.rope = null;
     this.trials = null;
     this.boss = null;
+    this.bosses = [];
     this.bossLook?.update(0, false, null, this.lookF, 0.3);
+    this.miniLook?.reset();
     this.ropeScene?.setCourse(null);
     this.ropeScene?.update(false, 0);
     this.trialsLook?.update(0, false, this.trialLive, this.lookF, null, [0], 0, this.fruitAt, 0);
@@ -626,9 +639,12 @@ export class BarsSystem extends createSystem({}) {
     this.stepBoss(dt, playing);
   }
 
-  // el dragón del último tramo: te corta el paso hasta derrotarlo (lo que mira de ti, lo que pasa y lo que se ve)
+  // los jefes (uno en cada zona y el dragón del último tramo): el que toca te corta el paso hasta derrotarlo (lo que mira de ti, lo
+  // que pasa y lo que se ve); derrotado, el siguiente
   private stepBoss(dt: number, playing: boolean): void {
-    const R = this.rope, B = this.boss, F = this.lookF;
+    const R = this.rope, F = this.lookF;
+    if (this.boss?.st === 'down' && this.boss.t > 3.2) this.boss = this.bosses.find((X) => X.st !== 'down') ?? this.boss;
+    const B = this.boss;
     if (!R || !B) return;
     const E = this.bEnv;
     E.s = R.s;
@@ -641,18 +657,21 @@ export class BarsSystem extends createSystem({}) {
     this.strikeRep = this.anyRep = false;
     B.step(dt, E);
     R.hold = B.blocking || (B.st === 'off' && R.course.wave(R.s) === B.wave) ? B.at : Infinity;
+    const who = B.kind;
     for (const e of B.ev) {
       if (e.t === 'appear') {
-        HOOKS.say(BOSS_SAY.appear, '#ff8a3d', 2.4, true);
-        SND.roar(head.p, 0.7, 'dragon');
-      } else if (e.t === 'wind') SND.roar(head.p, 0.9, 'dragon');
+        HOOKS.say(bossAppear(who), '#ff8a3d', 2.4, true);
+        SND.roar(head.p, 0.7, who);
+      } else if (e.t === 'wind') SND.roar(head.p, 0.9, who);
       else if (e.t === 'throw') SND.whoosh(head.p);
       else if (e.t === 'dodge') {
         this.bossLook.dodged();
+        this.miniLook.dodged(B);
         HOOKS.say('¡Esquivada!', '#8fdc5a', 0.9, false);
         HOOKS.score(20, true);
       } else if (e.t === 'burn') {
-        this.bossLook.burned(F);
+        if (who === 'dragon') this.bossLook.burned(F);
+        else this.miniLook.burned(B, F);
         GAME.combo = 0;
         SND.hurt();
         HOOKS.say(e.shot === 'ball' ? BOSS_SAY.burnBall : BOSS_SAY.burnSweep, WARN, 2.2, true);
@@ -664,13 +683,14 @@ export class BarsSystem extends createSystem({}) {
         HOOKS.say(`¡Le has dado! Le quedan ${e.left}`, '#ffd166', 1.6, false);
         HOOKS.score(40, true);
       } else if (e.t === 'down') {
-        HOOKS.trophy(BOSS_SAY.down, 'La cuerda está libre', '#ffd166');
+        HOOKS.trophy(bossDown(who), 'La cuerda está libre', '#ffd166');
         HOOKS.score(200, true);
         SND.explosion(this.v1.copy(head.p).setY(head.p.y + 4), true);
       }
     }
     B.ev.length = 0;
-    this.bossLook.update(dt, this.ropeScene.visible, B, F, this.tEnv.req);
+    this.bossLook.update(dt, this.ropeScene.visible, who === 'dragon' ? B : null, F, this.tEnv.req);
+    this.miniLook.update(dt, this.ropeScene.visible, who === 'dragon' ? null : B, R.course, F, this.ropeScene.laneHeight, this.tEnv.req);
   }
   private readonly v1 = new Vector3();
 
