@@ -1255,6 +1255,9 @@ export class Runner {
    * a despegar (en cuanto empieza el tramo siguiente). */
   private flyStep(dt: number, st: string): void {
     const M = this.moves, I = this.flyIn, A = this.env.hands, H = this.env.head, B = this.flyBody, G = this.glider, play = st === 'play';
+    // de lado y adelante se mide el cuello, no las gafas (pedido del usuario: girar la cabeza para mirar no tiene que
+    // desviarte; las gafas van un palmo por delante del cuello y, al girarla, se iban a un lado)
+    const hx = H.px ?? H.x, hz = H.pz ?? H.z;
     const board = this.env.s('flyBoard') > 0;
     // el asistente: ya calibrado, antes del primer tramo o en el descanso de un cofre (el mundo espera)
     // (al calibrar, el mundo se desliza 0,8 s para recolocarte: el asistente espera a que acabe y toma el centro donde estás
@@ -1262,7 +1265,7 @@ export class Runner {
     if (this.coachWant && this.calibOk && (st === 'ready' || st === 'rest') && this.time - this.calibAt > COACH_WAIT) {
       this.coachWant = false;
       this.howSaid = true;
-      B.set(H.x, H.z);
+      B.set(hx, hz);
       this.handLine.reset();
       // (ya visto: no vuelve a salir solo, aunque lo dejes a medias; «Vuelo: asistente en la próxima partida» se apaga al usarse)
       this.ev.push({ t: 'store', key: FLY_TUTO, val: 1 });
@@ -1276,26 +1279,26 @@ export class Runner {
     // altura)
     this.sinceRep = play && !G.rising ? this.sinceRep + dt : 0;
     // posado (en plancha arriba, ante el cofre o antes de despegar): el centro se pone donde estás; en el aire, quieto
-    if (G.alt < 0.3 && (this.stop || !play) && Math.abs(H.y - M.ref) < 0.05) B.follow(H.x, H.z, dt, 0.6);
-    B.read(H.x, H.z);
+    if (G.alt < 0.3 && (this.stop || !play) && Math.abs(H.y - M.ref) < 0.05) B.follow(hx, hz, dt, 0.6);
+    B.read(hx, hz);
     // (en plancha, con las manos apoyadas, la cabeza no puede irse a más de un palmo y medio del centro: si lo está un rato,
     // el centro está mal puesto y se vuelve a poner donde estás)
     this.farT = Math.abs(B.side) > FLY_FAR || Math.abs(B.fwd) > FLY_FAR ? this.farT + dt : 0;
     if (this.farT > FLY_FAR_T) {
       this.farT = 0;
-      B.set(H.x, H.z);
-      this.handLine.reset();
-      B.read(H.x, H.z);
+      B.set(hx, hz);
+      B.read(hx, hz);
       this.ev.push({ t: 'note', text: 'vuelo: centro vuelto a poner (la cabeza estaba lejos)' });
     }
     // la tabla: las dos muñecas a la vista y estables un instante
     this.wristsT = A.l.ok && A.r.ok ? this.wristsT + dt : 0;
     const tilt = board && this.wristsT > 0.15 ? boardSide(boardTilt(A.l, A.r)) : 0;
     I.side = live ? B.side + tilt : 0;
-    // adelante y atrás, respecto a la línea de las manos si están apoyadas y a la vista (si no, al centro del vuelo)
+    // adelante y atrás: lo que te has echado respecto a como sueles estar (la línea de las manos si están apoyadas y a la
+    // vista; si no, el centro del vuelo): recolocarte se olvida solo
     const L = this.handLine;
-    L.step(dt, H.x, H.z, A.l, A.r, B.fx, B.fz, Math.abs(B.fwd) < 0.03 && Math.abs(H.y - M.ref) < 0.05);
-    I.back = live ? -(L.ok ? L.lean : B.fwd) : 0;
+    L.step(dt, hx, hz, A.l, A.r, B.fx, B.fz, B.fwd);
+    I.back = live ? -L.lean : 0;
     I.down = live ? Math.max(M.down, board ? B.fwd - 0.02 : 0) : 0;
     // (los recorridos, los de los ajustes «Vuelo: recorrido para bajar / para subir / de lado», que pone a tu gusto el asistente)
     I.depth = Math.max(0.04, (this.env.s('flyDown') || 13) / 100);
@@ -1359,6 +1362,8 @@ export class Runner {
 
   /** Cómo se vuela con cada mando de altura (el aviso de al empezar y al acabar la práctica). */
   private flyHow(m: FlyIn['model']): string {
+    // (sobre el mapa manda la flexión entera: lo de las marchas lo dice el mapa después)
+    if (this.mapMode) return 'Brazos estirados: subes · Media flexión: recto · Al suelo: picado';
     const go = ' · Cabeza más allá de las manos: aceleras';
     return (m === 'mid' ? 'Brazos estirados: subes · Media flexión: recto · Más abajo: bajas' : m === 'pos' ? 'Escórate: a un lado · Pecho abajo: bajas · Cadera arriba: subes' : 'Escórate: a un lado · Cada flexión, un aletazo · Abajo quieto: picas') + go;
   }

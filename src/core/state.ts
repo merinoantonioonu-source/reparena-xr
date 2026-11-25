@@ -81,8 +81,9 @@ export const VIEW = {
 export const LITE = { on: false };
 
 /** El vuelo sobre el mapa (MapSystem): si está en marcha (solo el cielo y el mapa: EnvSystem quita la foto de fondo, el
- * valle y las luciérnagas) y a qué altura sobre el suelo vas (m: más alto, el cielo más oscuro, hasta el negro del espacio). */
-export const MAPVIEW = { on: false, alt: 0 };
+ * valle y las luciérnagas) y a qué altura sobre el suelo vas (m: más alto, el cielo más oscuro, hasta el negro del espacio); `haze`, el color del
+ * horizonte de ahora (lo pone EnvSystem: la calima del fondo del mapa es de ese color). */
+export const MAPVIEW = { on: false, alt: 0, haze: [0.72, 0.84, 0.98] };
 /** Un momento especial de la partida (la fiebre de Arcos, el relámpago de Combate, el turbo o la supervelocidad de la
  * Travesía): las luciérnagas destellan más vivas. Lo pone la partida en cada fotograma. */
 export const SPECIAL = { on: false };

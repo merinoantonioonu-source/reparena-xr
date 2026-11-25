@@ -361,8 +361,9 @@ export interface PlatEnv {
   /** El estado de la partida: 'play' (en el tramo), 'rest' (entre tramos), 'ready' (antes del primero), 'paused', 'end'. */
   state: string;
   /** La cabeza en la arena y tu altura de pie (calibrada); `roll`, lo que se gira de canto mirando al suelo (rad, sin signo:
-   * 0 en plancha, unos 90° en la plancha lateral); `yaw`, hacia dónde mira el cuerpo (rad, 0 hacia −z, + a la derecha). */
-  head: { x: number; y: number; z: number; roll?: number; yaw?: number };
+   * 0 en plancha, unos 90° en la plancha lateral); `yaw`, hacia dónde mira el cuerpo (rad, 0 hacia −z, + a la derecha); `px` y `pz`, el cuello (el eje sobre el que gira la
+   * cabeza: girarla para mirar no lo mueve). */
+  head: { x: number; y: number; z: number; roll?: number; yaw?: number; px?: number; pz?: number };
   /** Las muñecas (en la arena) y si se ven de verdad (una calculada al perderla, no): para planear con los brazos en cruz. */
   hands: { l: { ok: boolean; x: number; y: number; z: number }; r: { ok: boolean; x: number; y: number; z: number } };
   calibRef: number;

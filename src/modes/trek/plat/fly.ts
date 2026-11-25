@@ -425,68 +425,85 @@ export function boardSide(tilt: number): number {
 }
 
 /**
- * La línea de las manos (propuesta del usuario: «las gafas detectan las manos que están en el suelo»): con las dos manos
- * apoyadas, la cabeza por delante de la línea que las une acelera y por detrás frena (la pica también echa la cabeza atrás).
- * Las manos no se mueven del suelo: es mejor referencia que el centro del vuelo, que se desplaza si te recolocas.
+ * La línea de las manos (propuesta del usuario: «las gafas detectan las manos que están en el suelo»): la cabeza por delante
+ * de la línea que une las manos acelera y por detrás frena (la pica también echa la cabeza atrás).
+ *
+ * Lo que se lee es **cuánto te has echado adelante o atrás respecto a como sueles estar** (caja negra del usuario: con una
+ * referencia tomada una vez, al calibrar o al volver a poner el centro, bastaba con recolocarse un palmo para que el juego
+ * leyera «atrás» —la pica, frenando del todo— durante minutos): la referencia sigue despacio a donde estás (`adapt` s), así
+ * que recolocarte se olvida solo y un gesto (un impulso adelante, echarte atrás para frenar) se lee siempre.
+ * Con las dos manos apoyadas y a la vista se mide hasta su línea (no cambia si te recolocas con ellas); si no, respecto al
+ * centro del vuelo.
  * `floor`: lo más alto que se ve una muñeca apoyada (m); `wMin`/`wMax`: lo separadas que están (m); `stable`: lo que tienen que
- * verse antes de contar (s); `tau`: el suavizado (s: la flexión mueve la cabeza adelante y atrás); `dead` y `span`: desde
- * cuánto por delante se acelera y cuánto más hace falta para el todo (m); `boost`: lo que se pasa de la máxima con el todo y
- * `acc`: lo deprisa que se gana (de la máxima por segundo); `decay`: lo que tarda en olvidarse al perder las manos (s).
+ * verse antes de contar (s); `tau`: el suavizado (s: la flexión mueve la cabeza adelante y atrás); `adapt`: lo que tarda la
+ * referencia en seguirte (s); `dead` y `span`: desde cuánto por delante se acelera y cuánto más hace falta para el todo (m);
+ * `kick` y `kickV`: el impulso (m por delante y m/s hacia delante: un gesto brusco); `boost`: lo que se pasa de la máxima con
+ * el todo y `acc`: lo deprisa que se gana (de la máxima por segundo).
  */
-export const HL = { floor: 0.3, wMin: 0.18, wMax: 1, stable: 0.2, tau: 0.25, dead: 0.05, span: 0.1, boost: 0.5, acc: 0.6, decay: 0.5 } as const;
+export const HL = { floor: 0.5, wMin: 0.18, wMax: 1, stable: 0.2, tau: 0.2, adapt: 8, dead: 0.05, span: 0.1, kick: 0.05, kickV: 0.12, boost: 0.5, acc: 0.6 } as const;
 
 type Wrist = { ok: boolean; x: number; y: number; z: number };
 
 export class HandLine {
-  /** Si cuenta ahora (las dos manos apoyadas y a la vista), lo que adelanta la cabeza la línea de las manos respecto a como
-   * estaba al ponerse (m, + adelante, suavizado) y su referencia (NaN: por tomar). */
-  ok = false;
+  /** Lo que te has echado adelante (+) o atrás (−) respecto a como sueles estar (m, suavizado), lo deprisa que va (m/s) y si
+   * este fotograma has dado un impulso hacia delante (un gesto brusco, pasada la zona muerta: uno por gesto). */
   lean = 0;
-  base = NaN;
+  vel = 0;
+  kick = false;
+  /** Si se mide con las manos (su línea) o con el centro del vuelo. */
+  hands = false;
+  private base = NaN;
+  private armed = true;
   private t = 0;
 
-  /** Otra vez a tomar la referencia (al calibrar o al volver a poner el centro). */
+  /** Otra vez de cero (al calibrar). */
   reset(): void {
     this.base = NaN;
-    this.ok = false;
-    this.lean = 0;
+    this.lean = this.vel = 0;
+    this.kick = this.hands = false;
+    this.armed = true;
     this.t = 0;
   }
 
-  /** Lo que acelera (0 a 1): la cabeza por delante de la línea, pasada la zona muerta. */
+  /** Lo que acelera (0 a 1): echado adelante, pasada la zona muerta. */
   get push(): number {
     return Math.max(0, Math.min(1, (this.lean - HL.dead) / HL.span));
   }
 
   /**
-   * Un fotograma: la cabeza, las muñecas, hacia dónde mira el cuerpo (fx, fz) y si la cabeza está en su sitio (`centered`: en
-   * plancha arriba y en el centro; ahí se toma la referencia).
+   * Un fotograma: la cabeza, las muñecas, hacia dónde mira el cuerpo (fx, fz) y lo que va la cabeza adelante respecto al
+   * centro del vuelo (`fwd`, m: lo que se usa sin manos).
    */
-  step(dt: number, hx: number, hz: number, l: Wrist, r: Wrist, fx: number, fz: number, centered: boolean): void {
+  step(dt: number, hx: number, hz: number, l: Wrist, r: Wrist, fx: number, fz: number, fwd: number): void {
+    this.kick = false;
+    if (dt <= 0) return;
     const w = Math.hypot(r.x - l.x, r.z - l.z);
     const on = l.ok && r.ok && l.y < HL.floor && r.y < HL.floor && w > HL.wMin && w < HL.wMax;
     this.t = on ? this.t + dt : 0;
-    if (this.t < HL.stable) {
-      this.ok = false;
-      this.lean *= Math.exp(-dt / HL.decay);
-      return;
-    }
-    // la distancia de la cabeza a la línea, hacia delante (la normal de la línea que mira adonde mira el cuerpo)
-    let nx = -(r.z - l.z) / w, nz = (r.x - l.x) / w;
-    if (nx * fx + nz * fz < 0) {
-      nx = -nx;
-      nz = -nz;
-    }
-    const d = (hx - (l.x + r.x) / 2) * nx + (hz - (l.z + r.z) / 2) * nz;
-    if (Number.isNaN(this.base)) {
-      if (!centered) {
-        this.ok = false;
-        return;
+    const hands = this.t >= HL.stable;
+    let d = fwd;
+    if (hands) {
+      // la distancia de la cabeza a la línea, hacia delante (la normal de la línea que mira adonde mira el cuerpo)
+      let nx = -(r.z - l.z) / w, nz = (r.x - l.x) / w;
+      if (nx * fx + nz * fz < 0) {
+        nx = -nx;
+        nz = -nz;
       }
-      this.base = d;
-      this.lean = 0;
+      d = (hx - (l.x + r.x) / 2) * nx + (hz - (l.z + r.z) / 2) * nz;
     }
-    this.lean += (d - this.base - this.lean) * (1 - Math.exp(-dt / HL.tau));
-    this.ok = true;
+    // (al cambiar de medida —se ven o se dejan de ver las manos—, la lectura sigue donde estaba: sin saltos)
+    if (Number.isNaN(this.base)) this.base = d;
+    else if (hands !== this.hands) this.base = d - this.lean;
+    this.hands = hands;
+    const raw = d - this.base;
+    this.base += raw * (1 - Math.exp(-dt / HL.adapt));
+    const was = this.lean;
+    this.lean += (raw - this.lean) * (1 - Math.exp(-dt / HL.tau));
+    this.vel += ((this.lean - was) / dt - this.vel) * Math.min(1, dt / 0.08);
+    // el impulso: un gesto brusco hacia delante, uno por gesto (hay que volver para dar otro)
+    if (this.armed && this.lean > HL.kick && this.vel > HL.kickV) {
+      this.kick = true;
+      this.armed = false;
+    } else if (this.lean < HL.kick / 2) this.armed = true;
   }
 }

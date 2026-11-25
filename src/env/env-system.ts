@@ -166,7 +166,7 @@ function makeMotes(): Points {
 }
 
 /** El cielo sobre el mapa: de día (arriba, el horizonte y bajo él: la calima) y en el espacio. */
-const MAP_SKY = { sky: [0.26, 0.5, 0.92], eq: [0.74, 0.86, 1], gr: [0.66, 0.78, 0.92] } as const;
+const MAP_SKY = { sky: [0.26, 0.5, 0.92], eq: [0.72, 0.84, 0.98], gr: [0.72, 0.84, 0.98] } as const;
 const MAP_SPACE = { sky: [0, 0, 0.015], eq: [0.1, 0.24, 0.6], gr: [0.03, 0.07, 0.2] } as const;
 
 export class EnvSystem extends createSystem({}) {
@@ -380,6 +380,7 @@ export class EnvSystem extends createSystem({}) {
     const fog = (this.world.scene as unknown as { fog: { color: Color; density: number } | null }).fog;
     if (!fog) return;
     if (!this.fog0) this.fog0 = { color: fog.color.clone(), density: fog.density };
+    if (MAPVIEW.on) return; // (sobre el mapa, la niebla es su calima: la pone MapSystem)
     // (en la cuerda del remo invertido, la bruma de su foto: lo lejano se funde con ella)
     const bs = this.world.getSystem(BarsSystem);
     if (bs?.ropeShown) {
@@ -438,6 +439,7 @@ export class EnvSystem extends createSystem({}) {
     mix(sky, MAP_SKY.sky, MAP_SPACE.sky);
     mix(eq, MAP_SKY.eq, MAP_SPACE.eq);
     mix(gr, MAP_SKY.gr, MAP_SPACE.gr);
+    mix(MAPVIEW.haze, MAP_SKY.eq, MAP_SPACE.eq); // (la calima del fondo del mapa, del color del horizonte)
   }
 
   // la foto de fondo: el DomeTexture de IWSDK en la raíz del nivel (gana al degradado de cielo); se quita el valle y las nubes dibujados
