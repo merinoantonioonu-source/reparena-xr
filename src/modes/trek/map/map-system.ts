@@ -11,7 +11,7 @@
  * (el aro va por encima). Los mapas, sin el estilo cómic ni niebla (son fotos de verdad), con solo el cielo alrededor
  * (`MAPVIEW`: lo pone EnvSystem, más oscuro cuanto más alto) y con sus créditos de Google a la vista (lo exigen).
  */
-import { AdditiveBlending, CanvasTexture, ConeGeometry, createSystem, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Quaternion, Raycaster, TorusGeometry, Vector2, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, CanvasTexture, Color, ConeGeometry, createSystem, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Quaternion, Raycaster, TorusGeometry, Vector2, Vector3 } from '@iwsdk/core';
 import type { Material, PerspectiveCamera, WebGLRenderer } from '@iwsdk/core';
 // (el descompresor de los modelos de Google: el mismo paquete de Three que reexporta IWSDK —IWSDK lo importa igual—)
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -22,8 +22,9 @@ import { SND } from '../../../audio/sound.js';
 import { diagEvent } from '../../../core/diag.js';
 import { GAME, HOOKS, MAPVIEW } from '../../../core/state.js';
 import { num, on as isOn, settings, str } from '../../../core/values.js';
+import { head } from '../../../input/hand-model.js';
 import { haptic } from '../../../input/hand-system.js';
-import { FLY, MID } from '../plat/fly.js';
+import { FLY } from '../plat/fly.js';
 import { TrekSystem } from '../trek-system.js';
 import { GOOGLE_3D_ASSET, mapKey, mapLog } from './map-key.js';
 import { cityOf, headingTo, MAP, MapFlight, type MapIn } from './map-route.js';
@@ -32,7 +33,16 @@ const DEG = Math.PI / 180, RE = 6371000;
 /** Lo más cerca que se pone el fondo de lo que se pinta (m: la ciudad entera; más alto, hasta el horizonte), cada cuánto se
  * mide lo que hay debajo, por delante y bajo los aros (s), lo que pueden ocupar los mapas en memoria (bytes) y el aviso. El
  * detalle, del ajuste «Volando sobre el mapa: nitidez» (`flyMapSharp`). */
-const FAR = 25000, GROUND_T = 0.3, AHEAD_T = 0.2, RING_T = 0.8, CACHE_BYTES = 600 * 1024 * 1024, WAIT = 20;
+const GROUND_T = 0.4, AHEAD_T = 0.25, RING_T = 0.5, CACHE_BYTES = 600 * 1024 * 1024, WAIT = 20;
+/** Lo lejos que se ve (y se pide mapa): tantas veces tu altura (como poco `FAR_MIN` m; como mucho, el horizonte), con calima
+ * al fondo (la niebla de la escena, del color del horizonte). En las gafas, con la ciudad hasta el horizonte a 260 m de alto
+ * se pedían miles de trozos, la cola nunca se vaciaba (más de 1.000 esperando siempre) y el juego iba a 17 imágenes por
+ * segundo, con lo de cerca borroso. */
+const FAR_K = 30, FAR_MIN = 6000, HAZE = 1.5;
+/** La nitidez: lo que vale cada nivel del ajuste (píxeles de error: el ajuste × esto; las gafas pintan 2.640 píxeles de
+ * alto por ojo, así que 8 píxeles era pedir muchísimo), y lo que se afloja con la cola llena (hasta × `ERR_MAX`: a partir de
+ * `BACKLOG0` trozos esperando, uno más por cada `BACKLOG_K`), para que lo de cerca llegue enseguida. */
+const ERR_K = 2.5, ERR_MAX = 3, BACKLOG0 = 40, BACKLOG_K = 120;
 /** El aro se mide en su centro y en cuatro puntos de su borde (× su radio): vale lo más alto. */
 const RING_AT: readonly [number, number][] = [[0, 0], [0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]];
 const AX_Y = new Vector3(0, 1, 0), AX_Z = new Vector3(0, 0, 1);
@@ -60,8 +70,17 @@ export class MapSystem extends createSystem({}) {
   private groundT = 0;
   private aheadT = 0;
   private ringT = 0;
-  private ringK = 0;
   private wallT = 0;
+  private ringPt = 0;
+  private gearSaid = false;
+  /** La calima (la niebla de la escena: lo que traía, para devolverlo), la nitidez de ahora (× la del ajuste) y las imágenes
+   * por segundo desde el último apunte del registro. */
+  private fogWas: { color: number; density: number } | null = null;
+  private readonly hazeC = new Color();
+  private errK = 1;
+  private errT = 0;
+  private frames = 0;
+  private framesT = 0;
   private pad: Object3D | null = null;
   private padWas = true;
   private readonly ray = new Raycaster();
@@ -83,7 +102,7 @@ export class MapSystem extends createSystem({}) {
   private readonly attr: { type: string; value: unknown }[] = [];
   private draco: DRACOLoader | null = null;
   /** Lo que manda el cuerpo (sin crear nada en cada fotograma). */
-  private readonly inp: MapIn = { steer: 0, climb: 0, gas: 0 };
+  private readonly inp: MapIn = { live: false, steer: 0, head: 0, ref: 0, lean: 0, kick: false };
 
   init(): void {
     this.root = new Group();
@@ -140,7 +159,14 @@ export class MapSystem extends createSystem({}) {
     const F = this.flight!, tiles = this.tiles!;
     // (sin nada del mapa en un rato: la clave mal pegada, sin permiso para esta dirección o sin wifi)
     this.waitT += dt;
+    this.frames++;
+    this.framesT += dt;
     if (!this.loaded && !this.errSaid && this.waitT > WAIT) this.fail(`sin ningún trozo en ${WAIT} s${this.asked ? ' (pedidos)' : ' (ni pedidos)'}`);
+    // (lo de las marchas, un poco después de lo de la altura)
+    if (!this.gearSaid && this.waitT > 9 && T!.playing()) {
+      this.gearSaid = true;
+      HOOKS.say('Impulso adelante: una marcha más · Echarte atrás: frenas', '#3cf0c6', 5, false);
+    }
     // (y cómo va, cada rato: para saber dónde se atasca o si la memoria se llena)
     if (this.waitT > this.nextState && this.nextState < 200) {
       this.nextState += this.loaded ? 45 : 15;
@@ -148,12 +174,24 @@ export class MapSystem extends createSystem({}) {
     }
     // el vuelo: lo que manda el cuerpo (el planeador de la Travesía: lo que te escoras y lo que subes o bajas) y la marcha
     if (!GAME.paused) {
-      const I = this.inp, G = R.glider;
+      // lo que manda el cuerpo: escorarte (el cuello, no las gafas: girar la cabeza no desvía), la flexión entera (subir,
+      // recto, bajar, el picado) y la cabeza adelante y atrás (las marchas)
+      const I = this.inp, G = R.glider, L = R.handLine, g0 = Math.floor(F.gear + 1e-6);
+      I.live = T!.playing() && !R.coaching;
       I.steer = G.tgtU / FLY.uMax;
-      I.climb = G.rising ? 0 : G.vAlt / (G.vAlt > 0 ? MID.up : MID.down);
-      I.gas = R.v / Math.max(0.1, R.vmax);
+      I.head = R.env.head.y;
+      I.ref = T!.calibRef;
+      I.lean = L.lean;
+      I.kick = L.kick;
       F.step(dt, I);
       R.mapFlown = F.flown;
+      // el impulso se nota: vibración, un golpe de aire y la marcha que llevas
+      if (I.live && I.kick) {
+        haptic('left', 0.7, 90);
+        haptic('right', 0.7, 90);
+        SND.whoosh(head.p);
+        HOOKS.say(`¡Impulso! Marcha ${Math.round(F.gear)}`, '#3cf0c6', 1.2, false);
+      } else if (I.live && g0 > 0 && F.gear <= 0) HOOKS.say('Frenado · un impulso adelante para arrancar', '#ffd166', 2.5, false);
       if (F.judge()) this.passed(F);
       // (la Tierra es redonda: lejos del punto del mapa, se vuelve a anclar debajo de ti)
       if (F.reanchor() && this.reorient) {
@@ -162,7 +200,7 @@ export class MapSystem extends createSystem({}) {
       }
       // ante una pared, parado: se dice (de vez en cuando)
       this.wallT -= dt;
-      if (F.ahead - MAP.stopAt < 2 && I.gas > 0.2 && this.wallT <= 0) {
+      if (F.ahead - MAP.stopAt < 2 && F.gear > 0.2 && I.live && this.wallT <= 0) {
         this.wallT = 5;
         HOOKS.say('¡Un edificio! Vira o sube', '#ff8a3d', 1.8, true);
         haptic('left', 0.5, 120);
@@ -176,15 +214,16 @@ export class MapSystem extends createSystem({}) {
       const g = this.topAt(F.x, F.z, F.alt);
       if (!Number.isNaN(g)) F.ground = g;
     }
+    // (los rayos cuestan: lo de delante, solo en marcha y cerca del suelo; los aros, un punto cada vez y solo de cerca)
     this.aheadT -= dt;
     if (this.aheadT <= 0) {
       this.aheadT = AHEAD_T;
-      F.ahead = this.aheadOf(F);
+      F.ahead = (F.speed > 2 || F.gear > 0.05) && F.agl < 3000 ? this.aheadOf(F) : Infinity;
     }
     this.ringT -= dt;
     if (this.ringT <= 0) {
       this.ringT = RING_T;
-      this.measureRing(F, (F.next + (this.ringK++ % 2)) % F.rings.length);
+      if (F.toward.dist < 5000) this.measureRing(F, F.next);
     }
     // el mapa, girado (y ladeado un poco al virar, como un ave) y desplazado para que donde vuelas quede en tu cabeza (el
     // centro del vuelo, quieto: lo de la Travesía)
@@ -228,12 +267,26 @@ export class MapSystem extends createSystem({}) {
     // el cielo (EnvSystem): solo cielo y mapa, más oscuro cuanto más alto
     MAPVIEW.on = true;
     MAPVIEW.alt = F.agl;
-    // lo lejos que se pinta: la ciudad entera y, más alto, hasta el horizonte (a saltos: no en cada fotograma)
-    const h = Math.max(0, F.agl), far = Math.max(FAR, 1.2 * Math.sqrt(2 * RE * h + h * h) + 2000), wc = this.world.camera as PerspectiveCamera;
-    if (far > this.farNow * 1.25 || far < this.farNow / 1.6) {
+    // lo lejos que se pinta (y se pide mapa): unas 30 veces tu altura y, como mucho, el horizonte, con calima al fondo (a
+    // saltos: no en cada fotograma)
+    const h = Math.max(0, F.agl), far = Math.min(Math.max(FAR_MIN, FAR_K * h), 1.2 * Math.sqrt(2 * RE * h + h * h) + 2000), wc = this.world.camera as PerspectiveCamera;
+    const fog = (this.world.scene as unknown as { fog: { color: Color; density: number } | null }).fog;
+    if (far > this.farNow * 1.2 || far < this.farNow / 1.4) {
       this.farNow = far;
-      wc.far = far * 1.25;
+      wc.far = far * 1.2;
       wc.updateProjectionMatrix();
+    }
+    if (fog) {
+      fog.density = HAZE / (this.farNow * 1.2);
+      fog.color.copy(this.hazeC.setRGB(MAPVIEW.haze[0], MAPVIEW.haze[1], MAPVIEW.haze[2]));
+    }
+    // la nitidez: la del ajuste, aflojada mientras haya muchos trozos esperando (lo de cerca llega antes)
+    this.errT -= dt;
+    if (this.errT <= 0 && tiles.root) {
+      this.errT = 0.5;
+      const S = (tiles as unknown as { stats: Record<string, number> }).stats, wait = S.parsing + S.queued + S.downloading;
+      this.errK += (Math.max(1, Math.min(ERR_MAX, 1 + (wait - BACKLOG0) / BACKLOG_K)) - this.errK) * 0.35;
+      tiles.errorTarget = (num('flyMapSharp') || 8) * ERR_K * this.errK;
     }
     // los mapas: desde la cámara de ahora (en las gafas, la de los dos ojos)
     const r = this.world.renderer as WebGLRenderer, cam = (r.xr.isPresenting ? r.xr.getCamera() : this.world.camera) as PerspectiveCamera;
@@ -268,11 +321,13 @@ export class MapSystem extends createSystem({}) {
       // (la memoria de los mapas: con poca, se llenaba y la ciudad se quedaba borrosa)
       tiles.lruCache.maxBytesSize = CACHE_BYTES;
       tiles.lruCache.minBytesSize = CACHE_BYTES * 0.75;
-      // (de tres en tres: cada trozo nuevo cuesta un poco al prepararlo, y de cinco en cinco daba tirones)
-      tiles.parseQueue.maxJobs = 3;
+      // solo lo que se va a ver y lo más cercano primero (lo de serie carga además todos los trozos de menos detalle de
+      // cada sitio, de lejos a cerca: lo de debajo de ti llegaba lo último)
+      (tiles as unknown as { loadAncestors: boolean }).loadAncestors = false;
+      tiles.parseQueue.maxJobs = 4;
       tiles.addEventListener('load-root-tileset', () => {
         // la nitidez: la que elijas (lo de Google pone la suya al recibir el índice)
-        tiles.errorTarget = num('flyMapSharp') || 8;
+        tiles.errorTarget = (num('flyMapSharp') || 8) * ERR_K * this.errK;
         this.log('índice del mapa recibido');
       });
       tiles.addEventListener('tile-download-start', () => {
@@ -290,7 +345,7 @@ export class MapSystem extends createSystem({}) {
           const ms = (o as Mesh).material;
           if (ms)
             for (const m of Array.isArray(ms) ? ms : [ms]) {
-              (m as Material & { fog?: boolean }).fog = false;
+              (m as Material & { fog?: boolean }).fog = true; // (la calima del fondo)
               // (las fotos de los tejados y las calles, nítidas también de lado: se miran desde arriba y de lejos)
               const map = (m as MeshBasicMaterial).map;
               if (map) map.anisotropy = this.aniso;
@@ -312,13 +367,18 @@ export class MapSystem extends createSystem({}) {
       this.cityId = city.id;
       this.loaded = this.asked = false;
     }
-    // (el nivel de nitidez pudo cambiar en el menú entre partidas)
-    if (this.tiles.root) this.tiles.errorTarget = num('flyMapSharp') || 8;
+    this.errK = 1;
+    this.errT = 0;
+    this.frames = this.framesT = 0;
+    const fog = (this.world.scene as unknown as { fog: { color: Color; density: number } | null }).fog;
+    if (fog) this.fogWas = { color: fog.color.getHex(), density: fog.density };
     this.flight = new MapFlight(city);
     this.reorient?.transformLatLonHeightToOrigin(city.lat * DEG, city.lon * DEG);
     this.waitT = 0;
     this.nextState = 6;
     this.groundT = this.aheadT = this.ringT = this.wallT = 0;
+    this.ringPt = 0;
+    this.gearSaid = false;
     this.aniso = (this.world.renderer as WebGLRenderer).capabilities.getMaxAnisotropy();
     this.root.visible = true;
     // (solo el cielo y el mapa: sin la plataforma de debajo de los pies)
@@ -356,6 +416,12 @@ export class MapSystem extends createSystem({}) {
     MAPVIEW.on = false;
     this.root.visible = this.room.visible = false;
     if (this.pad) this.pad.visible = this.padWas;
+    const fog = (this.world.scene as unknown as { fog: { color: Color; density: number } | null }).fog;
+    if (fog && this.fogWas) {
+      fog.color.setHex(this.fogWas.color);
+      fog.density = this.fogWas.density;
+    }
+    this.fogWas = null;
     const cam = this.world.camera as PerspectiveCamera;
     if (this.farWas) {
       cam.far = this.farWas;
@@ -388,7 +454,9 @@ export class MapSystem extends createSystem({}) {
   private stateOf(tiles: TilesRenderer): string {
     const S = (tiles as unknown as { stats: Record<string, number> }).stats, r = this.world.renderer as WebGLRenderer, C = tiles.lruCache as unknown as { cachedBytes: number; isFull(): boolean };
     r.getSize(this.size);
-    return `a los ${Math.round(this.waitT)} s · raíz ${(tiles as unknown as { rootLoadingState: number }).rootLoadingState} · en cola ${S.queued} · bajando ${S.downloading} · procesando ${S.parsing} · cargados ${S.loaded} · fallidos ${S.failed} · visibles ${tiles.visibleTiles.size} · memoria ${Math.round(C.cachedBytes / 1e6)} MB${C.isFull() ? ' (llena)' : ''} · nitidez ${tiles.errorTarget} · ${this.size.x}×${this.size.y}${r.xr.isPresenting ? ' (VR)' : ''}`;
+    const fps = this.framesT > 0 ? Math.round(this.frames / this.framesT) : 0;
+    this.frames = this.framesT = 0;
+    return `a los ${Math.round(this.waitT)} s · ${fps} img/s · raíz ${(tiles as unknown as { rootLoadingState: number }).rootLoadingState} · en cola ${S.queued} · bajando ${S.downloading} · procesando ${S.parsing} · cargados ${S.loaded} · fallidos ${S.failed} · visibles ${tiles.visibleTiles.size} · memoria ${Math.round(C.cachedBytes / 1e6)} MB${C.isFull() ? ' (llena)' : ''} · nitidez ${Math.round(tiles.errorTarget)} · se ve a ${Math.round(this.farNow / 1000)} km · ${this.size.x}×${this.size.y}${r.xr.isPresenting ? ' (VR)' : ''}`;
   }
 
   /** Al diagnóstico y al registro del mapa (que enseña la página: no se borra a los 30 s). */
@@ -429,17 +497,13 @@ export class MapSystem extends createSystem({}) {
     return Number.isNaN(d) ? Infinity : d;
   }
 
-  /** El aro `i`, por encima de lo más alto que tenga debajo (en su centro y en su borde), suave (los mapas se van afinando). */
+  /** El aro `i`, por encima de lo más alto que tenga debajo (un punto cada vez: su centro y cuatro de su borde). */
   private measureRing(F: MapFlight, i: number): void {
-    const r = F.rings[i];
-    let top = NaN;
-    for (const [a, b] of RING_AT) {
-      const g = this.topAt(r.x + a * MAP.ringR, r.z + b * MAP.ringR, 0);
-      if (!Number.isNaN(g) && !(g <= top)) top = g;
-    }
-    if (Number.isNaN(top)) return;
-    const y = top + MAP.ringClear + MAP.ringR, y0 = F.ringY[i];
-    F.ringY[i] = Number.isNaN(y0) ? y : y0 + (y - y0) * 0.4;
+    const r = F.rings[i], [a, b] = RING_AT[this.ringPt++ % RING_AT.length];
+    const g = this.topAt(r.x + a * MAP.ringR, r.z + b * MAP.ringR, 0);
+    if (Number.isNaN(g)) return;
+    const y = g + MAP.ringClear + MAP.ringR, y0 = F.ringY[i];
+    if (Number.isNaN(y0) || y > y0) F.ringY[i] = y;
   }
 
   /** Aro pasado: se abre y se desvanece, puntos, sonido y vibración, y el nombre del monumento. */

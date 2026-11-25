@@ -206,9 +206,13 @@ No las cambies sin preguntarle.
   - **Acelerar y frenar con la línea de las manos** (propuesto por el usuario: «las gafas detectan las manos que están en el
     suelo»): con las dos manos apoyadas y a la vista, **la cabeza por delante de la línea que las une acelera** (cuanto más
     adelante, más deprisa: hasta la mitad más que la máxima, sin necesidad de flexiones, como el peso adelante en una plancha)
-    y **por detrás frena** (la pica también, porque echa la cabeza atrás: sigue valiendo). La línea se toma como referencia al
-    calibrar, en plancha arriba; el vaivén de cada flexión no acelera (se suaviza y hay 5 cm sin efecto). Si las gafas no ven
-    las dos manos, manda el centro del vuelo, como antes. Vale también sobre el mapa.
+    y **por detrás frena** (la pica también, porque echa la cabeza atrás: sigue valiendo). **Se lee lo que te echas adelante o
+    atrás respecto a como sueles estar** (con la caja negra del usuario: con una referencia tomada una sola vez, bastaba
+    recolocarse un palmo para que el juego leyera «atrás» y frenara del todo durante minutos, sin dejar subir): la referencia
+    te sigue despacio (unos 8 s), así que recolocarte se olvida solo y un gesto se lee siempre. El vaivén de cada flexión no
+    acelera (se suaviza y hay 5 cm sin efecto). Si las gafas no ven las dos manos, se mide respecto al centro del vuelo. **De
+    lado y adelante se mide el cuello, no las gafas** (pedido del usuario: «girar la cabeza no debería hacer que el vuelo
+    gire»): girar la cabeza para mirar no te desvía; te desvía mover el cuerpo a un lado. Vale también sobre el mapa.
   - **Que se vea lo que haces**: tu **sombra** de ave en el suelo, con el pico hacia delante (se ladea con la escora, se pliega al picar, se abre en pica
     y bate en cada aletazo); **sin alas** (corregido por el usuario con su vídeo: pegadas a la cabeza salían delante y detrás
     y tapaban la vista); el viento al picar, un golpe de aire al aletear y un siseo al frenar; la **ventana de cada reto**: un **marco verde brillante con flechas que señalan hacia
@@ -251,9 +255,18 @@ No las cambies sin preguntarle.
     - **Solo el cielo y el mapa** (pedido del usuario: se mezclaba un campo alrededor de Nueva York): sin foto de fondo, valle,
       luciérnagas, estelas de viento ni la plataforma de los pies; el cielo, azul y, cuanto más alto, más oscuro, hasta el negro
       del espacio.
-    - **Sin techo** (pedido del usuario: «incluso a la estratosfera»): la media flexión manda lo que subes o bajas (los brazos
-      estirados, subes; media flexión, recto; más abajo, bajas), y cuanto más alto vas, más deprisa subes y más deprisa
+    - **Sin techo** (pedido del usuario: «incluso a la estratosfera»): cuanto más alto vas, más deprisa subes y más deprisa
       avanzas (a ras de ciudad, como un ave; desde el espacio, países enteros).
+    - **La altura, con la flexión entera** (pedido del usuario: «elevarme al estirar los brazos… una caída en picado bajando al
+      suelo en la flexión»): con **los brazos estirados, subes**; a **media flexión** (la cabeza de un palmo a un palmo y medio
+      por debajo), **recto**; **más abajo, bajas**, más deprisa cuanto más bajo; y con **el pecho en el suelo, el picado**
+      (bajas a toda velocidad y ganas marcha). Aquí no cuentan «Vuelo: recorrido para bajar» ni la pica: cuenta lo alta que va
+      la cabeza entre el suelo y arriba de tu plancha, que **se afina sola** (si calibraste algo encogido, en cuanto estiras
+      los brazos de verdad esa es la nueva altura de arriba). **Vuelo rasante**: el suelo y los tejados te sostienen a 7 m.
+    - **La marcha, acumulativa** (pedido del usuario): **cada impulso brusco hacia delante es una marcha más** (hasta 8; con su
+      vibración, su golpe de aire y «¡Impulso! Marcha 3») y **se mantiene** aunque vuelvas a tu sitio; echado adelante y
+      aguantando, sube poco a poco; **echado atrás, frenas** (más cuanto más atrás, hasta pararte: «Frenado · un impulso
+      adelante para arrancar»). Empiezas en la primera.
     - **Con inercia, como un ave** (pedido del usuario: «el giro es una sacudida que se frena en seco»): escorarte te ladea y el
       ladeo te hace virar; entra y sale del viraje suave y, al enderezarte, sigues virando un poco. El horizonte se ladea al
       virar (unos 9°; «Volando sobre el mapa: ladearse al virar» lo quita si marea). Subir, bajar y la marcha, igual: sin
@@ -267,7 +280,11 @@ No las cambies sin preguntarle.
       Solo cuenta si pasas por dentro (su nombre, puntos, sonido y vibración); no hay aros fallados: el que viene espera. La
       flecha verde del suelo señala hacia él y el marcador dice a cuánto está y si hay que subir o bajar.
     - **La nitidez** («Volando sobre el mapa: nitidez»: Fluido, Normal, Alta de serie y Máxima) y empiezas a 260 m del suelo
-      (desde más alto la ciudad se ve mejor: de cerca, los edificios de Google se ven algo derretidos).
+      (desde más alto la ciudad se ve mejor: de cerca, los edificios de Google se ven algo derretidos). **Primero lo de cerca**
+      (con el registro del usuario: pidiendo la ciudad entera hasta el horizonte había siempre más de 1.000 trozos esperando,
+      lo de debajo llegaba lo último y el juego iba a 17 imágenes por segundo): solo se pide lo que se va a ver, lo más
+      cercano primero; se ve hasta unas 30 veces tu altura (a 260 m, unos 8 km), con **calima** al fondo; y mientras hay cola
+      la nitidez se afloja sola (volando deprisa, algo menos de detalle; al ir despacio, se afina).
     Los créditos del mapa («Google», lo exigen) se ven junto a la flecha. Solo en la Travesía (en Barras no sale). Sin clave o
     sin ciudad, la Travesía de siempre. *En pruebas* hasta que el usuario lo dé por bueno en las gafas.
   - En la dura, sin flexiones un rato vas perdiendo altura poco a poco (nunca te caes); en la suave, el vuelo la mantiene. La

@@ -110,10 +110,17 @@ export function toLocal(c: { lat: number; lon: number }, lat: number, lon: numbe
  * Los números del vuelo sobre el mapa.
  * - El viraje: lo que tarda el ladeo en seguir a lo que te escoras (s: la inercia), lo que vira con el ladeo entero (rad/s) y
  *   lo que se ladea el horizonte entonces (rad: unos 9°).
- * - La altura: a la que empiezas sobre el suelo (m), lo cerca que se puede pasar del suelo o de un tejado (m), lo que subes y
- *   bajas con el mando entero (m/s), lo que tarda en cogerlo (s), desde qué altura todo va más deprisa en proporción (m) y el
- *   techo (m: el espacio, bien lejos).
- * - La marcha: la de crucero con el gas entero (m/s), lo que tarda en cogerla (s) y lo que crece con la altura (exponente).
+ * - La altura, con la flexión entera (pedido del usuario: estirar los brazos, subir; al suelo, el picado): lo alto que va la
+ *   cabeza entre el suelo (`low`, m: el pecho abajo) y arriba de la plancha, de 0 a 1; por encima de `upFrom` subes (del todo
+ *   en `upFull`), entre `downFrom` y `upFrom` vuelas recto (la media flexión) y por debajo bajas (del todo en `downFull`: el
+ *   picado). Lo que subes y bajas con el mando entero (m/s), lo que tarda en cogerlo (s), a la que empiezas sobre el suelo
+ *   (m), lo cerca que se puede pasar del suelo o de un tejado (m: el vuelo rasante), desde qué altura todo va más deprisa en
+ *   proporción (m) y el techo (m: el espacio, bien lejos). «Arriba de la plancha» se afina solo (`topUp` s para subir a donde
+ *   llegues, `topDown` m/s para bajar) dentro de `topSpan` m de la calibrada.
+ * - La marcha, acumulativa (pedido del usuario): cada impulso adelante sube una marcha (`gearMax` como mucho) y se mantiene;
+ *   echado adelante y aguantando, sube poco a poco (`hold` marchas/s); echado atrás, frena (`brake` marchas/s con el todo,
+ *   desde `brakeFrom` m y del todo en `brakeFull` m). Cada marcha, `gear` m/s; lo que tarda en cogerla (s), lo que crece con la
+ *   altura (exponente) y lo que añade el picado (× con el todo).
  * - Los aros: su radio (m), lo que se perdona (m), lo que su borde de abajo pasa por encima de lo más alto que haya debajo
  *   (m), su altura sobre el suelo sin medir (m) y de dónde empiezas (m antes del primero).
  * - Las paredes: lo que se mira por delante (s de vuelo y, como poco, m) y a cuánto te paras (m).
@@ -121,21 +128,26 @@ export function toLocal(c: { lat: number; lon: number }, lat: number, lon: numbe
  */
 export const MAP = {
   bankTau: 0.7, turn: 0.5, roll: 0.16,
-  alt0: 260, floor: 14, climb: 16, sink: 22, vsTau: 0.9, scaleAlt: 260, altMax: 3e6,
-  cruise: 70, speedTau: 1.4, scalePow: 0.92,
+  low: 0.17, upFrom: 0.88, upFull: 0.97, downFrom: 0.62, downFull: 0.22, topUp: 0.6, topDown: 0.002, topSpan: 0.15,
+  alt0: 260, floor: 7, climb: 18, sink: 45, vsTau: 0.7, scaleAlt: 260, altMax: 3e6,
+  gear: 40, gear0: 1, gearMax: 8, hold: 0.6, brake: 1.4, brakeFrom: 0.07, brakeFull: 0.18, speedTau: 1.2, scalePow: 0.92, diveK: 0.6,
   ringR: 40, slack: 14, ringClear: 30, ringAgl: 150, startBack: 700,
-  aheadT: 1.3, aheadMin: 30, stopAt: 12,
+  aheadT: 1.3, aheadMin: 30, stopAt: 10,
   reanchor: 25000,
 } as const;
 
-/** Lo que manda el cuerpo (del planeador de la Travesía) en cada fotograma. */
+/** Lo que manda el cuerpo en cada fotograma. */
 export interface MapIn {
+  /** Si mandas (jugando y en plancha): si no, el vuelo se queda quieto en el aire. */
+  live: boolean;
   /** Lo que te escoras (de −1 a 1, + derecha). */
   steer: number;
-  /** Subir (+) o bajar (−), de −1 a 1. */
-  climb: number;
-  /** El gas: la marcha de la Travesía entre su máxima (1, crucero; hasta 1,5 con la cabeza por delante de las manos). */
-  gas: number;
+  /** La altura de la cabeza (m) y la de arriba de la plancha, calibrada (m). */
+  head: number;
+  ref: number;
+  /** Lo que te has echado adelante (+) o atrás (−) respecto a como sueles estar (m) y si has dado un impulso adelante. */
+  lean: number;
+  kick: boolean;
 }
 
 export class MapFlight {
@@ -150,6 +162,13 @@ export class MapFlight {
   bank = 0;
   speed = 0;
   vs = 0;
+  /** La marcha (acumulativa: cada impulso, una más; se mantiene hasta que frenes), lo que subes (+) o bajas (−) con la
+   * flexión (de −1 a 1), lo que picas (de 0 a 1) y arriba de la plancha, afinado (m; NaN: la calibrada). */
+  gear: number = MAP.gear0;
+  climb = 0;
+  dive = 0;
+  top = NaN;
+  private nF = NaN;
   /** Lo que hay debajo de ti (m, la altura de su superficie: la calle o el tejado; lo pone quien pinta el mapa) y lo libre
    * que queda por delante (m; Infinity: nada a la vista). */
   ground = 0;
@@ -191,7 +210,9 @@ export class MapFlight {
     this.heading = headingTo(this.x, this.z, a.x, a.z);
     this.ground = this.city.h;
     this.alt = this.city.h + MAP.alt0;
-    this.bank = this.speed = this.vs = this.flown = 0;
+    this.bank = this.speed = this.vs = this.flown = this.climb = this.dive = 0;
+    this.gear = MAP.gear0;
+    this.top = this.nF = NaN;
     this.ahead = Infinity;
     this.next = 0;
   }
@@ -210,14 +231,37 @@ export class MapFlight {
     return Number.isNaN(y) ? this.city.h + MAP.ringAgl : y;
   }
 
+  /** Lo que mandan la flexión (subir, recto, bajar, el picado) y la cabeza adelante y atrás (la marcha). */
+  private pilot(dt: number, I: MapIn): void {
+    const c01 = (v: number): number => Math.max(0, Math.min(1, v));
+    // arriba de la plancha: la calibrada, afinada con lo que llegas de verdad (sube enseguida, baja muy despacio)
+    if (Number.isNaN(this.top)) this.top = I.ref;
+    const hi = Math.min(I.head, I.ref + MAP.topSpan);
+    if (hi > this.top) this.top += (hi - this.top) * Math.min(1, dt / MAP.topUp);
+    else this.top = Math.max(I.ref - MAP.topSpan, this.top - MAP.topDown * dt);
+    // lo alto que vas en la flexión (0, el pecho en el suelo; 1, los brazos estirados), suavizado
+    const n = (I.head - MAP.low) / Math.max(0.2, this.top - MAP.low);
+    this.nF = Number.isNaN(this.nF) ? n : this.nF + (n - this.nF) * Math.min(1, dt / 0.12);
+    const up = c01((this.nF - MAP.upFrom) / (MAP.upFull - MAP.upFrom)), down = c01((MAP.downFrom - this.nF) / (MAP.downFrom - MAP.downFull));
+    this.climb = up > 0 ? up : -down;
+    this.dive = c01((down - 0.6) / 0.4);
+    // la marcha: cada impulso, una más; adelante y aguantando, sube poco a poco; atrás, frena; si no, se mantiene
+    if (I.kick) this.gear += 1;
+    else if (I.lean > MAP.brakeFrom) this.gear += MAP.hold * c01((I.lean - MAP.brakeFrom) / 0.1) * dt;
+    else if (I.lean < -MAP.brakeFrom) this.gear -= MAP.brake * c01((-I.lean - MAP.brakeFrom) / (MAP.brakeFull - MAP.brakeFrom)) * dt;
+    this.gear = Math.max(0, Math.min(MAP.gearMax, this.gear));
+  }
+
   /** Un fotograma: el ladeo y el viraje, la altura y la marcha, con su inercia; el suelo sostiene y la pared frena. */
   step(dt: number, I: MapIn): void {
     if (dt <= 0) return;
     const c = (v: number): number => Math.max(-1, Math.min(1, v));
+    if (I.live) this.pilot(dt, I);
+    else this.climb = this.dive = 0;
     // el ladeo sigue a lo que te escoras, con su inercia: entra y sale del viraje suave (antes viraba en seco)
-    this.bank += (c(I.steer) - this.bank) * (1 - Math.exp(-dt / MAP.bankTau));
+    this.bank += ((I.live ? c(I.steer) : 0) - this.bank) * (1 - Math.exp(-dt / MAP.bankTau));
     this.heading -= MAP.turn * this.bank * dt; // (ladeado a la derecha, viras a la derecha)
-    const f = this.scale, cl = c(I.climb);
+    const f = this.scale, cl = this.climb;
     this.vs += ((cl > 0 ? MAP.climb : MAP.sink) * cl * f - this.vs) * (1 - Math.exp(-dt / MAP.vsTau));
     this.alt = Math.min(MAP.altMax, this.alt + this.vs * dt);
     // el suelo (o el tejado) te sostiene: nunca más cerca que `floor`, y te sube suave si se te echa encima
@@ -226,11 +270,12 @@ export class MapFlight {
       this.alt += (low - this.alt) * Math.min(1, dt * 4);
       if (this.vs < 0) this.vs = 0;
     }
-    // la marcha, con su inercia; ante una pared, no más de lo que da tiempo a frenar (y a `stopAt`, parado)
-    let want = MAP.cruise * Math.max(0, I.gas) * Math.pow(f, MAP.scalePow);
+    // la marcha, con su inercia (y el picado la aviva); ante una pared, no más de lo que da tiempo a frenar (y a `stopAt`, parado)
+    let want = I.live ? MAP.gear * this.gear * (1 + MAP.diveK * this.dive) * Math.pow(f, MAP.scalePow) : 0;
     const room = this.ahead - MAP.stopAt;
     if (room < want * MAP.aheadT) want = Math.max(0, room / MAP.aheadT);
-    this.speed += (want - this.speed) * (1 - Math.exp(-dt / (want < this.speed && room < this.speed * MAP.aheadT ? 0.25 : MAP.speedTau)));
+    // (frenar, más vivo que acelerar; ante una pared, en seco)
+    this.speed += (want - this.speed) * (1 - Math.exp(-dt / (want >= this.speed ? MAP.speedTau : room < this.speed * MAP.aheadT ? 0.25 : MAP.speedTau / 2)));
     if (room <= 0) this.speed = 0;
     const d = this.speed * dt;
     this.x += -Math.sin(this.heading) * d;

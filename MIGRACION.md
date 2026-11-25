@@ -548,6 +548,27 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
     y la ciudad se quedaba borrosa); el registro del mapa apunta la memoria y la nitidez cada 45 s. Probado aquí con un mapa
     falso (un suelo y un edificio): el aro queda sobre el tejado, la pared para a unos 16 m y pasar por dentro cuenta.
     **Pendiente con el usuario**: si con «Alta» va fluido y cómo se ve; si el ladeo marea.
+- **El mapa, con la caja negra del usuario** (`f8b9ca7e…`: «la calidad sigue siendo deficiente»; no subía ni picaba; sin
+  marchas; girar la cabeza desviaba):
+  - **Iba a 17 imágenes por segundo** (las filas de la caja negra, a 54-62 ms) con la cola saturada («procesando» siempre por
+    encima de 1.000, «cargados» unos 600, la memoria clavada en su mínimo): se pedía la ciudad hasta el horizonte, con todos
+    los niveles de cada sitio y de lejos a cerca (`loadAncestors`, lo de serie), a 8-16 píxeles de error sobre 2.640 de alto.
+    Ahora: `loadAncestors = false` (solo lo que se ve, lo cercano primero); el ajuste vale × `ERR_K` (20 píxeles en «Alta») y
+    se afloja con la cola (`errK`, hasta × `ERR_MAX`); se ve hasta `FAR_K` veces la altura (`FAR_MIN`), con la niebla de la
+    escena de calima (`MAPVIEW.haze`: `EnvSystem.arenaFog` la deja en paz sobre el mapa); menos rayos (lo de delante solo en
+    marcha y cerca del suelo; los aros, un punto cada vez y de cerca). El registro apunta las imágenes por segundo.
+  - **Los mandos frenaban solos**: `HandLine` tomaba su referencia una vez (al calibrar o al volver a poner el centro, en la
+    postura que fuera) y, recolocado un palmo, leía «atrás»: la pica, frenando del todo (`bk` 1000 más de la mitad del
+    tiempo), y en pica no se sube ni se baja. Ahora la referencia sigue despacio (`HL.adapt`) y da el impulso (`kick`).
+  - **Los mandos del mapa, propios** (`MapFlight.pilot`): la altura, de lo alta que va la cabeza entre el suelo y arriba de la
+    plancha (afinada sola, `top`: el usuario calibró a 0,70 m y estirado llega a 0,84), con el picado; la marcha, acumulativa
+    (`gear`: impulsos, aguantar adelante, frenar atrás). Ya no usan el planeador (`vAlt`) ni `flyDown` (el asistente lo había
+    dejado en 4 cm). Pasada la caja negra del usuario por ellos (a mano, con una prueba de quita y pon): sube al estirar,
+    baja abajo y la marcha responde.
+  - **El cuello** (`PlatEnv.head.px`/`pz`: 10 cm por detrás y 7 por debajo de las gafas, girado con la cabeza): de lado y
+    adelante se mide ahí; girar la cabeza no mueve la lectura.
+  **Pendiente con el usuario**: las imágenes por segundo de verdad (en el registro), si los impulsos salen cuando quiere y
+  no cuando no, y si frena sin querer al bajar en la flexión.
 
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):
   el centro del vuelo (`FlyBody`, y `BodyMoves.x0`) se tomaba al calibrar **antes** de que el mundo se deslizara 0,8 s para

@@ -204,6 +204,8 @@ const armOf = (h: Hand): { ok: boolean; x: number; y: number; z: number } => ({
 /** Lo que se coge con la cabeza (frutas, barriles): se encoge a menos de esto de los ojos y desaparece a menos de esto (m). */
 const EYE_FADE = 0.45, EYE_GONE = 0.12;
 
+const NECK = new Vector3();
+
 export class TrekSystem extends createSystem({}) {
   readonly runner: Runner;
   /** La altura de tus ojos de pie al calibrar. */
@@ -335,6 +337,13 @@ export class TrekSystem extends createSystem({}) {
         },
         get z() {
           return head.p.z;
+        },
+        // el cuello: unos 10 cm por detrás de las gafas y 7 por debajo (en la cabeza); girar la cabeza no lo mueve
+        get px() {
+          return head.p.x + NECK.set(0, -0.07, 0.1).applyQuaternion(head.q).x;
+        },
+        get pz() {
+          return head.p.z + NECK.set(0, -0.07, 0.1).applyQuaternion(head.q).z;
         },
         // de canto (src/input/body-dir.ts: la línea de las orejas, no hacia dónde mira la cara)
         get roll() {
@@ -546,6 +555,11 @@ export class TrekSystem extends createSystem({}) {
   }
 
   /** El estado de la partida que ve la lógica. */
+  /** ¿Se juega ahora (ya calibrado y fuera de los descansos)? */
+  playing(): boolean {
+    return this.state() === 'play';
+  }
+
   private state(): string {
     if (GAME.phase !== 'playing') return 'end';
     if (GAME.paused) return 'paused';
