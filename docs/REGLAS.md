@@ -240,7 +240,11 @@ No las cambies sin preguntarle.
     flexión manda la altura (de unos 20 a 220 m sobre el suelo) y tus flexiones o el avance solo, la velocidad. Una **ruta de
     aros** grandes y dorados pasa por sus monumentos (al pasar uno, su nombre, puntos, sonido y vibración); una flecha verde en
     el suelo, delante de las manos, señala el que viene. En los cofres, quieto en el aire (no se aterriza). Los créditos del
-    mapa («Google», lo exigen) se ven junto a la flecha. Sin clave o sin ciudad, la Travesía de siempre. *En pruebas* hasta
+    mapa («Google», lo exigen) se ven junto a la flecha. **Sobre el mapa no hay mundos** (pedido del usuario): ni portales ni
+    cambio de mundo, y el marcador y el panel de cada tramo hablan de la ciudad (la velocidad, la altura, el aro que viene y
+    los pasados), no de la energía, las doradas ni los paisajes de la Travesía. **La ciudad no da saltos** (pedido del usuario):
+    su suelo se mide poco y se sigue despacio (un tejado no cuenta), y lo nítida que se ve, en «Volando sobre el mapa: detalle»
+    (Normal, Alto de serie, Máximo). Solo en la Travesía (en Barras no sale). Sin clave o sin ciudad, la Travesía de siempre. *En pruebas* hasta
     que el usuario lo vea en las gafas.
   - En la dura, sin flexiones un rato vas perdiendo altura poco a poco (nunca te caes); en la suave, el vuelo la mantiene. La
     caja negra del vuelo (`reparenaxr-flybox`, con el diagnóstico) graba los últimos 40 s para afinar los números con tu vuelo.
