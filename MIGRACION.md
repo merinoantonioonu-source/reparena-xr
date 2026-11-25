@@ -174,6 +174,8 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
     subida vertical al final de cada tramo hasta la plataforma, el avance por remo, resbalar, y nada flota)
   - [x] **PR 2 · Retos y premios** (el enjambre, la ráfaga, la piedra y el cable deshilachado; las frutas y el cofre que se abre)
   - [x] **PR 3 · Los mundos y el jefe** (los Alpes, la garganta, la selva y la costa; el dragón del último tramo)
+  - [x] **Rehecha tras verla en las gafas** (opción A e idea 1 del usuario: un solo cable del valle a la cima con un cofre
+    colgado por tramo, la montaña de abajo arriba —valle, bosque, garganta y cima— donde todo nace de algo, y cada remo, un tirón)
 - [ ] **Lo que se ve desde cada postura, el superman, las cuestas y Arcos** (plan trazado con el usuario el 22/11/2026, por
   bloques, un PR cada uno: `docs/PLAN-ERGONOMIA-Y-CUESTAS.md`; quién hace cada parte, en su apartado 0)
 
@@ -418,6 +420,18 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- **La cuerda, rehecha (opción A e idea 1 del usuario)**: `RopeCourse` es ahora un solo cable (su cuesta, `pitchOf`, crece
+  de `p0` a `p1` con lo subido de la montaña; tabla cada 0,25 m; `sAt` es su inversa), con las estaciones del valle (s = −8) y
+  de la cima (`top`, el final del último tramo; el cable acaba en `len`) y `ends[i]`, el cofre de cada tramo (`chestAt`,
+  colgado; el último, en la estación). La montaña (`mount`, como poco 110 m) va por zonas (`rope-worlds.ts`: `zoneNo`,
+  `zoneWeight`, con `f = s / mount`): el terreno (`base`, que nunca baja al subir; `rawGround`, con las paredes de la garganta y
+  la cresta de la cima; `ground`, con el lago, el cauce del río y los de los arroyos) y el agua (`river`, `lake`, `falls`,
+  `streams`, `springs`) se calculan al crear el recorrido. Lo pinta `RopeScene` (el suelo con colores por vértice y estratos en
+  la roca; el agua, `rope-water.ts`; las cascadas). Ya no hay torres, subidas verticales (`verts`, `chimney`), plataformas ni
+  mundos con portal (`setWorld`, el destello, la costa y el barco). El suceso `zone` avisa al entrar en otra zona. Para mirarla
+  en el ordenador sin gafas: con la ronda empezada, `bars().ropeScene.place(…)` y `bars().rope.s` (la cámara del ordenador se
+  puede girar con `world.camera.rotation`). Pendiente: que el usuario la vea en las gafas.
 
 - **Las barras, en su sitio; la cuerda, a tirones** (el usuario, tras probar la cuerda): (1) los aparatos de Barras se
   guardaban en local-floor, cuyo origen cambia en cada sesión, y lo de las anclas de RepArena (`equip.ts`) estaba portado

@@ -386,7 +386,7 @@ export function standPole(ds: number, u: number, y0: number, len: number, th: nu
 }
 
 /** Un `Dock_Pole` tumbado a lo ancho (rz = π/2: su largo va en x): centrado en `u`, con su borde de abajo en `bottom`. */
-function layPole(ds: number, u: number, bottom: number, len: number, th: number): Put {
+export function layPole(ds: number, u: number, bottom: number, len: number, th: number): Put {
   const sy = len / PL_LEN;
   // (con rz = π/2, su x pasa a ser y —de ahí el borde de abajo— y su y pasa a ser −x —de ahí el centrado—)
   return put('island', 'Dock_Pole', ds, u + ((PL.y0 + PL.y1) / 2) * sy, bottom - PL.x0 * th, { rz: Math.PI / 2, sx: th, sy, sz: th });

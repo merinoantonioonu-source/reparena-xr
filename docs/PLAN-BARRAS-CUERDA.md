@@ -14,6 +14,20 @@ La pared rocosa (C) queda para las dominadas, donde de verdad cuelgas en vertica
 
 ## Cómo se ve y por qué
 
+> **Rehecha (25/11/2026, opción A del usuario y su idea 1 de los mundos)**: tras probarla en las gafas, el usuario vio que la
+> cuerda «hacía pliegues antinaturales, como si tuviera anclajes suspendidos en el aire», que las plataformas no tenían sentido,
+> que el avance era continuo (no a tirones) y que las cascadas salían de ninguna parte. Ahora: **un solo cable, del valle a la
+> cima**, tenso como el de un teleférico (su cuesta crece poco a poco, de unos 25° a unos 48°: sin pliegues), de la estación del
+> valle a la de la cima; **cada tramo acaba en un cofre colgado del cable** (a un lado de las paralelas) y el último, en la
+> estación; debajo, **una montaña de abajo arriba**: el valle (prados, flores, el lago), el bosque (pinares con claros), la
+> garganta (el río entre paredes de roca, con sus cascadas) y la cima (roca, peñas y hierba rala). **Todo nace de algo**: un
+> manantial de la cima da el arroyo que cae por la cabecera de la garganta; cada cascada de sus paredes, un arroyo que corre por
+> lo alto desde su manantial; el río baja por la garganta y el bosque hasta el lago del valle. **Cada remo, un tirón** (subes
+> mientras tiras; al bajar, algo de inercia). La montaña mide como poco 110 m de cable: en una ronda más corta se sube solo su
+> principio y la estación queda en un mirador. Lo de abajo (torres, subidas verticales, plataformas y mundos con portal) queda
+> como historia.
+
+
 - **La escena, la A de los bocetos** (elegida por el usuario tras ver el primer PR: el cañón de rocas y la cuerda con olas eran
   «muy poco atractivos»; «la tirolina en la realidad nunca tiene esas curvas»; «los árboles nunca están flotando»): torres de
   madera sobre la ladera de un valle alpino, de plataforma en plataforma.
