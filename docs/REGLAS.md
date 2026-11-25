@@ -200,6 +200,12 @@ No las cambies sin preguntarle.
     empujón hacia arriba (nunca hace falta); de canto, un **giro** (se llamaba «tonel» y, con los barriles de los premios,
     se entendía como un barril que no estaba). Los otros mandos, para comparar en «Vuelo: mando de altura»: **posición** (tu altura sale de tu pecho; la pica sube) y **aleteo** (cada flexión, un aletazo; abajo quieto,
     el picado).
+  - **Acelerar y frenar con la línea de las manos** (propuesto por el usuario: «las gafas detectan las manos que están en el
+    suelo»): con las dos manos apoyadas y a la vista, **la cabeza por delante de la línea que las une acelera** (cuanto más
+    adelante, más deprisa: hasta la mitad más que la máxima, sin necesidad de flexiones, como el peso adelante en una plancha)
+    y **por detrás frena** (la pica también, porque echa la cabeza atrás: sigue valiendo). La línea se toma como referencia al
+    calibrar, en plancha arriba; el vaivén de cada flexión no acelera (se suaviza y hay 5 cm sin efecto). Si las gafas no ven
+    las dos manos, manda el centro del vuelo, como antes. Vale también sobre el mapa.
   - **Que se vea lo que haces**: tu **sombra** de ave en el suelo, con el pico hacia delante (se ladea con la escora, se pliega al picar, se abre en pica
     y bate en cada aletazo); **sin alas** (corregido por el usuario con su vídeo: pegadas a la cabeza salían delante y detrás
     y tapaban la vista); el viento al picar, un golpe de aire al aletear y un siseo al frenar; la **ventana de cada reto**: un **marco verde brillante con flechas que señalan hacia

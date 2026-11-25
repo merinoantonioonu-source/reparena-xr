@@ -417,3 +417,70 @@ export function boardSide(tilt: number): number {
   const a = Math.abs(tilt) - FLY.tiltDead;
   return a > 0 ? Math.sign(tilt) * a * FLY.tilt : 0;
 }
+
+/**
+ * La línea de las manos (propuesta del usuario: «las gafas detectan las manos que están en el suelo»): con las dos manos
+ * apoyadas, la cabeza por delante de la línea que las une acelera y por detrás frena (la pica también echa la cabeza atrás).
+ * Las manos no se mueven del suelo: es mejor referencia que el centro del vuelo, que se desplaza si te recolocas.
+ * `floor`: lo más alto que se ve una muñeca apoyada (m); `wMin`/`wMax`: lo separadas que están (m); `stable`: lo que tienen que
+ * verse antes de contar (s); `tau`: el suavizado (s: la flexión mueve la cabeza adelante y atrás); `dead` y `span`: desde
+ * cuánto por delante se acelera y cuánto más hace falta para el todo (m); `boost`: lo que se pasa de la máxima con el todo y
+ * `acc`: lo deprisa que se gana (de la máxima por segundo); `decay`: lo que tarda en olvidarse al perder las manos (s).
+ */
+export const HL = { floor: 0.3, wMin: 0.18, wMax: 1, stable: 0.2, tau: 0.25, dead: 0.05, span: 0.1, boost: 0.5, acc: 0.6, decay: 0.5 } as const;
+
+type Wrist = { ok: boolean; x: number; y: number; z: number };
+
+export class HandLine {
+  /** Si cuenta ahora (las dos manos apoyadas y a la vista), lo que adelanta la cabeza la línea de las manos respecto a como
+   * estaba al ponerse (m, + adelante, suavizado) y su referencia (NaN: por tomar). */
+  ok = false;
+  lean = 0;
+  base = NaN;
+  private t = 0;
+
+  /** Otra vez a tomar la referencia (al calibrar o al volver a poner el centro). */
+  reset(): void {
+    this.base = NaN;
+    this.ok = false;
+    this.lean = 0;
+    this.t = 0;
+  }
+
+  /** Lo que acelera (0 a 1): la cabeza por delante de la línea, pasada la zona muerta. */
+  get push(): number {
+    return Math.max(0, Math.min(1, (this.lean - HL.dead) / HL.span));
+  }
+
+  /**
+   * Un fotograma: la cabeza, las muñecas, hacia dónde mira el cuerpo (fx, fz) y si la cabeza está en su sitio (`centered`: en
+   * plancha arriba y en el centro; ahí se toma la referencia).
+   */
+  step(dt: number, hx: number, hz: number, l: Wrist, r: Wrist, fx: number, fz: number, centered: boolean): void {
+    const w = Math.hypot(r.x - l.x, r.z - l.z);
+    const on = l.ok && r.ok && l.y < HL.floor && r.y < HL.floor && w > HL.wMin && w < HL.wMax;
+    this.t = on ? this.t + dt : 0;
+    if (this.t < HL.stable) {
+      this.ok = false;
+      this.lean *= Math.exp(-dt / HL.decay);
+      return;
+    }
+    // la distancia de la cabeza a la línea, hacia delante (la normal de la línea que mira adonde mira el cuerpo)
+    let nx = -(r.z - l.z) / w, nz = (r.x - l.x) / w;
+    if (nx * fx + nz * fz < 0) {
+      nx = -nx;
+      nz = -nz;
+    }
+    const d = (hx - (l.x + r.x) / 2) * nx + (hz - (l.z + r.z) / 2) * nz;
+    if (Number.isNaN(this.base)) {
+      if (!centered) {
+        this.ok = false;
+        return;
+      }
+      this.base = d;
+      this.lean = 0;
+    }
+    this.lean += (d - this.base - this.lean) * (1 - Math.exp(-dt / HL.tau));
+    this.ok = true;
+  }
+}

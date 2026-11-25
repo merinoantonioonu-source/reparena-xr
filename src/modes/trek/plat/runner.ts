@@ -39,7 +39,7 @@ import { PORTAL_AT, worldLenFor, worldNo, WORLD_LEN, WORLDS } from './worlds.js'
 import { formText } from './texts.js';
 import { buildGrade, gradeH, gradeK, gradeSlope, type Grade } from './grade.js';
 import { BodyMoves, WAVE_BACK, LUNGE_FWD, LUNGE_SIDE_K, moveCfg, PRONE_FWD, PRONE_SIDE_K, PRONE_SIDE_MIN, type MoveCfg } from './moves.js';
-import { boardSide, boardTilt, FLY, FlyBody, flyIn, flyModel, Glider, type FlyIn } from './fly.js';
+import { boardSide, boardTilt, FLY, FlyBody, flyIn, flyModel, Glider, HandLine, HL, type FlyIn } from './fly.js';
 import { FlyCoach, type CoachAnswer } from './fly-coach.js';
 import { ARCH_CLEAR, BERRY_R, CRACK_W, FLY_TUTO, FLY_KINDS, LAND_D, PILLAR_W, RING_R, UPDRAFT_W, ASK_AHEAD, LANE_NEED, ARMS_KINDS, CLIMB_SLOPE, CLIMB_SWAY, GRIP_NARROW, GRIP_WIDE, PAW_R, PAW_U, REACH_NEED, SLAP_VY, SLIT_ROLL, TILT_NEED, WAVE_WIN, BOSS_WIND_LUNGE, BOSS_WIND_PRONE, CANNON_AT, isPirate, BOB_EARLY_MIN, BOB_EARLY_S, BOB_OK, bobY, SINK_GRACE, SINK_IDLE, SINK_V, COL_ASK, COL_OK, COL_WARN, CRAB_U, FLUID, FOE_V, FOE_WAKE, BOX_CLEAR, platTune, ARMS_DY, ARMS_IN, ARMS_OUT, ARMS_SH, GLIDE_CATCH, GLIDE_DROP, GLIDE_LIFT, GLIDE_V, glideArc, glideU, BOSSES, BOSS_AWAY, BOSS_DIZZY, BOSS_DUCK, BOSS_FLY, BOSS_GAP, BOSS_HOP_T, BOSS_HP, BOSS_LIFT, BOSS_PTS, BOSS_STEP, BOSS_THROWS, BOSS_WIND, BOSS_Z, type BossShot, CLIFF_WALL, LEAN_K, ROCKFALL_T, ASIDE_U, FIRE_AT, FIRE_DUR, FIRE_R, FIRE_WIND, QUAKE_AT, QUAKE_V, QUAKE_WIN, QUAKE_WIND, WALKERS, FORK_PICK, FORK_RAMP, FORK_U, SPRING_DEEP, SPRING_LIFT, SPRING_V, SPIT_FAR, SPIT_FREE, SPIT_NEAR, SPIT_R, SPIT_V, SPIT_WIND, FRUIT_WIN, GHOST_DT, HALT, HALT_BRAKE, LAND_PAST, PLAT_GEMS, PLAT_GHOST, PLAT_SEE, STOP_AT, type Course, type Piece, type PieceKind, type PlatEnv, type PlatEv, type PlatPos, type PlatSnd } from './types.js';
 
@@ -254,6 +254,8 @@ export class Runner {
   /** El cuerpo en el vuelo (su centro, fijo en el aire), la flexión hecha que aún no ha leído el vuelo (1; 2, perfecta) y cuánto
    * llevan a la vista las dos muñecas (s: la tabla solo cuenta si se ven estables). */
   readonly flyBody = new FlyBody();
+  /** La línea de las manos apoyadas: la cabeza por delante acelera; por detrás, frena (fly.ts). */
+  readonly handLine = new HandLine();
   private flyRepN = 0;
   private wristsT = 0;
   /** El asistente del vuelo (fly-coach.ts: antes del primer tramo, o en un cofre si lo pides, con el mundo esperando), si
@@ -401,6 +403,7 @@ export class Runner {
   calibrate(ref: number, x0: number, z0 = 0, yaw?: number): void {
     this.moves.reset(ref, x0, z0);
     this.flyBody.set(x0, z0, yaw ?? this.env.head.yaw);
+    this.handLine.reset();
     this.calibOk = true;
     this.calibAt = this.time;
   }
@@ -617,6 +620,15 @@ export class Runner {
     if (this.fly && st === 'play' && !this.stop) {
       if (this.glider.diving) tk.v = Math.max(tk.v, this.vmax);
       else if (this.glider.braking) tk.v *= Math.max(0, 1 - FLY.brake * this.glider.brakeK * dt);
+      else {
+        // la cabeza por delante de la línea de las manos: aceleras, hasta la mitad más que la máxima (como el peso adelante en
+        // una plancha: cuesta más)
+        const k = this.handLine.push;
+        if (k > 0) {
+          const want = this.vmax * (1 + HL.boost * k);
+          if (tk.v < want) tk.v = Math.min(want, tk.v + HL.acc * this.vmax * dt);
+        }
+      }
     }
     // el acelerón (en plancha): como poco DASH_K la máxima, mientras dura
     if (this.dashT > 0 && st === 'play' && !this.stop && !this.hop) tk.v = Math.max(tk.v, this.vmax * DASH_K);
@@ -1247,6 +1259,7 @@ export class Runner {
       this.coachWant = false;
       this.howSaid = true;
       B.set(H.x, H.z);
+      this.handLine.reset();
       // (ya visto: no vuelve a salir solo, aunque lo dejes a medias; «Vuelo: asistente en la próxima partida» se apaga al usarse)
       this.ev.push({ t: 'store', key: FLY_TUTO, val: 1 });
       if (this.env.s('flyPractice') > 0) this.ev.push({ t: 'set', key: 'flyPractice', val: 0 });
@@ -1267,6 +1280,7 @@ export class Runner {
     if (this.farT > FLY_FAR_T) {
       this.farT = 0;
       B.set(H.x, H.z);
+      this.handLine.reset();
       B.read(H.x, H.z);
       this.ev.push({ t: 'note', text: 'vuelo: centro vuelto a poner (la cabeza estaba lejos)' });
     }
@@ -1274,7 +1288,10 @@ export class Runner {
     this.wristsT = A.l.ok && A.r.ok ? this.wristsT + dt : 0;
     const tilt = board && this.wristsT > 0.15 ? boardSide(boardTilt(A.l, A.r)) : 0;
     I.side = live ? B.side + tilt : 0;
-    I.back = live ? -B.fwd : 0;
+    // adelante y atrás, respecto a la línea de las manos si están apoyadas y a la vista (si no, al centro del vuelo)
+    const L = this.handLine;
+    L.step(dt, H.x, H.z, A.l, A.r, B.fx, B.fz, Math.abs(B.fwd) < 0.03 && Math.abs(H.y - M.ref) < 0.05);
+    I.back = live ? -(L.ok ? L.lean : B.fwd) : 0;
     I.down = live ? Math.max(M.down, board ? B.fwd - 0.02 : 0) : 0;
     // (los recorridos, los de los ajustes «Vuelo: recorrido para bajar / para subir / de lado», que pone a tu gusto el asistente)
     I.depth = Math.max(0.04, (this.env.s('flyDown') || 13) / 100);
@@ -1336,7 +1353,8 @@ export class Runner {
 
   /** Cómo se vuela con cada mando de altura (el aviso de al empezar y al acabar la práctica). */
   private flyHow(m: FlyIn['model']): string {
-    return m === 'mid' ? 'Brazos estirados: subes · Media flexión: recto · Más abajo: bajas' : m === 'pos' ? 'Escórate: a un lado · Pecho abajo: bajas · Cadera arriba: subes' : 'Escórate: a un lado · Cada flexión, un aletazo · Abajo quieto: picas';
+    const go = ' · Cabeza más allá de las manos: aceleras';
+    return (m === 'mid' ? 'Brazos estirados: subes · Media flexión: recto · Más abajo: bajas' : m === 'pos' ? 'Escórate: a un lado · Pecho abajo: bajas · Cadera arriba: subes' : 'Escórate: a un lado · Cada flexión, un aletazo · Abajo quieto: picas') + go;
   }
 
   /** El asistente del vuelo (fly-coach.ts): cada paso en el aviso breve, la pregunta en sus teclas (TrekSystem), cada
