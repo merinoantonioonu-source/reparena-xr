@@ -6,7 +6,7 @@
  * detecta, qué sale y cuándo lo dice la lógica pura (detect.ts, targets.ts, place.ts, equip.ts), comparada con RepArena;
  * aquí se pinta, suena y puntúa. La partida (GameSystem) pasa las oleadas con lo que este sistema le dice (`waveCleared`).
  */
-import { AnimationMixer, AssetManager, createSystem, DoubleSide, Group, LoopRepeat, Mesh, MeshBasicMaterial, CylinderGeometry, Vector3 } from '@iwsdk/core';
+import { AnimationMixer, AssetManager, createSystem, DoubleSide, Group, LoopRepeat, Mesh, MeshBasicMaterial, CylinderGeometry, Vector3, XRAnchor, type Entity } from '@iwsdk/core';
 import type { Material, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { dv, nWaves, store, waveReps } from '../../core/settings.js';
@@ -18,7 +18,9 @@ import { setSetting } from '../../core/settings.js';
 import { HangScene } from './hang-scene.js';
 import { BUBBLE_SPLASH, createBubble, createDipBars, createDoorBar, type BarRigParts, type BubbleParts } from '../../scene-assets/bars.scene-asset.js';
 import { BarDetector, powRgb } from './detect.js';
-import { dipOne, eqName, eqPose, loadEquip, type Equip } from './equip.js';
+import { dipOne, eqName, eqPose, equipAnchorFrame, loadEquip, type Equip, type FloorPose } from './equip.js';
+import { yawOf } from './env.js';
+import { diagEvent } from '../../core/diag.js';
 import type { BarEvent, BarsEnv, PlaceEnv } from './env.js';
 import { Placer, PLACE_HOLD, type PlaceEvent } from './place.js';
 import { BarField, HeadTarget, hangSecs, TGT } from './targets.js';
@@ -52,6 +54,12 @@ export class BarsSystem extends createSystem({}) {
   readonly field = new BarField(this.bar);
   readonly placer = new Placer();
   eq: Equip = loadEquip((k, v) => store(k, v));
+  /** El ancla del mundo: su entidad (IWSDK la cuelga del grupo anclado), si se estaba en las gafas el fotograma anterior,
+   * los fotogramas que lleva en su sitio en esta sesión y dónde está en local-floor. */
+  private anchorProbe: Entity | null = null;
+  private wasXR = false;
+  private anchorFrames = 0;
+  private readonly anchorPose: FloorPose = { x: 0, z: 0, yaw: 0 };
   private mstate: BState = 'off';
   private readonly arena = { x: 0, z: 0, ry: 0 };
   private readonly out: BarEvent[] = [];
@@ -133,6 +141,9 @@ export class BarsSystem extends createSystem({}) {
 
   init(): void {
     this.world.createTransformEntity(this.root);
+    // el ancla persistente del mundo (la de IWSDK: la misma en todas las sesiones): los aparatos se recuerdan respecto a ella
+    this.anchorProbe = this.world.createTransformEntity(new Group());
+    this.anchorProbe.addComponent(XRAnchor);
     this.gates = this.world.getSystem(GateSystem) ?? null;
     // la línea luminosa entre tus manos al colocar el aparato
     this.line = new Mesh(new CylinderGeometry(0.012, 0.012, 1, 8), new MeshBasicMaterial({ color: 0x3cf0c6, toneMapped: false }));
@@ -351,6 +362,7 @@ export class BarsSystem extends createSystem({}) {
 
   update(dt: number, time: number): void {
     this.clock += dt;
+    this.stepAnchor();
     if (!this.on) {
       if (this.entries.length || this.mstate !== 'off') this.clear();
       this.line.visible = false;
@@ -386,11 +398,40 @@ export class BarsSystem extends createSystem({}) {
     this.syncTargets(dt);
   }
 
+  // el ancla del mundo (IWSDK: XRAnchor, restaurada en cada sesión): en cuanto está en su sitio, los aparatos vuelven al suyo
+  // de la habitación, aunque el origen de las gafas sea otro (pedido del usuario: tenía que recolocarlas en cada partida)
+  private stepAnchor(): void {
+    const P = this.anchorProbe, xr = this.world.renderer.xr.isPresenting;
+    if (!P) return;
+    if (xr !== this.wasXR) {
+      // (sesión nueva: hasta que IWSDK recupere el ancla de esta sesión, nada)
+      this.wasXR = xr;
+      this.anchorFrames = 0;
+      if (P.hasComponent(XRAnchor)) P.setValue(XRAnchor, 'attached', false);
+    }
+    // (los aparatos van en tu espacio tal cual lo dan las gafas: con el jugador de IWSDK sin mover, como en Barras)
+    const g = P.object3D?.parent, pl = this.world.player, still = !pl || (Math.abs(pl.position.x) + Math.abs(pl.position.z) < 1e-3 && Math.abs(pl.rotation.y) < 1e-4);
+    if (!xr || !g || !still || !P.getValue(XRAnchor, 'attached')) {
+      if (this.eq.a2l) equipAnchorFrame(this.eq, null, (k, v) => store(k, v));
+      return;
+    }
+    // (unos fotogramas de margen: el primero, el grupo aún no tiene la pose del ancla)
+    if (++this.anchorFrames < 20) return;
+    if (this.anchorFrames === 20) diagEvent(`ancla del mundo en ${g.position.x.toFixed(2)} ${g.position.z.toFixed(2)}`);
+    this.anchorPose.x = g.position.x;
+    this.anchorPose.z = g.position.z;
+    this.anchorPose.yaw = yawOf(g.quaternion);
+    equipAnchorFrame(this.eq, this.anchorPose, (k, v) => store(k, v));
+  }
+
   // la cuerda: subes remando y, sin remar, resbalas un poco; al llegar a la plataforma de la torre, el tramo superado
   private stepRope(dt: number): void {
     const R = this.rope;
     if (!R) return;
     const playing = this.mstate === 'play' && !GAME.between && !GAME.paused;
+    // el tirón: lo que llevas subido el pecho en este remo (abajo, 0; en la barra, 1) te sube con los brazos
+    const d = this.bar.det, pullF = playing && d !== 'down' ? (head.p.y - this.bar.ref) / Math.max(0.05, barReq(this.env)) : 0;
+    R.pull(pullF);
     R.step(dt, playing);
     this.ropeScene.eye.copy(head.p);
     this.ropeScene.update(true, R.s); // (con lo que has subido en este fotograma)

@@ -398,7 +398,8 @@ No las cambies sin preguntarle.
 **Barras**
 - **La aventura en la cuerda del remo invertido** (pedido del usuario; elegido de las propuestas: «A con tramos de B»; plan en
   `docs/PLAN-BARRAS-CUERDA.md`): una opción de Barras («Remo invertido: aventura en la cuerda», *en pruebas*), con **una
-  paralela o dos**. Cuelgas boca arriba de un cable y cada remo te sube por él (más ritmo, más deprisa); si dejas de remar,
+  paralela o dos**. Cuelgas boca arriba de un cable y **cada remo es un tirón** (corregido por el usuario: «no un movimiento constante»): subes
+  mientras tiras, pegado a los brazos, y al bajar te lleva un poco la inercia, que se apaga; más remos, más deprisa. Si dejas de remar,
   **resbalas un poco** («mínimamente»: nunca más abajo de la plataforma de salida). La escena, la A de los bocetos
   (elegida por el usuario: lo primero, un cañón de rocas con la cuerda ondulante, era «muy poco atractivo»): **torres de madera
   sobre un valle alpino**. **Como una tirolina de verdad**: cada tramo, **un cable recto y tenso** (con una comba leve) de la
@@ -797,7 +798,8 @@ No las cambies sin preguntarle.
 
 **Realidad mixta**
 - Puede usar la habitación escaneada o colocarse a mano. Lo colocado (y las barras y paralelas) se recuerda entre
-  sesiones.
+  sesiones: **en el mismo sitio de la habitación** (pedido del usuario: tenía que recolocarlas en cada partida), con el ancla
+  persistente de IWSDK, aunque las gafas pongan su origen en otro sitio al entrar.
 
 **Página web**
 - En el ordenador y en el navegador de las gafas, lo primero que se ve son los botones de entrar (realidad mixta, VR,
