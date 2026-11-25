@@ -81,7 +81,7 @@ la cuerda»), todos menos la persecución (9) y los cofres con sorpresa (12):
 
 - [x] **Parte 1 · Esquivar y turbo**: los murciélagos (1), el cangrejo del cable (2), los tiradores (3), la abeja (4) y el turbo
   por racha (11); cada zona, sus retos.
-- [ ] **Parte 2 · Agarre y fuerza**: el remo a una mano (5), coger con una mano (6), aguantar a media altura (7) y los remos
+- [x] **Parte 2 · Agarre y fuerza**: el remo a una mano (5), coger con una mano (6), aguantar a media altura (7) y los remos
   lentos (8).
 - [ ] **Parte 3 · Un jefe en cada zona** (10): el demonio en el bosque, el cíclope en la garganta y el yeti en la cima, además del
   dragón.
