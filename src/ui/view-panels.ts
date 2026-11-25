@@ -19,7 +19,7 @@ import { GAME, HOOKS, TRAVEL, VIEW, type CenterInfo } from '../core/state.js';
 import { num, on, settings } from '../core/values.js';
 import { hands, head } from '../input/hand-model.js';
 import { padMask, thumbsUp } from '../input/thumbs.js';
-import { isFloor, isSupine, isTiny, foes, groundList, flyList, twoShots, isBars } from '../core/rules.js';
+import { isFloor, isSupine, isTiny, foes, groundList, flyList, twoShots, isBars, skyFoes } from '../core/rules.js';
 import { dv, nLives, nWaves, rankName, store, waveReps } from '../core/settings.js';
 import { EnemySystem } from '../combat/enemies.js';
 import { devFoe, foeReady } from '../combat/foes.js';
@@ -53,6 +53,12 @@ export const lyingEx = (): boolean => isFloor() || isSupine() || settings.exerci
 /** El aviso breve (lo que pide hacer algo ya): de tamaño medio, entre el enorme del suelo en plancha y el pequeño de antes
  * (pedido del usuario); m. */
 const TOAST_W = 0.8, TOAST_H = 0.14;
+/** Boca arriba en el press de pecho, con los voladores bajando del cielo (pedido del usuario: los avisos no pueden tapar su
+ * camino): los huecos, fuera de lo que hay encima de ti, hacia los pies (el del centro, a unos 22° de la vertical, por
+ * encima del marcador) y el breve, a un lado, entre la bola y su camino; y su camino, como algo que no se tapa (`SKY_LANE`: sobre tu cara). */
+const SKY_C: [number, number][] = [[0, -0.45], [0.6, -0.45], [-0.6, -0.45]];
+const SKY_T: [number, number][] = [[0.65, -0.32], [-0.65, -0.32], [0, -0.6]];
+const SKY_LANE = { y: 2.6, r: 0.45 };
 
 export class ViewSystem extends createSystem({}) {
   // el del centro y el breve: lienzos como en RepArena (src/ui/info-draw.ts; antes, paneles de UIKit con el texto saliéndose)
@@ -177,6 +183,13 @@ export class ViewSystem extends createSystem({}) {
       th.r = Math.max(0.1, t.radius * 1.5);
       n++;
     }
+    // el camino de los que bajan del cielo (el press de pecho): sobre tu cara
+    if (GAME.phase === 'playing' && skyFoes()) {
+      const th = this.threats[n] ?? (this.threats[n] = { p: new Vector3(), r: 0 });
+      th.p.set(GAME.head.x, GAME.head.y + SKY_LANE.y, GAME.head.z);
+      th.r = SKY_LANE.r;
+      n++;
+    }
     // y el marcador y el menú abierto (pedido del usuario: los avisos no deben taparlos)
     const B = VIEW.board;
     if (B.on) {
@@ -226,7 +239,7 @@ export class ViewSystem extends createSystem({}) {
       this.fillCenter(c);
     }
     // con un menú abierto, por encima para no taparlo
-    const slots: [number, number][] = GAME.menu === 'pause' ? [[0, 0.3]] : this.C.slots;
+    const slots: [number, number][] = GAME.menu === 'pause' ? [[0, 0.3]] : lying && skyFoes() ? SKY_C : this.C.slots;
     // (antes de empezar —colocarse, prepararte—, sigue tu mirada antes: si no, se quedaba hacia donde estaba el menú, a un
     // lado, y no se podía leer; lo vio el usuario en la Travesía)
     const pre = c.kind === 'calib' || c.kind === 'ready';
@@ -264,7 +277,7 @@ export class ViewSystem extends createSystem({}) {
       return;
     }
     this.toastT -= dt;
-    const L = lazyAt(VIEW_FRAME, this.lzT, hudSlot(VIEW_FRAME, this.T, this.T.slots, head, lying, this.threats, n, dt, this.at), VIEW_FRAME.hudQ(head, lying), head, dt);
+    const L = lazyAt(VIEW_FRAME, this.lzT, hudSlot(VIEW_FRAME, this.T, lying && skyFoes() ? SKY_T : this.T.slots, head, lying, this.threats, n, dt, this.at), VIEW_FRAME.hudQ(head, lying), head, dt);
     const vis = Math.min(1, this.toastT * 3) * this.T.fade * lazyClear(L, o, TOAST_W, TOAST_H, head.p, this.threats, n, dt);
     (o.material as MeshBasicMaterial).opacity = vis;
     o.position.copy(L.at);

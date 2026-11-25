@@ -7,7 +7,7 @@
  * Mientras vuelan no tienen cuerpo de física (en RepArena no chocaban con los de tierra); al caer, una esfera dinámica.
  */
 import { fadeCopy } from '../style/comic.js';
-import { AnimationAction, AnimationMixer, AssetManager, createSystem, DoubleSide, Entity, Group, LoopOnce, LoopRepeat, Material, Mesh, Object3D, PhysicsBody, PhysicsManipulation, PhysicsShape, PhysicsShapeType, PhysicsState, SkinnedMesh, Vector3 } from '@iwsdk/core';
+import { AnimationAction, AnimationMixer, AssetManager, createSystem, DoubleSide, Entity, Group, LoopOnce, LoopRepeat, Material, Matrix4, Mesh, Object3D, PhysicsBody, PhysicsManipulation, PhysicsShape, PhysicsShapeType, PhysicsState, SkinnedMesh, Vector3 } from '@iwsdk/core';
 import { Flyer, Foe, FoeState } from './components.js';
 import { FLAP_HZ, Flight, type FlyEnv, type FlyGate } from './flight.js';
 import { devFoe, FOE_DEF } from './foes.js';
@@ -42,6 +42,10 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
   private env: FlyEnv = { head: GAME.head, play: false, active: false, beat: true, low: 0, sup: null };
   private p = new Vector3();
   private look = new Vector3();
+  private ax = new Vector3();
+  private ay = new Vector3();
+  private az = new Vector3();
+  private m4 = new Matrix4();
   private manip = { force: [0, 0, 0] as [number, number, number], linearVelocity: [0, 0, 0] as [number, number, number], angularVelocity: [0, 0, 0] as [number, number, number] };
   private beatK = -1;
   private wingMats = new Set<Material>();
@@ -66,11 +70,12 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
   }
 
   /** Saca uno (kind: bee, bat, cthulhu, dragon) por el hueco de gate, con hp de vida. flySpeed y erratic: «Velocidad de
-   * vuelo» y «Vuelo errático» de esta oleada. */
-  spawn(kind: string, gate: FlyGate, hp: number, flySpeed: number, erratic: number, tiny = false): FoeTarget | null {
+   * vuelo» y «Vuelo errático» de esta oleada. sky: que baje del cielo (el press de pecho), de start hasta hover. */
+  spawn(kind: string, gate: FlyGate, hp: number, flySpeed: number, erratic: number, tiny = false, sky: { start: Vector3; hover: Vector3 } | null = null): FoeTarget | null {
     const d = FOE_DEF[kind], gltf = d && AssetManager.getGLTF(d.asset);
     if (!d || !gltf || !this.enemies) return null;
     const flight = new Flight(kind, gate, flySpeed, erratic, hp, Math.random, GAME.lowFly > 0, tiny); // (tumbado, salen bajos; en la batalla diminuta, pequeños y de una trampilla)
+    if (sky) flight.toSky(sky.start, sky.hover, GAME.head);
     // (como en RepArena: el balanceo y el alabeo del vuelo van en un grupo aparte, y el centro del bicho queda donde vuela)
     const root = new Group(), body = new Group(), model = gltf.scene;
     root.name = `volador-${kind}`;
@@ -150,7 +155,11 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
       rt.death.play();
     }
     const kb = 1.2 + 0.5 * pow;
-    rt.launch = new Vector3(dir.x * kb, 1.2, dir.z * kb);
+    if (rt.flight.sky) {
+      // (bajando del cielo, encima de ti: cae a un lado, nunca sobre tu cara)
+      const sx = c.x - GAME.head.x, s = Math.abs(sx) > 0.05 ? Math.sign(sx) : Math.random() < 0.5 ? -1 : 1;
+      rt.launch = new Vector3(s * (2.4 + 0.3 * pow), 0.6, 0.4 * (c.z - GAME.head.z));
+    } else rt.launch = new Vector3(dir.x * kb, 1.2, dir.z * kb);
     e.addComponent(PhysicsShape, { shape: PhysicsShapeType.Sphere, dimensions: [rt.flight.radius, 0, 0], density: 40, friction: 0.6, restitution: 0.25 });
     e.addComponent(PhysicsBody, { state: PhysicsState.Dynamic, linearDamping: 0.3, angularDamping: 0.8 });
   }
@@ -213,8 +222,16 @@ export class FlyerSystem extends createSystem({ flyers: { required: [Flyer, Foe]
       if (f.evBite) HOOKS.playerHit(rt.str);
       // de cara a ti (a medias en altura), alabeado al virar y balanceándose un poco
       o.position.copy(f.pos);
-      this.look.set(GAME.head.x, f.pos.y + (GAME.head.y - f.pos.y) * 0.3, GAME.head.z);
-      o.lookAt(this.look);
+      if (f.sky) {
+        // (bajando del cielo: de cara a tus ojos, con su cabeza hacia lo alto de la tuya —tumbado, hacia +Z—, como lo ves)
+        const z = this.az.subVectors(GAME.head, f.pos).normalize(), y = this.ay.set(0, 0, 1).addScaledVector(z, -z.z);
+        if (y.lengthSq() < 1e-4) y.set(0, 1, 0).addScaledVector(z, -z.y);
+        y.normalize();
+        o.quaternion.setFromRotationMatrix(this.m4.makeBasis(this.ax.crossVectors(y, z), y, z));
+      } else {
+        this.look.set(GAME.head.x, f.pos.y + (GAME.head.y - f.pos.y) * 0.3, GAME.head.z);
+        o.lookAt(this.look);
+      }
       rt.body.rotation.z = f.bank;
       rt.body.position.y = Math.sin(f.t * 3) * 0.01;
       // al lanzarse, muerde; si no, vuela

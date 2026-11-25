@@ -8,6 +8,7 @@ import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, createSystem,
 import type { DirectionalLight, Entity, HemisphereLight, Object3D } from '@iwsdk/core';
 import { SND } from '../audio/sound.js';
 import { GateSystem } from '../combat/gates.js';
+import { ROPE_FOG, ROPE_HAZE } from '../modes/bars/rope.js';
 import { BarsSystem } from '../modes/bars/bars-system.js';
 import { num, str, on } from '../core/values.js';
 import { Scenery, type SceneKind } from './scenery.js';
@@ -272,13 +273,14 @@ export class EnvSystem extends createSystem({}) {
     if ((!playing && this.wasPlaying) || (this.seed === 0 && num('envVary') > 0)) this.seed = num('envVary') > 0 ? 1 + Math.floor(Math.random() * 999983) : 0;
     if (!(num('envVary') > 0)) this.seed = 0;
     this.wasPlaying = playing;
-    const night = this.world.getSystem(BarsSystem)?.nightForest ?? false, want = night ? 'arena' : this.sceneryWanted(), D = num('depth') > 0 ? num('depth') : 11;
+    // (de noche en el bosque de Barras, o en el cañón de la cuerda del remo invertido, el entorno de serie se aparta)
+    const bs = this.world.getSystem(BarsSystem), night = bs?.nightForest ?? false, rope = bs?.ropeShown ?? false, want = night || rope ? 'arena' : this.sceneryWanted(), D = num('depth') > 0 ? num('depth') : 11;
     if (want === 'arena') this.scenery.hide();
     else if (!this.scenery.show(want, D, !!this.panoWanted(), this.gateList(), this.seed)) this.scenery.hide();
     this.stepTravel(D);
     if (!this.floor.length) this.floor = ['arena-floor', 'comic-valley', 'comic-clouds'].map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is Object3D => !!o);
     const on = this.scenery.visible;
-    if (!night && settings.mode !== 'trek') for (const o of this.floor) o.visible = !on && !(this.panoWanted() && o !== this.floor[0]); // (la Travesía los esconde ella)
+    if (!night && !rope && settings.mode !== 'trek') for (const o of this.floor) o.visible = !on && !(this.panoWanted() && o !== this.floor[0]); // (la Travesía los esconde ella)
     this.scenery.lite(LITE.on); // (con un menú abierto en las gafas, sin el bosque: va más fluido)
     this.scenery.update(dt, time, head.p, (at, isl, night) => (night ? SND.owl(this.tmp.copy(at)) : isl ? SND.gull(this.tmp.copy(at)) : SND.bird(this.tmp.copy(at)))); // (en el cementerio, búhos)
     this.stepSky(dt, time, want);
@@ -374,6 +376,13 @@ export class EnvSystem extends createSystem({}) {
     const fog = (this.world.scene as unknown as { fog: { color: Color; density: number } | null }).fog;
     if (!fog) return;
     if (!this.fog0) this.fog0 = { color: fog.color.clone(), density: fog.density };
+    // (en la cuerda del remo invertido, la bruma de su foto: lo lejano se funde con ella)
+    const bs = this.world.getSystem(BarsSystem);
+    if (bs?.ropeShown) {
+      fog.color.setHex(ROPE_HAZE[bs.ropePano] ?? ROPE_HAZE.aldea);
+      fog.density = ROPE_FOG;
+      return;
+    }
     if (day) return;
     const k = this.evK, F = this.fog0;
     fog.color.copy(F.color).lerp(this.c1.setHex(ev === 'fog' ? 0x8a929c : 0x07070b), k);
@@ -383,6 +392,8 @@ export class EnvSystem extends createSystem({}) {
   /** El fondo elegido (que exista), o '' si es el cielo dibujado. */
   private panoWanted(): string {
     if (settings.mode === 'trek') return this.world.getSystem(TrekSystem)?.pano ?? 'bosque'; // (la Travesía, el de su tramo)
+    const bs = this.world.getSystem(BarsSystem);
+    if (bs?.ropeShown) return bs.ropePano; // (la cuerda del remo invertido: el de su tramo, según la altura)
     const k = str('pano');
     return FONDOS.includes(k) ? k : '';
   }
@@ -394,6 +405,7 @@ export class EnvSystem extends createSystem({}) {
   // la foto de fondo: el DomeTexture de IWSDK en la raíz del nivel (gana al degradado de cielo); se quita el valle y las nubes dibujados
   private stepPano(): void {
     const want = this.panoWanted();
+    this.ropeYaw();
     if (want === this.pano) return;
     const lv = this.level();
     if (!lv) return;
@@ -407,6 +419,18 @@ export class EnvSystem extends createSystem({}) {
     this.pano = want;
     if (!this.hidden.length) this.hidden = ['comic-valley', 'comic-clouds'].map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is Object3D => !!o);
     for (const o of this.hidden) o.visible = !want;
+  }
+
+  // en la cuerda del remo invertido, la foto se gira hacia donde subes (lo mejor de ella, de frente: hacia lo alto de tu
+  // cabeza); al salir, derecha otra vez (la Travesía gira la suya ella)
+  private panoTurn = 0;
+  private ropeYaw(): void {
+    if (settings.mode === 'trek') return;
+    const bs = this.world.getSystem(BarsSystem), yaw = bs?.ropeShown ? bs.ropeYaw : 0, lv = this.level();
+    if (Math.abs(yaw - this.panoTurn) < 1e-3 || !lv || !lv.hasComponent(DomeTexture) || lv.getValue(DomeTexture, '_needsUpdate')) return;
+    lv.getVectorView(DomeTexture, 'rotation')[1] = yaw;
+    lv.setValue(DomeTexture, '_needsUpdate', true);
+    this.panoTurn = yaw;
   }
 
   update(dt: number, time: number): void {

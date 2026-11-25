@@ -51,6 +51,10 @@ pulsación sólida, pegada y con imán).
 No las cambies sin preguntarle.
 
 **Estilo**
+- **Nada flota** (pedido del usuario: «los árboles nunca están flotando»): cada árbol, palmera, piedra o adorno se apoya en el
+  suelo o en la roca que tiene debajo (su pie, en ella o un poco hundido; nunca en el aire). Lo que va encima de una roca se
+  coloca con la altura real de su cara de arriba (`src/env/rock-tops.ts`), no a ojo, y una prueba lo comprueba
+  (`tests/unit/no-float.test.ts`).
 - **Todo se diseña para el estilo Cómic** (`src/38_comic.js`), que es el de serie: en Realista, con la resolución alta, las
   gafas no llegan y va a saltos. Lo nuevo se prueba y se mira en Cómic; Realista queda como opción.
 
@@ -336,6 +340,43 @@ No las cambies sin preguntarle.
   abre ya se ve y su letra pequeña no se leía). Medallones dibujados, no modelos: no hay llave ni gema en los kits.
 - El césped del suelo gira y corre con el mundo (en las curvas, lo apoyado no patina sobre la hierba).
 
+
+**Barras**
+- **La aventura en la cuerda del remo invertido** (pedido del usuario; elegido de las propuestas: «A con tramos de B»; plan en
+  `docs/PLAN-BARRAS-CUERDA.md`): una opción de Barras («Remo invertido: aventura en la cuerda», *en pruebas*), con **una
+  paralela o dos**. Cuelgas boca arriba de un cable y cada remo te sube por él (más ritmo, más deprisa); si dejas de remar,
+  **resbalas un poco** («mínimamente»: nunca más abajo de la plataforma de salida). La escena, la A de los bocetos
+  (elegida por el usuario: lo primero, un cañón de rocas con la cuerda ondulante, era «muy poco atractivo»): **torres de madera
+  sobre un valle alpino**. **Como una tirolina de verdad**: cada tramo, **un cable recto y tenso** (con una comba leve) de la
+  plataforma de una torre a la siguiente, con su cuesta fija (de 30° a 42°), y lo último, **en vertical** por una cuerda fija
+  junto a la torre hasta su plataforma (se ve sobre ti: el tramo superado). **Nada flota**: la ladera es un suelo de verdad,
+  las torres apoyan en él sus patas y cada árbol, su tronco (y lejos de la cuerda). El cielo sigue arriba (el mundo no se
+  inclina: subir es que el valle baje hacia tus pies). Con dos paralelas, dos cables; con una, un cable por encima y la barra
+  colgada de una polea. **Fondo realista según la altura** (elegido por el usuario: «sigue tus propuestas», con la lógica del
+  mundo real: «no pongas el fondo en el cielo»): abajo, los Alpes desde el valle; a media subida, la montaña y el valle y las
+  colinas con nubes; en el último tramo, la vista desde la cima. La foto solo pone lo lejano (el cielo y las montañas del
+  horizonte, siempre derecho y a la altura de los ojos, girada hacia donde subes); por debajo del horizonte, la ladera del juego
+  y, más allá, **un mar de nubes en el valle** (las fotos están hechas de pie en un prado: sin él, se veía su hierba enorme). La
+  bruma, del color del horizonte de cada foto. La pared rocosa vertical, para las dominadas.
+  **Retos y premios** (los del plan, «sigue tus propuestas»): piden **otro movimiento que el remo** y llegan por donde se ven
+  tumbado (desde lo alto o por el cable), sin aviso antes (al fallar, se dice cómo se hace): **el enjambre** baja por el cable
+  hacia tu cara (**quédate abajo**, brazos estirados); **la ráfaga** cruza el cielo (**aguanta arriba**, pegado al cable);
+  **la piedra** cae de lo alto hacia tu cara (**aparta la cabeza** a un lado); **el cable deshilachado** se pasa con **un remo
+  explosivo**. Si fallas, frenas a la mitad y se rompe la racha, sin vidas. Premios: **frutas** junto al cable, que se cogen
+  **subiendo el pecho** al pasar (se encogen al llegar a los ojos), y **el cofre de cada plataforma**, que se abre al llegar y
+  suelta sus premios flotando (los puntos y una gema). El primer tramo, solo frutas y enjambres; el cable roto, desde el tercero.
+  **Los mundos** (los de los bocetos: la A para empezar; la B, la C y la D, «los mundos siguientes»): **los Alpes** (torres de
+  madera), **la garganta** (pilares de roca entre dos paredes con cascadas, lejos de la cuerda), **la selva** (árboles gigantes con
+  la plataforma en lo alto) y **la costa** (del barco pirata al acantilado, con palmeras y el mar debajo), cada uno con su foto
+  de fondo (la costa acaba al ocaso). Con 4 tramos o menos, uno cada uno (se ven varios aunque la ronda sea corta); con más, a
+  partes iguales. Se pasa al siguiente al llegar a la plataforma, con un destello y su nombre («MUNDO 2 · La garganta»).
+  **El jefe** (el dragón, en el último tramo, antes de la subida final; con un solo tramo, sin jefe): te corta el paso (ni subes
+  ni resbalas) y, casi encima de ti, escupe bolas de fuego con aviso (se echa atrás y ruge): **a la cara, aparta la cabeza**;
+  **rasante por encima del cable, quédate abajo**. Tras tres, **se marea** y baja hasta encima de ti: **un remo explosivo o bajar
+  con la carga aguantada (×2 o más)** le da; a la tercera, derrotado y se va. Si no le das mareado, se recupera; tras dos veces,
+  vale cualquier remo (la pelea siempre se acaba). Si te da una bola, se rompe la racha, sin vidas. **El paisaje, ligero**: lo
+  que se ve a la vez no pide más que el bosque de Combate (unos 50 árboles y 50 plantas).
+
 **Repeticiones y disparo**
 - Cada repetición (sentadilla, zancada…) carga **un disparo por mano**, como mucho uno por mano y sin acumular.
 - Con las manos desnudas no se dispara pellizcando. Se lanza con una **sacudida de la mano hacia el enemigo**: puede
@@ -365,8 +406,13 @@ No las cambies sin preguntarle.
   bien), como la cabeza en la sentadilla: con los brazos estirados arriba (la postura de partida, donde se calibra), bajar las
   pesas al pecho («Bajada en el press de pecho», 28 cm de serie) carga; aguantando abajo, ×2, ×3 y ×4; al subirlas, el rayo
   sale hacia el cielo, al volador más cercano (los enemigos son los voladores, que llegan por arriba). Una mano que las gafas
-  pierden no se inventa. El marcador, en el techo, como en los abdominales. Su cortinilla, la de las flexiones hasta que el
-  usuario dé la suya.
+  pierden no se inventa. Su cortinilla, la de las flexiones hasta que el usuario dé la suya.
+  **Los voladores bajan del cielo** (pedido del usuario: tumbado no se ven las compuertas): salen muy alto, casi encima de ti,
+  y bajan despacio, frenando, hasta quedarse sobre tu cara (a 2-3 m); pasado un momento se lanzan a morderte y, tras morder
+  o con un disparo, vuelven a subir; derribados, caen a un lado. **Nada tapa su camino**: lo que hay encima de ti queda
+  libre; hacia los pies van, por orden, **la bola** (sobre el pecho, por encima de las pesas: se ve mirando arriba; antes
+  quedaba entre las piernas), los avisos y, más abajo, **el marcador** (a 40° del suelo, de cara a ti), y por ese lado los
+  voladores no bajan.
 - **Glúteos** (elegidos por el usuario de las propuestas; solo RepArena XR, en Combate): la **zancada lateral** (paso largo a
   un lado y bajar sobre esa pierna: cuenta si la cabeza baja lo pedido y se aparta a un lado, con carga ×2-×4 aguantando
   abajo como la zancada; luego, al otro lado) y el **patinador** (saltos de lado de una pierna a la otra: al salir de un lado,
@@ -471,7 +517,8 @@ No las cambies sin preguntarle.
   rango y la dificultad creciente llega hasta un 60 % más deprisa, **nunca a más de 6,5 km/h** (nunca tan rápido como los
   láseres de las sentadillas), y tras él hay algo menos de tiempo para levantarse (de 2,5 s a 2 s).
 - Arcos: **las cuchillas** (pedido del usuario: «hachas o cuchillas de cierto tamaño… su vuelo no puede ser ni simple ni
-  totalmente impredecible»; «Cuchillas que vuelan», 15 % de serie): hojas de 1,4 m de los kits que ya hay (no hay hachas: el
+  totalmente impredecible»; «Cuchillas que vuelan», 15 % de serie): hojas de 85 cm (con 1,4 m, el usuario las veía
+  descomunales) de los kits que ya hay (no hay hachas: el
   sable del Capitán, la espada del tiburón y el ancla de la isla pirata, elegidas por el usuario) girando hacia ti. **La
   hélice**, en horizontal a la altura de la cabeza: agacharse. **La rueda**, de canto cerca del centro: apartar el tronco a
   un lado. **La rasante**, a ras del suelo: saltarla. Entran desde un lado en curva, ondulando, y **en el último segundo y

@@ -168,6 +168,12 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
   - [x] **Fase 2 · Arreglos del detector** (tras el ajuste «Manos: filtro nuevo», apagado de serie: una mano solo vale estable, la que no casa con la otra no está en la pesa, perdidas subiendo espera a verlas —opción A del usuario— y al quitar la pausa la pesa empieza de cero; probado con la caja negra del usuario) — #54
   - [ ] **Fase 3 · Los demás ejercicios con pesas**: el **curl a un brazo** (mancuerna; su caja negra: un rayo al llegar arriba por un salto falso de la mano al reaparecer) — #60; con su segunda caja negra, la mano que reaparece arriba carga, tras perderla abajo vuelve a cargar, una imagen suelta no carga ni dispara y con la mano escondida nunca dispara (opción 1 del usuario, también en el curl con barra) — #63; faltan la elevación frontal y los de dos tiempos (sentadilla con press, con elevación y swing), cuando haya cajas negras suyas
   - [ ] Fase 4 · Cierre (encendido de serie cuando el usuario lo dé por bueno)
+- [ ] **Barras: la aventura en la cuerda del remo invertido** (elegido por el usuario: «A con tramos de B», resbalar
+  mínimamente, en Barras, con una paralela o dos; plan en `docs/PLAN-BARRAS-CUERDA.md`)
+  - [x] **PR 1 · El armazón jugable** (la escena A del usuario: cables rectos de torre en torre sobre un valle alpino, la
+    subida vertical al final de cada tramo hasta la plataforma, el avance por remo, resbalar, y nada flota)
+  - [x] **PR 2 · Retos y premios** (el enjambre, la ráfaga, la piedra y el cable deshilachado; las frutas y el cofre que se abre)
+  - [x] **PR 3 · Los mundos y el jefe** (los Alpes, la garganta, la selva y la costa; el dragón del último tramo)
 - [ ] **Lo que se ve desde cada postura, el superman, las cuestas y Arcos** (plan trazado con el usuario el 22/11/2026, por
   bloques, un PR cada uno: `docs/PLAN-ERGONOMIA-Y-CUESTAS.md`; quién hace cada parte, en su apartado 0)
 
@@ -412,6 +418,59 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- **La cuerda, PR 3 (mundos y jefe)**: el plan de la cuerda está entero (`docs/PLAN-BARRAS-CUERDA.md`). Los mundos se eligen
+  por tramo (`rope-worlds.ts`) y se cambian al llegar a la plataforma (`BarsSystem.enterWorld` → `RopeScene.setWorld`: rehace el
+  paisaje con el estilo del mundo; la foto la pone `EnvSystem` con `ropePano`, que ahora es la del mundo). El dragón
+  (`RopeBoss`) para la cuerda con `RopeRun.hold` y le da `strikeRep` (un remo explosivo o una onda ×2+). **El emulador sin
+  tarjeta gráfica se cae** con muchos árboles con hojas transparentes a la vista: la densidad del paisaje se dejó como el bosque de
+  Combate (unos 50 árboles y 50 plantas a la vez). **Pendiente con el usuario**: probar la cuerda entera en las gafas (es la
+  primera vez que la ve: mareo, ritmo, si se leen los retos y el dragón tumbado, y con una sola paralela).
+
+- **La cuerda, PR 2 (retos y premios)**: `RopeTrials` (`src/modes/bars/rope-trials.ts`, lógica pura) recibe cada fotograma
+  lo que mira de ti (`TrialEnv`: por dónde vas, lo subida y lo apartada que llevas la cabeza —en el marco de la cuerda, desde
+  donde te colgaste: `headAt0`—, si estás arriba y si acabas de hacer un remo explosivo, `o.fast` del detector) y devuelve
+  sucesos; `BarsSystem.stepTrials` los aplica (fallar: `RopeRun.stumble`, la racha a 0 y el aviso de cómo se hace) y
+  `RopeTrialsLook` los pinta (las abejas, `getGLTF('foe-bee')`; la piedra y las frutas, de los kits; lo quieto, colgado del
+  recorrido). El cofre de la plataforma se abre al llegar (`RopeScene.openChest`: `Chest_Gold` y `HOOKS.prize`). Para mirar
+  los retos sin gafas: «Probar en el ordenador», la cámara tumbada a mano y la pausa (`GAME.paused`) en el momento justo.
+
+- **Nada flota** (pedido del usuario al ver la cuerda: «los árboles nunca están flotando; creo que se repite también en
+  Travesía»): los árboles de los kits tienen bien su pie (las raíces, 24 cm bajo su origen), pero se colocaban a ojo encima de
+  las rocas: los pinos de la pared del risco a una altura al azar, las palmeras y los huesos en el borde redondeado de los
+  islotes de la costa, los árboles de las islas del cielo (y en Combate, los de las islas lejanas, en lo alto de su caja, que no
+  siempre está en el medio). Ahora `src/env/rock-tops.ts` (hecho con `node tests/rock-tops.mjs` de los .glb) guarda la cara de
+  arriba de cada roca y lo que va encima se apoya en la más alta en ese punto (las vecinas se solapan: la pared del risco, las
+  islas y los islotes se calculan también para los trozos de al lado, con su propio azar), en un sitio llano, o no se pone.
+  Lo comprueba `tests/unit/no-float.test.ts`. El paisaje del risco, las islas y la costa sale algo distinto (otro azar).
+
+- **La aventura en la cuerda del remo invertido, PR 1** (`docs/PLAN-BARRAS-CUERDA.md`): con `barRope` (solo RepArena XR, de
+  serie apagado: *en pruebas*), `BarsSystem` crea al empezar la ronda un `RopeCourse` con todos los tramos (cada uno,
+  `waveReps(i) × ROPE.perRep`) y un `RopeRun`; el detector de siempre le pasa los remos y las ondas (`ropeHits` en vez de las
+  pompas de `BarField`) y la oleada se supera al llegar a la plataforma (`RopeRun.reached`). La cuerda se coloca al colgarte la
+  primera vez (`placeRope`: a lo largo de las paralelas con dos; cruzada a ella con una; hacia lo alto de tu cabeza). La
+  escena es la A de los bocetos (el usuario rechazó el cañón): `RopeCourse` hace cables rectos (`ROPE.pitch`, comba `sag`) y la
+  subida vertical (`verts`) con las esquinas redondeadas, y el suelo (`ground`) de pie de torre a pie de torre; `ropeDecoPuts`
+  pone pinos y piedras en él (`standPole`, `tiltPole`, `put` y `rockFit` de `pieces.ts`) y las torres (`TOWER`). `RopeScene`
+  hace la malla de la ladera al empezar la ronda y esconde la arena; `EnvSystem` aparta el entorno de serie mientras se ve
+  (`BarsSystem.ropeShown`). Visto en el emulador tumbado bajo dos paralelas (al empezar, en el cable y en la subida vertical);
+  los fondos realistas según la altura (`ropePano`, girados con `EnvSystem.ropeYaw`, su bruma `ROPE_HAZE`) y, en el valle, el
+  mar de nubes del risco (`CloudSea` con `edge` más alto) para que no se vea el suelo de la foto. **El emulador de gafas se cae
+  con fondos realistas y con una malla grande que recibe sombras** (sin tarjeta gráfica; también en el modo de pompas con
+  «Fondo realista»): para mirar la escena, el modo «Probar en el ordenador» poniendo la cámara a mano en cada fotograma (la
+  ladera, ya sin sombras). **Pendiente con el usuario**: probarlo en las gafas.
+
+- **El press de pecho, desde el cielo, y las cuchillas más pequeñas** (pedido del usuario: tumbado no se ven las compuertas, la
+  bola quedaba entre las piernas y las cuchillas de Arcos eran descomunales). Con `skyFoes()` (`src/core/rules.ts`) los
+  voladores no salen por las compuertas: `skySpawn` los saca a 13-17 m sobre tu cabeza, casi en la vertical (hacia los pies y
+  los lados, como mucho `SKY.tiltLow`), y `Flight.toSky` los baja frenando hasta 2-3 m sobre tu cara (`skyStep`): esperan
+  `SKY.wait`, muerden y vuelven a subir; el empujón los sube y, derribados, caen a un lado (`FlyerSystem.kill`); miran a tus
+  ojos con la cabeza hacia +Z. Hacia los pies, por orden: la bola (`GAME.head` + 0,38 m hacia los pies y 0,85 m arriba), los
+  avisos (`SKY_C`, `SKY_T` en `view-panels.ts`, con el camino como amenaza: `SKY_LANE`) y el marcador (`FP_BOARD_EL`, a 40°
+  del suelo y 2 m). Visto en el emulador mirando al cielo (abejas bajando, la bola y el aviso breve a un lado). Las cuchillas:
+  `BLADE_R` 0,42 (hojas de 85 cm, antes 1,4 m) y a lo ancho ×1,3 (antes ×1,7). **Pendiente con el usuario**: probarlo en las
+  gafas (si el marcador, al borde de la vista hacia los pies, se lee bien; si bajan a buen ritmo; y el tamaño de las
+  cuchillas).
 
 - **El asistente del vuelo** (elegido por el usuario: «paso a paso con preguntas»; sustituye a la práctica, que empezaba sola
   en pleno vuelo): `FlyCoach` (`src/modes/trek/plat/fly-coach.ts`, lógica pura con `tests/unit/fly-coach.test.ts`) corre en
