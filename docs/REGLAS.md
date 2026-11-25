@@ -444,9 +444,15 @@ No las cambies sin preguntarle.
   tus manos (**suéltala** cuando llega, colgado un instante de la otra, y vuelve a agarrar); **el tirador**, un cíclope (o el yeti
   en la cima) de pie en el suelo, a un lado y por delante, se echa atrás y lanza **a la cara** (aparta la cabeza), **rasante por
   encima** (quédate abajo) o **baja** (sube del todo); **la abeja** se te planta delante de la cara (**un remo explosivo** la
-  aparta). **Cada zona, sus retos** (la subida va a más): el valle, el enjambre y la ráfaga; el bosque, murciélagos, cangrejo,
-  abeja y piedra; la garganta, tiradores, el cable roto y murciélagos; la cima, tiradores, piedra, ráfaga y cangrejo (por lo que
-  llevas de la ronda: en una ronda corta también se ven). **El turbo por racha**: seis remos seguidos a buen ritmo (como mucho
+  aparta). **Agarre y fuerza**: en **el remo a una mano** la barra de un lado echa chispas y arde (**suéltala** y haz tres remos con
+  la otra; el siguiente, con la contraria; si la agarras más de un segundo, te quemas); **la gema** a un lado, fuera del cable, se
+  coge **soltando una mano y estirando el brazo** (un premio, como la fruta); en **las ramas heladas**, una por encima y otra por
+  debajo, **aguanta a media altura** con los brazos doblados por la mitad (3 s); y en **los remos lentos** el cable cruje y
+  tiembla: **baja despacio**, al menos 2,3 s, tres remos (una bajada de golpe lo sacude). **Un premio y dos retos**, por turnos.
+  **Cada zona, sus retos** (la subida va a más): el valle, el enjambre y la ráfaga; el bosque, murciélagos, cangrejo, abeja y
+  piedra; la garganta, tiradores, remo a una mano, el cable roto, remos lentos y murciélagos; la cima, tiradores, media altura,
+  piedra, remo a una mano, ráfaga y cangrejo (por lo que llevas de la ronda: en una ronda corta también se ven); la gema sale
+  más en el valle. **El turbo por racha**: seis remos seguidos a buen ritmo (como mucho
   3,8 s entre uno y otro) lo encienden; cada remo sube un 25 % más, los puntos valen el doble, te pasan estelas de viento a los
   lados y el marcador lo dice; un parón de 3,5 s o un reto fallado lo apagan.
   **El jefe** (el dragón, en el último tramo, antes de la estación de la cima; con un solo tramo, sin jefe): te corta el paso (ni subes

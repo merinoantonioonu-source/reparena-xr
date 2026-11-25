@@ -430,6 +430,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Retos en la cuerda, parte 2 (agarre y fuerza)**: `onehand` (la mano de su lado suelta; `TrialEnv.rep`, cada remo), `reach`
+  (un premio: la muñeca de su lado, `TrialEnv.wrist`, en el marco de la cuerda, llega a la gema; `RopeTrials` recibe el recorrido
+  para saber dónde queda), `midhold` (la cabeza entre el 30 % y el 80 % de la subida) y `slow` (`TrialEnv.descent`: lo que
+  tarda cada bajada, de más del 85 % a menos del 15 % de la subida; `RopeScene.shake` tiembla el cable). Los que duran lo que
+  tardes (`HELD`) no dejan empezar otro. Ahora hay un premio y dos retos por turnos (`gap` de 4,5 a 7 m). Lo que se ve, también
+  en `rope-foes-look.ts`. Falta la parte 3 (un jefe en cada zona).
+
 - **Retos en la cuerda, parte 1 (esquivar y turbo)**: el usuario eligió de «Retos en la cuerda» todos menos la persecución (9) y
   los cofres con sorpresa (12); van en tres PR. Este: `bats`, `crab`, `shooter` y `bee` en `rope-trials.ts` (con `side`, `n`,
   `k` y `shot` en cada `Trial`; `TrialEnv.free`, qué mano está suelta: `BarsSystem.handFree`, la muñeca separada de la barra o

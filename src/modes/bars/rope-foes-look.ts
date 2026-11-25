@@ -2,14 +2,16 @@
  * Lo que se ve de los retos con bichos de la cuerda (src/modes/bars/rope-trials.ts; «Retos en la cuerda» del usuario): los
  * murciélagos que pasan rozándote la cara por un lado y luego por el otro, el cangrejo que baja andando por el cable hacia tu
  * mano, el tirador (el cíclope, o el yeti en la cima) de pie en el suelo a un lado, que se echa atrás y lanza, la abeja que se
- * te planta delante de la cara y, con el turbo, las estelas de viento que te pasan a los lados. Los bichos, los del catálogo
+ * te planta delante de la cara y, con el turbo, las estelas de viento que te pasan a los lados. Y los de agarre y fuerza: la barra
+ * que arde de un lado (el remo a una mano), la gema a tu alcance (cogerla con una mano) y las ramas heladas por encima y por
+ * debajo (aguantar a media altura); el cable que cruje (los remos lentos) lo tiembla la escena. Los bichos, los del catálogo
  * (los monstruitos de Quaternius); lo que lanzan, las bolas de los jefes (src/style/missile-fx.ts). Todo hecho al empezar y
  * reutilizado: en plena ronda no se crea nada.
  *
  * Lo que vuela (murciélagos, abeja, lo que lanza el tirador) va en el mundo, respecto a tu cabeza; lo que está en la montaña o en
  * el cable (el tirador, el cangrejo), en el grupo del recorrido (`track`), que baja contigo al subir.
  */
-import { AdditiveBlending, AnimationMixer, AssetManager, BoxGeometry, DoubleSide, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, MeshBasicMaterial, Object3D, Quaternion, Vector3, type AnimationAction, type SkinnedMesh } from '@iwsdk/core';
+import { AdditiveBlending, AnimationMixer, AssetManager, BoxGeometry, CylinderGeometry, DoubleSide, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, OctahedronGeometry, Quaternion, Vector3, type AnimationAction, type SkinnedMesh } from '@iwsdk/core';
 import { Missile } from '../../style/missile-fx.js';
 import { warmKeep } from '../../style/warm.js';
 import { batSide, shooterOf, TRIAL, type Trial } from './rope-trials.js';
@@ -47,8 +49,14 @@ export class RopeFoesLook {
   private readonly q = new Quaternion();
   private readonly sc = new Vector3();
   private readonly fwdZ = new Vector3(0, 0, 1);
+  private readonly upY = new Vector3(0, 1, 0);
+  /** La barra que arde (un brillo naranja sobre ella), la gema y las dos ramas heladas; y cuándo tocan las chispas. */
+  private fire: Mesh | null = null;
+  private gem: Mesh | null = null;
+  private branches: Mesh[] = [];
+  private sparkT = 0;
 
-  constructor(parent: Object3D, private readonly track: Object3D) {
+  constructor(parent: Object3D, private readonly track: Object3D, private readonly sparks: (p: Vector3, n: number, c: number) => void = () => {}) {
     parent.add(this.root);
   }
 
@@ -101,6 +109,29 @@ export class RopeFoesLook {
       this.root.add(ball.group);
       this.shooters[k] = { c, ball, id: -1 };
     }
+    if (!this.fire) {
+      // (en el marco de la cuerda: la barra, en su origen)
+      const frame = this.track.parent ?? this.root;
+      // (naranja de brasa, no sumado: sobre el cielo claro, sumado, se veía blanco)
+      this.fire = new Mesh(new CylinderGeometry(0.03, 0.03, 1, 10), new MeshBasicMaterial({ color: 0xff5a10, transparent: true, opacity: 0.8, depthWrite: false, toneMapped: false, fog: false }));
+      this.fire.userData.noInk = true;
+      this.fire.visible = false;
+      frame.add(this.fire);
+      this.gem = new Mesh(new OctahedronGeometry(0.07), new MeshStandardMaterial({ color: 0xffd34d, emissive: 0xb8860b, emissiveIntensity: 0.6, roughness: 0.25, metalness: 0.6 }));
+      this.gem.scale.set(1, 1.4, 1);
+      this.gem.visible = false;
+      frame.add(this.gem);
+      const ice = new MeshStandardMaterial({ color: 0xcfe8f4, roughness: 0.3, metalness: 0.1, transparent: true, opacity: 0.85 });
+      for (let i = 0; i < 2; i++) {
+        const b = new Mesh(new CylinderGeometry(0.05, 0.07, 3.2, 8), ice);
+        b.visible = false;
+        this.root.add(b);
+        this.branches.push(b);
+      }
+      warmKeep(this.fire.clone());
+      warmKeep(this.gem.clone());
+      warmKeep(this.branches[0].clone());
+    }
     if (!this.streaks) {
       this.streakMat = new MeshBasicMaterial({ color: 0xe8ffc0, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false, toneMapped: false, fog: false });
       this.streaks = new InstancedMesh(new BoxGeometry(0.015, 0.015, 1), this.streakMat, STREAKS);
@@ -124,6 +155,9 @@ export class RopeFoesLook {
       S.id = -1;
     }
     if (this.streaks) this.streaks.visible = false;
+    if (this.fire) this.fire.visible = false;
+    if (this.gem) this.gem.visible = false;
+    for (const b of this.branches) b.visible = false;
   }
 
   /**
@@ -138,7 +172,7 @@ export class RopeFoesLook {
     }
     this.build();
     this.root.visible = true;
-    let bats = false, crab = false, bee = false;
+    let bats = false, crab = false, bee = false, fire = false, gem = false, ice = false;
     const shooting = { cyclops: false, yeti: false };
     for (const B of this.bats) B.mixer.update(dt);
     this.crab?.mixer.update(dt);
@@ -152,6 +186,9 @@ export class RopeFoesLook {
       if (T.kind === 'bats') bats = this.batsAt(T, F, t) || bats;
       else if (T.kind === 'crab') crab = this.crabAt(T, C, s, lanes, laneY) || crab;
       else if (T.kind === 'bee') bee = this.beeAt(T, F, t) || bee;
+      else if (T.kind === 'onehand') fire = this.fireAt(T, lanes, dt) || fire;
+      else if (T.kind === 'reach') gem = this.gemAt(T, C, s, t) || gem;
+      else if (T.kind === 'midhold') ice = this.iceAt(T, F, ref, req) || ice;
       else if (T.kind === 'shooter') {
         const k = shooterOf(C, T);
         shooting[k] = this.shooterAt(T, k, C, F, ref, req) || shooting[k];
@@ -160,6 +197,9 @@ export class RopeFoesLook {
     if (!bats) for (const B of this.bats) B.g.visible = false;
     if (this.crab && !crab) this.crab.g.visible = false;
     if (this.bee && !bee) this.bee.g.visible = false;
+    if (this.fire && !fire) this.fire.visible = false;
+    if (this.gem && !gem) this.gem.visible = false;
+    if (!ice) for (const b of this.branches) b.visible = false;
     for (const k of ['cyclops', 'yeti'] as const) {
       const S = this.shooters[k];
       if (S && !shooting[k]) {
@@ -282,6 +322,58 @@ export class RopeFoesLook {
     if (e > 1) this.v.addScaledVector(this.b.subVectors(this.aim, hand).normalize(), (e - 1) * 4);
     if (T.st === 'done' && T.ok) S.ball.coast(0.4);
     else S.ball.fly(this.v, 1 / 72, F.head);
+    return true;
+  }
+
+  // la barra que arde: un brillo naranja sobre el lado que hay que soltar (con dos paralelas, la suya entera; con una, su mitad),
+  // que late, y chispas de vez en cuando
+  private fireAt(T: Trial, lanes: number[], dt: number): boolean {
+    const M = this.fire;
+    if (!M || T.st === 'done') return false;
+    const two = lanes.length > 1, k = Math.min(1, T.t / TRIAL.oneCome);
+    if (two) {
+      M.position.set(lanes[T.side < 0 ? 0 : 1], 0.02, 0);
+      M.rotation.set(Math.PI / 2, 0, 0);
+      M.scale.set(1, 0.9, 1);
+    } else {
+      M.position.set(T.side * 0.3, 0.02, 0);
+      M.rotation.set(0, 0, Math.PI / 2);
+      M.scale.set(1, 0.5, 1);
+    }
+    (M.material as MeshBasicMaterial).opacity = k * (0.6 + 0.3 * Math.sin(T.t * 14));
+    M.visible = true;
+    this.sparkT -= dt;
+    if (this.sparkT <= 0) {
+      this.sparkT = 0.18;
+      M.updateMatrixWorld();
+      this.sparks(M.getWorldPosition(this.v), 3, 0xff8a2a);
+    }
+    return true;
+  }
+
+  // la gema: a un lado de la cuerda, a la altura de la barra, donde la alcanza la mano de ese lado; gira y brilla
+  private gemAt(T: Trial, C: RopeCourse, s: number, t: number): boolean {
+    const G = this.gem;
+    if (!G || T.st === 'done') return false;
+    G.position.set(T.side * TRIAL.reachU, 0, -(C.h(T.s) - C.h(s)));
+    G.rotation.set(0, t * 2, 0);
+    G.visible = true;
+    return true;
+  }
+
+  // las ramas heladas: dos, de lado a lado, por encima de la mitad de la subida y por debajo, que pasan de delante hacia atrás
+  private iceAt(T: Trial, F: LookFrame, ref: number, req: number): boolean {
+    const come = TRIAL.come.midhold, end = come + TRIAL.midT;
+    if (T.t > end + 0.8) return false;
+    // (llegan de delante; mientras dura, sobre ti; luego se van hacia atrás)
+    const z = T.t < come ? (1 - T.t / come) * 8 : T.t < end ? 0 : -(T.t - end) * 6;
+    for (let i = 0; i < 2; i++) {
+      const B = this.branches[i];
+      B.position.copy(F.head).addScaledVector(F.fwd, z);
+      B.position.y = ref + req * (i ? TRIAL.mid[1] + 0.1 : TRIAL.mid[0] - 0.1) + 0.06;
+      B.quaternion.setFromUnitVectors(this.upY, F.right);
+      B.visible = true;
+    }
     return true;
   }
 
