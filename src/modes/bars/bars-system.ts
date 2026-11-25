@@ -7,13 +7,14 @@
  * aquí se pinta, suena y puntúa. La partida (GameSystem) pasa las oleadas con lo que este sistema le dice (`waveCleared`).
  */
 import { AnimationMixer, AssetManager, createSystem, DoubleSide, Group, LoopRepeat, Mesh, MeshBasicMaterial, CylinderGeometry, Vector3, XRAnchor, type Entity } from '@iwsdk/core';
-import type { Material, SkinnedMesh } from '@iwsdk/core';
+import type { Material, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { dv, nWaves, store, waveReps } from '../../core/settings.js';
 import { GAME, HOOKS, type CenterInfo } from '../../core/state.js';
 import { num, settings, str } from '../../core/values.js';
 import { GateSystem } from '../../combat/gates.js';
-import { hands, head } from '../../input/hand-model.js';
+import { hands, head, type Hand } from '../../input/hand-model.js';
+import { haptic } from '../../input/hand-system.js';
 import { setSetting } from '../../core/settings.js';
 import { HangScene } from './hang-scene.js';
 import { BUBBLE_SPLASH, createBubble, createDipBars, createDoorBar, type BarRigParts, type BubbleParts } from '../../scene-assets/bars.scene-asset.js';
@@ -28,8 +29,9 @@ import { Placer, PLACE_HOLD, type PlaceEvent } from './place.js';
 import { BarField, HeadTarget, hangSecs, TGT } from './targets.js';
 import { ROPE, RopeCourse, RopeRun } from './rope.js';
 import { ROPE_WORLDS, worldPano } from './rope-worlds.js';
-import { buildTrials, RopeTrials, TRIAL_FAIL, TRIAL_PASS, type Trial, type TrialEnv } from './rope-trials.js';
+import { buildTrials, RopeTrials, shooterOf, TRIAL_FAIL, TRIAL_PASS, trialKey, type Trial, type TrialEnv } from './rope-trials.js';
 import { RopeTrialsLook, type LookFrame } from './rope-trials-look.js';
+import { RopeFoesLook } from './rope-foes-look.js';
 import { BOSS, BOSS_SAY, RopeBoss, type BossEnv } from './rope-boss.js';
 import { RopeBossLook } from './rope-boss-look.js';
 import { barReq } from './detect.js';
@@ -90,8 +92,14 @@ export class BarsSystem extends createSystem({}) {
   /** Los retos y premios de la cuerda (PR 2: rope-trials.ts), lo que se ve de ellos y lo que miran de ti cada fotograma. */
   private trials: RopeTrials | null = null;
   private trialsLook!: RopeTrialsLook;
+  /** Lo que se ve de los retos con bichos (murciélagos, cangrejo, tirador y abeja) y del turbo. */
+  private foesLook!: RopeFoesLook;
   private readonly trialLive: Trial[] = [];
-  private readonly tEnv: TrialEnv = { s: 0, up: 0, req: 0.3, top: false, side: 0, fast: false, playing: false };
+  private readonly tEnv: TrialEnv = { s: 0, up: 0, req: 0.3, top: false, side: 0, fast: false, free: [false, false], playing: false };
+  /** Qué mano va a cada lado de la cuerda (0, el izquierdo; 1, el derecho): de serie, tumbado con los pies hacia donde subes, la
+   * derecha a la derecha; al colgarte, lo que se vea. Y la muñeca de cada una, en el marco de la cuerda. */
+  private handSide: [Hand, Hand] = [hands.left, hands.right];
+  private readonly wristLoc = new Vector3();
   private readonly lookF: LookFrame = { head: new Vector3(), up: new Vector3(0, 1, 0), fwd: new Vector3(), right: new Vector3() };
   /** Tu cabeza al colgarte, en el marco de la cuerda (lo de a un lado se mide desde ahí; las frutas, a su altura arriba). */
   private readonly headAt0 = new Vector3();
@@ -162,6 +170,7 @@ export class BarsSystem extends createSystem({}) {
     this.hang.arenaOf = () => arena.map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is NonNullable<typeof o> => !!o);
     this.ropeScene = new RopeScene(this.root, this.hang.arenaOf, () => (this.world.scene as unknown as { fog: { color: { getHex(): number } } | null }).fog?.color.getHex() ?? 0xc8d6e4);
     this.trialsLook = new RopeTrialsLook(this.root, this.ropeScene.trackGroup);
+    this.foesLook = new RopeFoesLook(this.root, this.ropeScene.trackGroup);
     this.bossLook = new RopeBossLook(this.root, (p, n, c) => HOOKS.sparks(p, n, c));
     HOOKS.placeEq = (note) => this.startPlace(() => HOOKS.showMenu(''), note ?? '');
     HOOKS.eqPlaced = () => this.placed();
@@ -271,6 +280,7 @@ export class BarsSystem extends createSystem({}) {
       this.boss = null;
     }
     this.trialsLook.reset();
+    this.foesLook.reset();
     this.ropeScene.setCourse(this.rope?.course ?? null);
   }
 
@@ -296,9 +306,13 @@ export class BarsSystem extends createSystem({}) {
   }
 
   /** Para el marcador. */
-  hud(): { hold: number; need: number; left: number; mount: boolean; ropeLeft: number | null; bossLeft: number | null } {
+  hud(): { hold: number; need: number; left: number; mount: boolean; ropeLeft: number | null; bossLeft: number | null; turbo: boolean } {
     const B = this.boss;
-    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount', ropeLeft: this.rope ? Math.ceil(this.rope.left) : null, bossLeft: B && B.blocking ? BOSS.hits - B.hits : null };
+    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount', ropeLeft: this.rope ? Math.ceil(this.rope.left) : null, bossLeft: B && B.blocking ? BOSS.hits - B.hits : null, turbo: !!this.rope?.turbo };
+  }
+  /** ¿Va la cuerda con el turbo? (las luciérnagas destellan, como en la Travesía) */
+  get ropeTurbo(): boolean {
+    return !!this.rope?.turbo && this.ropeShown;
   }
 
   /** El aviso del centro de la vista: colocar el aparato o colgarse (RepArena: drawCenter); null si no toca. */
@@ -361,6 +375,7 @@ export class BarsSystem extends createSystem({}) {
     this.ropeScene?.setCourse(null);
     this.ropeScene?.update(false, 0);
     this.trialsLook?.update(0, false, this.trialLive, this.lookF, null, [0], 0, this.fruitAt, 0);
+    this.foesLook?.update(0, false, this.trialLive, this.lookF, null, 0, [0], 0, 0, 0.3, false, 0);
   }
 
   // ---------------------------------------------------------------- cada fotograma
@@ -493,6 +508,16 @@ export class BarsSystem extends createSystem({}) {
       } else if (e.t === 'slip') HOOKS.say('¡Resbalas! Sigue remando', WARN, 1.6, true);
       // (al entrar en otra zona de la montaña, su nombre: se ve llegar, sin destellos)
       else if (e.t === 'zone') HOOKS.say(ROPE_WORLDS[e.k].name.toUpperCase(), '#ffd166', 2.2, false);
+      // (el turbo por racha: los puntos de cada remo valen el doble mientras dura; se ve en las estelas y en el marcador)
+      else if (e.t === 'turbo') {
+        GAME.ptsK = e.on ? 2 : 1;
+        if (e.on) {
+          HOOKS.say('¡TURBO! ×2', '#c8ff3a', 1.6, false);
+          SND.combo();
+          haptic('left', 0.5, 60);
+          haptic('right', 0.5, 60);
+        }
+      }
     }
     R.ev.length = 0;
     this.stepTrials(dt, playing);
@@ -512,6 +537,8 @@ export class BarsSystem extends createSystem({}) {
     E.top = this.bar.det === 'top';
     E.side = this.headLoc.x - this.headAt0.x;
     E.fast = this.fastRep;
+    E.free[0] = this.handFree(this.handSide[0], frame);
+    E.free[1] = this.handFree(this.handSide[1], frame);
     E.playing = playing;
     this.fastRep = false;
     T.step(dt, E);
@@ -520,6 +547,10 @@ export class BarsSystem extends createSystem({}) {
       const tr = e.tr, k = tr.kind;
       if (e.t === 'start') {
         if (k === 'swarm' || k === 'rock' || k === 'gust') SND.whoosh(head.p);
+        else if (k === 'bats') SND.roar(head.p, 1, 'bat');
+        else if (k === 'bee') SND.roar(head.p, 1, 'bee');
+        else if (k === 'crab') SND.hiss(head.p, 1, 'crab');
+        else if (k === 'shooter') SND.roar(head.p, 0.8, shooterOf(R.course, tr));
       } else if (e.t === 'pass') {
         HOOKS.say(TRIAL_PASS[k] ?? '¡Bien!', '#8fdc5a', 1.0, false);
         HOOKS.score(15, true);
@@ -527,9 +558,10 @@ export class BarsSystem extends createSystem({}) {
       } else if (e.t === 'fail') {
         R.stumble();
         GAME.combo = 0;
-        HOOKS.say(TRIAL_FAIL[k] ?? '¡Ay!', WARN, 2.4, true);
+        HOOKS.say(TRIAL_FAIL[trialKey(tr)] ?? '¡Ay!', WARN, 2.4, true);
         SND.partial();
-        if (k === 'rock' || k === 'swarm') HOOKS.sparks(this.v1.copy(head.p).setY(head.p.y + 0.3), 12, k === 'rock' ? 0xb0a090 : 0xffd23a);
+        if (k !== 'gust' && k !== 'frayed') HOOKS.sparks(this.v1.copy(head.p).setY(head.p.y + 0.3), 12, k === 'rock' || k === 'shooter' ? 0xb0a090 : k === 'crab' ? 0xff7a4a : 0xffd23a);
+        if (k === 'crab') haptic(tr.side < 0 ? 'left' : 'right', 0.8, 120);
       } else if (e.t === 'fruit') {
         HOOKS.score(10, true);
         SND.orb(head.p);
@@ -537,13 +569,15 @@ export class BarsSystem extends createSystem({}) {
       }
     }
     T.ev.length = 0;
+    T.live(this.trialLive);
     // lo que se ve: con tu cabeza y sus ejes (hacia donde subes —tus pies— y a un lado), y dónde queda tu cabeza arriba (las frutas)
     const F = this.lookF, ry = frame.rotation.y;
     F.head.copy(head.p);
     F.fwd.set(-Math.sin(ry), 0, -Math.cos(ry));
     F.right.set(Math.cos(ry), 0, -Math.sin(ry));
     this.fruitAt.set(this.headAt0.x, this.bar.ref + E.req + 0.03 - frame.position.y, this.headAt0.z);
-    this.trialsLook.update(dt, this.ropeScene.visible, T.live(this.trialLive), F, R.course, this.ropeScene.laneList, this.ropeScene.laneHeight, this.fruitAt, this.clock);
+    this.trialsLook.update(dt, this.ropeScene.visible, this.trialLive, F, R.course, this.ropeScene.laneList, this.ropeScene.laneHeight, this.fruitAt, this.clock);
+    this.foesLook.update(dt, this.ropeScene.visible, this.trialLive, F, R.course, R.s, this.ropeScene.laneList, this.ropeScene.laneHeight, this.bar.ref, E.req, R.turbo, this.clock);
     this.stepBoss(dt, playing);
   }
 
@@ -611,6 +645,20 @@ export class BarsSystem extends createSystem({}) {
     const fr = this.ropeScene.frameGroup;
     fr.updateMatrixWorld();
     fr.worldToLocal(this.headAt0.copy(head.p));
+    // (qué mano está a cada lado, si se ven las dos)
+    if (hands.left.ok && hands.right.ok && !hands.left.est && !hands.right.est) {
+      const xl = fr.worldToLocal(this.wristLoc.copy(hands.left.wrist)).x, xr = fr.worldToLocal(this.wristLoc.copy(hands.right.wrist)).x;
+      this.handSide = xl <= xr ? [hands.left, hands.right] : [hands.right, hands.left];
+    }
+  }
+
+  // ¿está suelta la mano de ese lado? (no se ve, o se ha separado de la barra: más de 20 cm por debajo o lejos de ella a un
+  // lado; con dos paralelas, cada una a su lado; con una, cruzada sobre ti)
+  private handFree(h: Hand, frame: Object3D): boolean {
+    if (!h.ok || h.est) return true;
+    const w = frame.worldToLocal(this.wristLoc.copy(h.wrist)), lanes = this.ropeScene.laneList, gap = lanes.length > 1 ? Math.abs(lanes[1] - lanes[0]) : 0;
+    const off = lanes.length > 1 ? Math.min(Math.abs(w.x - gap / 2), Math.abs(w.x + gap / 2)) : Math.abs(w.z);
+    return w.y < -0.2 || off > 0.2;
   }
 
   // lo de debajo del que cuelga: el charco con tentáculos o el remolino, y el bosque de noche si cuelga
