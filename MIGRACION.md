@@ -526,6 +526,28 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   `1 + HL.boost` la máxima (en el corredor, tras el picado y la pica); detrás, es `FlyIn.back` (la pica). Sin manos, el centro
   del vuelo (`FlyBody.fwd`), como antes. Se toma de nuevo con cada `FlyBody.set` (calibrar, el asistente, el centro vuelto a
   poner). Sobre el mapa, la velocidad tope pasa a 60 m/s (`MAP.speedMax`) para que se note.
+- **El vuelo, natural** (pedido del usuario: bruscos los lados y a veces arriba y abajo; «la idea es que la sensación de
+  vuelo sea natural»). El planeador (`fly.ts`): el muelle del lado, más blando y algo menos amortiguado (`uW` 3, `uZ` 0,8:
+  con inercia), más fino cerca del centro (`sideCurve` 1,9), y lo que se aviva con la cabeza deprisa, como mucho ×1,6
+  (`fastMax`: con ×3 era un latigazo); subir y bajar, `MID.tau` 0,7 y casi sin avivarse (`MID.fast`).
+- **El vuelo sobre el mapa, libre** (`map-route.ts`, `MapFlight`, rehecho; pruebas en `tests/unit/map-route.test.ts`):
+  - **El este y el norte estaban al revés**: la librería deja el mapa con +x al oeste y +z al norte (comprobado con sus
+    números); se había puesto x este y z sur, así que los aros salían al otro lado de la ciudad, dentro de edificios.
+  - Altura absoluta (la del mapa) y sin techo; el ladeo sigue a lo que te escoras (`bankTau`) y vira; subir, bajar y la marcha,
+    con su inercia y más deprisa con la altura (`scale`); el suelo o el tejado de debajo sostiene (`ground`, `floor`) y lo que
+    hay por delante frena (`ahead`, `stopAt`). Lo miden rayos de `MapSystem` (`topAt`, `aheadOf`, `measureRing`: el aro, sobre lo
+    más alto de su centro y su borde). Lejos del ancla, se vuelve a anclar debajo de ti (`reanchor` y
+    `ReorientationPlugin.transformLatLonHeightToOrigin`: la Tierra es redonda).
+  - Sin tramos: el corredor no avanza sobre el mapa (`tk.dist` se queda; el planeador, en su altura: solo dice lo que subes o
+    bajas, `vAlt`) y los metros son los volados (`Runner.mapFlown`).
+  - Solo el cielo y el mapa: `MAPVIEW` (`src/core/state.ts`) → `EnvSystem` quita la foto, el valle y las luciérnagas y pone el
+    cielo según la altura (`stepMapSky`, el `DomeGradient` del nivel); `TrekSystem` esconde el viento, el mar y las reglillas;
+    `MapSystem`, la plataforma de los pies. Lo lejos que se pinta crece con la altura (hasta el horizonte), a saltos.
+  - La nitidez: `flyMapSharp` (el `errorTarget`: 8 de serie; sustituye a `flyMapDetail`, para que el de serie nuevo llegue a
+    quien ya lo tenía guardado) y más memoria para los mapas (600 MB: con 260, menos que lo de serie de la librería, se llenaba
+    y la ciudad se quedaba borrosa); el registro del mapa apunta la memoria y la nitidez cada 45 s. Probado aquí con un mapa
+    falso (un suelo y un edificio): el aro queda sobre el tejado, la pared para a unos 16 m y pasar por dentro cuenta.
+    **Pendiente con el usuario**: si con «Alta» va fluido y cómo se ve; si el ladeo marea.
 
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):
   el centro del vuelo (`FlyBody`, y `BodyMoves.x0`) se tomaba al calibrar **antes** de que el mundo se deslizara 0,8 s para

@@ -186,9 +186,12 @@ No las cambies sin preguntarle.
   - **A, en plancha** (la base; afinado con `docs/PLAN-VUELO.md`, «aplica todas tus sugerencias»): **la cabeza es la palanca**,
     respecto a un centro que no se mueve en el aire. **Escorarte es la posición de lado**: tanto te escoras, tanto te apartas
     y, al volver al centro, el vuelo vuelve; el mundo se desplaza a tu lado. **Sin sacudidas** (pedido del usuario: costaba alinearse con las frutas): lo que pide la cabeza se suaviza y el vuelo
-    arranca y frena suave, a los lados y al subir y bajar; las frutas del aire, algo más fáciles de coger. **Deprisa, deprisa**
-    (pedido del usuario: para esquivar algo rápido): cuanto más deprisa mueves la cabeza, menos se suaviza y más rápido
-    responde el vuelo (quieto o con el vaivén de las flexiones, suave). **Suave cerca del centro** (corregido por el usuario:
+    arranca y frena suave, a los lados y al subir y bajar; las frutas del aire, algo más fáciles de coger. **Con inercia**
+    (pedido del usuario: «un ligero movimiento lateral me aparta bruscamente de la hilera de frutas… el giro es una sacudida
+    que se frena en seco»): el vuelo va hacia donde pide la cabeza como un ala, no como un cursor: arranca suave, al volver
+    al centro sigue un instante y se asienta pasándose apenas; y cerca del centro es más fino (un poco de cabeza, un poco de
+    vuelo). **Deprisa, deprisa** (pedido del usuario: para esquivar algo rápido): moviendo la cabeza deprisa responde algo
+    más vivo (hasta un 60 % más; con el triple de antes, cada gesto era un latigazo). **Suave cerca del centro** (corregido por el usuario:
     «hipersensible»): 2,5 cm sin efecto y del todo a un lado con lo que diga «Vuelo: recorrido de lado» (15 cm de serie, de 8
     a 30: más, menos sensible); el asistente lo cambia a tu gusto. **La sensibilidad de cada eje, en los ajustes** (pedido del
     usuario como desarrollador): «Vuelo: recorrido de lado», «Vuelo: recorrido para bajar» (13 cm de serie), «Vuelo: recorrido
@@ -242,16 +245,31 @@ No las cambies sin preguntarle.
   - **Sobre el mapa** (pedido del usuario: «volar por Google Maps 3D» con los movimientos del vuelo; vía A, Cesium ion, con su
     cuenta gratuita): con una ciudad en «Volando: sobre el mapa» (Madrid, París, Nueva York o Roma) y la clave de Cesium ion del
     jugador en la página («Volar sobre el mapa»: cada jugador, la suya; no va dentro del juego publicado), en vez del recorrido
-    se vuela sobre la ciudad de verdad (los mapas 3D de Google) con los mismos mandos: **escorarte te hace virar**, la media
-    flexión manda la altura (de unos 20 a 220 m sobre el suelo) y tus flexiones o el avance solo, la velocidad. Una **ruta de
-    aros** grandes y dorados pasa por sus monumentos (al pasar uno, su nombre, puntos, sonido y vibración); una flecha verde en
-    el suelo, delante de las manos, señala el que viene. En los cofres, quieto en el aire (no se aterriza). Los créditos del
-    mapa («Google», lo exigen) se ven junto a la flecha. **Sobre el mapa no hay mundos** (pedido del usuario): ni portales ni
-    cambio de mundo, y el marcador y el panel de cada tramo hablan de la ciudad (la velocidad, la altura, el aro que viene y
-    los pasados), no de la energía, las doradas ni los paisajes de la Travesía. **La ciudad no da saltos** (pedido del usuario):
-    su suelo se mide poco y se sigue despacio (un tejado no cuenta), y lo nítida que se ve, en «Volando sobre el mapa: detalle»
-    (Normal, Alto de serie, Máximo). Solo en la Travesía (en Barras no sale). Sin clave o sin ciudad, la Travesía de siempre. *En pruebas* hasta
-    que el usuario lo vea en las gafas.
+    se vuela sobre el mundo de verdad (los mapas 3D de Google). **Vuelo libre** (pedido del usuario: «explorar con su cuerpo
+    volando, sin límites»): sin tramos, cofres, mundos ni portales (la ronda no se acaba sola: se acaba desde la pausa), y por
+    todo el mundo, empezando en la ciudad elegida.
+    - **Solo el cielo y el mapa** (pedido del usuario: se mezclaba un campo alrededor de Nueva York): sin foto de fondo, valle,
+      luciérnagas, estelas de viento ni la plataforma de los pies; el cielo, azul y, cuanto más alto, más oscuro, hasta el negro
+      del espacio.
+    - **Sin techo** (pedido del usuario: «incluso a la estratosfera»): la media flexión manda lo que subes o bajas (los brazos
+      estirados, subes; media flexión, recto; más abajo, bajas), y cuanto más alto vas, más deprisa subes y más deprisa
+      avanzas (a ras de ciudad, como un ave; desde el espacio, países enteros).
+    - **Con inercia, como un ave** (pedido del usuario: «el giro es una sacudida que se frena en seco»): escorarte te ladea y el
+      ladeo te hace virar; entra y sale del viraje suave y, al enderezarte, sigues virando un poco. El horizonte se ladea al
+      virar (unos 9°; «Volando sobre el mapa: ladearse al virar» lo quita si marea). Subir, bajar y la marcha, igual: sin
+      tirones.
+    - **No se atraviesa nada** (pedido del usuario: «si me tropiezo con un edificio, entro dentro de él»): el suelo y los
+      tejados te sostienen (nunca a menos de 14 m) y ante una pared frenas hasta pararte a unos metros («¡Un edificio! Vira o
+      sube»).
+    - **Los aros, por encima de los monumentos** (el usuario los veía enterrados en edificios: estaban al otro lado de la
+      ciudad, con el este y el norte al revés): cada aro, grande (40 m de radio), con su borde de abajo 30 m por encima de lo
+      más alto que tenga debajo, de cara a ti (se entra por donde vengas) y con un haz de luz hacia arriba que se ve de lejos.
+      Solo cuenta si pasas por dentro (su nombre, puntos, sonido y vibración); no hay aros fallados: el que viene espera. La
+      flecha verde del suelo señala hacia él y el marcador dice a cuánto está y si hay que subir o bajar.
+    - **La nitidez** («Volando sobre el mapa: nitidez»: Fluido, Normal, Alta de serie y Máxima) y empiezas a 260 m del suelo
+      (desde más alto la ciudad se ve mejor: de cerca, los edificios de Google se ven algo derretidos).
+    Los créditos del mapa («Google», lo exigen) se ven junto a la flecha. Solo en la Travesía (en Barras no sale). Sin clave o
+    sin ciudad, la Travesía de siempre. *En pruebas* hasta que el usuario lo dé por bueno en las gafas.
   - En la dura, sin flexiones un rato vas perdiendo altura poco a poco (nunca te caes); en la suave, el vuelo la mantiene. La
     caja negra del vuelo (`reparenaxr-flybox`, con el diagnóstico) graba los últimos 40 s para afinar los números con tu vuelo.
 - Travesía de plataformas, **el desprendimiento** (pedido del usuario, para la plancha: mirando al suelo no se veían las rocas):

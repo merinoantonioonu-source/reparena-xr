@@ -1343,7 +1343,7 @@ export class TrekSystem extends createSystem({}) {
     }
     for (let i = gi; i < this.goldGlow.length; i++) this.goldGlow[i].visible = false;
     this.drawFly(lite);
-    this.flyLook.update(R.fly && !lite && GAME.phase === 'playing', num('flyGauges') > 0, R, (s, u, out) => R.tk.bend(s, u, out), (s) => this.gy(s), this.calibRef, this.clock);
+    this.flyLook.update(R.fly && !R.mapMode && !lite && GAME.phase === 'playing', num('flyGauges') > 0, R, (s, u, out) => R.tk.bend(s, u, out), (s) => this.gy(s), this.calibRef, this.clock);
     for (const b of this.batches.values())
       for (const im of b.ims) {
         im.count = b.n;
@@ -1355,7 +1355,7 @@ export class TrekSystem extends createSystem({}) {
     this.ground.position.x = -R.uShift; // (en una bifurcación, el césped también se desplaza: no patina bajo lo apoyado)
     this.groundTex.offset.set(F.x / GROUND_CELL, -F.z / GROUND_CELL);
     const B = tramoBiome(this.biome, R.worldLen);
-    this.ocean.update(!LITE.on && this.floorAt(d) === 'coast', this.clock, F.x, F.z, F.th, -R.uShift, B.fog, B.dens, B.dusk);
+    this.ocean.update(!LITE.on && !R.mapMode && this.floorAt(d) === 'coast', this.clock, F.x, F.z, F.th, -R.uShift, B.fog, B.dens, B.dusk);
     // (las cuestas: el mar, a su altura de siempre: subiendo, se ve más abajo; y el césped, ondulando con el sendero)
     this.ocean.mesh.position.y = SEA_Y - this.hNow;
     this.groundHills(d);
@@ -1907,7 +1907,7 @@ export class TrekSystem extends createSystem({}) {
     for (let i = n; i < this.portals.length; i++) this.portals[i].visible = false;
     // el mar de nubes, en el risco
     const fl = this.floorAt(R.dist);
-    this.sea.update(fl === 'cliff' || fl === 'sky', this.clock, tramoBiome(this.biome, R.worldLen).fog);
+    this.sea.update(!R.mapMode && (fl === 'cliff' || fl === 'sky'), this.clock, tramoBiome(this.biome, R.worldLen).fog);
     // el destello
     const fm = this.flash.material as MeshBasicMaterial;
     if (this.flashT > 0) {
@@ -1982,7 +1982,7 @@ export class TrekSystem extends createSystem({}) {
     // (con el turbo y planeando sobre un barranco)
     const want = (R.tk.turbo || (!!R.hop?.glide && R.hop.won) || (R.fly && R.flyAlt > 1)) && GAME.phase === 'playing' && !GAME.between && !GAME.paused ? 0.7 : 0;
     M.opacity += (want - M.opacity) * Math.min(1, dt * 3);
-    this.wind.visible = M.opacity > 0.01;
+    this.wind.visible = M.opacity > 0.01 && !this.runner.mapMode; // (sobre el mapa, solo el cielo y el mapa)
     if (!this.wind.visible) return;
     const v = Math.max(1, R.v) * 3.2, H = head.p;
     for (let i = 0; i < WIND_N; i++) {

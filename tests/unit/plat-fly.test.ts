@@ -70,11 +70,31 @@ describe('el lado: tanto te escoras, tanto te apartas', () => {
     run(quick, 3, (t) => ((tq < 0 && quick.u > 1 ? (tq = t) : 0), IN({ side: Math.min(0.12, (0.12 * t) / 0.1) })));
     run(slow, 4, (t) => ((ts < 0 && slow.u > 1 ? (ts = t) : 0), IN({ side: Math.min(0.12, (0.12 * t) / 1.5) })));
     expect(tq).toBeGreaterThan(0);
-    expect(tq).toBeLessThan(0.45); // (deprisa: en menos de medio segundo ya vas a un lado)
+    expect(tq).toBeLessThan(0.9); // (deprisa: en menos de un segundo ya vas a un lado; con inercia, no de un latigazo)
     expect(ts - 1.5).toBeLessThan(tq); // (despacio, el vuelo te sigue al paso de la cabeza)
     expect(fastK(0)).toBe(1);
-    expect(fastK(FLY.fastV)).toBeCloseTo(2, 6);
+    expect(fastK(FLY.fastV)).toBeCloseTo(Math.min(2, FLY.fastMax), 6);
     expect(fastK(5)).toBe(FLY.fastMax);
+  });
+  it('con inercia: arranca suave, sin latigazo; al volver al centro sigue un poco y se asienta sin tirón', () => {
+    const g = new Glider();
+    // de golpe a un lado: la velocidad de lado crece poco a poco (no salta) y su aceleración no pasa de lo que da un ala
+    let vPrev = 0, aMax = 0;
+    run(g, 2.5, () => {
+      aMax = Math.max(aMax, Math.abs(g.vU - vPrev) * 72);
+      vPrev = g.vU;
+      return IN({ side: 0.1 });
+    });
+    expect(aMax).toBeLessThan(9); // (m/s²: antes, el triple)
+    const u1 = g.u;
+    expect(u1).toBeGreaterThan(0.6);
+    // vuelves al centro: a la décima de segundo sigues casi donde estabas (inercia) y luego vuelve, pasándose apenas
+    run(g, 0.1, IN());
+    expect(g.u).toBeGreaterThan(u1 * 0.9);
+    let lo = 0;
+    run(g, 4, () => ((lo = Math.min(lo, g.u)), IN()));
+    expect(Math.abs(g.u)).toBeLessThan(0.02);
+    expect(lo).toBeGreaterThan(-0.08); // (se pasa un pelo, como un ala; no un rebote)
   });
   it('el centro del vuelo no sigue a la cabeza: escorado y quieto, la lectura no se va a cero', () => {
     const B = new FlyBody();
@@ -287,7 +307,7 @@ describe('el planeador', () => {
     expect(boardSide(0.2)).toBeGreaterThan(0.05);
     const g = new Glider();
     run(g, 1.5, IN({ side: boardSide(0.2) }));
-    expect(g.u).toBeGreaterThan(0.3);
+    expect(g.u).toBeGreaterThan(0.18);
   });
 });
 
@@ -406,7 +426,7 @@ describe('la Travesía volando', () => {
     s.head.x = 0.08;
     s.until(() => false, 72 * 2);
     const u1 = s.r.glider.u;
-    expect(u1).toBeGreaterThan(0.6);
+    expect(u1).toBeGreaterThan(0.4); // (más fino cerca del centro: 8 cm de cabeza, medio metro de vuelo)
     s.until(() => false, 72 * 10);
     expect(Math.abs(s.r.glider.u - u1)).toBeLessThan(0.05);
     s.head.x = 0;

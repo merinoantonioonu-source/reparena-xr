@@ -36,17 +36,22 @@ export const FLY = {
    * su tope de velocidad (m/s). */
   sideDead: 0.025,
   sideRange: 0.15,
-  sideCurve: 1.4,
-  uW: 4.2,
-  uV: 2,
+  sideCurve: 1.9,
+  // (con inercia, pedido del usuario: «el giro es una sacudida que se frena en seco»: un muelle más blando y algo menos
+  // amortiguado —`uZ`: 1 sería sin rebote— que arranca suave, se pasa un pelo y se asienta, como un ala; y más fino cerca del
+  // centro —`sideCurve`—: «un ligero movimiento lateral me aparta bruscamente de la hilera de frutas»)
+  uW: 3,
+  uZ: 0.8,
+  uV: 2.6,
   /** Lo que se suaviza lo que lees de la cabeza antes del muelle (s): el vaivén de cada flexión movía la cabeza unos
    * centímetros y el vuelo daba sacudidas a los lados (vídeo del usuario: costaba alinearse con las frutas). */
-  sideIn: 0.25,
+  sideIn: 0.3,
   /** Rápido, rápido (pedido del usuario: para esquivar algo deprisa): cuanto más deprisa mueves la cabeza, menos se suaviza y
    * más deprisa responde el vuelo, como el filtro «1 €» (quieto, suave; deprisa, al momento). La velocidad de la cabeza
    * (m/s) a la que ya responde el doble y lo más que se aviva (veces). */
-  fastV: 0.2,
-  fastMax: 3,
+  // (con el triple, cada gesto era un latigazo: ahora, como mucho, un 60 % más vivo)
+  fastV: 0.3,
+  fastMax: 1.6,
   /** P: la zona muerta de bajar el pecho (m) y lo que baja la flexión entera (m de vuelo). */
   downDead: 0.02,
   downAlt: 3.5,
@@ -112,7 +117,8 @@ export function flyModel(setting: number, _auto: boolean): FlyModel {
 /** El mando de media flexión (elegido por el usuario: «media flexión = recto»): la zona muerta alrededor de la mitad (× media
  * bajada) y lo deprisa que se sube y se baja del todo (m/s: con los brazos estirados y con el pecho abajo del todo). */
 // (tau: lo que tarda en coger la velocidad de subir o bajar; con 0,3 s cada flexión daba un tirón de altura)
-export const MID = { dead: 0.15, up: 2.2, down: 3, tau: 0.5 } as const;
+// (0,7 s y sin avivarse apenas con la cabeza: subir y bajar también eran bruscos; el vaivén de la flexión no da tirones)
+export const MID = { dead: 0.15, up: 2.2, down: 3, tau: 0.7, fast: 1.3 } as const;
 
 /** Lo que manda el cuerpo en este fotograma (de `FlyBody`, la marcha y las muñecas). */
 export interface FlyIn {
@@ -224,7 +230,7 @@ export class Glider {
     // (un muelle amortiguado justo, en pasos cortos para que no dependa de las imágenes por segundo)
     const w = FLY.uW * fast, vMax = FLY.uV * fast;
     for (let n = Math.ceil(dt / 0.01), h = dt / n; n > 0; n--) {
-      this.vU = clamp(this.vU + (w * w * (this.tgtU - this.u) - 2 * w * this.vU) * h, -vMax, vMax);
+      this.vU = clamp(this.vU + (w * w * (this.tgtU - this.u) - 2 * FLY.uZ * w * this.vU) * h, -vMax, vMax);
       this.u = clamp(this.u + this.vU * h, -FLY.uMax, FLY.uMax);
     }
     // la pica (la cabeza atrás) manda sobre el picado, con su margen para no parpadear entre los dos
@@ -300,7 +306,7 @@ export class Glider {
     }
     if (I.rep) this.flapped = true;
     // (bajar o subir la cabeza deprisa, el vuelo responde deprisa: como de lado)
-    this.vAlt += (want - this.vAlt) * Math.min(1, (dt * fastK(Math.abs(this.vDown))) / MID.tau);
+    this.vAlt += (want - this.vAlt) * Math.min(1, (dt * Math.min(MID.fast, fastK(Math.abs(this.vDown)))) / MID.tau);
     this.alt += this.vAlt * dt;
     if (this.alt > FLY.altMax) this.vAlt = Math.min(0, this.vAlt);
     // (para la reglilla: dónde estarás en un segundo y medio si sigues así)

@@ -4,7 +4,7 @@
  * luciérnagas (puntitos de luz que flotan alrededor, todo en la tarjeta gráfica). Cada ajuste se lee al cambiarlo (también el
  * menú y la página lo cambian por `setSetting`).
  */
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, createSystem, DomeTexture, Points, ShaderMaterial, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, createSystem, DomeGradient, DomeTexture, Points, ShaderMaterial, Vector3 } from '@iwsdk/core';
 import type { DirectionalLight, Entity, HemisphereLight, Object3D } from '@iwsdk/core';
 import { SND } from '../audio/sound.js';
 import { GateSystem } from '../combat/gates.js';
@@ -22,7 +22,7 @@ import { BEAT, MOTES } from '../core/beat-hub.js';
 import { moteBpm } from '../core/beat.js';
 import { bpm as bpmSvc, spotify } from '../services/hub.js';
 import { settings } from '../core/values.js';
-import { GAME, LITE, SPECIAL, TRAVEL, WAVE_EV } from '../core/state.js';
+import { GAME, LITE, MAPVIEW, SPECIAL, TRAVEL, WAVE_EV } from '../core/state.js';
 import { journeyRoute, type Place } from '../combat/journey.js';
 import { head } from '../input/hand-model.js';
 
@@ -164,6 +164,10 @@ function makeMotes(): Points {
   pts.userData.noInk = true;
   return pts;
 }
+
+/** El cielo sobre el mapa: de día (arriba, el horizonte y bajo él: la calima) y en el espacio. */
+const MAP_SKY = { sky: [0.26, 0.5, 0.92], eq: [0.74, 0.86, 1], gr: [0.66, 0.78, 0.92] } as const;
+const MAP_SPACE = { sky: [0, 0, 0.015], eq: [0.1, 0.24, 0.6], gr: [0.03, 0.07, 0.2] } as const;
 
 export class EnvSystem extends createSystem({}) {
   private motes!: Points;
@@ -391,6 +395,7 @@ export class EnvSystem extends createSystem({}) {
 
   /** El fondo elegido (que exista), o '' si es el cielo dibujado. */
   private panoWanted(): string {
+    if (MAPVIEW.on) return ''; // (sobre el mapa, solo el cielo y el mapa: sin foto de fondo)
     if (settings.mode === 'trek') return this.world.getSystem(TrekSystem)?.pano ?? 'bosque'; // (la Travesía, el de su tramo)
     const bs = this.world.getSystem(BarsSystem);
     if (bs?.ropeShown) return bs.ropePano; // (la cuerda del remo invertido: el de su tramo, según la altura)
@@ -400,6 +405,39 @@ export class EnvSystem extends createSystem({}) {
 
   private level(): Entity | null {
     return this.world.activeLevel?.peek?.() ?? null;
+  }
+
+  /** El cielo del vuelo sobre el mapa (el degradado de IWSDK en la raíz del nivel): azul de día y, cuanto más alto, más
+   * oscuro, hasta el negro del espacio con el horizonte azul; al acabar, el de siempre. */
+  private skyWas: number[] | null = null;
+  private skyK = -1;
+  private stepMapSky(): void {
+    const lv = this.level();
+    if (!lv || !lv.hasComponent(DomeGradient)) return;
+    const sky = lv.getVectorView(DomeGradient, 'sky'), eq = lv.getVectorView(DomeGradient, 'equator'), gr = lv.getVectorView(DomeGradient, 'ground');
+    if (!MAPVIEW.on) {
+      if (this.skyWas) {
+        for (let i = 0; i < 3; i++) {
+          sky[i] = this.skyWas[i];
+          eq[i] = this.skyWas[3 + i];
+          gr[i] = this.skyWas[6 + i];
+        }
+        this.skyWas = null;
+        this.skyK = -1;
+      }
+      return;
+    }
+    if (!this.skyWas) this.skyWas = [sky[0], sky[1], sky[2], eq[0], eq[1], eq[2], gr[0], gr[1], gr[2]];
+    // (de 8 km a 80 km de alto, del día al espacio; a saltos pequeños: no se escribe en cada fotograma)
+    const t = Math.max(0, Math.min(1, Math.log(Math.max(1, MAPVIEW.alt) / 8000) / Math.log(10))), k = Math.round(t * t * (3 - 2 * t) * 100) / 100;
+    if (k === this.skyK) return;
+    this.skyK = k;
+    const mix = (v: { [i: number]: number }, a: readonly number[], b: readonly number[]): void => {
+      for (let i = 0; i < 3; i++) v[i] = a[i] + (b[i] - a[i]) * k;
+    };
+    mix(sky, MAP_SKY.sky, MAP_SPACE.sky);
+    mix(eq, MAP_SKY.eq, MAP_SPACE.eq);
+    mix(gr, MAP_SKY.gr, MAP_SPACE.gr);
   }
 
   // la foto de fondo: el DomeTexture de IWSDK en la raíz del nivel (gana al degradado de cielo); se quita el valle y las nubes dibujados
@@ -418,7 +456,7 @@ export class EnvSystem extends createSystem({}) {
     } else if (lv.hasComponent(DomeTexture)) lv.removeComponent(DomeTexture);
     this.pano = want;
     if (!this.hidden.length) this.hidden = ['comic-valley', 'comic-clouds'].map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is Object3D => !!o);
-    for (const o of this.hidden) o.visible = !want;
+    for (const o of this.hidden) o.visible = !want && !MAPVIEW.on;
   }
 
   // en la cuerda del remo invertido, la foto se gira hacia donde subes (lo mejor de ella, de frente: hacia lo alto de tu
@@ -436,10 +474,11 @@ export class EnvSystem extends createSystem({}) {
   update(dt: number, time: number): void {
     this.clock += dt;
     this.stepPano();
+    this.stepMapSky();
     this.stepScenery(dt, time);
     // las luciérnagas: solo en partida y con el ajuste; doradas de día, verdes de noche
     const live = on('motes') && GAME.phase === 'playing' && !GAME.paused;
-    this.motes.visible = on('motes') && GAME.phase === 'playing';
+    this.motes.visible = on('motes') && GAME.phase === 'playing' && !MAPVIEW.on;
     if (!this.motes.visible) return;
     const U = (this.motes.material as ShaderMaterial).uniforms, night = settings.look === 'real';
     // el baile al compás: el ritmo puesto o el de la canción de Spotify que suena (se engancha poco a poco, sin saltos)

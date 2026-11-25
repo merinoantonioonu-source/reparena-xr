@@ -1,13 +1,16 @@
 /**
  * El vuelo sobre el mapa (elegido por el usuario: «Vuelo por el mundo», con los mapas 3D de Google a través de Cesium ion): los
- * mismos mandos que el vuelo de la Travesía (el planeador de fly.ts), pero sobre una ciudad de verdad. Escorarte ya no te
- * aparta: te hace virar, como un ave al inclinarse; la altura de vuelo sale de la del planeador, a escala de ciudad (de unos
- * 20 a 220 m sobre el suelo); y la velocidad, de la marcha de la Travesía (tus flexiones o el avance solo), también a escala.
- * Una ruta de aros grandes pasa por los monumentos de cada ciudad; al acabarla, vuelta a empezar.
+ * mismos mandos que el vuelo de la Travesía (el planeador de fly.ts), pero sobre una ciudad de verdad y **libre** (pedido del
+ * usuario: «explorar con su cuerpo volando, sin límites»): sin tramos ni cofres, sin techo (hasta el espacio) y por todo el
+ * mundo. Escorarte te ladea como a un ave y el ladeo te hace virar, con su inercia (entra y sale suave); la media flexión manda
+ * lo que subes o bajas, más deprisa cuanto más alto vas; la marcha de la Travesía (tus flexiones, el avance solo, la cabeza
+ * por delante de las manos) es el gas, y también corre más cuanto más alto. No se atraviesa nada: el suelo y los tejados te
+ * sostienen, y ante una pared frenas. Una ruta de aros grandes pasa por encima de los monumentos de cada ciudad.
  *
  * Lógica pura, sin IWSDK (se prueba en tests/unit/map-route.test.ts); lo pinta src/modes/trek/map/map-system.ts. Las
- * coordenadas, en metros alrededor del centro de la ciudad: x hacia el este y z hacia el sur (−z, el norte), como deja el mapa
- * el ReorientationPlugin de 3d-tiles-renderer (arriba, +y).
+ * coordenadas, en metros alrededor de un punto del mapa (el ancla: al principio, el centro de la ciudad): **x hacia el oeste
+ * y z hacia el norte**, con +y arriba, como deja el mapa el ReorientationPlugin de 3d-tiles-renderer (comprobado con sus
+ * números: al principio se pusieron al revés, este y sur, y los aros salían al otro lado de la ciudad, dentro de edificios).
  */
 
 /** Un monumento de la ruta: su nombre y dónde está (grados). */
@@ -94,109 +97,190 @@ export const CITIES: readonly City[] = [
 
 export const cityOf = (id: string): City | null => CITIES.find((c) => c.id === id) ?? null;
 
-/** De grados a metros alrededor del centro de la ciudad (aproximado, de sobra para unos kilómetros): x, este; z, sur. */
+const RE = 6371000, K = Math.PI / 180;
+
+/** De grados a metros alrededor de un punto (aproximado, de sobra para unas decenas de kilómetros): x, oeste; z, norte. */
 export function toLocal(c: { lat: number; lon: number }, lat: number, lon: number, out: { x: number; z: number }): { x: number; z: number } {
-  const R = 6371000, k = Math.PI / 180;
-  out.x = (lon - c.lon) * k * R * Math.cos(c.lat * k);
-  out.z = -(lat - c.lat) * k * R;
+  out.x = -(lon - c.lon) * K * RE * Math.cos(c.lat * K);
+  out.z = (lat - c.lat) * K * RE;
   return out;
 }
 
 /**
- * Los números del vuelo sobre el mapa: lo más que vira (rad/s, con la escora entera), la altura sobre el suelo con el planeador
- * a su altura de salida y lo que sube por cada metro del planeador (m), la más baja, lo que multiplica la marcha (la de la
- * Travesía, en m/s) y su tope (m/s), lo que mide un aro (m de radio), lo que se perdona al cruzarlo (m), a qué altura flota
- * sobre el suelo (m), de dónde empiezas (m antes del primero) y desde cuánto se da por pasado (m de más tras acercarse).
+ * Los números del vuelo sobre el mapa.
+ * - El viraje: lo que tarda el ladeo en seguir a lo que te escoras (s: la inercia), lo que vira con el ladeo entero (rad/s) y
+ *   lo que se ladea el horizonte entonces (rad: unos 9°).
+ * - La altura: a la que empiezas sobre el suelo (m), lo cerca que se puede pasar del suelo o de un tejado (m), lo que subes y
+ *   bajas con el mando entero (m/s), lo que tarda en cogerlo (s), desde qué altura todo va más deprisa en proporción (m) y el
+ *   techo (m: el espacio, bien lejos).
+ * - La marcha: la de crucero con el gas entero (m/s), lo que tarda en cogerla (s) y lo que crece con la altura (exponente).
+ * - Los aros: su radio (m), lo que se perdona (m), lo que su borde de abajo pasa por encima de lo más alto que haya debajo
+ *   (m), su altura sobre el suelo sin medir (m) y de dónde empiezas (m antes del primero).
+ * - Las paredes: lo que se mira por delante (s de vuelo y, como poco, m) y a cuánto te paras (m).
+ * - El ancla: a cuánto del punto del mapa se vuelve a anclar (m: la Tierra es redonda).
  */
-export const MAP = { turn: 0.45, alt0: 110, altK: 22, altMin: 25, speedK: 20, speedMax: 60, ringR: 22, slack: 10, ringAgl: 100, startBack: 450, missBack: 60 } as const;
+export const MAP = {
+  bankTau: 0.7, turn: 0.5, roll: 0.16,
+  alt0: 260, floor: 14, climb: 16, sink: 22, vsTau: 0.9, scaleAlt: 260, altMax: 3e6,
+  cruise: 70, speedTau: 1.4, scalePow: 0.92,
+  ringR: 40, slack: 14, ringClear: 30, ringAgl: 150, startBack: 700,
+  aheadT: 1.3, aheadMin: 30, stopAt: 12,
+  reanchor: 25000,
+} as const;
 
 /** Lo que manda el cuerpo (del planeador de la Travesía) en cada fotograma. */
 export interface MapIn {
-  /** El lado del planeador (m, + derecha) y su tope. */
-  u: number;
-  uMax: number;
-  /** La altura del planeador (m) y la de salida. */
-  alt: number;
-  alt0: number;
-  /** La marcha de la Travesía (m/s). */
-  v: number;
+  /** Lo que te escoras (de −1 a 1, + derecha). */
+  steer: number;
+  /** Subir (+) o bajar (−), de −1 a 1. */
+  climb: number;
+  /** El gas: la marcha de la Travesía entre su máxima (1, crucero; hasta 1,5 con la cabeza por delante de las manos). */
+  gas: number;
 }
 
 export class MapFlight {
-  /** Dónde vas (m: x este, z sur), hacia dónde (rad: 0 hacia el norte, −z; + a la izquierda) y a qué altura sobre el suelo (m). */
+  /** El ancla (grados): el punto del mapa en el origen. */
+  readonly anchor = { lat: 0, lon: 0 };
+  /** Dónde vas (m: x oeste, z norte), a qué altura (m, la del mapa: sobre su elipsoide), hacia dónde (rad: 0 hacia −z;
+   * + a la izquierda), el ladeo (de −1 a 1, + a la derecha) y las velocidades (m/s: de avance y de subida). */
   x = 0;
   z = 0;
+  alt = 0;
   heading = 0;
-  agl: number = MAP.alt0;
+  bank = 0;
   speed = 0;
-  /** El aro que viene (su número en la ruta), los aros pasados y fallados, y lo más cerca que has estado del que viene (m). */
+  vs = 0;
+  /** Lo que hay debajo de ti (m, la altura de su superficie: la calle o el tejado; lo pone quien pinta el mapa) y lo libre
+   * que queda por delante (m; Infinity: nada a la vista). */
+  ground = 0;
+  ahead = Infinity;
+  /** Lo volado (m). */
+  flown = 0;
+  /** El aro que viene (su número en la ruta) y los pasados. */
   next = 0;
   got = 0;
-  missed = 0;
-  private best = Infinity;
   readonly rings: { x: number; z: number }[] = [];
+  /** La altura del centro de cada aro (m; NaN: sin medir, la del suelo de la ciudad más `ringAgl`). */
+  readonly ringY: number[] = [];
   /** Hacia dónde queda el aro que viene (lo rellena `toNext`, sin crear nada en cada fotograma). */
-  readonly toward = { bearing: 0, dist: 0 };
+  readonly toward = { bearing: 0, dist: 0, dy: 0 };
 
   constructor(readonly city: City) {
-    for (const l of city.route) {
-      const p = toLocal(city, l.lat, l.lon, { x: 0, z: 0 });
-      this.rings.push(p);
+    this.anchor.lat = city.lat;
+    this.anchor.lon = city.lon;
+    for (let i = 0; i < city.route.length; i++) {
+      this.rings.push({ x: 0, z: 0 });
+      this.ringY.push(NaN);
     }
+    this.place();
     this.restart();
   }
 
-  /** Al principio de la ruta: un poco antes del primer aro, mirando hacia él. */
+  /** Los aros, respecto al ancla. */
+  private place(): void {
+    const R = this.city.route;
+    for (let i = 0; i < R.length; i++) toLocal(this.anchor, R[i].lat, R[i].lon, this.rings[i]);
+  }
+
+  /** Al principio de la ruta: un poco antes del primer aro, mirando hacia él, a la altura de salida. */
   restart(): void {
     const a = this.rings[0], b = this.rings[1 % this.rings.length];
     const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
     this.x = a.x - (dx / L) * MAP.startBack;
     this.z = a.z - (dz / L) * MAP.startBack;
     this.heading = headingTo(this.x, this.z, a.x, a.z);
+    this.ground = this.city.h;
+    this.alt = this.city.h + MAP.alt0;
+    this.bank = this.speed = this.vs = this.flown = 0;
+    this.ahead = Infinity;
     this.next = 0;
-    this.best = Infinity;
   }
 
-  /** Lo que vira, la altura y la velocidad, de lo que manda el cuerpo. */
+  /** La altura sobre lo que tienes debajo (m). */
+  get agl(): number {
+    return this.alt - this.ground;
+  }
+  /** Cuánto más deprisa va todo por la altura (1 hasta `scaleAlt`; luego, en proporción). */
+  get scale(): number {
+    return Math.max(1, this.agl / MAP.scaleAlt);
+  }
+  /** La altura del centro del aro `i` (m). */
+  ringAlt(i: number): number {
+    const y = this.ringY[i];
+    return Number.isNaN(y) ? this.city.h + MAP.ringAgl : y;
+  }
+
+  /** Un fotograma: el ladeo y el viraje, la altura y la marcha, con su inercia; el suelo sostiene y la pared frena. */
   step(dt: number, I: MapIn): void {
-    const turn = MAP.turn * Math.max(-1, Math.min(1, I.u / Math.max(0.1, I.uMax)));
-    this.heading -= turn * dt; // (escorado a la derecha, viras a la derecha)
-    this.agl = Math.max(MAP.altMin, MAP.alt0 + (I.alt - I.alt0) * MAP.altK);
-    this.speed = Math.min(MAP.speedMax, Math.max(0, I.v) * MAP.speedK);
-    this.x += -Math.sin(this.heading) * this.speed * dt;
-    this.z += -Math.cos(this.heading) * this.speed * dt;
-  }
-
-  /**
-   * ¿Has pasado el aro que viene? Por dentro (cerca en planta y a su altura: `ringAgl` sobre su suelo, el que se sepa; aquí
-   * se compara la altura sobre el suelo), 'pass'; si lo dejas atrás sin pasarlo, 'miss'; si no, ''. Pasado o fallado, el
-   * siguiente (y, al acabar la ruta, vuelta a empezar por el primero).
-   */
-  judge(): '' | 'pass' | 'miss' {
-    const r = this.rings[this.next], d = Math.hypot(r.x - this.x, r.z - this.z);
-    let res: '' | 'pass' | 'miss' = '';
-    if (d < MAP.ringR + MAP.slack && Math.abs(this.agl - MAP.ringAgl) < MAP.ringR + MAP.slack) res = 'pass';
-    else if (this.best < 4 * MAP.ringR && d > this.best + MAP.missBack) res = 'miss';
-    this.best = Math.min(this.best, d);
-    if (res) {
-      if (res === 'pass') this.got++;
-      else this.missed++;
-      this.next = (this.next + 1) % this.rings.length;
-      this.best = Infinity;
+    if (dt <= 0) return;
+    const c = (v: number): number => Math.max(-1, Math.min(1, v));
+    // el ladeo sigue a lo que te escoras, con su inercia: entra y sale del viraje suave (antes viraba en seco)
+    this.bank += (c(I.steer) - this.bank) * (1 - Math.exp(-dt / MAP.bankTau));
+    this.heading -= MAP.turn * this.bank * dt; // (ladeado a la derecha, viras a la derecha)
+    const f = this.scale, cl = c(I.climb);
+    this.vs += ((cl > 0 ? MAP.climb : MAP.sink) * cl * f - this.vs) * (1 - Math.exp(-dt / MAP.vsTau));
+    this.alt = Math.min(MAP.altMax, this.alt + this.vs * dt);
+    // el suelo (o el tejado) te sostiene: nunca más cerca que `floor`, y te sube suave si se te echa encima
+    const low = this.ground + MAP.floor;
+    if (this.alt < low) {
+      this.alt += (low - this.alt) * Math.min(1, dt * 4);
+      if (this.vs < 0) this.vs = 0;
     }
-    return res;
+    // la marcha, con su inercia; ante una pared, no más de lo que da tiempo a frenar (y a `stopAt`, parado)
+    let want = MAP.cruise * Math.max(0, I.gas) * Math.pow(f, MAP.scalePow);
+    const room = this.ahead - MAP.stopAt;
+    if (room < want * MAP.aheadT) want = Math.max(0, room / MAP.aheadT);
+    this.speed += (want - this.speed) * (1 - Math.exp(-dt / (want < this.speed && room < this.speed * MAP.aheadT ? 0.25 : MAP.speedTau)));
+    if (room <= 0) this.speed = 0;
+    const d = this.speed * dt;
+    this.x += -Math.sin(this.heading) * d;
+    this.z += -Math.cos(this.heading) * d;
+    this.flown += d;
+    if (Number.isFinite(this.ahead)) this.ahead -= d; // (hasta que se vuelva a mirar)
   }
 
-  /** Hacia dónde queda el aro que viene respecto a hacia dónde vas (rad: + a la izquierda) y a cuánto (m). */
-  toNext(): { bearing: number; dist: number } {
+  /** ¿Has pasado por el aro que viene? (Por dentro: cerca de su centro, también en altura.) Pasado, el siguiente (y, al
+   * acabar la ruta, vuelta a empezar por el primero). No hay aros fallados: el que viene espera. */
+  judge(): boolean {
+    const r = this.rings[this.next];
+    if (Math.hypot(r.x - this.x, r.z - this.z, this.ringAlt(this.next) - this.alt) > MAP.ringR + MAP.slack) return false;
+    this.got++;
+    this.next = (this.next + 1) % this.rings.length;
+    return true;
+  }
+
+  /** Hacia dónde queda el aro que viene respecto a hacia dónde vas (rad: + a la izquierda), a cuánto (m) y cuánto más alto (m). */
+  toNext(): { bearing: number; dist: number; dy: number } {
     const r = this.rings[this.next], h = headingTo(this.x, this.z, r.x, r.z);
     this.toward.bearing = wrap(h - this.heading);
     this.toward.dist = Math.hypot(r.x - this.x, r.z - this.z);
+    this.toward.dy = this.ringAlt(this.next) - this.alt;
     return this.toward;
+  }
+
+  /**
+   * La Tierra es redonda: lejos del ancla, el mapa se curva hacia abajo. Pasados `reanchor` m, el ancla se pone debajo de ti
+   * (true: quien pinta el mapa lo recoloca ahí): tú, al origen; la altura, la de verdad sobre ese punto; los aros, respecto a
+   * él (sus alturas, por medir otra vez).
+   */
+  reanchor(): boolean {
+    const d = Math.hypot(this.x, this.z);
+    if (d < MAP.reanchor) return false;
+    const lat = this.anchor.lat + this.z / RE / K;
+    this.anchor.lon += -this.x / (RE * Math.cos(this.anchor.lat * K)) / K;
+    this.anchor.lat = Math.max(-89, Math.min(89, lat));
+    const up = Math.hypot(RE + this.alt, d) - RE - this.alt; // (lo que el mapa se había hundido bajo ti)
+    this.alt += up;
+    this.ground += up;
+    this.x = this.z = 0;
+    this.place();
+    this.ringY.fill(NaN);
+    this.ahead = Infinity;
+    return true;
   }
 }
 
-/** El rumbo de (x, z) a (tx, tz) (rad: 0 hacia −z, el norte; + hacia la izquierda, el oeste). */
+/** El rumbo de (x, z) a (tx, tz) (rad: 0 hacia −z; + hacia la izquierda, −x). */
 export function headingTo(x: number, z: number, tx: number, tz: number): number {
   return Math.atan2(-(tx - x), -(tz - z));
 }
