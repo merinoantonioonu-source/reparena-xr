@@ -455,6 +455,12 @@ No las cambies sin preguntarle.
   más en el valle. **El turbo por racha**: seis remos seguidos a buen ritmo (como mucho
   3,8 s entre uno y otro) lo encienden; cada remo sube un 25 % más, los puntos valen el doble, te pasan estelas de viento a los
   lados y el marcador lo dice; un parón de 3,5 s o un reto fallado lo apagan.
+  **Un jefe en cada zona** (reto 10 elegido por el usuario), además del dragón: al final del bosque, **el demonio** (bolas de
+  fuego); al final de la garganta, **el cíclope** (piedras); en la cima, **el yeti** (bolas de nieve). Llegan de un salto y se
+  plantan **de pie en el cable, unos 3,5 m por delante** (tumbado, a la vista, hacia los pies), te cortan el paso y pelean como
+  el dragón, pero más corto: **dos lanzamientos** por ronda de ataque (a la cara, aparta la cabeza; rasante, quédate abajo), se
+  marean, y con **dos golpes** (un remo explosivo o la carga) quedan derrotados y caen del cable. Solo en rondas de 50 m o más
+  y nunca pegados a otro jefe (12 m como poco); los retos, lejos de donde cortan el paso.
   **El jefe** (el dragón, en el último tramo, antes de la estación de la cima; con un solo tramo, sin jefe): te corta el paso (ni subes
   ni resbalas) y, casi encima de ti, escupe bolas de fuego con aviso (se echa atrás y ruge): **a la cara, aparta la cabeza**;
   **rasante por encima del cable, quédate abajo**. Tras tres, **se marea** y baja hasta encima de ti: **un remo explosivo o bajar

@@ -3,7 +3,7 @@
 // derrotado. Si no le das mareado, se recupera; tras dos veces, vale cualquier remo (la pelea siempre se acaba).
 import { describe, expect, it } from 'vitest';
 import { ROPE, RopeCourse, RopeRun } from '../../src/modes/bars/rope';
-import { BOSS, RopeBoss, type BossEnv, type BossEv } from '../../src/modes/bars/rope-boss';
+import { BOSS, MINI, RopeBoss, ropeBosses, type BossEnv, type BossEv } from '../../src/modes/bars/rope-boss';
 
 const DT = 1 / 72;
 const C = new RopeCourse([10, 12, 14].map((r) => r * ROPE.perRep), 5);
@@ -72,5 +72,29 @@ describe('el dragón', () => {
     R.rep(40, false);
     for (let t = 0; t < 3; t += DT) R.step(DT, true);
     expect(R.s).toBeGreaterThan(B.at + 0.5);
+  });
+});
+
+describe('un jefe en cada zona', () => {
+  it('en una ronda larga: el demonio, el cíclope y el yeti, por orden y separados, y el dragón al final', () => {
+    const L = new RopeCourse(Array(8).fill(15 * ROPE.perRep), 4), B = ropeBosses(L);
+    expect(B.map((x) => x.kind)).toEqual(['demon', 'cyclops', 'yeti', 'dragon']);
+    for (let i = 1; i < B.length; i++) expect(B[i].at - B[i - 1].at).toBeGreaterThanOrEqual(MINI.gap - 1e-6);
+    for (const x of B) expect(x.wave).toBe(L.wave(x.at));
+  });
+  it('en una ronda corta, sin los de cada zona (con un solo tramo, ni el dragón)', () => {
+    expect(ropeBosses(new RopeCourse([12 * ROPE.perRep], 2))).toEqual([]);
+    expect(ropeBosses(new RopeCourse([12 * ROPE.perRep, 12 * ROPE.perRep], 2)).map((x) => x.kind)).toEqual(['dragon']);
+  });
+  it('pelean igual pero más corto: dos lanzamientos por ronda y dos golpes', () => {
+    const L = new RopeCourse(Array(8).fill(15 * ROPE.perRep), 4), M = ropeBosses(L)[0], ev: BossEv[] = [];
+    for (let t = 0; t < 120 && M.st !== 'down'; t += DT) {
+      M.step(DT, env({ s: M.at, ...good(M) }));
+      ev.push(...M.ev);
+      M.ev.length = 0;
+    }
+    expect(M.st).toBe('down');
+    expect(ev.filter((e) => e.t === 'dodge').length).toBe(MINI.throws * MINI.hits);
+    expect(ev.filter((e) => e.t === 'burn').length).toBe(0);
   });
 });

@@ -430,6 +430,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Retos en la cuerda, parte 3 (un jefe en cada zona)**: `RopeBoss` admite otro jefe (`kind`, `at`, `throws`, `hits`;
+  `nThrows`, `nHits`) y `ropeBosses(C)` da los de la ronda por orden (el demonio, el cíclope y el yeti en `MINI.at`, si la ronda
+  mide 50 m o más y no quedan a menos de 12 m de otro, y el dragón); `BarsSystem.bosses`, con `boss`, el que toca (derrotado, el
+  siguiente). Los del cable, de pie en él a 3,5 m por delante, los pinta `rope-mini-look.ts` (el dragón sigue en
+  `rope-boss-look.ts`). Los retos a menos de 6 m de un jefe se quitan. Con esto, «Retos en la cuerda» está entero; falta que el
+  usuario lo vea en las gafas.
+
 - **Retos en la cuerda, parte 2 (agarre y fuerza)**: `onehand` (la mano de su lado suelta; `TrialEnv.rep`, cada remo), `reach`
   (un premio: la muñeca de su lado, `TrialEnv.wrist`, en el marco de la cuerda, llega a la gema; `RopeTrials` recibe el recorrido
   para saber dónde queda), `midhold` (la cabeza entre el 30 % y el 80 % de la subida) y `slow` (`TrialEnv.descent`: lo que
