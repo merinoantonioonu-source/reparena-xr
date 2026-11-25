@@ -79,7 +79,16 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 
 - **Modo ordenador** (la página sin gafas): flecha abajo (o S) para agacharse (al subir, el rayo sale solo al zombi más
   cercano, como en RepArena) y Enter para empezar. `window.__rx.snapshot()` da el estado de la partida en datos simples
-  (lo usa la partida simulada).
+  (lo usa la partida simulada). En la Travesía, además: Espacio salta, C se agacha, A/D dan un paso a un lado y P te echa
+  en plancha. El cuerpo del teclado se mueve en tiempo real (no con el tope de 50 ms por fotograma del resto del juego):
+  la Travesía mide tus movimientos con el reloj de verdad y, con el tope, a menos de 20 imágenes por segundo el cuerpo iba
+  a cámara lenta respecto al recorrido (los saltos no contaban).
+- **La partida simulada va sin tarjeta gráfica**, a 4-13 imágenes por segundo según la máquina (GitHub, 4-5): lo que juegue
+  tiene que mirar el estado (`snapshot()`: a cuánto está lo que viene y a qué velocidad vas; del jefe de la Travesía, qué
+  lanza, cuánto hace y cuándo llega) y no esperar un tiempo fijo, que solo vale en la máquina donde se midió. Lo que se
+  mantiene pulsado vale a cualquier ritmo; un salto (Espacio) solo se ve a más de unas 4 imágenes por segundo: que lo que
+  la prueba exige no dependa de saltar. `E2E_TREK_BOSS=1 npm run test:e2e` sigue la Travesía hasta derrotar al jefe del
+  tercer tramo (para probar su guion; no va en la comprobación de GitHub) y `E2E_TREK_SEED` cambia el recorrido.
 - **VR simulada** (unas Quest 3 emuladas, IWER): `npx @iwsdk/cli dev up --ai-mode agent` y luego, por ejemplo,
   `xr enter`, `xr look-at` y `xr select` (apuntar y apretar el gatillo), `xr animate-to` con `headset` (bajar la cabeza
   = sentadilla) o con una mano (sacudidas), `xr set-input-mode` (`hand`/`controller`), `ecs find`/`ecs query` (el

@@ -2002,14 +2002,19 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       // al suelo en plancha (con P, la flecha abajo es una flexión); con flexiones, siempre en plancha, y W echa el peso adelante
       const trek = settings.mode === 'trek', prone = trek && settings.exercise === 'pushup', duck = trek && kb.getKeyPressed('KeyC'), plank = trek && (prone || kb.getKeyPressed('KeyP'));
       const lean = prone || (trek && settings.exercise === 'lunge');
-      this.world.camera.position.z += ((lean && kb.getKeyPressed('KeyW') ? -0.16 : 0) - this.world.camera.position.z) * Math.min(1, dt * 8);
+      // el cuerpo del teclado se mueve en tiempo real (`delta`, sin el tope de 50 ms de lo demás), como un cuerpo de verdad,
+      // e igual vaya como vaya la imagen (`e6`, `e8`): la Travesía mide tus movimientos con el reloj de verdad y, con el tope, a
+      // menos de 20 imágenes por segundo el cuerpo iba a cámara lenta respecto al recorrido (a 10, el salto subía a menos de
+      // la velocidad que cuenta como salto y nunca se saltaba nada: le pasaba a la partida simulada, sin tarjeta gráfica)
+      const e6 = 1 - Math.exp(-6 * delta), e8 = 1 - Math.exp(-8 * delta);
+      this.world.camera.position.z += ((lean && kb.getKeyPressed('KeyW') ? -0.16 : 0) - this.world.camera.position.z) * e8;
       if (trek && kb.getKeyDown('Space') && this.desktopHop <= 0) this.desktopHop = 0.45;
-      this.desktopHop = Math.max(0, this.desktopHop - dt);
+      this.desktopHop = Math.max(0, this.desktopHop - delta);
       const hop = this.desktopHop > 0 ? 0.16 * Math.sin((Math.PI * (0.45 - this.desktopHop)) / 0.45) : 0;
-      this.desktopDrop += ((plank ? (down ? 1.28 : 1.1) : down ? 0.4 : duck ? 0.36 : 0) - this.desktopDrop) * Math.min(1, dt * 6);
+      this.desktopDrop += ((plank ? (down ? 1.28 : 1.1) : down ? 0.4 : duck ? 0.36 : 0) - this.desktopDrop) * e6;
       this.world.camera.position.y = 1.6 - this.desktopDrop + hop;
       const lat = trek ? (kb.getKeyPressed('KeyD') ? 0.4 : 0) - (kb.getKeyPressed('KeyA') ? 0.4 : 0) : 0;
-      this.desktopSide += (lat - this.desktopSide) * Math.min(1, dt * 8);
+      this.desktopSide += (lat - this.desktopSide) * e8;
       this.world.camera.position.x = this.desktopSide;
       if (kb.getKeyDown('Enter') && GAME.phase !== 'playing') {
         unlockAudio();
