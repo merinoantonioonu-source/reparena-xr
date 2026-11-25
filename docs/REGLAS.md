@@ -286,8 +286,12 @@ No las cambies sin preguntarle.
       (desde más alto la ciudad se ve mejor: de cerca, los edificios de Google se ven algo derretidos). **Primero lo de cerca**
       (con el registro del usuario: pidiendo la ciudad entera hasta el horizonte había siempre más de 1.000 trozos esperando,
       lo de debajo llegaba lo último y el juego iba a 17 imágenes por segundo): solo se pide lo que se va a ver, lo más
-      cercano primero; se ve hasta unas 30 veces tu altura (a 260 m, unos 8 km), con **calima** al fondo; y mientras hay cola
-      la nitidez se afloja sola (volando deprisa, algo menos de detalle; al ir despacio, se afina).
+      cercano primero; se ve hasta unas 30 veces tu altura (a 260 m, unos 8 km), con **calima** al fondo. **Lo de cerca,
+      nítido desde el primer momento** (pedido del usuario: los edificios se veían «fundidos» un par de minutos y luego
+      bien, porque mientras había cola se aflojaba la nitidez de todo el mapa y la ciudad se cargaba hasta tres veces): lo
+      de debajo de ti y alrededor se pide ya a la nitidez elegida; **lo lejano, con menos detalle** (la mitad al fondo, entre
+      la calima; con mucha cola, menos todavía, solo lo lejano); y solo volando muy deprisa para tu altura se afloja algo
+      lo de cerca (pasa tan rápido que no se aprecia).
     - **Desde cualquier lugar del mundo** (elegido por el usuario: «1 y 2»; «¿por qué hay que limitar a ciudades concretas?»):
       en «Volando: sobre el mapa», además de las cuatro ciudades, **«Tu lugar»** (unas coordenadas o un enlace largo de Google
       Maps pegados en la página, en «Volar sobre el mapa» → «Tu lugar»; viaja con la sincronización) y **«Donde lo dejaste»**

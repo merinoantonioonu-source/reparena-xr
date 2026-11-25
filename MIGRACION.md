@@ -596,6 +596,17 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
     se afloja con la cola (`errK`, hasta × `ERR_MAX`); se ve hasta `FAR_K` veces la altura (`FAR_MIN`), con la niebla de la
     escena de calima (`MAPVIEW.haze`: `EnvSystem.arenaFog` la deja en paz sobre el mapa); menos rayos (lo de delante solo en
     marcha y cerca del suelo; los aros, un punto cada vez y de cerca). El registro apunta las imágenes por segundo.
+  - **Los edificios, «fundidos» un par de minutos** (el usuario, con buena conexión; su registro: «procesando 215-241» y
+    nitidez 57 → 49 → 30 → 20 a los 6, 51, 96 y 141 s, a 22 imágenes por segundo): aflojar la nitidez de **todo** el mapa con
+    la cola (`errK`) hacía que la ciudad se cargara hasta tres veces, cada vez con más detalle, y lo de cerca no llegaba al
+    suyo hasta vaciarse la cola. Ahora (`map-detail.ts`, lógica pura con pruebas): lo de cerca se pide a la nitidez del
+    ajuste desde el primer momento (los trozos ya van del más cercano al más lejano) y solo se afloja volando muy deprisa
+    para la altura (`nearRelax`); lo lejano pide menos detalle con lo de serie de la librería (`errorFalloff` y
+    `errorFalloffDensity`, como el «dynamicScreenSpaceError» de Cesium: `farFactor`, × 2 y, con mucha cola, hasta × 4;
+    `fallDist`, a 12 veces la altura); y 6 trozos procesándose a la vez (`PARSE_JOBS`; la cola arranca como mucho esos por
+    imagen). El registro apunta los trozos cargados por segundo y la nitidez de cerca y de lejos, más a menudo al principio.
+    Por confirmar en las gafas (las imágenes por segundo dependen sobre todo de lo que se pinta: con menos trozos lejanos
+    deberían subir).
   - **Los mandos frenaban solos**: `HandLine` tomaba su referencia una vez (al calibrar o al volver a poner el centro, en la
     postura que fuera) y, recolocado un palmo, leía «atrás»: la pica, frenando del todo (`bk` 1000 más de la mitad del
     tiempo), y en pica no se sube ni se baja. Ahora la referencia sigue despacio (`HL.adapt`) y da el impulso (`kick`).

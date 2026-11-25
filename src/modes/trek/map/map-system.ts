@@ -28,6 +28,7 @@ import { FLY } from '../plat/fly.js';
 import { TrekSystem } from '../trek-system.js';
 import { GOOGLE_3D_ASSET, mapKey, mapLog, mapStart, setMapLast } from './map-key.js';
 import { headingTo, MAP, MapFlight, type MapIn } from './map-route.js';
+import { DETAIL, fallDist, farFactor, nearRelax } from './map-detail.js';
 
 const DEG = Math.PI / 180, RE = 6371000;
 /** Lo más cerca que se pone el fondo de lo que se pinta (m: la ciudad entera; más alto, hasta el horizonte), cada cuánto se
@@ -39,10 +40,10 @@ const GROUND_T = 0.4, AHEAD_T = 0.25, RING_T = 0.5, CACHE_BYTES = 600 * 1024 * 1
  * se pedían miles de trozos, la cola nunca se vaciaba (más de 1.000 esperando siempre) y el juego iba a 17 imágenes por
  * segundo, con lo de cerca borroso. */
 const FAR_K = 30, FAR_MIN = 6000, HAZE = 1.5;
-/** La nitidez: lo que vale cada nivel del ajuste (píxeles de error: el ajuste × esto; las gafas pintan 2.640 píxeles de
- * alto por ojo, así que 8 píxeles era pedir muchísimo), y lo que se afloja con la cola llena (hasta × `ERR_MAX`: a partir de
- * `BACKLOG0` trozos esperando, uno más por cada `BACKLOG_K`), para que lo de cerca llegue enseguida. */
-const ERR_K = 2.5, ERR_MAX = 3, BACKLOG0 = 40, BACKLOG_K = 120;
+/** La nitidez (`map-detail.ts`): lo de cerca, la del ajuste desde el primer momento; lo lejano, con menos detalle. Lo que
+ * tardan en asentarse sus cambios (s) y los trabajos de procesar trozos a la vez (la cola arranca como mucho estos en cada
+ * imagen: con 4 y a 22 imágenes por segundo, había siempre más de 200 trozos ya bajados esperando su turno). */
+const DETAIL_TAU = 2.5, PARSE_JOBS = 6;
 /** El aro se mide en su centro y en cuatro puntos de su borde (× su radio): vale lo más alto. */
 const RING_AT: readonly [number, number][] = [[0, 0], [0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]];
 const AX_Y = new Vector3(0, 1, 0), AX_Z = new Vector3(0, 0, 1);
@@ -84,6 +85,10 @@ export class MapSystem extends createSystem({}) {
   private fogWas: { color: number; density: number } | null = null;
   private readonly hazeC = new Color();
   private errK = 1;
+  /** Cuánto más error admite lo lejano que lo cercano (suavizado). */
+  private farK: number = DETAIL.far;
+  /** Los trozos cargados desde la última línea del registro. */
+  private got = 0;
   private errT = 0;
   private frames = 0;
   private framesT = 0;
@@ -175,7 +180,8 @@ export class MapSystem extends createSystem({}) {
     }
     // (y cómo va, cada rato: para saber dónde se atasca o si la memoria se llena)
     if (this.waitT > this.nextState && this.nextState < 200) {
-      this.nextState += this.loaded ? 45 : 15;
+      // (al principio, más a menudo: es cuando se ve si lo de cerca tarda en afinarse)
+      this.nextState += !this.loaded ? 15 : this.waitT < 40 ? 12 : 45;
       this.log(this.stateOf(tiles));
     }
     // el vuelo: lo que manda el cuerpo (el planeador de la Travesía: lo que te escoras y lo que subes o bajas) y la marcha
@@ -308,13 +314,17 @@ export class MapSystem extends createSystem({}) {
       fog.density = HAZE / (this.farNow * 1.2);
       fog.color.copy(this.hazeC.setRGB(MAPVIEW.haze[0], MAPVIEW.haze[1], MAPVIEW.haze[2]));
     }
-    // la nitidez: la del ajuste, aflojada mientras haya muchos trozos esperando (lo de cerca llega antes)
+    // la nitidez: cerca, la del ajuste (algo menos solo volando muy deprisa para tu altura); lejos, menos detalle (y, con
+    // mucha cola, menos todavía). Antes se aflojaba todo el mapa mientras hubiera cola: la ciudad se cargaba tres veces y
+    // lo de cerca se veía «fundido» un par de minutos
     this.errT -= dt;
     if (this.errT <= 0 && tiles.root) {
+      const step = 0.5 - this.errT, k = 1 - Math.exp(-step / DETAIL_TAU);
       this.errT = 0.5;
       const S = (tiles as unknown as { stats: Record<string, number> }).stats, wait = S.parsing + S.queued + S.downloading;
-      this.errK += (Math.max(1, Math.min(ERR_MAX, 1 + (wait - BACKLOG0) / BACKLOG_K)) - this.errK) * 0.35;
-      tiles.errorTarget = (num('flyMapSharp') || 8) * ERR_K * this.errK;
+      this.errK += (nearRelax(F.speed, F.agl) - this.errK) * k;
+      this.farK += (farFactor(wait) - this.farK) * k;
+      this.applyDetail(tiles, F.agl);
     }
     // los mapas: desde la cámara de ahora (en las gafas, la de los dos ojos)
     const r = this.world.renderer as WebGLRenderer, cam = (r.xr.isPresenting ? r.xr.getCamera() : this.world.camera) as PerspectiveCamera;
@@ -353,10 +363,10 @@ export class MapSystem extends createSystem({}) {
       // solo lo que se va a ver y lo más cercano primero (lo de serie carga además todos los trozos de menos detalle de
       // cada sitio, de lejos a cerca: lo de debajo de ti llegaba lo último)
       (tiles as unknown as { loadAncestors: boolean }).loadAncestors = false;
-      tiles.parseQueue.maxJobs = 4;
+      tiles.parseQueue.maxJobs = PARSE_JOBS;
       tiles.addEventListener('load-root-tileset', () => {
         // la nitidez: la que elijas (lo de Google pone la suya al recibir el índice)
-        tiles.errorTarget = (num('flyMapSharp') || 8) * ERR_K * this.errK;
+        this.applyDetail(tiles, this.flight?.agl ?? MAP.alt0);
         this.log('índice del mapa recibido');
       });
       tiles.addEventListener('tile-download-start', () => {
@@ -369,6 +379,7 @@ export class MapSystem extends createSystem({}) {
         // (fotos de verdad: sin cómic, sin contorno de tinta y sin la niebla de la Travesía)
         if (!this.loaded) this.log('primer trozo del mapa cargado');
         this.loaded = true;
+        this.got++;
         e.scene.traverse((o) => {
           o.userData.noInk = true;
           const ms = (o as Mesh).material;
@@ -397,6 +408,8 @@ export class MapSystem extends createSystem({}) {
       this.loaded = this.asked = false;
     }
     this.errK = 1;
+    this.farK = DETAIL.far;
+    this.got = 0;
     this.errT = 0;
     this.frames = this.framesT = 0;
     const fog = (this.world.scene as unknown as { fog: { color: Color; density: number } | null }).fog;
@@ -484,14 +497,22 @@ export class MapSystem extends createSystem({}) {
     HOOKS.say('Mapa: no carga · mira la página', '#ff8a3d', 4, true);
   }
 
+  /** Pone en la librería la nitidez de cerca (el ajuste) y la de lejos (su `errorFalloff`: menos detalle con la distancia). */
+  private applyDetail(tiles: TilesRenderer, agl: number): void {
+    const near = (num('flyMapSharp') || 8) * DETAIL.errK * this.errK, T = tiles as unknown as { errorFalloff: number; errorFalloffDensity: number };
+    tiles.errorTarget = near;
+    T.errorFalloff = near * (this.farK - 1);
+    T.errorFalloffDensity = 1 / fallDist(agl);
+  }
+
   /** Cómo va la carga: la raíz (0 sin pedir, 2 bajando, 4 recibida, −1 fallida), los trozos en cada paso, lo que ocupan en
    * memoria, la nitidez y la resolución. */
   private stateOf(tiles: TilesRenderer): string {
     const S = (tiles as unknown as { stats: Record<string, number> }).stats, r = this.world.renderer as WebGLRenderer, C = tiles.lruCache as unknown as { cachedBytes: number; isFull(): boolean };
     r.getSize(this.size);
-    const fps = this.framesT > 0 ? Math.round(this.frames / this.framesT) : 0;
-    this.frames = this.framesT = 0;
-    return `a los ${Math.round(this.waitT)} s · ${fps} img/s · raíz ${(tiles as unknown as { rootLoadingState: number }).rootLoadingState} · en cola ${S.queued} · bajando ${S.downloading} · procesando ${S.parsing} · cargados ${S.loaded} · fallidos ${S.failed} · visibles ${tiles.visibleTiles.size} · memoria ${Math.round(C.cachedBytes / 1e6)} MB${C.isFull() ? ' (llena)' : ''} · nitidez ${Math.round(tiles.errorTarget)} · se ve a ${Math.round(this.farNow / 1000)} km · ${this.size.x}×${this.size.y}${r.xr.isPresenting ? ' (VR)' : ''}`;
+    const fps = this.framesT > 0 ? Math.round(this.frames / this.framesT) : 0, rate = this.framesT > 0 ? (this.got / this.framesT).toFixed(1) : '0';
+    this.frames = this.framesT = this.got = 0;
+    return `a los ${Math.round(this.waitT)} s · ${fps} img/s · raíz ${(tiles as unknown as { rootLoadingState: number }).rootLoadingState} · en cola ${S.queued} · bajando ${S.downloading} · procesando ${S.parsing} · cargados ${S.loaded} (${rate} por s) · fallidos ${S.failed} · visibles ${tiles.visibleTiles.size} · memoria ${Math.round(C.cachedBytes / 1e6)} MB${C.isFull() ? ' (llena)' : ''} · nitidez ${Math.round(tiles.errorTarget)} (lejos ${Math.round(tiles.errorTarget + (tiles as unknown as { errorFalloff: number }).errorFalloff)}) · se ve a ${Math.round(this.farNow / 1000)} km · ${this.size.x}×${this.size.y}${r.xr.isPresenting ? ' (VR)' : ''}`;
   }
 
   /** Al diagnóstico y al registro del mapa (que enseña la página: no se borra a los 30 s). */
