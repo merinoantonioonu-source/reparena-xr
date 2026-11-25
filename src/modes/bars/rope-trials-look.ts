@@ -21,7 +21,7 @@ interface Bee {
   mixer: AnimationMixer | null;
 }
 
-/** Donde está tu cabeza y hacia dónde: arriba (el cielo), hacia lo alto de tu cabeza (`fwd`) y a un lado (`right`), en el mundo. */
+/** Donde está tu cabeza y hacia dónde: arriba (el cielo), hacia donde subes (`fwd`: tus pies) y a un lado (`right`), en el mundo. */
 export interface LookFrame {
   head: Vector3;
   up: Vector3;
@@ -182,7 +182,7 @@ export class RopeTrialsLook {
       }
   }
 
-  // las abejas: bajan por el cable desde delante y arriba hasta tu cara (en su momento) y siguen hacia tus pies
+  // las abejas: bajan por el cable desde delante y arriba hasta tu cara (en su momento) y siguen de largo
   private swarm(T: Trial, F: LookFrame, t: number): boolean {
     const come = TRIAL.come.swarm, k = T.t / come;
     for (let i = 0; i < this.bees.length; i++) {

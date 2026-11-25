@@ -1,11 +1,11 @@
 /**
  * Lo que se ve de la aventura en la cuerda (src/modes/bars/rope.ts): la ladera del valle con sus pinos, las torres de madera
- * y la cuerda, que bajan hacia tus pies a medida que subes. Tumbado bajo las paralelas, la cuerda sigue la línea de lo que agarras: con **dos paralelas**, dos cables (cada
+ * y la cuerda, que bajan y pasan por encima de ti, hacia atrás, a medida que subes. Tumbado bajo las paralelas, la cuerda sigue la línea de lo que agarras: con **dos paralelas**, dos cables (cada
  * paralela es un trozo de su cable, que sigue delante y detrás); con **una**, cruzada sobre ti, un cable que pasa por encima
- * de su centro, a lo largo de tu cuerpo, y la barra cuelga de él por una polea. Delante (hacia lo alto de tu cabeza) la
- * cuerda sube recta con la cuesta del tramo; al final, en vertical junto a la torre, hacia su plataforma.
+ * de su centro, a lo largo de tu cuerpo, y la barra cuelga de él por una polea. Delante (hacia tus pies: tumbado, lo que
+ * se ve sin echar la cabeza atrás) la cuerda sube recta con la cuesta del tramo; al final, en vertical junto a la torre, hacia su plataforma.
  *
- * El mundo no se inclina (el cielo sigue arriba): subir es que el valle entero baje y vaya hacia tus pies. Todo cuelga de un
+ * El mundo no se inclina (el cielo sigue arriba): subir es que el valle entero baje y venga hacia ti. Todo cuelga de un
  * grupo (`track`) que se desplaza cada fotograma: el suelo (una malla de la ladera, hecha una vez por ronda), los pinos, las
  * piedras y las torres (instancias, al cambiar de trozo) y los cables (cada fotograma, sin crear nada).
  */
@@ -256,16 +256,16 @@ export class RopeScene {
     return this.laneY;
   }
 
-  /** Hacia dónde mira la escena (rad: lo alto de tu cabeza; la foto de fondo se gira igual). */
+  /** Hacia dónde mira la escena (rad: hacia donde subes, tus pies; la foto de fondo se gira igual). */
   get yaw(): number {
     return this.frame.rotation.y;
   }
 
   /** Al colgarte: dónde está la cuerda (el centro de las paralelas, a su altura, `x`, `y`, `z`), hacia dónde sube (`fx`,
-   * `fz`: hacia lo alto de tu cabeza, en horizontal) y los cables (`one`: una paralela; `gap`: la separación de las dos). */
+   * `fz`: hacia tus pies, en horizontal: lo que se ve tumbado) y los cables (`one`: una paralela; `gap`: la separación de las dos). */
   place(x: number, y: number, z: number, fx: number, fz: number, one: boolean, gap: number): void {
     this.frame.position.set(x, y, z);
-    this.frame.rotation.set(0, Math.atan2(-fx, -fz), 0); // (su −z, hacia lo alto de tu cabeza)
+    this.frame.rotation.set(0, Math.atan2(-fx, -fz), 0); // (su −z, hacia donde subes)
     this.lanes = one ? [0] : [-gap / 2, gap / 2];
     this.laneY = one ? PULLEY_UP : 0;
     this.placed = true;
@@ -285,7 +285,7 @@ export class RopeScene {
     }
     if (!on) return;
     const C = this.course!;
-    // subir: el cañón baja y va hacia tus pies (lo de s queda en tus manos)
+    // subir: el valle baja y viene hacia ti (lo de s queda en tus manos)
     this.track.position.set(0, -C.y(s), C.h(s));
     // el mar de la costa: a su nivel, con sus olas quietas en el recorrido (bajan contigo al subir)
     const coast = this.world === 'coast';

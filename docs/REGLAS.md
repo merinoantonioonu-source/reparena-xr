@@ -379,7 +379,9 @@ No las cambies sin preguntarle.
   plataforma de una torre a la siguiente, con su cuesta fija (de 30° a 42°), y lo último, **en vertical** por una cuerda fija
   junto a la torre hasta su plataforma (se ve sobre ti: el tramo superado). **Nada flota**: la ladera es un suelo de verdad,
   las torres apoyan en él sus patas y cada árbol, su tronco (y lejos de la cuerda). El cielo sigue arriba (el mundo no se
-  inclina: subir es que el valle baje hacia tus pies). Con dos paralelas, dos cables; con una, un cable por encima y la barra
+  inclina: subir es que el valle baje y venga hacia ti). **La cuerda sube hacia tus pies** (corregido por el usuario con su
+  vídeo: subía hacia lo alto de la cabeza y había que mirar hacia atrás para ver adónde ibas): tumbado, lo que se acerca se ve
+  sin echar la cabeza atrás. Con dos paralelas, dos cables; con una, un cable por encima y la barra
   colgada de una polea. **Fondo realista según la altura** (elegido por el usuario: «sigue tus propuestas», con la lógica del
   mundo real: «no pongas el fondo en el cielo»): abajo, los Alpes desde el valle; a media subida, la montaña y el valle y las
   colinas con nubes; en el último tramo, la vista desde la cima. La foto solo pone lo lejano (el cielo y las montañas del
