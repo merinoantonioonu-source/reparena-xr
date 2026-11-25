@@ -81,6 +81,7 @@ import { exSongsStart, pulse, spotify } from '../services/hub.js';
 import { TouchSystem } from '../modes/touch/touch-system.js';
 import { TrekSystem } from '../modes/trek/trek-system.js';
 import { MapSystem } from '../modes/trek/map/map-system.js';
+import { placeText } from '../modes/trek/map/map-place.js';
 import { tramoBiome, worldLenFor, worldNo, worldOf, worldStart, WORLDS, type WorldKey } from '../modes/trek/plat/worlds.js';
 import { trekBoardSpot, type BoardSpot } from '../modes/trek/board-spot.js';
 import { curEx } from '../ui/fields.js';
@@ -707,8 +708,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
           // sobre el mapa: la ciudad, la velocidad y la altura, y el aro que viene (nada de mundos, energía ni doradas)
           const far = (m: number): string => (m >= 1000 ? `${(m / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(m / 10) * 10} m`);
           lines[0] = `${M.city} · ${Math.round(M.kmh)} km/h · a ${far(M.agl)} del suelo`;
-          lines[1] = `Aro: ${M.next} · ${far(M.dist)}${Math.abs(M.dy) > 25 ? ` · ${M.dy > 0 ? 'sube' : 'baja'} ${far(Math.abs(M.dy))}` : ''}`;
-          lines[2] = `Aros pasados: ${M.got}`;
+          // (con ruta, el aro que viene; desde un lugar cualquiera, por dónde vas)
+          lines[1] = M.next ? `Aro: ${M.next} · ${far(M.dist)}${Math.abs(M.dy) > 25 ? ` · ${M.dy > 0 ? 'sube' : 'baja'} ${far(Math.abs(M.dy))}` : ''}` : placeText(M.lat, M.lon);
+          lines[2] = `Marcha ${Math.round(M.gear)}${M.next ? ` · Aros: ${M.got}` : ''}`;
         } else if (h) {
           lines[0] = `${Math.floor(h.dist)} m · ${h.kmh.toFixed(1).replace('.', ',')} km/h${h.turbo ? ' · TURBO' : ''}`;
           lines[1] = (h.stop === 'chest' ? `Tramo ${h.tramo + 1}: ¡cofre!` : h.boss ? `Tramo ${h.tramo + 1}: ¡jefe! Le quedan ${h.boss}` : `Tramo ${h.tramo + 1}: faltan ${Math.ceil(h.left)} m`) + (h.goldOf ? ` · ★ ${h.gold}/${h.goldOf}` : '');
@@ -1096,7 +1098,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // (la Travesía, al empezar un mundo nuevo: su nombre y que hay que cruzar el portal)
     const travel = !trek && TRAVEL.on && travelsAt(TRAVEL.route as Place[], i, TRAVEL.per);
     const evName = !trek && WAVE_EV.kind ? WAVE_EVENT_NAME[WAVE_EV.kind as WaveEvent] : '';
-    const t3 = M ? `Sigue los aros · ${M.next}` : newWorld ? `¡MUNDO ${worldNo(i, wl) + 1}: ${worldOf(i, wl).name}! Cruza el portal` : travel ? `¡Portal! Llegas a ${PLACE_NAME[this.placeOf(i)].toLowerCase()}${evName ? ' · ' + evName : ''}` : evName ? evName : nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
+    const t3 = M ? (M.next ? `Sigue los aros · ${M.next}` : 'Vuelo libre') : newWorld ? `¡MUNDO ${worldNo(i, wl) + 1}: ${worldOf(i, wl).name}! Cruza el portal` : travel ? `¡Portal! Llegas a ${PLACE_NAME[this.placeOf(i)].toLowerCase()}${evName ? ' · ' + evName : ''}` : evName ? evName : nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
     const W = trek ? 'TRAMO' : 'OLEADA', place = M ? ` · ${M.city}` : trek ? ` · ${tramoBiome(i, wl).name}` : '';
     drawWave(p.ctx, p.W, p.H, (last ? (trek ? '¡ÚLTIMO TRAMO!' : '¡ÚLTIMA OLEADA!') : N ? `${W} ${i + 1} DE ${N}` : `${W} ${i + 1}`) + place, `${GAME.score} puntos`, t3, newWorld || travel ? '#bff4ff' : evName ? '#ffd166' : nw ? '#ff8a3d' : '#3cf0c6');
     p.tex.needsUpdate = true;

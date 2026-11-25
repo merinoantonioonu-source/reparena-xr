@@ -575,6 +575,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
     adelante se mide ahí; girar la cabeza no mueve la lectura.
   **Pendiente con el usuario**: las imágenes por segundo de verdad (en el registro), si los impulsos salen cuando quiere y
   no cuando no, y si frena sin querer al bajar en la flexión.
+- **El mapa, desde cualquier lugar** (elegido por el usuario: «1 y 2»): `map-place.ts` (lógica pura, `parsePlace`: coordenadas
+  con punto o a la española, grados-minutos-segundos y enlaces largos de Google Maps —`!3d…!4d…`, `@lat,lon`, `?q=`—;
+  `tests/unit/map-place.test.ts`); en `map-key.ts`, el lugar del jugador (`reparenaxr-mapplace`, que viaja con la
+  sincronización: `SYNC_KEYS`), donde lo dejó (`reparenaxr-maplast`: se guarda cada 5 s en vuelo) y `mapStart()`, de dónde
+  se sale según «Volando: sobre el mapa» (una ciudad, `place` o `last`). Un lugar es una `City` sin ruta: `MapFlight` vuela
+  sin aros (ni flecha ni haz) y `setGround` te pone, la primera vez que se mide el suelo, a tu altura de salida sobre él (el
+  de un lugar cualquiera no se sabe de antemano). La página lo pone en «Volar sobre el mapa» → «Tu lugar»
+  (`src/page/map-page.ts`) y elige `flyMap = place` al guardarlo.
 
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):
   el centro del vuelo (`FlyBody`, y `BodyMoves.x0`) se tomaba al calibrar **antes** de que el mundo se deslizara 0,8 s para
