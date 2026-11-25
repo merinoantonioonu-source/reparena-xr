@@ -447,8 +447,8 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   pero sin conectar. Ahora, con la solución de IWSDK: `sceneUnderstanding` y `xr.features.anchors` en `iwsdk.config.json`, una
   entidad con `XRAnchor` (`BarsSystem.anchorProbe`; IWSDK la cuelga del grupo de su ancla persistente, la misma en todas las
   sesiones) y cada aparato respecto a ella (`EqPose.a`, en `reparenaxr-equip-anchor`; `equipAnchorFrame`). Solo con el
-  jugador de IWSDK sin mover (en Barras, siempre). Pendiente: que el usuario lo confirme en las gafas (hay que colocarlas una
-  vez más). (2) `RopeRun`: cada remo, un tirón (`pull(f)`: lo que llevas subido el pecho te sube un 70 % del remo pegado a los
+  jugador de IWSDK sin mover (en Barras, siempre). *Cambiado en el PR 131*: puesta en la configuración, el ancla cerraba la
+  sesión de VR en las gafas; ahora va detrás de «Barras: recordar el sitio en la habitación» (ver Fallos de IWSDK). (2) `RopeRun`: cada remo, un tirón (`pull(f)`: lo que llevas subido el pecho te sube un 70 % del remo pegado a los
   brazos; `rep`, el resto con inercia, `PULL.glideT`); ya no hay marcha continua ni ritmo (`v0`, `vMax`, `repT` quitados).
   Pendiente: la cuerda continua sin pliegues, las plataformas y los mundos (a, b y d del usuario), con propuestas.
 
@@ -1480,15 +1480,20 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos de IWSDK
 
-- **Por confirmar en las gafas: el ancla del mundo cierra la sesión de VR.** Con `features.anchors` y `sceneUnderstanding` en
-  `iwsdk.config.json` (el ancla persistente de los aparatos de Barras, PR 127), en las Quest 3 la sesión se cerraba sola al
-  segundo de entrar, en todos los modos: un solo fotograma, ninguno más y «al salir de la VR», sin ningún error apuntado
-  (diagnóstico del usuario del 25/11; en el emulador no pasa). Es lo único que había cambiado en cómo se abre la sesión
-  desde la última vez que le funcionó, y `SceneUnderstandingSystem` crea su ancla (`frame.createAnchor`) justo en los
-  primeros fotogramas. Se han quitado los dos del proyecto para poder entrar (los aparatos de Barras vuelven a recordarse
-  como antes: `XRAnchor` sin el sistema no hace nada) y el diagnóstico apunta ahora cómo empieza y acaba la sesión
-  (`sesión de VR: …`, la gráfica perdida y los errores sin atrapar). Para volver a ponerlo: probarlo en las gafas, a poder
-  ser solo en Barras y detrás de un ajuste.
+- **El ancla del mundo, puesta en la configuración, cierra la sesión de VR** (confirmado por el usuario: al quitarla, «ahora
+  sí entra»). Con `features.anchors` y `sceneUnderstanding` en `iwsdk.config.json` (el ancla persistente de los aparatos de
+  Barras, PR 127), en las Quest 3 la sesión se cerraba sola al segundo de entrar, en todos los modos: un solo fotograma,
+  ninguno más y «al salir de la VR», sin ningún error apuntado (diagnóstico del usuario del 25/11; en el emulador no pasa).
+  Así, IWSDK pide `anchors` en todas las sesiones y `SceneUnderstandingSystem` crea su ancla (`frame.createAnchor`) en el
+  primer fotograma, se juegue a lo que se juegue. Arreglo mínimo (PR 131, **por confirmar en las gafas**): el ancla sale de
+  la configuración y vuelve como ajuste, «Barras: recordar el sitio en la habitación» (`barsAnchor`, *en pruebas*, apagado
+  de serie), en `src/modes/bars/room-anchor.ts`: apagado, ni se pide `anchors` ni se registra el sistema (todo como en el
+  PR 130); encendido, `anchors` se añade a lo que pide IWSDK al entrar (como el seguimiento del cuerpo) y el sistema de
+  IWSDK se registra **parado**: `BarsSystem.stepAnchor` lo echa a andar solo en Barras y con la sesión asentada (3 s). Va
+  vigilado (`anchor-guard.ts`, `reparenaxr-anchor-try`): antes de cada paso (entrar con las anclas pedidas; crear o
+  recuperar el ancla) se apunta, y se borra cuando la sesión lo aguanta; si al volver a entrar el apunte sigue ahí, el
+  ajuste se apaga solo y la página lo cuenta. Cada paso sale en el diagnóstico (`ancla: …`): si vuelve a cerrarse, dirá en
+  cuál (pedir la característica, recuperar la guardada o crearla) y habrá que hacer ese paso de otra forma.
 
 *(Desde el PR 31, los menús son los de RepArena y no usan `PokeInteractable` ni los paneles de UIKitML: los apaños de abajo
 para el toque, la mano que atraviesa y la letra se quedan apuntados por si se vuelve a lo de IWSDK.)*

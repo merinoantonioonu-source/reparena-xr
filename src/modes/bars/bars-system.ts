@@ -18,6 +18,8 @@ import { setSetting } from '../../core/settings.js';
 import { HangScene } from './hang-scene.js';
 import { BUBBLE_SPLASH, createBubble, createDipBars, createDoorBar, type BarRigParts, type BubbleParts } from '../../scene-assets/bars.scene-asset.js';
 import { BarDetector, powRgb } from './detect.js';
+import { ANCHOR_MAKE_T, ANCHOR_SAFE_T } from './anchor-guard.js';
+import { askRoomAnchor, ROOM, roomRisk, roomSafe } from './room-anchor.js';
 import { dipOne, eqName, eqPose, equipAnchorFrame, loadEquip, type Equip, type FloorPose } from './equip.js';
 import { yawOf } from './env.js';
 import { diagEvent } from '../../core/diag.js';
@@ -59,6 +61,9 @@ export class BarsSystem extends createSystem({}) {
   private anchorProbe: Entity | null = null;
   private wasXR = false;
   private anchorFrames = 0;
+  /** El ancla, paso a paso: 0, esperando a que la sesión se asiente; 1, asentada; 2, IWSDK en marcha; 3, dado por bueno. */
+  private anchorStep = 0;
+  private anchorT = 0;
   private readonly anchorPose: FloorPose = { x: 0, z: 0, yaw: 0 };
   private mstate: BState = 'off';
   private readonly arena = { x: 0, z: 0, ry: 0 };
@@ -144,6 +149,7 @@ export class BarsSystem extends createSystem({}) {
     // el ancla persistente del mundo (la de IWSDK: la misma en todas las sesiones): los aparatos se recuerdan respecto a ella
     this.anchorProbe = this.world.createTransformEntity(new Group());
     this.anchorProbe.addComponent(XRAnchor);
+    askRoomAnchor(this.world);
     this.gates = this.world.getSystem(GateSystem) ?? null;
     // la línea luminosa entre tus manos al colocar el aparato
     this.line = new Mesh(new CylinderGeometry(0.012, 0.012, 1, 8), new MeshBasicMaterial({ color: 0x3cf0c6, toneMapped: false }));
@@ -361,7 +367,7 @@ export class BarsSystem extends createSystem({}) {
 
   update(dt: number, time: number): void {
     this.clock += dt;
-    this.stepAnchor();
+    this.stepAnchor(dt);
     if (!this.on) {
       if (this.entries.length || this.mstate !== 'off') this.clear();
       this.line.visible = false;
@@ -397,26 +403,60 @@ export class BarsSystem extends createSystem({}) {
     this.syncTargets(dt);
   }
 
-  // el ancla del mundo (IWSDK: XRAnchor, restaurada en cada sesión): en cuanto está en su sitio, los aparatos vuelven al suyo
-  // de la habitación, aunque el origen de las gafas sea otro (pedido del usuario: tenía que recolocarlas en cada partida)
-  private stepAnchor(): void {
+  // el ancla de la habitación (IWSDK: XRAnchor, restaurada en cada sesión; «en pruebas», room-anchor.ts): en cuanto está en su
+  // sitio, los aparatos vuelven al suyo de la habitación, aunque el origen de las gafas sea otro (pedido del usuario: tenía
+  // que recolocarlas en cada partida). Paso a paso y vigilado: con el ancla en la configuración, la sesión se cerraba sola
+  private stepAnchor(dt: number): void {
     const P = this.anchorProbe, xr = this.world.renderer.xr.isPresenting;
     if (!P) return;
     if (xr !== this.wasXR) {
       // (sesión nueva: hasta que IWSDK recupere el ancla de esta sesión, nada)
       this.wasXR = xr;
       this.anchorFrames = 0;
+      this.anchorT = 0;
+      this.anchorStep = 0;
       if (P.hasComponent(XRAnchor)) P.setValue(XRAnchor, 'attached', false);
+      if (!xr && ROOM.note) {
+        // (al salir, la página cuenta que el ancla se apagó sola)
+        const st = document.getElementById('xrStatus');
+        if (st) st.textContent = (st.textContent ? st.textContent + ' ' : '') + ROOM.note;
+      }
+    }
+    const S = ROOM.sys;
+    if (!xr || !ROOM.asked || !S) {
+      if (this.eq.a2l) equipAnchorFrame(this.eq, null, (k, v) => store(k, v));
+      return;
+    }
+    this.anchorT += dt;
+    // paso 1: la sesión aguanta con las anclas pedidas (y, si la había, con la guardada recuperada)
+    if (this.anchorStep === 0 && this.anchorT >= ANCHOR_SAFE_T) {
+      this.anchorStep = 1;
+      roomSafe();
+      diagEvent('ancla: la sesión aguanta con ella pedida');
+    }
+    // paso 2: solo en Barras y si el navegador la concede, el sistema de IWSDK echa a andar (crea el ancla o usa la recuperada)
+    if (this.anchorStep === 1 && ROOM.got && this.on) {
+      this.anchorStep = 2;
+      this.anchorT = 0;
+      roomRisk('crear');
+      diagEvent('ancla: en Barras, IWSDK la pone en marcha');
+      S.play();
+    }
+    // (sin ancla a tiempo, el paso se da por bueno: lo que se vigila es que la sesión no muera)
+    if (this.anchorStep === 2 && this.anchorT >= ANCHOR_MAKE_T) {
+      this.anchorStep = 3;
+      roomSafe();
+      if (!P.getValue(XRAnchor, 'attached')) diagEvent('ancla: aún no está (IWSDK lo sigue intentando); los aparatos, como siempre');
     }
     // (los aparatos van en tu espacio tal cual lo dan las gafas: con el jugador de IWSDK sin mover, como en Barras)
     const g = P.object3D?.parent, pl = this.world.player, still = !pl || (Math.abs(pl.position.x) + Math.abs(pl.position.z) < 1e-3 && Math.abs(pl.rotation.y) < 1e-4);
-    if (!xr || !g || !still || !P.getValue(XRAnchor, 'attached')) {
+    if (this.anchorStep < 2 || !g || !still || !P.getValue(XRAnchor, 'attached')) {
       if (this.eq.a2l) equipAnchorFrame(this.eq, null, (k, v) => store(k, v));
       return;
     }
     // (unos fotogramas de margen: el primero, el grupo aún no tiene la pose del ancla)
     if (++this.anchorFrames < 20) return;
-    if (this.anchorFrames === 20) diagEvent(`ancla del mundo en ${g.position.x.toFixed(2)} ${g.position.z.toFixed(2)}`);
+    if (this.anchorFrames === 20) diagEvent(`ancla: en su sitio (${g.position.x.toFixed(2)} ${g.position.z.toFixed(2)}): los aparatos la siguen`);
     this.anchorPose.x = g.position.x;
     this.anchorPose.z = g.position.z;
     this.anchorPose.yaw = yawOf(g.quaternion);

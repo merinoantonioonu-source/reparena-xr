@@ -806,7 +806,10 @@ No las cambies sin preguntarle.
 **Realidad mixta**
 - Puede usar la habitación escaneada o colocarse a mano. Lo colocado (y las barras y paralelas) se recuerda entre
   sesiones: **en el mismo sitio de la habitación** (pedido del usuario: tenía que recolocarlas en cada partida), con el ancla
-  persistente de IWSDK, aunque las gafas pongan su origen en otro sitio al entrar.
+  persistente de IWSDK, aunque las gafas pongan su origen en otro sitio al entrar. *En pruebas*: «Barras: recordar el sitio en
+  la habitación» (apagado de serie: al estrenarlo, la sesión de VR se cerraba sola al entrar); el ancla solo se crea jugando a
+  Barras y, si la sesión se cerrara otra vez por ella, el ajuste se apaga solo. Hasta que el usuario lo dé por bueno en las
+  gafas, apagado: los aparatos se recuerdan como antes (hay que recolocarlos si las gafas cambian su origen).
 
 **Página web**
 - En el ordenador y en el navegador de las gafas, lo primero que se ve son los botones de entrar (realidad mixta, VR,
