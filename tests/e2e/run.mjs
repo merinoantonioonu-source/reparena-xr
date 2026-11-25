@@ -3,6 +3,7 @@
 //
 //   npm run test:e2e            (construye y juega)
 //   E2E_SHOTS=carpeta npm run test:e2e   (guarda capturas en esa carpeta)
+//   E2E_TREK_BOSS=1 npm run test:e2e     (la Travesía, hasta derrotar al jefe del tercer tramo: unos 2 minutos más)
 //
 // Juega: EMPEZAR (Enter) → sale el primer zombi → sentadilla aguantada (flecha abajo) hasta ×2 (la carga se escribe en el
 // suelo) → arriba (cuenta la repetición y, en el ordenador, sin manos, el rayo sale solo al zombi más cercano) → otra
@@ -24,6 +25,8 @@ const BASE = '/reparena-xr/';
 const SHOTS = process.env.E2E_SHOTS || '';
 /** La semilla del recorrido de la Travesía (E2E_TREK_SEED para probar otra). */
 const SEED_TREK = +(process.env.E2E_TREK_SEED || 7);
+/** Con E2E_TREK_BOSS, la Travesía no acaba al tener lo que busca: sigue hasta el jefe del tercer tramo y lo derrota. */
+const BOSS_TREK = !!process.env.E2E_TREK_BOSS;
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm', '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.uikitml': 'text/plain', '.md': 'text/markdown', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav' };
 
 if (!existsSync(path.join(ROOT, 'index.html'))) {
@@ -288,8 +291,13 @@ try {
   // La Travesía de plataformas: un tramo corto (40 m, el mínimo) jugado como en el ordenador: la sentadilla (flecha abajo)
   // empuja, el avance nunca se para ante un obstáculo (el hueco se salta en marcha con Espacio al llegar a su borde; si no,
   // se tropieza y se sigue), las demás se pasan con Espacio (tronco), C (viga baja) y A/D (obstáculo a un lado), y el tramo
-  // acaba en el cofre. Sin tarjeta gráfica el juego va a unas 5 imágenes por segundo: las teclas se
-  // mantienen hasta que se nota (una pulsación corta puede no verse) y una sentadilla entera tarda unos 5 s.
+  // acaba en el cofre.
+  // El guion juega por lo que ve en el estado (a cuánto está lo que viene y a qué velocidad vas; del jefe, qué lanza y
+  // cuándo llega), no por esperas fijas: sin tarjeta gráfica el juego va de 4 a 13 imágenes por segundo según la máquina, y
+  // unas esperas medidas en una fallaban en las demás (en GitHub no pasaba ninguna pieza y llegaba al jefe del tercer tramo,
+  // donde solo sabía hacer sentadillas: pasaba o no según cayera la piedra). Lo que se mantiene (C, A, D, la flecha) vale a
+  // cualquier ritmo; el salto solo se ve a más de unas 4 imágenes por segundo, así que lo que la prueba exige (una pieza
+  // superada además del hueco: la viga, con C) no depende de saltar.
   const t2 = Date.now();
   await page.evaluate((SEED_TREK) => {
     const rx = window.__rx;
@@ -307,7 +315,7 @@ try {
   const tv = await until('Travesía: empieza el tramo 1, con piezas a la vista', (s) => s.mode === 'trek' && s.phase === 'playing' && s.wave >= 1 && !s.between && !!s.trek?.next, 90);
   console.log(`  ✓ Travesía: el tramo 1 trae ${tv.trek.live.slice(0, tv.trek.live.indexOf('chest')).join(', ')} (la primera, ${tv.trek.next.k} a ${tv.trek.next.rel} m)`);
   await shot('11-travesia');
-  // las teclas que se mantienen (C, A, D) y una sentadilla entera: abajo hasta la mitad, soltar y esperar a que cuente
+  // las teclas que se mantienen (C, A, D)
   let held = '';
   const hold = async (k) => {
     if (held === k) return;
@@ -315,44 +323,52 @@ try {
     held = k;
     if (k) await page.keyboard.down(k);
   };
-  const rep = async (settle = true, low = 1.25) => {
-    const r0 = (await snap()).reps;
-    await page.keyboard.down('ArrowDown');
-    const t = Date.now();
-    while (Date.now() - t < 5000 && (await snap()).head[1] > low) await page.waitForTimeout(100);
-    await page.waitForTimeout(300);
-    await page.keyboard.up('ArrowDown');
-    const t3 = Date.now();
-    while (Date.now() - t3 < 6000 && (await snap()).reps === r0) await page.waitForTimeout(100);
-    // (y a que la cabeza termine de subir: si no, el salto o la viga se juzgan con el cuerpo a medias)
-    const t4 = Date.now();
-    while (settle && Date.now() - t4 < 4000 && (await snap()).head[1] < 1.58) await page.waitForTimeout(100);
+  // la sentadilla, por pasos (uno en cada vuelta, sin dejar de mirar lo que viene): abajo hasta el fondo, un instante allí
+  // y arriba hasta que cuenta y la cabeza termina de subir
+  let sq = null;
+  const squat = async (s) => {
+    const y = s.head[1], now = Date.now();
+    if (!sq) {
+      sq = { ph: 'down', r0: s.reps, t: now };
+      await page.keyboard.down('ArrowDown');
+    } else if (sq.ph === 'down' && (y < 1.25 || now - sq.t > 5000)) sq = { ph: 'low', r0: sq.r0, t: now };
+    else if (sq.ph === 'low' && now - sq.t > 300) {
+      sq = { ph: 'up', r0: sq.r0, t: now };
+      await page.keyboard.up('ArrowDown');
+    } else if (sq.ph === 'up' && ((s.reps > sq.r0 && y > 1.55) || now - sq.t > 6000)) sq = null;
   };
-  const press = async (k, ms) => {
-    await page.keyboard.down(k);
-    await page.waitForTimeout(ms);
-    await page.keyboard.up(k);
+  // el salto: una pulsación corta (el juego la guarda hasta su fotograma siguiente), como mucho una cada 0,7 s (lo que dura)
+  let jumpT = 0;
+  const jump = async () => {
+    if (Date.now() - jumpT < 700) return;
+    jumpT = Date.now();
+    await page.keyboard.down('Space');
+    await page.waitForTimeout(60);
+    await page.keyboard.up('Space');
   };
   // 2: las sentadillas te hacen avanzar
   const d0 = (await snap()).trek.dist;
   let adv = null;
-  for (let i = 0; i < 6 && !adv; i++) {
-    await rep();
+  const tAdv = Date.now();
+  while (!adv && Date.now() - tAdv < 40000) {
     const s = await snap();
-    if (s.trek.dist > d0 + 0.5 && s.trek.v > 0) adv = s.trek;
+    if (!sq && s.trek.dist > d0 + 0.5 && s.trek.v > 0) adv = s.trek;
+    else await squat(s);
+    await page.waitForTimeout(50);
   }
   if (!adv) throw new Error('Travesía: las sentadillas no te hacen avanzar\núltimo estado: ' + JSON.stringify(await snap()));
   console.log(`  ✓ Travesía: las sentadillas te hacen avanzar (${adv.dist} m, ${adv.v} m/s)`);
   // el tramo entero, pieza a pieza (con un tiempo límite). La marcha sigue por inercia unos metros tras cada sentadilla: se
-  // hace una cuando hay sitio de sobra, y la tecla de cada fluida se mantiene cuando ya está cerca
+  // hace una cuando te quedas sin impulso o lo que viene aún tarda, y cada tecla se pulsa cuando lo que viene está a tiro
   // el hueco: cuántos se han cruzado y cuántos saltando; si alguna vez el mundo se paró ante uno (no debe)
-  let gapAt = null, gapsDone = 0, gaps = 0, gapStop = false, tramo1 = null, tramo2 = null, foeSeen = null, foeShot = false;
+  let gapAt = null, gapsDone = 0, gaps = 0, gapStop = false, tramo1 = null, tramo2 = null, foeSeen = null, foeShot = false, bossSaid = false;
   const tried = new Set();
   let fin = null;
-  const tEnd = Date.now() + 170000;
+  const tEnd = Date.now() + (BOSS_TREK ? 330000 : 170000);
   while (!fin && Date.now() < tEnd) {
     const s = await snap();
     if (s.phase !== 'playing') throw new Error('Travesía: la ronda ha acabado sola\núltimo estado: ' + JSON.stringify(s));
+    if (sq) await squat(s); // (la sentadilla empezada sigue su curso)
     // el tramo 1 se supera al llegar a su cofre; si en él no ha salido hueco o ninguna fluida se ha pasado, se sigue con
     // el tramo 2 (ya montado) hasta tenerlo todo
     if ((s.between || s.wave >= 2) && !tramo1) {
@@ -378,7 +394,7 @@ try {
       console.log(`  ✓ Travesía: el hueco, sin pararte: ${won ? 'saltado' : 'tropiezas y sigues'} (de ${gapAt.dist} m a ${s.trek.dist} m, a ${s.trek.v} m/s)`);
       gapAt = null;
     }
-    if (tramo1 && gapsDone >= 1 && s.trek.passed - gaps >= 1 && !s.between) {
+    if (tramo1 && gapsDone >= 1 && s.trek.passed - gaps >= 1 && !s.between && (!BOSS_TREK || s.trek.bosses >= 1)) {
       fin = s;
       break;
     }
@@ -387,23 +403,52 @@ try {
       await page.waitForTimeout(250);
       continue;
     }
-    const t = s.trek, nx = t.next;
-    if (t.hop) {
-      await hold('');
-      await page.waitForTimeout(200);
+    const t = s.trek, nx = t.next, B = t.boss, up = s.head[1] > 1.5;
+    if (B) {
+      // el jefe (si se llega a él: con otra semilla, o con E2E_TREK_BOSS). Cada piedra, según la que sea y mientras llega: la
+      // alta, C (agachado); la del cuerpo, A o D (apartado de donde estabas); la baja, Espacio para estar en el aire cuando
+      // llega (se juzga en `hit`; un salto dura 0,45 s). Mareado: sentadilla honda y, al subir, el salto
+      tried.add('boss');
+      if (!bossSaid) {
+        bossSaid = true;
+        console.log(`  ✓ Travesía: el jefe te corta el paso (a ${t.dist} m)`);
+        await shot('11c-travesia-jefe');
+      }
+      if (B.phase === 'dizzy') {
+        await hold('');
+        if (!sq) {
+          if (Date.now() - jumpT > 900) await squat(s); // (tras un salto, se espera a ver si ha valido)
+        } else if (sq.ph === 'up' && s.head[1] > 1.48) await jump();
+      } else if (B.phase === 'throw' && B.shot === 'high') await hold('KeyC');
+      else if (B.phase === 'throw' && B.shot === 'body') {
+        if (held !== 'KeyA' && held !== 'KeyD') await hold(s.head[0] > 0.03 ? 'KeyA' : 'KeyD');
+      } else {
+        await hold('');
+        if (B.phase === 'throw' && B.shot === 'low' && up && B.t >= B.hit - 1.05 && B.t <= B.hit - 0.15) await jump();
+      }
+      await page.waitForTimeout(40);
       continue;
     }
+    if (t.hop) {
+      await hold('');
+      await page.waitForTimeout(100);
+      continue;
+    }
+    const rel = nx ? nx.rel : 99, v = t.v;
+    // a empujar: otra sentadilla si te quedas sin impulso o si lo que viene aún tarda (más de 4 s); si no, a esperar
+    const push = async (c = v) => {
+      if (!sq && (v < 0.5 || rel > 4 * c)) await squat(s);
+      else await page.waitForTimeout(50);
+    };
     if (nx && nx.k === 'gap') {
-      // el hueco: Espacio al llegar a su borde (vale desde 1,5 m antes); lejos, sentadillas; en marcha, la inercia
+      // el hueco: Espacio al llegar a su borde (el juego lo da por bueno desde 1,5 m antes, o lo que recorres en 0,6 s)
       await hold('');
       if (!gapAt) gapAt = { passed: t.passed, dist: t.dist };
-      if (nx.rel <= 1.3 && nx.rel > -0.2) {
+      if (rel <= Math.max(1.5, 0.6 * v) && rel > -0.2 && up) {
         tried.add('gap');
-        await press('Space', 250);
-        await page.waitForTimeout(300);
-      } else if (nx.rel > 10) await rep();
-      else if (t.v < 0.5) await rep();
-      else await page.waitForTimeout(80);
+        await jump();
+        await page.waitForTimeout(50);
+      } else await push();
       continue;
     }
     if (t.stop === 'chest') {
@@ -411,63 +456,35 @@ try {
       await page.waitForTimeout(250);
       continue;
     }
-    const rel = nx ? nx.rel : 99, v = t.v;
-    if (!nx || nx.k === 'chest') {
-      // sin nada a la vista: a empujar (el cofre para solo)
+    if (!nx || nx.k === 'chest' || nx.k === 'boss' || rel < -1) {
+      // sin nada a la vista (o ya pasado): a empujar (el cofre y el jefe te paran solos)
       await hold('');
-      if (v < 0.5 || rel > 10) await rep();
-      else await page.waitForTimeout(150);
-      continue;
-    }
-    if (rel < -1) {
-      await hold('');
-      await page.waitForTimeout(150);
+      await push();
       continue;
     }
     if (nx.k === 'log' || nx.k === 'foe') {
-      // el salto tarda ~1 s en despegar y dura unos 2,5 s en el aire, mientras el tronco pasa bajo ti. Parado: lejos, una
-      // sentadilla corta lo acerca; a unos 4-8 m, una honda lo pasa y el salto se pide al contar (sin esperar)
+      // el tronco y la seta: en el aire cuando pasan bajo ti. El juego mira una ventana a cada lado (0,45 m, o lo que os
+      // acercáis en 0,3 s: la seta, además, anda hacia ti) y el salto dura 0,45 s: se pide al entrar en ella, con margen
       await hold('');
-      const jump = async () => {
-        const j0 = t.passed + t.hits;
-        await press('Space', 1500);
+      const c = v + (nx.walk > 0 ? t.foeV : 0), win = Math.max(0.45, 0.3 * c);
+      if (rel <= win + 0.3 * c && rel > -win && up && c > 0.3) {
         tried.add(nx.k);
-        const tj = Date.now();
-        while (Date.now() - tj < 6000) {
-          const x = await snap();
-          if (x.trek.passed + x.trek.hits > j0 || x.trek.stop) break;
-          await page.waitForTimeout(150);
-        }
-      };
-      if (v < 0.35) {
-        // (sin impulso, también si ya lo tienes encima: otra sentadilla y el salto, o te quedarías quieto sobre él)
-        if (rel > 8.2) await rep(false, 1.32);
-        else {
-          await rep(false, 1.2);
-          await jump();
-        }
-      } else if (rel <= 1.2 + v && v > 0.8) await jump();
-      else await page.waitForTimeout(100);
+        await jump();
+        await page.waitForTimeout(50);
+      } else await push(c);
       continue;
     }
-    // viga baja (C) y obstáculo a un lado (A/D, al lado contrario): con la tecla mantenida a la vista; si te quedas sin
-    // impulso antes de llegar, se suelta, otra sentadilla y se vuelve a mantener
+    // viga baja (C) y obstáculo a un lado (A/D, al lado contrario), con la tecla mantenida desde 1,2 s antes de llegar
     // (la fruta, hacia su lado, para cogerla; el cangrejo, al lado contrario)
     const key = nx.k === 'low' ? 'KeyC' : nx.k === 'fruit' ? (nx.side > 0 ? 'KeyD' : 'KeyA') : nx.side < 0 ? 'KeyD' : 'KeyA';
-    if (v < 0.35) {
-      // (sin impulso, también si ya la tienes encima: otra sentadilla, que bajo la viga también te agacha)
-      await hold('');
-      await rep(false);
-    } else if (rel <= (nx.k === 'low' ? 3 + v * 1.5 : nx.k === 'fruit' ? 2.5 + v * 1.2 : 4 + v * 1.2)) {
+    if (rel <= 1.2 * Math.max(v, 0.5)) {
       tried.add(nx.k);
       await hold(key);
-      await page.waitForTimeout(100);
-    } else {
-      await hold('');
-      await page.waitForTimeout(100);
-    }
+    } else await hold('');
+    await push();
   }
   await hold('');
+  if (sq && sq.ph !== 'up') await page.keyboard.up('ArrowDown');
   if (gapStop) throw new Error('Travesía: el mundo se ha parado ante un hueco (el avance tiene que seguir)');
   if (!fin) throw new Error(`Travesía: no se ha completado a tiempo (tramo 1 superado: ${!!tramo1}, huecos cruzados: ${gapsDone}, intentadas: ${[...tried].join(', ') || 'ninguna'})\núltimo estado: ` + JSON.stringify(await snap()));
   const tr = fin.trek, fluid = tr.passed - gaps;

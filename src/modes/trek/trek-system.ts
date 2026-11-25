@@ -39,7 +39,7 @@ import { TREK_BIOMES, TREK_CH } from './path.js';
 import { SEA_Y, CLIFF_FLOOR_Y, cliffDecoPuts, cliffFloorPuts, coastDecoPuts, coastFloorPuts, skyDecoPuts, skyFloorPuts, DOCK_LEN, GOLD_TAG, GROUND_Y, KIT_MODELS, chestPuts, decoPuts, floorPuts, piecePuts, type Kit, type Put } from './plat/pieces.js';
 import { PORTAL_AT, tramoBiome, tramoDeco, worldEnd, worldStart, WORLDS, type FloorStyle } from './plat/worlds.js';
 import { Runner, TREASURE_KEYS, tramoLen, type PlatEnd } from './plat/runner.js';
-import { PAW_U, RING_R, CANNON_AT, CANNON_LOW_Y, SHIP_U, BOB_CRACK, BOB_ISLE, bobY, ASIDE_U, FOE_WALK, BOSSES, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
+import { PAW_U, RING_R, CANNON_AT, CANNON_LOW_Y, SHIP_U, BOB_CRACK, BOB_ISLE, bobY, ASIDE_U, FOE_WALK, BOSSES, BOSS_FLY, BOSS_HP, BOSS_Z, type BossShot, CRAB_U, FORK_U, FRUIT_U, GLIDE_LIFT, glideArc, glideU, GOLD_Y, LAND_PAST, PLAT_GHOST, PLAT_SEE, type Piece, type PlatEnv, type PlatEv, type PlatPos } from './plat/types.js';
 
 /** Lo que se pinta por detrás de ti (m) y lo que más se ve por delante (m, entre la niebla). */
 const BACK = 20, AHEAD = PLAT_SEE + 8;
@@ -675,7 +675,9 @@ export class TrekSystem extends createSystem({}) {
   /** Para la partida simulada: lo esencial en datos simples. */
   snapshot(): Record<string, unknown> {
     const R = this.runner, nx = R.live.find((p) => !p.judged);
-    return { next: nx ? { k: nx.k, rel: +(nx.at + nx.walk - R.dist).toFixed(2), side: nx.side } : null, dist: +R.dist.toFixed(2), v: +R.v.toFixed(2), turbo: R.tk.turbo, stop: R.stop?.k ?? '', energy: +R.energy.toFixed(2), superT: +R.superT.toFixed(1), plank: R.moves.plank, lev: +R.lev.toFixed(2), hop: !!R.hop, chest: R.chest?.tramo ?? -1, passed: R.passed, hits: R.hits, live: R.live.map((p) => p.k), ends: R.ends.map((e) => Math.round(e)), keys: R.keys, fruits: R.fruits, biome: this.biome, pano: this.pano, foes: this.rigs.filter((r) => r.p && r.root.visible).map((r) => `${r.kind}:${r.cur}`), wind: this.wind.visible, ghost: R.ghostDiff(), last: this.last && { medal: this.last.medal?.[0] ?? null, dist: this.last.dist }, boss: R.fight ? { phase: R.fight.phase, shot: R.fight.shot, got: R.fight.p.got } : null, bosses: R.bosses, world: R.world };
+    // (para la partida simulada, que juega por lo que ve aquí y no por esperas: si lo que viene aún anda hacia ti —`walk`, con
+    // su paso, `foeV`— y, del jefe, cuánto hace que avisó —`t`—, cuándo llega lo que lanza —`hit`— y sus mareos sin golpe)
+    return { next: nx ? { k: nx.k, rel: +(nx.at + nx.walk - R.dist).toFixed(2), side: nx.side, walk: +nx.walk.toFixed(2) } : null, foeV: R.foeV, dist: +R.dist.toFixed(2), v: +R.v.toFixed(2), turbo: R.tk.turbo, stop: R.stop?.k ?? '', energy: +R.energy.toFixed(2), superT: +R.superT.toFixed(1), plank: R.moves.plank, lev: +R.lev.toFixed(2), hop: !!R.hop, chest: R.chest?.tramo ?? -1, passed: R.passed, hits: R.hits, live: R.live.map((p) => p.k), ends: R.ends.map((e) => Math.round(e)), keys: R.keys, fruits: R.fruits, biome: this.biome, pano: this.pano, foes: this.rigs.filter((r) => r.p && r.root.visible).map((r) => `${r.kind}:${r.cur}`), wind: this.wind.visible, ghost: R.ghostDiff(), last: this.last && { medal: this.last.medal?.[0] ?? null, dist: this.last.dist }, boss: R.fight ? { phase: R.fight.phase, shot: R.fight.shot, got: R.fight.p.got, t: +R.fight.t.toFixed(2), hit: R.bossWind + BOSS_FLY, misses: R.fight.misses } : null, bosses: R.bosses, world: R.world };
   }
 
   /** Al acabar la ronda (`score`, tus puntos): la medalla, los metros, las frutas y, si llegaste más lejos que nunca (y no es
