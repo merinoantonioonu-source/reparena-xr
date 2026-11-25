@@ -1480,6 +1480,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 ## Fallos de IWSDK
 
+- **Por confirmar en las gafas: el ancla del mundo cierra la sesión de VR.** Con `features.anchors` y `sceneUnderstanding` en
+  `iwsdk.config.json` (el ancla persistente de los aparatos de Barras, PR 127), en las Quest 3 la sesión se cerraba sola al
+  segundo de entrar, en todos los modos: un solo fotograma, ninguno más y «al salir de la VR», sin ningún error apuntado
+  (diagnóstico del usuario del 25/11; en el emulador no pasa). Es lo único que había cambiado en cómo se abre la sesión
+  desde la última vez que le funcionó, y `SceneUnderstandingSystem` crea su ancla (`frame.createAnchor`) justo en los
+  primeros fotogramas. Se han quitado los dos del proyecto para poder entrar (los aparatos de Barras vuelven a recordarse
+  como antes: `XRAnchor` sin el sistema no hace nada) y el diagnóstico apunta ahora cómo empieza y acaba la sesión
+  (`sesión de VR: …`, la gráfica perdida y los errores sin atrapar). Para volver a ponerlo: probarlo en las gafas, a poder
+  ser solo en Barras y detrás de un ajuste.
+
 *(Desde el PR 31, los menús son los de RepArena y no usan `PokeInteractable` ni los paneles de UIKitML: los apaños de abajo
 para el toque, la mano que atraviesa y la letra se quedan apuntados por si se vuelve a lo de IWSDK.)*
 
