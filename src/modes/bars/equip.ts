@@ -11,7 +11,7 @@
  * hace la escena; aquí, solo las cuentas. Sin IWSDK: se compara en tests/compare/bars.compare.test.ts.
  *
  * En RepArena XR, lo de WebXR lo resuelve IWSDK (regla del usuario: su solución de serie): un **ancla persistente del mundo**
- * (`XRAnchor`, de su SceneUnderstandingSystem), la misma en todas las sesiones. Cada aparato se guarda además respecto a
+ * (`XRAnchor`, de su SceneUnderstandingSystem), la misma en todas las sesiones (en pruebas y vigilada: `room-anchor.ts`). Cada aparato se guarda además respecto a
  * ella (`a`, en `reparenaxr-equip-anchor`) y, en cada sesión, vuelve a su sitio de la habitación aunque el origen de las
  * gafas haya cambiado (pedido del usuario: tenía que recolocar las barras en cada partida).
  */
