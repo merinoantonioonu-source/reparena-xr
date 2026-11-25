@@ -513,6 +513,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   quedaban en cola para siempre. Las colas de `3d-tiles-renderer` avanzan con `requestAnimationFrame` de la página, que el
   navegador de las Quest para dentro de la VR (el emulador no: por eso aquí cargaba). Se arregla con su `Scheduler.setXRSession`
   (la sesión de VR cuando se está en ella; en `MapSystem.update`, antes de `tiles.update()`).
+  **Ya se ve, pero a saltos y borroso** (con lo de Barras: el mapa salía también ahí, porque el corredor se quedaba con
+  `mapMode`): solo en la Travesía (`settings.mode`); el suelo, la más baja de las últimas medidas (`GROUND_N`, cada
+  `GROUND_T`) y seguido suave (`GROUND_TAU`, `GROUND_V`: antes se medía cada 0,35 s con un rayo que daba en los tejados y la
+  ciudad subía y bajaba a golpes); el detalle, `flyMapDetail` (el `errorTarget`, puesto al recibir el índice: el de Google
+  pone 20); las fotos, con filtro anisótropo; los cambios de detalle, fundidos (`TilesFadePlugin`); y de dos en dos al
+  prepararlos (`parseQueue.maxJobs`). Sin mundos sobre el mapa (`Runner.worldAt` da 0) y el marcador y el panel de cada tramo,
+  con lo de la ciudad (`MapSystem.hud`).
 
 - **El vuelo, arreglado con la caja negra del usuario** («los movimientos de la cabeza no se correspondían con el vuelo»):
   el centro del vuelo (`FlyBody`, y `BodyMoves.x0`) se tomaba al calibrar **antes** de que el mundo se deslizara 0,8 s para

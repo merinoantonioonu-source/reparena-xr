@@ -80,6 +80,7 @@ import { BEAT } from '../core/beat-hub.js';
 import { exSongsStart, pulse, spotify } from '../services/hub.js';
 import { TouchSystem } from '../modes/touch/touch-system.js';
 import { TrekSystem } from '../modes/trek/trek-system.js';
+import { MapSystem } from '../modes/trek/map/map-system.js';
 import { tramoBiome, worldLenFor, worldNo, worldOf, worldStart, WORLDS, type WorldKey } from '../modes/trek/plat/worlds.js';
 import { trekBoardSpot, type BoardSpot } from '../modes/trek/board-spot.js';
 import { curEx } from '../ui/fields.js';
@@ -701,8 +702,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         }
       } else if (settings.mode === 'trek') {
         // Travesía: metros y velocidad (y el turbo) y lo que falta hasta el cofre del tramo
-        const h = this.trek()?.hud();
-        if (h) {
+        const h = this.trek()?.hud(), M = this.mapFly()?.hud();
+        if (M) {
+          // sobre el mapa: la ciudad, la velocidad y la altura, y el aro que viene (nada de mundos, energía ni doradas)
+          lines[0] = `${M.city} · ${Math.round(M.kmh)} km/h · ${Math.round(M.agl)} m de alto`;
+          lines[1] = `Aro: ${M.next} · ${M.dist >= 1000 ? `${(M.dist / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(M.dist / 10) * 10} m`}`;
+          lines[2] = `Aros pasados: ${M.got}`;
+        } else if (h) {
           lines[0] = `${Math.floor(h.dist)} m · ${h.kmh.toFixed(1).replace('.', ',')} km/h${h.turbo ? ' · TURBO' : ''}`;
           lines[1] = (h.stop === 'chest' ? `Tramo ${h.tramo + 1}: ¡cofre!` : h.boss ? `Tramo ${h.tramo + 1}: ¡jefe! Le quedan ${h.boss}` : `Tramo ${h.tramo + 1}: faltan ${Math.ceil(h.left)} m`) + (h.goldOf ? ` · ★ ${h.gold}/${h.goldOf}` : '');
           // la energía de las frutas (llena: supervelocidad) y lo que llevas de más o de menos que en tu mejor Travesía (el fantasma)
@@ -1084,12 +1090,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     const p = this.waveP, o = p.mesh;
     const N = nWaves(), last = N > 0 && i >= N - 1;
     const nw = fresh.map((k) => foeName(xrFoe(k).k)).join(', ');
-    const trek = settings.mode === 'trek', wl = worldLenFor(num('trekWorld') || 3, nWaves()), newWorld = trek && i > 0 && worldStart(i, wl);
+    const trek = settings.mode === 'trek', wl = worldLenFor(num('trekWorld') || 3, nWaves()), M = trek ? this.mapFly()?.hud() : null;
+    const newWorld = trek && !M && i > 0 && worldStart(i, wl);
     // (la Travesía, al empezar un mundo nuevo: su nombre y que hay que cruzar el portal)
     const travel = !trek && TRAVEL.on && travelsAt(TRAVEL.route as Place[], i, TRAVEL.per);
     const evName = !trek && WAVE_EV.kind ? WAVE_EVENT_NAME[WAVE_EV.kind as WaveEvent] : '';
-    const t3 = newWorld ? `¡MUNDO ${worldNo(i, wl) + 1}: ${worldOf(i, wl).name}! Cruza el portal` : travel ? `¡Portal! Llegas a ${PLACE_NAME[this.placeOf(i)].toLowerCase()}${evName ? ' · ' + evName : ''}` : evName ? evName : nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
-    const W = trek ? 'TRAMO' : 'OLEADA', place = trek ? ` · ${tramoBiome(i, wl).name}` : '';
+    const t3 = M ? `Sigue los aros · ${M.next}` : newWorld ? `¡MUNDO ${worldNo(i, wl) + 1}: ${worldOf(i, wl).name}! Cruza el portal` : travel ? `¡Portal! Llegas a ${PLACE_NAME[this.placeOf(i)].toLowerCase()}${evName ? ' · ' + evName : ''}` : evName ? evName : nw ? `Entra en juego: ${nw}` : rk ? `Un poco más difícil: +${Math.round(rk * 100)} %` : last && N > 1 ? `Has superado ${i} de ${N}` : '';
+    const W = trek ? 'TRAMO' : 'OLEADA', place = M ? ` · ${M.city}` : trek ? ` · ${tramoBiome(i, wl).name}` : '';
     drawWave(p.ctx, p.W, p.H, (last ? (trek ? '¡ÚLTIMO TRAMO!' : '¡ÚLTIMA OLEADA!') : N ? `${W} ${i + 1} DE ${N}` : `${W} ${i + 1}`) + place, `${GAME.score} puntos`, t3, newWorld || travel ? '#bff4ff' : evName ? '#ffd166' : nw ? '#ff8a3d' : '#3cf0c6');
     p.tex.needsUpdate = true;
     // delante de ti y de cara, derecho (nunca se ladea con la cabeza); tumbado, en el suelo bajo la cara
@@ -1441,6 +1448,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   touch(): TouchSystem | undefined {
     return this.world.getSystem(TouchSystem);
+  }
+
+  /** El vuelo sobre el mapa (si está en marcha, su `hud()`). */
+  mapFly(): MapSystem | undefined {
+    return this.world.getSystem(MapSystem);
   }
 
   trek(): TrekSystem | undefined {

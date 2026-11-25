@@ -15,11 +15,11 @@ import type { Material, PerspectiveCamera, WebGLRenderer } from '@iwsdk/core';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { Scheduler } from '3d-tiles-renderer/core';
 import { TilesRenderer } from '3d-tiles-renderer/three';
-import { CesiumIonAuthPlugin, GLTFExtensionsPlugin, ReorientationPlugin } from '3d-tiles-renderer/plugins';
+import { CesiumIonAuthPlugin, GLTFExtensionsPlugin, ReorientationPlugin, TilesFadePlugin } from '3d-tiles-renderer/plugins';
 import { SND } from '../../../audio/sound.js';
 import { diagEvent } from '../../../core/diag.js';
 import { GAME, HOOKS } from '../../../core/state.js';
-import { str } from '../../../core/values.js';
+import { num, settings, str } from '../../../core/values.js';
 import { haptic } from '../../../input/hand-system.js';
 import { FLY } from '../plat/fly.js';
 import { TrekSystem } from '../trek-system.js';
@@ -27,9 +27,12 @@ import { GOOGLE_3D_ASSET, mapKey, mapLog } from './map-key.js';
 import { cityOf, headingTo, MAP, MapFlight, type MapIn } from './map-route.js';
 
 const DEG = Math.PI / 180;
-/** Lo lejos que se pinta (m: la ciudad entera; la cámara de la Travesía no llega tan lejos), cada cuánto se mide el suelo (s), el
- * detalle de los mapas (más, menos detalle y más ligero: en las gafas), lo que pueden ocupar en memoria (bytes) y el aviso. */
-const FAR = 25000, GROUND_T = 0.35, ERROR_TARGET = 24, CACHE_BYTES = 260 * 1024 * 1024, WAIT = 20;
+/** Lo lejos que se pinta (m: la ciudad entera; la cámara de la Travesía no llega tan lejos), cada cuánto se mide el suelo (s), lo
+ * que tarda la ciudad en seguir al suelo medido (s) y lo más deprisa que sube o baja (m/s), lo que pueden ocupar los mapas en
+ * memoria (bytes) y el aviso. El detalle, del ajuste «Volando sobre el mapa: detalle» (`flyMapDetail`). */
+const FAR = 25000, GROUND_T = 1.2, GROUND_TAU = 1.5, GROUND_V = 4, CACHE_BYTES = 260 * 1024 * 1024, WAIT = 20;
+/** Lo que mide el suelo: las últimas medidas, y vale la más baja (la calle: el rayo a veces da en un tejado). */
+const GROUND_N = 4;
 
 export class MapSystem extends createSystem({}) {
   private root!: Group;
@@ -49,7 +52,11 @@ export class MapSystem extends createSystem({}) {
   private waitT = 0;
   /** El suelo bajo ti y bajo cada aro (m, en el mapa; NaN: aún sin medir) y cuándo toca medirlo. */
   private ground = 0;
+  private groundGoal = 0;
   private groundOk = false;
+  private readonly gHist: number[] = [];
+  private gi = 0;
+  private aniso = 1;
   private ringGround: number[] = [];
   private groundT = 0;
   private ringT = 0;
@@ -109,7 +116,8 @@ export class MapSystem extends createSystem({}) {
 
   update(dt: number): void {
     const T = this.world.getSystem(TrekSystem), R = T?.runner;
-    const on = !!R && R.mapMode && GAME.phase === 'playing';
+    // (solo en la Travesía: el corredor se queda con el modo del mapa al cambiar a otro modo)
+    const on = !!R && R.mapMode && settings.mode === 'trek' && GAME.phase === 'playing';
     if (!on) {
       if (this.active) this.end();
       return;
@@ -137,22 +145,32 @@ export class MapSystem extends createSystem({}) {
       if (res === 'pass') this.passed(F);
       else if (res === 'miss') HOOKS.say(`Aro fallado · ${F.city.route[F.next].name}`, '#ffb347', 1.4, false);
     }
-    // el suelo: bajo ti (suave: los mapas se van afinando) y bajo los aros que vienen
+    // el suelo: bajo ti, la más baja de las últimas medidas (un tejado no cuenta) y seguida poco a poco (antes la ciudad
+    // daba saltos arriba y abajo al pasar sobre los edificios)
     this.groundT -= dt;
     if (this.groundT <= 0) {
       this.groundT = GROUND_T;
       const g = this.groundAt(F.x, F.z);
       if (!Number.isNaN(g)) {
-        this.ground = this.groundOk ? this.ground + (g - this.ground) * 0.5 : g;
+        this.gHist[this.gi++ % GROUND_N] = g;
+        let lo = Infinity;
+        for (const h of this.gHist) lo = Math.min(lo, h);
+        this.groundGoal = lo;
+        if (!this.groundOk) this.ground = lo; // (la primera, de golpe: aún cargando)
         this.groundOk = true;
       }
     }
+    if (this.groundOk) {
+      const step = (this.groundGoal - this.ground) * (1 - Math.exp(-dt / GROUND_TAU)), cap = GROUND_V * dt;
+      this.ground += Math.max(-cap, Math.min(cap, step));
+    }
+    // bajo los aros que vienen: también la más baja (el rayo da a veces en lo alto del monumento)
     this.ringT -= dt;
     if (this.ringT <= 0) {
-      this.ringT = 1.5;
+      this.ringT = 2;
       for (let k = 0; k < 2; k++) {
         const i = (F.next + k) % F.rings.length, g = this.groundAt(F.rings[i].x, F.rings[i].z);
-        if (!Number.isNaN(g)) this.ringGround[i] = g;
+        if (!Number.isNaN(g)) this.ringGround[i] = Math.min(this.ringGround[i] ?? Infinity, g);
       }
     }
     // el mapa, girado y desplazado para que donde vuelas quede en tu cabeza (el centro del vuelo, quieto: lo de la Travesía)
@@ -217,10 +235,17 @@ export class MapSystem extends createSystem({}) {
       if (!this.draco) this.draco = new DRACOLoader().setDecoderPath(`${import.meta.env.BASE_URL}draco/`);
       tiles.registerPlugin(new GLTFExtensionsPlugin({ dracoLoader: this.draco }));
       tiles.registerPlugin(new ReorientationPlugin({ lat: city.lat * DEG, lon: city.lon * DEG, height: 0, recenter: true }));
-      tiles.errorTarget = ERROR_TARGET;
+      // los cambios de detalle, fundidos (sin el salto de un trozo borroso a uno nítido)
+      tiles.registerPlugin(new TilesFadePlugin({ maximumFadeOutTiles: 30 }));
       tiles.lruCache.maxBytesSize = CACHE_BYTES;
       tiles.lruCache.minBytesSize = CACHE_BYTES * 0.6;
-      tiles.addEventListener('load-root-tileset', () => this.log('índice del mapa recibido'));
+      // (de dos en dos: cada trozo nuevo cuesta un poco al prepararlo, y de cinco en cinco daba tirones)
+      tiles.parseQueue.maxJobs = 2;
+      tiles.addEventListener('load-root-tileset', () => {
+        // el detalle: el que elijas (lo de Google pone el suyo al recibir el índice)
+        tiles.errorTarget = num('flyMapDetail') || 13;
+        this.log('índice del mapa recibido');
+      });
       tiles.addEventListener('tile-download-start', () => {
         if (!this.asked) {
           this.asked = true;
@@ -234,7 +259,13 @@ export class MapSystem extends createSystem({}) {
         e.scene.traverse((o) => {
           o.userData.noInk = true;
           const ms = (o as Mesh).material;
-          if (ms) for (const m of Array.isArray(ms) ? ms : [ms]) (m as Material & { fog?: boolean }).fog = false;
+          if (ms)
+            for (const m of Array.isArray(ms) ? ms : [ms]) {
+              (m as Material & { fog?: boolean }).fog = false;
+              // (las fotos de los tejados y las calles, nítidas también de lado: se miran desde arriba y de lejos)
+              const map = (m as MeshBasicMaterial).map;
+              if (map) map.anisotropy = this.aniso;
+            }
         });
       });
       tiles.addEventListener('load-error', (e: { error: Error; url: string | URL }) => {
@@ -257,7 +288,10 @@ export class MapSystem extends createSystem({}) {
     this.nextState = 6;
     this.ringGround = [];
     this.groundOk = false;
-    this.ground = city.h; // (hasta medirlo: no bajo tierra)
+    this.ground = this.groundGoal = city.h; // (hasta medirlo: no bajo tierra)
+    this.gHist.length = 0;
+    this.gi = 0;
+    this.aniso = (this.world.renderer as WebGLRenderer).capabilities.getMaxAnisotropy();
     this.groundT = this.ringT = 0;
     this.root.visible = true;
     const cam = this.world.camera as PerspectiveCamera;
@@ -267,6 +301,21 @@ export class MapSystem extends createSystem({}) {
     HOOKS.say(`${city.name} · sigue los aros`, '#3cf0c6', 3, false);
     this.log(`${city.name}: empieza (clave …${key.slice(-4)})`);
     return true;
+  }
+
+  /** Lo que enseñan el marcador y el panel de cada tramo (null: sin mapa). Sin crear nada en cada fotograma. */
+  private readonly hudOut = { city: '', next: '', dist: 0, kmh: 0, agl: 0, got: 0 };
+  hud(): { city: string; next: string; dist: number; kmh: number; agl: number; got: number } | null {
+    const F = this.flight;
+    if (!this.active || !F) return null;
+    const H = this.hudOut;
+    H.city = F.city.name;
+    H.next = F.city.route[F.next].name;
+    H.dist = F.toward.dist;
+    H.kmh = F.speed * 3.6;
+    H.agl = F.agl;
+    H.got = F.got;
+    return H;
   }
 
   private end(): void {

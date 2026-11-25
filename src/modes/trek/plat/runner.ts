@@ -486,6 +486,7 @@ export class Runner {
   /** El mundo en el que estás (su número desde 0, sin dar la vuelta): cambia al cruzar el portal que hay tras el cofre del
    * último tramo de cada mundo; el del punto `s` del sendero, igual. */
   worldAt(s: number): number {
+    if (this.mapMode) return 0; // (sobre el mapa no hay mundos: siempre la misma ciudad)
     let k = 0;
     while (k < this.ends.length && s > this.ends[k] + PORTAL_AT) k++;
     return worldNo(k, this.worldLen);
