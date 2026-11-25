@@ -46,6 +46,9 @@ const ERR_K = 2.5, ERR_MAX = 3, BACKLOG0 = 40, BACKLOG_K = 120;
 /** El aro se mide en su centro y en cuatro puntos de su borde (× su radio): vale lo más alto. */
 const RING_AT: readonly [number, number][] = [[0, 0], [0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]];
 const AX_Y = new Vector3(0, 1, 0), AX_Z = new Vector3(0, 0, 1);
+/** La flecha al aro que viene: desde cuánto de lado sale y hasta cuánto se queda (rad), lo adelante que va (m por delante de
+ * ti, en el suelo) y su tamaño (× el de antes). Los créditos del mapa: lo atrás que van (m hacia los pies) y su tamaño. */
+const ARROW_ON = 0.6, ARROW_OFF = 0.35, ARROW_AT = 1.1, ARROW_K = 0.5, CREDITS_AT = 0.5, CREDITS_K = 0.5;
 
 export class MapSystem extends createSystem({}) {
   private root!: Group;
@@ -73,6 +76,7 @@ export class MapSystem extends createSystem({}) {
   private wallT = 0;
   private ringPt = 0;
   private gearSaid = false;
+  private arrowOn = false;
   private lastT = 0;
   private readonly spot = { lat: 0, lon: 0 };
   /** La calima (la niebla de la escena: lo que traía, para devolverlo), la nitidez de ahora (× la del ajuste) y las imágenes
@@ -257,7 +261,7 @@ export class MapSystem extends createSystem({}) {
     this.beam.position.y += MAP.ringR;
     this.beam.scale.set(1, 2500, 1);
     this.beam.visible = route;
-    this.arrow.visible = route;
+
     if (this.popT >= 0) {
       this.popT += dt;
       const k = this.popT / 0.8;
@@ -268,11 +272,21 @@ export class MapSystem extends createSystem({}) {
     }
     // la flecha al aro que viene y los créditos, en el suelo de la habitación por delante de las manos
     const toward = F.toNext();
+    // (pedido del usuario: la flecha y el letrero de Google estorbaban, grandes y justo delante de la cara al mirar abajo)
     this.room.visible = true;
-    this.room.position.set(B.x0 + B.fx * 0.62, 0.015, B.z0 + B.fz * 0.62);
+    this.room.position.set(B.x0, 0.015, B.z0);
     this.room.rotation.set(0, Math.atan2(-B.fx, -B.fz), 0);
+    // la flecha: pequeña, más adelante, y solo cuando el aro no te queda de frente (yendo hacia él no hace falta)
+    const off = Math.abs(toward.bearing);
+    if (off > ARROW_ON) this.arrowOn = true;
+    else if (off < ARROW_OFF) this.arrowOn = false;
+    this.arrow.visible = route && this.arrowOn;
+    this.arrow.position.set(0, 0, -ARROW_AT);
+    this.arrow.scale.setScalar(ARROW_K);
     this.arrow.rotation.set(0, toward.bearing, 0);
-    this.credits.position.set(0, 0.002, 0.16);
+    // los créditos: pequeños y hacia los pies, bajo el cuerpo (a la vista si miras atrás; Google pide que se vean)
+    this.credits.position.set(0, 0.002, CREDITS_AT);
+    this.credits.scale.setScalar(CREDITS_K);
     this.creditT -= dt;
     if (this.creditT <= 0) {
       this.creditT = 2;
