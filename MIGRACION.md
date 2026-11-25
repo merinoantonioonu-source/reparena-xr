@@ -419,6 +419,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Las barras, en su sitio; la cuerda, a tirones** (el usuario, tras probar la cuerda): (1) los aparatos de Barras se
+  guardaban en local-floor, cuyo origen cambia en cada sesión, y lo de las anclas de RepArena (`equip.ts`) estaba portado
+  pero sin conectar. Ahora, con la solución de IWSDK: `sceneUnderstanding` y `xr.features.anchors` en `iwsdk.config.json`, una
+  entidad con `XRAnchor` (`BarsSystem.anchorProbe`; IWSDK la cuelga del grupo de su ancla persistente, la misma en todas las
+  sesiones) y cada aparato respecto a ella (`EqPose.a`, en `reparenaxr-equip-anchor`; `equipAnchorFrame`). Solo con el
+  jugador de IWSDK sin mover (en Barras, siempre). Pendiente: que el usuario lo confirme en las gafas (hay que colocarlas una
+  vez más). (2) `RopeRun`: cada remo, un tirón (`pull(f)`: lo que llevas subido el pecho te sube un 70 % del remo pegado a los
+  brazos; `rep`, el resto con inercia, `PULL.glideT`); ya no hay marcha continua ni ritmo (`v0`, `vMax`, `repT` quitados).
+  Pendiente: la cuerda continua sin pliegues, las plataformas y los mundos (a, b y d del usuario), con propuestas.
+
 - **La cuerda, hacia los pies** (vídeo del usuario en las gafas: subía hacia lo alto de la cabeza y había que mirar atrás para
   ver adónde ibas): `BarsSystem.placeRope` pone la cuerda subiendo hacia los pies (lo contrario de la coronilla al colgarte),
   como lo demás de Barras en el remo (`barFront`). Todo lo de la cuerda (retos, frutas, dragón, foto de fondo) sigue al marco

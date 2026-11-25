@@ -9,11 +9,18 @@
  * ancla persistente de WebXR (`handle`), la pose respecto al suelo del guardián (`b`, bounded-floor: no se mueve entre
  * sesiones) y la pose en local-floor, que se corrige al recentrar (`refReset`). Lo de WebXR (crear y recuperar anclas) lo
  * hace la escena; aquí, solo las cuentas. Sin IWSDK: se compara en tests/compare/bars.compare.test.ts.
+ *
+ * En RepArena XR, lo de WebXR lo resuelve IWSDK (regla del usuario: su solución de serie): un **ancla persistente del mundo**
+ * (`XRAnchor`, de su SceneUnderstandingSystem), la misma en todas las sesiones. Cada aparato se guarda además respecto a
+ * ella (`a`, en `reparenaxr-equip-anchor`) y, en cada sesión, vuelve a su sitio de la habitación aunque el origen de las
+ * gafas haya cambiado (pedido del usuario: tenía que recolocar las barras en cada partida).
  */
 import { Quaternion, Vector3, Matrix4 } from 'three';
 import { wrapAng, yawOf } from './env.js';
 
 export const EQUIP_KEY = 'reparena3-equip';
+/** Los aparatos respecto al ancla persistente del mundo (solo RepArena XR). */
+export const EQUIP_ANCHOR_KEY = 'reparenaxr-equip-anchor';
 export type EqKind = 'door' | 'dip' | 'spot';
 /** spot: el sitio de juego de la habitación colocada a mano (realidad mixta). */
 export const EQ_KINDS: EqKind[] = ['door', 'dip', 'spot'];
@@ -36,6 +43,8 @@ export interface EqPose extends FloorPose {
   synced: boolean;
   /** ¿Ya se tomó la pose del seguimiento al menos una vez (para ignorar su temblor)? */
   fix?: boolean;
+  /** La pose respecto al ancla persistente del mundo (la de IWSDK); null, sin ella todavía. */
+  a?: FloorPose | null;
 }
 export interface Equip {
   /** En las gafas y en la prueba en el ordenador (RepArena: EQ.xr y EQ.pv). */
@@ -47,6 +56,8 @@ export interface Equip {
   pending: EqKind[];
   /** Dónde está el origen del suelo del guardián en local-floor (de la escena, en cada fotograma); null sin él. */
   b2l: FloorPose | null;
+  /** Dónde está el ancla persistente del mundo en local-floor (de la escena, en cada fotograma); null sin ella. */
+  a2l: FloorPose | null;
 }
 
 type Store = (k: string, v?: unknown) => unknown;
@@ -58,13 +69,18 @@ const fin = (...v: unknown[]): boolean => v.every((n) => isFinite(n as number));
 
 /** Lee los aparatos guardados (RepArena: loadEquip; descarta los que no tienen números). */
 export function loadEquip(store: Store): Equip {
-  const EQ: Equip = { xr: mkSet(), pv: mkSet(), edit: null, pending: [], b2l: null };
+  const EQ: Equip = { xr: mkSet(), pv: mkSet(), edit: null, pending: [], b2l: null, a2l: null };
   const s = (store(EQUIP_KEY) || {}) as Record<string, Record<string, unknown> | undefined>;
   for (const k of EQ_KINDS) {
     const e = s[k];
     if (!e || !fin(e.x, e.z, e.yaw)) continue;
     const b = e.b as Record<string, unknown> | null | undefined;
     Object.assign(EQ.xr[k], { x: e.x, z: e.z, yaw: e.yaw, set: !!e.set, handle: typeof e.handle === 'string' ? e.handle : null, b: b && fin(b.x, b.z, b.yaw) ? { x: b.x, z: b.z, yaw: b.yaw } : null });
+  }
+  const A = (store(EQUIP_ANCHOR_KEY) || {}) as Record<string, Record<string, unknown> | undefined>;
+  for (const k of EQ_KINDS) {
+    const a = A[k];
+    if (a && fin(a.x, a.z, a.yaw) && EQ.xr[k].set) EQ.xr[k].a = { x: a.x as number, z: a.z as number, yaw: a.yaw as number };
   }
   return EQ;
 }
@@ -76,6 +92,10 @@ export function saveEquip(EQ: Equip, store: Store): void {
     o[k] = { x: e.x, z: e.z, yaw: e.yaw, set: e.set, handle: e.handle, b: e.b };
   }
   store(EQUIP_KEY, o);
+  // (respecto al ancla del mundo: solo de RepArena XR, en su propia clave)
+  const A: Record<string, FloorPose> = {};
+  for (const k of EQ_KINDS) if (EQ.xr[k].a) A[k] = EQ.xr[k].a!;
+  store(EQUIP_ANCHOR_KEY, A);
 }
 
 /** Pose en local-floor → respecto al suelo del guardián (RepArena: eqToBounded). */
@@ -145,6 +165,7 @@ export function equipChanged(EQ: Equip, preview: boolean, k: EqKind, store: Stor
   e.set = true;
   if (!preview) {
     eqToBounded(EQ, e);
+    if (EQ.a2l) e.a = toRel(EQ.a2l, e);
     e.synced = true;
     saveEquip(EQ, store);
   }
@@ -222,4 +243,38 @@ export function anchorCreated(e: EqPose, anchor: unknown): string | null {
 export function anchorHandle(EQ: Equip, e: EqPose, handle: string, store: Store): void {
   e.handle = handle;
   saveEquip(EQ, store);
+}
+
+/** Una pose del suelo respecto a otra (T: dónde está su origen en local-floor) y al revés. */
+function toRel(T: FloorPose, e: FloorPose): FloorPose {
+  const dx = e.x - T.x, dz = e.z - T.z, c = Math.cos(T.yaw), s = Math.sin(T.yaw);
+  return { x: dx * c - dz * s, z: dx * s + dz * c, yaw: e.yaw - T.yaw };
+}
+function fromRel(T: FloorPose, b: FloorPose, out: FloorPose): FloorPose {
+  const c = Math.cos(T.yaw), s = Math.sin(T.yaw);
+  out.x = T.x + b.x * c + b.z * s;
+  out.z = T.z - b.x * s + b.z * c;
+  out.yaw = b.yaw + T.yaw;
+  return out;
+}
+const _ap: FloorPose = { x: 0, z: 0, yaw: 0 };
+/** En cada fotograma XR, con el ancla persistente del mundo ya en su sitio (`a2l`: dónde está en local-floor; null, aún no):
+ * cada aparato colocado vuelve a su sitio de la habitación (sin el temblor: eqTrack). Uno guardado antes del ancla se apunta
+ * respecto a ella desde ahora (donde esté: si no es su sitio, se recoloca una vez y ya se queda). */
+export function equipAnchorFrame(EQ: Equip, a2l: FloorPose | null, store: Store): void {
+  EQ.a2l = a2l;
+  if (!a2l) return;
+  let save = false;
+  for (const k of EQ_KINDS) {
+    const e = EQ.xr[k];
+    if (!e.set || EQ.edit === k) continue;
+    if (e.a) {
+      fromRel(a2l, e.a, _ap);
+      eqTrack(e, _ap.x, _ap.z, _ap.yaw);
+    } else {
+      e.a = toRel(a2l, e);
+      save = true;
+    }
+  }
+  if (save) saveEquip(EQ, store);
 }

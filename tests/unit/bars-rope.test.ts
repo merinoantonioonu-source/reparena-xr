@@ -2,7 +2,7 @@
 // una paralela o dos; la escena A: torres sobre un valle alpino): cables rectos de torre en torre que acaban en vertical hasta
 // la plataforma; cada remo sube y, sin remar, se resbala un poco, nunca más abajo de la plataforma de salida. Nada flota.
 import { describe, expect, it } from 'vitest';
-import { FALL, ROPE, ROPE_CHUNK, RopeCourse, RopeRun, ropeDecoPuts } from '../../src/modes/bars/rope';
+import { FALL, PULL, ROPE, ROPE_CHUNK, RopeCourse, RopeRun, ropeDecoPuts } from '../../src/modes/bars/rope';
 import { ROPE_WORLDS, worldOf, worldPano, worldStarts } from '../../src/modes/bars/rope-worlds';
 
 const DEG = 180 / Math.PI;
@@ -187,6 +187,48 @@ describe('el avance por la cuerda', () => {
     expect(R.ev.some((e) => e.t === 'slip')).toBe(true);
     for (let k = 0; k < 600 / DT; k++) R.step(DT, true);
     expect(R.s).toBeGreaterThanOrEqual(R.start);
+  });
+
+  it('cada remo es un tirón: subes mientras tiras, sigues un poco al bajar (inercia) y luego paras (no es una marcha continua)', () => {
+    const R = new RopeRun(new RopeCourse(lens, 3));
+    R.startWave(0);
+    // tirar hasta la barra en 0,8 s
+    for (let t = 0; t < 0.8; t += DT) {
+      R.pull(t / 0.8);
+      R.step(DT, true);
+    }
+    const pulled = R.s;
+    expect(pulled).toBeGreaterThan(ROPE.perRep * PULL.share * 0.85); // (lo del tirón, ya subido)
+    R.rep(0.8, false);
+    // bajar en 1 s: la inercia te lleva un poco más
+    const vTop = R.v;
+    for (let t = 0; t < 1; t += DT) {
+      R.pull(1 - t);
+      R.step(DT, true);
+    }
+    expect(R.s).toBeGreaterThan(pulled + ROPE.perRep * (1 - PULL.share) * 0.6);
+    expect(R.s - R.start).toBeLessThan(ROPE.perRep * 1.05); // (un remo, lo de un remo)
+    expect(R.v).toBeLessThan(vTop * 0.3); // (la inercia se apaga)
+    // abajo, quieto: ni avanza ni (aún) resbala
+    R.pull(0);
+    const s1 = R.s;
+    for (let t = 0; t < 1; t += DT) R.step(DT, true);
+    expect(R.s - s1).toBeLessThan(0.05);
+  });
+
+  it('un tirón a medias sube a medias, y bajar no te devuelve', () => {
+    const R = new RopeRun(new RopeCourse(lens, 3));
+    R.startWave(0);
+    for (let t = 0; t <= 0.5; t += DT) {
+      R.pull(t);
+      R.step(DT, true);
+    }
+    for (let t = 0; t < 0.5; t += DT) {
+      R.pull(0.5 - t);
+      R.step(DT, true);
+    }
+    expect(R.s).toBeGreaterThan(ROPE.perRep * PULL.share * 0.4);
+    expect(R.s).toBeLessThan(ROPE.perRep * PULL.share * 0.55);
   });
 
   it('colgado sin jugar (colgándote, en el descanso o en la pausa), ni subes ni resbalas', () => {

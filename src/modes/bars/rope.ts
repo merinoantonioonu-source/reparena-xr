@@ -27,14 +27,16 @@ const TAU = Math.PI * 2;
 
 /** Los números de la cuerda:
  * - `perRep`: metros de cuerda que pide cada repetición del tramo (con «Repeticiones por oleada»).
- * - `v0`: la velocidad de un remo a su ritmo (m/s; a ese ritmo, unos `perRep` metros por remo), `vMax` la más alta.
- * - `repT`: el ritmo de un remo tranquilo (s, el de Barras: BAR_REP_T.row).
  * - `slide`: lo que resbalas sin remar (m/s, en lo más empinado), `slideAfter`: lo que tarda en empezar (s).
  * - `vert`: lo que se frena el avance en vertical (×; la subida por la cuerda fija pide más esfuerzo).
  * - `pitch`: la cuesta de los cables (rad: de 30° a 42°); `sag`: su comba (del largo del cable).
  * - `vLen`: lo que se sube en vertical al final de cada tramo (m, de 3 a 7; un 25 % del tramo).
  * - `clear`: lo que queda, como poco, entre la cuerda y el suelo (m), y `treeU`: lo cerca que puede haber un árbol (a un lado). */
-export const ROPE = { perRep: 1.7, v0: 0.75, vMax: 1.6, repT: 2.6, slide: 0.1, slideAfter: 1.2, vert: 0.7, pitch: [0.52, 0.73] as [number, number], sag: 0.009, vLen: [3, 7] as [number, number], clear: 7, treeU: 9 };
+export const ROPE = { perRep: 1.7, slide: 0.1, slideAfter: 1.2, vert: 0.7, pitch: [0.52, 0.73] as [number, number], sag: 0.009, vLen: [3, 7] as [number, number], clear: 7, treeU: 9 };
+/** Cada remo, un tirón (pedido del usuario: «tiene que notarse el impulso, con cierta inercia cuando baja; no un movimiento
+ * constante»): la parte que se sube mientras tiras (`share`), lo pegado que va a los brazos (1/s) y lo que dura la inercia
+ * al soltar (s: lleva el resto del remo mientras bajas y se apaga). */
+export const PULL = { share: 0.7, follow: 12, glideT: 0.45 };
 /** El paso de la tabla del recorrido (m), lo que se redondea cada esquina (muestras a cada lado: la cuerda pasa por una polea)
  * y lo que se prepara de más tras la última plataforma (m: el paisaje de delante). */
 const STEP = 0.25, ROUND = 5, TAIL = 140;
@@ -186,12 +188,17 @@ export type RopeEv = { t: 'ledge'; wave: number } | { t: 'slip' } | { t: 'chimne
 /** El avance por la cuerda: cada remo te empuja y, sin remar, resbalas un poco. */
 export class RopeRun {
   s = 0;
+  /** La velocidad de ahora (m/s; negativa, resbalando): sale de los tirones, no la manda el ritmo. */
   v = 0;
-  private want = 0;
-  private push = 0;
-  private lastRep = 0;
+  /** Lo que falta por subir del tirón de ahora (m: se sube enseguida, pegado a los brazos), la inercia al soltar (m/s, que se
+   * apaga sola) y hasta dónde has tirado en este remo (0-1: lo que ya ha contado). */
+  private owe = 0;
+  private glideV = 0;
+  private fMax = 0;
+  /** ¿Ya contó el remo de ahora? (hasta volver abajo; sin seguir el tirón —las pruebas—, cada remo cuenta entero) */
+  private repDone = false;
   private idle = 0;
-  private glide = 0;
+  private slideV = 0;
   /** Dónde empezó el tramo (no se resbala más abajo) y dónde acaba (la plataforma de la torre). */
   start = 0;
   end = 0;
@@ -210,64 +217,89 @@ export class RopeRun {
     this.start = i > 0 ? this.course.ends[i - 1] ?? 0 : 0;
     this.end = this.course.ends[i] ?? this.start + 20;
     this.s = Math.max(this.s, this.start);
-    this.v = this.want = this.push = this.glide = 0;
-    this.lastRep = 0;
+    this.v = this.owe = this.glideV = this.fMax = this.slideV = 0;
+    this.repDone = false;
     this.idle = 0;
     this.reached = false;
   }
 
-  /** Un remo (now: el reloj, s): el impulso, según su ritmo (más rápido, más lejos), como en la Travesía. */
-  rep(now: number, perfect: boolean, speedK = 1): void {
+  /** Lo que da de sí un remo aquí (m): en la subida vertical, algo menos. */
+  private reach(k: number): number {
+    const th = this.course.pitch(this.s);
+    return ROPE.perRep * k * (1 - (1 - ROPE.vert) * Math.sin(th) ** 4);
+  }
+
+  /** Cada fotograma, lo que llevas tirado de este remo (`f`, 0-1: el pecho desde abajo hasta la barra; 0 abajo): mientras
+   * tiras, subes con los brazos (pedido del usuario: «cuando hace un remo, tiene que notarse el impulso», no una marcha
+   * continua). Bajar no te devuelve: lo subido, subido queda. */
+  pull(f: number): void {
     if (this.reached) return;
-    const gap = this.lastRep ? now - this.lastRep : ROPE.repT;
-    this.lastRep = now;
-    const kc = clamp(ROPE.repT / Math.max(0.6, gap), 0.6, 1.5);
-    this.want = clamp(ROPE.v0 * kc * (perfect ? 1.1 : 1), 0.3, ROPE.vMax) * speedK;
-    this.push = clamp(gap * 1.25, 1.8, 3.4);
+    if (f <= 0.02) {
+      this.fMax = 0;
+      this.repDone = false;
+      return;
+    }
+    if (f > this.fMax) {
+      this.owe += (Math.min(1, f) - this.fMax) * this.reach(PULL.share);
+      this.fMax = Math.min(1, f);
+      this.idle = 0;
+    }
+  }
+
+  /** Un remo completo (arriba): lo que faltara del tirón y la inercia al soltar, que te lleva un poco más mientras bajas y se
+   * apaga sola. Bien hecho, algo más; `speedK`, la «Velocidad» del jugador. (`now`, el reloj: no hace falta, el ritmo sale
+   * solo de cuántos tirones das.) */
+  rep(_now: number, perfect: boolean, speedK = 1): void {
+    if (this.reached) return;
+    const k = (perfect ? 1.1 : 1) * speedK, f0 = this.repDone ? 0 : this.fMax;
+    this.owe += (1 - f0) * this.reach(PULL.share);
+    this.fMax = 1;
+    this.repDone = true;
+    this.glideV += this.reach(k - PULL.share) / PULL.glideT;
     this.idle = 0;
   }
 
-  /** Un reto fallado: frenas a la mitad (como en la Travesía) y lo que llevabas de tirón se pierde. */
+  /** Un reto fallado: frenas a la mitad (como en la Travesía) y lo que llevabas de tirón se pierde a medias. */
   stumble(): void {
     this.v *= 0.5;
-    this.want *= 0.5;
-    this.glide = 0;
+    this.owe *= 0.5;
+    this.glideV *= 0.5;
   }
 
   /** Bajando con la carga aguantada arriba (×2-×4): un tirón de más, hacia arriba. */
   boost(p: number): void {
-    if (!this.reached) this.glide += 0.5 * (p - 1);
+    if (!this.reached) this.glideV += (0.5 * (p - 1)) / PULL.glideT;
   }
 
   /** Cada fotograma; playing: en el tramo, colgado y sin pausa (si no, quieto). */
   step(dt: number, playing: boolean): void {
-    if (!playing || this.reached) {
+    if (!playing || this.reached || dt <= 0) {
       this.v = 0;
       return;
     }
-    const C = this.course, th = C.pitch(this.s), vertK = 1 - (1 - ROPE.vert) * Math.sin(th) ** 4;
-    this.push -= dt;
+    const C = this.course, th = C.pitch(this.s);
     this.idle += dt;
-    if (this.push > 0) this.v += Math.sign(this.want * vertK - this.v) * Math.min(Math.abs(this.want * vertK - this.v), dt * 0.7);
-    else {
-      // sin remar: frena y, al rato, resbala un poco cuesta abajo (más cuanto más empinado)
-      const slide = this.idle > ROPE.slideAfter && this.s < this.hold - 0.05 ? -ROPE.slide * Math.sin(th) : 0;
-      this.v += Math.sign(slide - this.v) * Math.min(Math.abs(slide - this.v), dt * 0.5);
-    }
-    let step = this.v * dt;
-    if (this.glide > 0) {
-      const g = Math.min(this.glide, dt * 1.5);
-      this.glide -= g;
-      step += g;
-    }
+    // el tirón, pegado a los brazos (un pelín detrás: no da saltos), y la inercia, que se apaga sola
+    const pay = this.owe * (1 - Math.exp(-dt * PULL.follow));
+    this.owe -= pay;
+    let step = pay + this.glideV * dt;
+    this.glideV *= Math.exp(-dt / PULL.glideT);
+    if (this.glideV < 0.01) this.glideV = 0;
+    // sin remar: al rato, resbala un poco cuesta abajo (más cuanto más empinado), arrancando suave
+    const still = this.owe < 0.005 && this.glideV === 0;
+    const slide = still && this.idle > ROPE.slideAfter && this.s < this.hold - 0.05 ? -ROPE.slide * Math.sin(th) : 0;
+    this.slideV += Math.sign(slide - this.slideV) * Math.min(Math.abs(slide - this.slideV), dt * 0.5);
+    if (!still) this.slideV = 0;
+    step += this.slideV * dt;
     this.s = Math.max(this.start, this.s + step);
+    this.v = step / dt;
     if (this.s >= this.hold) {
       // (el jefe corta el paso: quieto delante de él)
       this.s = this.hold;
       this.v = Math.min(0, this.v);
-      this.glide = 0;
+      this.owe = this.glideV = 0;
     }
-    if (this.s <= this.start && this.v < 0) this.v = 0;
+    if (this.s <= this.start && this.slideV < 0) this.slideV = this.v = 0;
     const slipping = this.v < -0.03;
     if (slipping && !this.slipping) this.ev.push({ t: 'slip' });
     this.slipping = slipping;
