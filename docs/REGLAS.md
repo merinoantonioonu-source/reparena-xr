@@ -277,8 +277,11 @@ No las cambies sin preguntarle.
     - **Los aros, por encima de los monumentos** (el usuario los veía enterrados en edificios: estaban al otro lado de la
       ciudad, con el este y el norte al revés): cada aro, grande (40 m de radio), con su borde de abajo 30 m por encima de lo
       más alto que tenga debajo, de cara a ti (se entra por donde vengas) y con un haz de luz hacia arriba que se ve de lejos.
-      Solo cuenta si pasas por dentro (su nombre, puntos, sonido y vibración); no hay aros fallados: el que viene espera. La
-      flecha verde del suelo señala hacia él y el marcador dice a cuánto está y si hay que subir o bajar.
+      Solo cuenta si pasas por dentro (su nombre, puntos, sonido y vibración); no hay aros fallados: el que viene espera. El
+      marcador dice a cuánto está y si hay que subir o bajar. **La flecha verde y los créditos, sin estorbar** (pedido del
+      usuario: molestaban, grandes y justo delante de la cara al mirar abajo): la flecha, pequeña y más adelante en el suelo,
+      **solo sale cuando el aro no te queda de frente** (yendo hacia él no hace falta); los créditos del mapa, pequeños y
+      hacia los pies, bajo el cuerpo.
     - **La nitidez** («Volando sobre el mapa: nitidez»: Fluido, Normal, Alta de serie y Máxima) y empiezas a 260 m del suelo
       (desde más alto la ciudad se ve mejor: de cerca, los edificios de Google se ven algo derretidos). **Primero lo de cerca**
       (con el registro del usuario: pidiendo la ciudad entera hasta el horizonte había siempre más de 1.000 trozos esperando,
@@ -291,7 +294,7 @@ No las cambies sin preguntarle.
       (donde acabó tu último vuelo, a la altura y con el rumbo que llevabas). Desde un lugar no hay aros ni flecha: vuelo
       libre, y el marcador dice por dónde vas (las coordenadas) y la marcha. Empiezas a 260 m sobre lo que haya debajo, sea
       una playa o el Everest. Los aros siguen solo en las ciudades.
-    Los créditos del mapa («Google», lo exigen) se ven junto a la flecha. Solo en la Travesía (en Barras no sale). Sin clave o
+    Los créditos del mapa («Google», lo exigen) se ven hacia los pies, al mirar atrás. Solo en la Travesía (en Barras no sale). Sin clave o
     sin de dónde salir, la Travesía de siempre. *En pruebas* hasta que el usuario lo dé por bueno en las gafas.
   - En la dura, sin flexiones un rato vas perdiendo altura poco a poco (nunca te caes); en la suave, el vuelo la mantiene. La
     caja negra del vuelo (`reparenaxr-flybox`, con el diagnóstico) graba los últimos 40 s para afinar los números con tu vuelo.
