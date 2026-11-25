@@ -705,8 +705,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         const h = this.trek()?.hud(), M = this.mapFly()?.hud();
         if (M) {
           // sobre el mapa: la ciudad, la velocidad y la altura, y el aro que viene (nada de mundos, energía ni doradas)
-          lines[0] = `${M.city} · ${Math.round(M.kmh)} km/h · ${Math.round(M.agl)} m de alto`;
-          lines[1] = `Aro: ${M.next} · ${M.dist >= 1000 ? `${(M.dist / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(M.dist / 10) * 10} m`}`;
+          const far = (m: number): string => (m >= 1000 ? `${(m / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(m / 10) * 10} m`);
+          lines[0] = `${M.city} · ${Math.round(M.kmh)} km/h · a ${far(M.agl)} del suelo`;
+          lines[1] = `Aro: ${M.next} · ${far(M.dist)}${Math.abs(M.dy) > 25 ? ` · ${M.dy > 0 ? 'sube' : 'baja'} ${far(Math.abs(M.dy))}` : ''}`;
           lines[2] = `Aros pasados: ${M.got}`;
         } else if (h) {
           lines[0] = `${Math.floor(h.dist)} m · ${h.kmh.toFixed(1).replace('.', ',')} km/h${h.turbo ? ' · TURBO' : ''}`;
@@ -1073,7 +1074,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.spawnT += WAVE_INTRO; // (llegan cuando se va el panel)
     }
     if (this.failBest > 0 && i + 1 === this.failBest + 1) this.trophy('¡RÉCORD AL FALLO!', `Oleada ${i + 1}: nunca habías llegado tan lejos`);
-    const W1 = settings.mode === 'trek' ? `TRAMO ${i + 1}` : `OLEADA ${i + 1}`;
+    const W1 = this.mapFree() ? 'VUELO LIBRE' : settings.mode === 'trek' ? `TRAMO ${i + 1}` : `OLEADA ${i + 1}`;
     this.message(rk ? `${W1} · +${Math.round(rk * 100)} % DIFICULTAD` : W1, 1.6);
     SND.horn();
   }
@@ -1220,7 +1221,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.restT = 3;
       SND.charge();
       this.trek()?.calibrated(y, turned);
-      this.message(nWaves() ? `PREPÁRATE · ${nWaves()} ${settings.mode === 'trek' ? 'TRAMOS' : 'OLEADAS'}` : 'PREPÁRATE · AL FALLO', 3);
+      this.message(this.mapFree() ? 'PREPÁRATE · VUELO LIBRE' : nWaves() ? `PREPÁRATE · ${nWaves()} ${settings.mode === 'trek' ? 'TRAMOS' : 'OLEADAS'}` : 'PREPÁRATE · AL FALLO', 3);
       return;
     }
     this.fl.reset(y, { left: hands.left.ok ? hands.left.wrist.y : null, right: hands.right.ok ? hands.right.wrist.y : null });
@@ -1240,7 +1241,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.restT = 3;
     SND.charge();
     this.trek()?.calibrated(y, turned); // (la Travesía en plancha: la altura de la cabeza arriba de la plancha)
-    this.message(settings.mode === 'trek' ? `PREPÁRATE · ${nWaves() ? `${nWaves()} TRAMOS` : 'SIN FIN'}` : '¡Bien! A punto', 3);
+    this.message(this.mapFree() ? 'PREPÁRATE · VUELO LIBRE' : settings.mode === 'trek' ? `PREPÁRATE · ${nWaves() ? `${nWaves()} TRAMOS` : 'SIN FIN'}` : '¡Bien! A punto', 3);
   }
 
   // lo que pide el ejercicio en esta oleada (RepArena: dv para lo que hace más difícil la dificultad creciente)
@@ -1439,7 +1440,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   // los metros recorridos (Arcos; con la Travesía, también ella)
   private distNow(): number {
-    return settings.mode === 'arcs' ? Math.floor(this.arcs()?.arx.dist ?? 0) : settings.mode === 'trek' ? Math.floor(this.trek()?.runner.dist ?? 0) : 0;
+    return settings.mode === 'arcs' ? Math.floor(this.arcs()?.arx.dist ?? 0) : settings.mode === 'trek' ? Math.floor((this.trek()?.runner.mapMode ? this.trek()?.runner.mapFlown : this.trek()?.runner.dist) ?? 0) : 0;
   }
 
   bars(): BarsSystem | undefined {
@@ -1448,6 +1449,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   touch(): TouchSystem | undefined {
     return this.world.getSystem(TouchSystem);
+  }
+
+  /** ¿Esta ronda es el vuelo libre sobre el mapa? (Sin tramos ni cofres.) */
+  private mapFree(): boolean {
+    return settings.mode === 'trek' && !!this.trek()?.runner.mapMode;
   }
 
   /** El vuelo sobre el mapa (si está en marcha, su `hud()`). */

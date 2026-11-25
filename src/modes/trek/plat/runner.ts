@@ -265,6 +265,8 @@ export class Runner {
   coachWant = false;
   /** Volando sobre el mapa de una ciudad (src/modes/trek/map/): sin retos del recorrido ni aterrizajes (lo pone TrekSystem). */
   mapMode = false;
+  /** Sobre el mapa, lo volado (m: lo pone MapSystem; el recorrido de la Travesía no avanza). */
+  mapFlown = 0;
   private calibOk = false;
   /** Cuándo calibraste (s: el asistente espera a que el mundo acabe de recolocarte) y cuánto lleva la cabeza imposiblemente
    * lejos del centro del vuelo (s: se vuelve a centrar). */
@@ -637,6 +639,8 @@ export class Runner {
       this.superT = Math.max(0, this.superT - dt);
       if (!this.stop && !this.hop) tk.v = Math.max(tk.v, this.vmax * SUPER_K);
     }
+    // sobre el mapa se vuela libre: el recorrido de la Travesía no avanza (ni tramos ni cofres); la marcha es solo el gas
+    if (this.mapMode) tk.dist = d0;
     this.stepHop(dt);
     this.stepAir(dt);
     this.stepLev(dt);
@@ -1349,6 +1353,8 @@ export class Runner {
       this.say(this.flyHow(I.model), COL_ASK, 4, false);
     }
     G.step(dt, I);
+    // (sobre el mapa, la altura la lleva el mapa, sin techo: el planeador se queda en la suya y solo dice lo que sube o baja)
+    if (this.mapMode && !G.rising && I.land <= 0) G.alt = FLY.alt0;
   }
 
   /** Cómo se vuela con cada mando de altura (el aviso de al empezar y al acabar la práctica). */

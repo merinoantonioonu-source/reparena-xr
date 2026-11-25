@@ -1,15 +1,17 @@
 /**
  * El vuelo sobre el mapa (pedido del usuario: «volar por Google Maps 3D» con los movimientos del vuelo): en la Travesía con
  * «Flexiones» y «Volando», con una ciudad en «Volando: sobre el mapa» y la clave de Cesium ion del jugador (map-key.ts), en vez
- * del recorrido de la Travesía se pinta la ciudad de verdad (los mapas 3D de Google por Cesium ion, con la librería
- * 3d-tiles-renderer: IWSDK no trae nada para mapas) y te mueves por ella con los mismos mandos (map-route.ts: escorarte, virar;
- * la media flexión, la altura; tus flexiones o el avance solo, la velocidad). La ruta de aros pasa por sus monumentos.
+ * del recorrido de la Travesía se pinta el mundo de verdad (los mapas 3D de Google por Cesium ion, con la librería
+ * 3d-tiles-renderer: IWSDK no trae nada para mapas) y se vuela por él **libre** (map-route.ts: escorarte te ladea y viras, la
+ * media flexión sube y baja sin techo, la marcha es el gas). Una ruta de aros pasa por encima de los monumentos de la ciudad.
  *
- * Como la Travesía, el mundo se mueve y tú no: el mapa entero cuelga de `root`, que se gira y se desplaza para que el punto
- * donde vuelas quede en tu cabeza. El suelo bajo ti (y bajo cada aro) se mide con un rayo hacia abajo contra el mapa.
- * Los mapas, sin el estilo cómic ni niebla (son fotos de verdad) y con sus créditos de Google a la vista (lo exigen).
+ * Como la Travesía, el mundo se mueve y tú no: el mapa entero cuelga de `root`, que se gira (y se ladea un poco al virar) y
+ * se desplaza para que el punto donde vuelas quede en tu cabeza. Con rayos contra el mapa se mide lo que hay debajo (el suelo
+ * o el tejado: te sostiene), lo que hay por delante (una pared: frenas; no se atraviesa nada) y lo más alto bajo cada aro
+ * (el aro va por encima). Los mapas, sin el estilo cómic ni niebla (son fotos de verdad), con solo el cielo alrededor
+ * (`MAPVIEW`: lo pone EnvSystem, más oscuro cuanto más alto) y con sus créditos de Google a la vista (lo exigen).
  */
-import { AdditiveBlending, CanvasTexture, ConeGeometry, createSystem, DoubleSide, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Raycaster, TorusGeometry, Vector2, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, CanvasTexture, ConeGeometry, createSystem, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Quaternion, Raycaster, TorusGeometry, Vector2, Vector3 } from '@iwsdk/core';
 import type { Material, PerspectiveCamera, WebGLRenderer } from '@iwsdk/core';
 // (el descompresor de los modelos de Google: el mismo paquete de Three que reexporta IWSDK —IWSDK lo importa igual—)
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -18,30 +20,33 @@ import { TilesRenderer } from '3d-tiles-renderer/three';
 import { CesiumIonAuthPlugin, GLTFExtensionsPlugin, ReorientationPlugin, TilesFadePlugin } from '3d-tiles-renderer/plugins';
 import { SND } from '../../../audio/sound.js';
 import { diagEvent } from '../../../core/diag.js';
-import { GAME, HOOKS } from '../../../core/state.js';
-import { num, settings, str } from '../../../core/values.js';
+import { GAME, HOOKS, MAPVIEW } from '../../../core/state.js';
+import { num, on as isOn, settings, str } from '../../../core/values.js';
 import { haptic } from '../../../input/hand-system.js';
-import { FLY } from '../plat/fly.js';
+import { FLY, MID } from '../plat/fly.js';
 import { TrekSystem } from '../trek-system.js';
 import { GOOGLE_3D_ASSET, mapKey, mapLog } from './map-key.js';
 import { cityOf, headingTo, MAP, MapFlight, type MapIn } from './map-route.js';
 
-const DEG = Math.PI / 180;
-/** Lo lejos que se pinta (m: la ciudad entera; la cámara de la Travesía no llega tan lejos), cada cuánto se mide el suelo (s), lo
- * que tarda la ciudad en seguir al suelo medido (s) y lo más deprisa que sube o baja (m/s), lo que pueden ocupar los mapas en
- * memoria (bytes) y el aviso. El detalle, del ajuste «Volando sobre el mapa: detalle» (`flyMapDetail`). */
-const FAR = 25000, GROUND_T = 1.2, GROUND_TAU = 1.5, GROUND_V = 4, CACHE_BYTES = 260 * 1024 * 1024, WAIT = 20;
-/** Lo que mide el suelo: las últimas medidas, y vale la más baja (la calle: el rayo a veces da en un tejado). */
-const GROUND_N = 4;
+const DEG = Math.PI / 180, RE = 6371000;
+/** Lo más cerca que se pone el fondo de lo que se pinta (m: la ciudad entera; más alto, hasta el horizonte), cada cuánto se
+ * mide lo que hay debajo, por delante y bajo los aros (s), lo que pueden ocupar los mapas en memoria (bytes) y el aviso. El
+ * detalle, del ajuste «Volando sobre el mapa: nitidez» (`flyMapSharp`). */
+const FAR = 25000, GROUND_T = 0.3, AHEAD_T = 0.2, RING_T = 0.8, CACHE_BYTES = 600 * 1024 * 1024, WAIT = 20;
+/** El aro se mide en su centro y en cuatro puntos de su borde (× su radio): vale lo más alto. */
+const RING_AT: readonly [number, number][] = [[0, 0], [0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]];
+const AX_Y = new Vector3(0, 1, 0), AX_Z = new Vector3(0, 0, 1);
 
 export class MapSystem extends createSystem({}) {
   private root!: Group;
   private room!: Group;
   private tiles: TilesRenderer | null = null;
+  private reorient: ReorientationPlugin | null = null;
   private flight: MapFlight | null = null;
   private cityId = '';
   private cam: PerspectiveCamera | null = null;
   private farWas = 0;
+  private farNow = 0;
   private active = false;
   private errSaid = false;
   /** Si ya ha llegado algún trozo del mapa, y lo que lleva esperándolo (s: pasado `WAIT`, se avisa). */
@@ -50,20 +55,21 @@ export class MapSystem extends createSystem({}) {
   private nextState = 0;
   private readonly size = new Vector2();
   private waitT = 0;
-  /** El suelo bajo ti y bajo cada aro (m, en el mapa; NaN: aún sin medir) y cuándo toca medirlo. */
-  private ground = 0;
-  private groundGoal = 0;
-  private groundOk = false;
-  private readonly gHist: number[] = [];
-  private gi = 0;
   private aniso = 1;
-  private ringGround: number[] = [];
+  /** Cuándo toca medir lo de debajo, lo de delante y los aros (s), y a cuál de los dos aros le toca. */
   private groundT = 0;
+  private aheadT = 0;
   private ringT = 0;
+  private ringK = 0;
+  private wallT = 0;
+  private pad: Object3D | null = null;
+  private padWas = true;
   private readonly ray = new Raycaster();
-  private readonly hits: { point: Vector3 }[] = [];
-  /** Los aros (el que viene y el siguiente), el que se abre al pasarlo, la flecha que señala al que viene y los créditos. */
+  private readonly hits: { point: Vector3; distance: number }[] = [];
+  /** Los aros (el que viene y el siguiente), el haz de luz sobre el que viene (se ve de lejos), el que se abre al pasarlo,
+   * la flecha que señala al que viene y los créditos. */
   private rings: Mesh[] = [];
+  private beam!: Mesh;
   private pop!: Mesh;
   private popT = -1;
   private arrow!: Mesh;
@@ -73,10 +79,11 @@ export class MapSystem extends createSystem({}) {
   private creditT = 0;
   private readonly v = new Vector3();
   private readonly w = new Vector3();
+  private readonly q = new Quaternion();
   private readonly attr: { type: string; value: unknown }[] = [];
   private draco: DRACOLoader | null = null;
   /** Lo que manda el cuerpo (sin crear nada en cada fotograma). */
-  private readonly inp: MapIn = { u: 0, uMax: FLY.uMax, alt: 0, alt0: FLY.alt0, v: 0 };
+  private readonly inp: MapIn = { steer: 0, climb: 0, gas: 0 };
 
   init(): void {
     this.root = new Group();
@@ -86,8 +93,9 @@ export class MapSystem extends createSystem({}) {
     this.room = new Group();
     this.room.visible = false;
     this.world.createTransformEntity(this.room);
+    (this.ray as Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true; // (solo lo primero que toca: más ligero)
     const ringMat = new MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.9, blending: AdditiveBlending, depthWrite: false, toneMapped: false, fog: false, side: DoubleSide });
-    const ringGeo = new TorusGeometry(MAP.ringR, 1.6, 10, 64);
+    const ringGeo = new TorusGeometry(MAP.ringR, 2.6, 10, 64);
     for (let i = 0; i < 2; i++) {
       const m = new Mesh(ringGeo, ringMat.clone());
       m.userData.noInk = true;
@@ -96,6 +104,12 @@ export class MapSystem extends createSystem({}) {
       this.root.add(m);
       this.rings.push(m);
     }
+    // el haz de luz: sube desde lo alto del aro que viene (se ve de lejos, por encima de los edificios)
+    this.beam = new Mesh(new CylinderGeometry(3, 3, 1, 10, 1, true).translate(0, 0.5, 0), new MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.28, blending: AdditiveBlending, depthWrite: false, toneMapped: false, fog: false, side: DoubleSide }));
+    this.beam.userData.noInk = true;
+    this.beam.renderOrder = 6;
+    this.beam.visible = false;
+    this.root.add(this.beam);
     this.pop = new Mesh(ringGeo, ringMat.clone());
     this.pop.userData.noInk = true;
     this.pop.visible = false;
@@ -125,69 +139,72 @@ export class MapSystem extends createSystem({}) {
     if (!this.active && !this.start()) return;
     const F = this.flight!, tiles = this.tiles!;
     // (sin nada del mapa en un rato: la clave mal pegada, sin permiso para esta dirección o sin wifi)
-    if (!this.loaded) {
-      this.waitT += dt;
-      if (!this.errSaid && this.waitT > WAIT) this.fail(`sin ningún trozo en ${WAIT} s${this.asked ? ' (pedidos)' : ' (ni pedidos)'}`);
-      // (y cómo va, cada rato: para saber dónde se atasca)
-      if (this.waitT > this.nextState && this.nextState < 80) {
-        this.nextState += 15;
-        this.log(this.stateOf(tiles));
+    this.waitT += dt;
+    if (!this.loaded && !this.errSaid && this.waitT > WAIT) this.fail(`sin ningún trozo en ${WAIT} s${this.asked ? ' (pedidos)' : ' (ni pedidos)'}`);
+    // (y cómo va, cada rato: para saber dónde se atasca o si la memoria se llena)
+    if (this.waitT > this.nextState && this.nextState < 200) {
+      this.nextState += this.loaded ? 45 : 15;
+      this.log(this.stateOf(tiles));
+    }
+    // el vuelo: lo que manda el cuerpo (el planeador de la Travesía: lo que te escoras y lo que subes o bajas) y la marcha
+    if (!GAME.paused) {
+      const I = this.inp, G = R.glider;
+      I.steer = G.tgtU / FLY.uMax;
+      I.climb = G.rising ? 0 : G.vAlt / (G.vAlt > 0 ? MID.up : MID.down);
+      I.gas = R.v / Math.max(0.1, R.vmax);
+      F.step(dt, I);
+      R.mapFlown = F.flown;
+      if (F.judge()) this.passed(F);
+      // (la Tierra es redonda: lejos del punto del mapa, se vuelve a anclar debajo de ti)
+      if (F.reanchor() && this.reorient) {
+        this.reorient.transformLatLonHeightToOrigin(F.anchor.lat * DEG, F.anchor.lon * DEG);
+        this.groundT = this.aheadT = this.ringT = 0;
+      }
+      // ante una pared, parado: se dice (de vez en cuando)
+      this.wallT -= dt;
+      if (F.ahead - MAP.stopAt < 2 && I.gas > 0.2 && this.wallT <= 0) {
+        this.wallT = 5;
+        HOOKS.say('¡Un edificio! Vira o sube', '#ff8a3d', 1.8, true);
+        haptic('left', 0.5, 120);
+        haptic('right', 0.5, 120);
       }
     }
-    // el vuelo: lo que manda el cuerpo (el planeador de la Travesía) y la marcha
-    if (!GAME.paused) {
-      const I = this.inp;
-      I.u = R.glider.u;
-      I.alt = R.glider.alt;
-      I.v = R.v;
-      F.step(dt, I);
-      const res = F.judge();
-      if (res === 'pass') this.passed(F);
-      else if (res === 'miss') HOOKS.say(`Aro fallado · ${F.city.route[F.next].name}`, '#ffb347', 1.4, false);
-    }
-    // el suelo: bajo ti, la más baja de las últimas medidas (un tejado no cuenta) y seguida poco a poco (antes la ciudad
-    // daba saltos arriba y abajo al pasar sobre los edificios)
+    // lo que hay debajo (el suelo o el tejado: te sostiene), por delante (una pared: frenas) y bajo los aros (van por encima)
     this.groundT -= dt;
     if (this.groundT <= 0) {
       this.groundT = GROUND_T;
-      const g = this.groundAt(F.x, F.z);
-      if (!Number.isNaN(g)) {
-        this.gHist[this.gi++ % GROUND_N] = g;
-        let lo = Infinity;
-        for (const h of this.gHist) lo = Math.min(lo, h);
-        this.groundGoal = lo;
-        if (!this.groundOk) this.ground = lo; // (la primera, de golpe: aún cargando)
-        this.groundOk = true;
-      }
+      const g = this.topAt(F.x, F.z, F.alt);
+      if (!Number.isNaN(g)) F.ground = g;
     }
-    if (this.groundOk) {
-      const step = (this.groundGoal - this.ground) * (1 - Math.exp(-dt / GROUND_TAU)), cap = GROUND_V * dt;
-      this.ground += Math.max(-cap, Math.min(cap, step));
+    this.aheadT -= dt;
+    if (this.aheadT <= 0) {
+      this.aheadT = AHEAD_T;
+      F.ahead = this.aheadOf(F);
     }
-    // bajo los aros que vienen: también la más baja (el rayo da a veces en lo alto del monumento)
     this.ringT -= dt;
     if (this.ringT <= 0) {
-      this.ringT = 2;
-      for (let k = 0; k < 2; k++) {
-        const i = (F.next + k) % F.rings.length, g = this.groundAt(F.rings[i].x, F.rings[i].z);
-        if (!Number.isNaN(g)) this.ringGround[i] = Math.min(this.ringGround[i] ?? Infinity, g);
-      }
+      this.ringT = RING_T;
+      this.measureRing(F, (F.next + (this.ringK++ % 2)) % F.rings.length);
     }
-    // el mapa, girado y desplazado para que donde vuelas quede en tu cabeza (el centro del vuelo, quieto: lo de la Travesía)
-    const B = R.flyBody, eye = T!.calibRef, py = this.ground + F.agl;
-    this.root.rotation.set(0, -F.heading, 0);
-    this.v.set(F.x, py, F.z).applyAxisAngle(this.w.set(0, 1, 0), -F.heading);
+    // el mapa, girado (y ladeado un poco al virar, como un ave) y desplazado para que donde vuelas quede en tu cabeza (el
+    // centro del vuelo, quieto: lo de la Travesía)
+    const B = R.flyBody, eye = T!.calibRef;
+    this.root.quaternion.setFromAxisAngle(AX_Z, isOn('flyMapBank') ? F.bank * MAP.roll : 0).multiply(this.q.setFromAxisAngle(AX_Y, -F.heading));
+    this.v.set(F.x, F.alt, F.z).applyQuaternion(this.root.quaternion);
     this.root.position.set(B.x0 - this.v.x, eye - this.v.y, B.z0 - this.v.z);
     this.root.updateMatrixWorld(true);
-    // los aros: el que viene y el siguiente, a su altura sobre su suelo y de cara a quien llega
+    // los aros: el que viene y el siguiente, por encima de lo que tengan debajo y de cara a ti (se entra por donde vengas)
     for (let k = 0; k < 2; k++) {
-      const i = (F.next + k) % F.rings.length, r = F.rings[i], prev = F.rings[(i + F.rings.length - 1) % F.rings.length], m = this.rings[k];
-      const gy = this.ringGround[i] ?? this.ground;
-      m.position.set(r.x, gy + MAP.ringAgl, r.z);
-      m.rotation.set(0, headingTo(prev.x, prev.z, r.x, r.z), 0);
-      (m.material as MeshBasicMaterial).opacity = k ? 0.45 : 0.9;
+      const i = (F.next + k) % F.rings.length, r = F.rings[i], m = this.rings[k];
+      m.position.set(r.x, F.ringAlt(i), r.z);
+      m.rotation.set(0, headingTo(F.x, F.z, r.x, r.z), 0);
+      (m.material as MeshBasicMaterial).opacity = k ? 0.4 : 0.9;
       m.visible = true;
     }
+    this.beam.position.copy(this.rings[0].position);
+    this.beam.position.y += MAP.ringR;
+    this.beam.scale.set(1, 2500, 1);
+    this.beam.visible = true;
     if (this.popT >= 0) {
       this.popT += dt;
       const k = this.popT / 0.8;
@@ -207,6 +224,16 @@ export class MapSystem extends createSystem({}) {
     if (this.creditT <= 0) {
       this.creditT = 2;
       this.drawCredits(tiles);
+    }
+    // el cielo (EnvSystem): solo cielo y mapa, más oscuro cuanto más alto
+    MAPVIEW.on = true;
+    MAPVIEW.alt = F.agl;
+    // lo lejos que se pinta: la ciudad entera y, más alto, hasta el horizonte (a saltos: no en cada fotograma)
+    const h = Math.max(0, F.agl), far = Math.max(FAR, 1.2 * Math.sqrt(2 * RE * h + h * h) + 2000), wc = this.world.camera as PerspectiveCamera;
+    if (far > this.farNow * 1.25 || far < this.farNow / 1.6) {
+      this.farNow = far;
+      wc.far = far * 1.25;
+      wc.updateProjectionMatrix();
     }
     // los mapas: desde la cámara de ahora (en las gafas, la de los dos ojos)
     const r = this.world.renderer as WebGLRenderer, cam = (r.xr.isPresenting ? r.xr.getCamera() : this.world.camera) as PerspectiveCamera;
@@ -234,16 +261,18 @@ export class MapSystem extends createSystem({}) {
       tiles.registerPlugin(new CesiumIonAuthPlugin({ apiToken: key, assetId: GOOGLE_3D_ASSET, autoRefreshToken: true }));
       if (!this.draco) this.draco = new DRACOLoader().setDecoderPath(`${import.meta.env.BASE_URL}draco/`);
       tiles.registerPlugin(new GLTFExtensionsPlugin({ dracoLoader: this.draco }));
-      tiles.registerPlugin(new ReorientationPlugin({ lat: city.lat * DEG, lon: city.lon * DEG, height: 0, recenter: true }));
+      this.reorient = new ReorientationPlugin({ lat: city.lat * DEG, lon: city.lon * DEG, height: 0, recenter: true });
+      tiles.registerPlugin(this.reorient);
       // los cambios de detalle, fundidos (sin el salto de un trozo borroso a uno nítido)
       tiles.registerPlugin(new TilesFadePlugin({ maximumFadeOutTiles: 30 }));
+      // (la memoria de los mapas: con poca, se llenaba y la ciudad se quedaba borrosa)
       tiles.lruCache.maxBytesSize = CACHE_BYTES;
-      tiles.lruCache.minBytesSize = CACHE_BYTES * 0.6;
-      // (de dos en dos: cada trozo nuevo cuesta un poco al prepararlo, y de cinco en cinco daba tirones)
-      tiles.parseQueue.maxJobs = 2;
+      tiles.lruCache.minBytesSize = CACHE_BYTES * 0.75;
+      // (de tres en tres: cada trozo nuevo cuesta un poco al prepararlo, y de cinco en cinco daba tirones)
+      tiles.parseQueue.maxJobs = 3;
       tiles.addEventListener('load-root-tileset', () => {
-        // el detalle: el que elijas (lo de Google pone el suyo al recibir el índice)
-        tiles.errorTarget = num('flyMapDetail') || 13;
+        // la nitidez: la que elijas (lo de Google pone la suya al recibir el índice)
+        tiles.errorTarget = num('flyMapSharp') || 8;
         this.log('índice del mapa recibido');
       });
       tiles.addEventListener('tile-download-start', () => {
@@ -283,35 +312,39 @@ export class MapSystem extends createSystem({}) {
       this.cityId = city.id;
       this.loaded = this.asked = false;
     }
+    // (el nivel de nitidez pudo cambiar en el menú entre partidas)
+    if (this.tiles.root) this.tiles.errorTarget = num('flyMapSharp') || 8;
     this.flight = new MapFlight(city);
+    this.reorient?.transformLatLonHeightToOrigin(city.lat * DEG, city.lon * DEG);
     this.waitT = 0;
     this.nextState = 6;
-    this.ringGround = [];
-    this.groundOk = false;
-    this.ground = this.groundGoal = city.h; // (hasta medirlo: no bajo tierra)
-    this.gHist.length = 0;
-    this.gi = 0;
+    this.groundT = this.aheadT = this.ringT = this.wallT = 0;
     this.aniso = (this.world.renderer as WebGLRenderer).capabilities.getMaxAnisotropy();
-    this.groundT = this.ringT = 0;
     this.root.visible = true;
+    // (solo el cielo y el mapa: sin la plataforma de debajo de los pies)
+    this.pad = this.world.getSceneEntity('player-pad')?.object3D ?? null;
+    if (this.pad) {
+      this.padWas = this.pad.visible;
+      this.pad.visible = false;
+    }
     const cam = this.world.camera as PerspectiveCamera;
     this.farWas = cam.far;
-    cam.far = FAR;
-    cam.updateProjectionMatrix();
-    HOOKS.say(`${city.name} · sigue los aros`, '#3cf0c6', 3, false);
+    this.farNow = 0;
+    HOOKS.say(`${city.name} · vuelo libre · sigue los aros`, '#3cf0c6', 4, false);
     this.log(`${city.name}: empieza (clave …${key.slice(-4)})`);
     return true;
   }
 
-  /** Lo que enseñan el marcador y el panel de cada tramo (null: sin mapa). Sin crear nada en cada fotograma. */
-  private readonly hudOut = { city: '', next: '', dist: 0, kmh: 0, agl: 0, got: 0 };
-  hud(): { city: string; next: string; dist: number; kmh: number; agl: number; got: number } | null {
+  /** Lo que enseñan el marcador y el panel de la ronda (null: sin mapa). Sin crear nada en cada fotograma. */
+  private readonly hudOut = { city: '', next: '', dist: 0, dy: 0, kmh: 0, agl: 0, got: 0 };
+  hud(): { city: string; next: string; dist: number; dy: number; kmh: number; agl: number; got: number } | null {
     const F = this.flight;
     if (!this.active || !F) return null;
     const H = this.hudOut;
     H.city = F.city.name;
     H.next = F.city.route[F.next].name;
     H.dist = F.toward.dist;
+    H.dy = F.toward.dy;
     H.kmh = F.speed * 3.6;
     H.agl = F.agl;
     H.got = F.got;
@@ -320,7 +353,9 @@ export class MapSystem extends createSystem({}) {
 
   private end(): void {
     this.active = false;
+    MAPVIEW.on = false;
     this.root.visible = this.room.visible = false;
+    if (this.pad) this.pad.visible = this.padWas;
     const cam = this.world.camera as PerspectiveCamera;
     if (this.farWas) {
       cam.far = this.farWas;
@@ -348,11 +383,12 @@ export class MapSystem extends createSystem({}) {
     HOOKS.say('Mapa: no carga · mira la página', '#ff8a3d', 4, true);
   }
 
-  /** Cómo va la carga: la raíz (0 sin pedir, 2 bajando, 4 recibida, −1 fallida), los trozos en cada paso y la resolución. */
+  /** Cómo va la carga: la raíz (0 sin pedir, 2 bajando, 4 recibida, −1 fallida), los trozos en cada paso, lo que ocupan en
+   * memoria, la nitidez y la resolución. */
   private stateOf(tiles: TilesRenderer): string {
-    const S = (tiles as unknown as { stats: Record<string, number> }).stats, r = this.world.renderer as WebGLRenderer;
+    const S = (tiles as unknown as { stats: Record<string, number> }).stats, r = this.world.renderer as WebGLRenderer, C = tiles.lruCache as unknown as { cachedBytes: number; isFull(): boolean };
     r.getSize(this.size);
-    return `a los ${Math.round(this.waitT)} s · raíz ${(tiles as unknown as { rootLoadingState: number }).rootLoadingState} · en cola ${S.queued} · bajando ${S.downloading} · procesando ${S.parsing} · cargados ${S.loaded} · fallidos ${S.failed} · visibles ${tiles.visibleTiles.size} · ${this.size.x}×${this.size.y}${r.xr.isPresenting ? ' (VR)' : ''}`;
+    return `a los ${Math.round(this.waitT)} s · raíz ${(tiles as unknown as { rootLoadingState: number }).rootLoadingState} · en cola ${S.queued} · bajando ${S.downloading} · procesando ${S.parsing} · cargados ${S.loaded} · fallidos ${S.failed} · visibles ${tiles.visibleTiles.size} · memoria ${Math.round(C.cachedBytes / 1e6)} MB${C.isFull() ? ' (llena)' : ''} · nitidez ${tiles.errorTarget} · ${this.size.x}×${this.size.y}${r.xr.isPresenting ? ' (VR)' : ''}`;
   }
 
   /** Al diagnóstico y al registro del mapa (que enseña la página: no se borra a los 30 s). */
@@ -361,16 +397,49 @@ export class MapSystem extends createSystem({}) {
     mapLog(text);
   }
 
-  /** El suelo en (x, z) del mapa (m; NaN si aún no ha cargado): un rayo desde muy alto hacia abajo. */
-  private groundAt(x: number, z: number): number {
+  /** Un rayo contra el mapa desde `o` hacia `d` (los dos, en el mapa; `d`, de largo 1), hasta `far` m: a cuánto toca (m) o
+   * NaN. El punto tocado queda en `this.v`, en el mapa. */
+  private cast(o: Vector3, d: Vector3, far: number): number {
     if (!this.tiles) return NaN;
-    const o = this.root.localToWorld(this.v.set(x, 4000, z)), d = this.w.set(0, -1, 0).transformDirection(this.root.matrixWorld);
+    this.root.localToWorld(o);
+    d.transformDirection(this.root.matrixWorld);
     this.ray.set(o, d);
-    this.ray.far = 9000;
+    this.ray.far = far;
     this.hits.length = 0;
     this.ray.intersectObject(this.tiles.group, true, this.hits as never);
     if (!this.hits.length) return NaN;
-    return this.root.worldToLocal(this.v.copy(this.hits[0].point)).y;
+    this.root.worldToLocal(this.v.copy(this.hits[0].point));
+    return this.hits[0].distance;
+  }
+
+  /** La altura de lo más alto que hay en (x, z), en el mapa (m: el suelo o el tejado), o NaN si aún no hay mapa ahí. Se mira
+   * desde arriba del todo (por si un tejado te quedara encima). */
+  private topAt(x: number, z: number, alt: number): number {
+    const y0 = Math.max(alt + 20, 9000);
+    return Number.isNaN(this.cast(this.v.set(x, y0, z), this.w.set(0, -1, 0), y0 + 2000)) ? NaN : this.v.y;
+  }
+
+  /** Lo libre que queda por delante, hacia donde vuelas (m; Infinity: nada cerca). */
+  private aheadOf(F: MapFlight): number {
+    const far = Math.max(MAP.aheadMin, F.speed * MAP.aheadT * 1.6) + MAP.stopAt;
+    // (hacia donde vas de verdad: adelante y lo que subes o bajas)
+    const sp = Math.max(8, F.speed);
+    this.w.set(-Math.sin(F.heading) * sp, F.vs, -Math.cos(F.heading) * sp).normalize();
+    const d = this.cast(this.v.set(F.x, F.alt, F.z), this.w, far);
+    return Number.isNaN(d) ? Infinity : d;
+  }
+
+  /** El aro `i`, por encima de lo más alto que tenga debajo (en su centro y en su borde), suave (los mapas se van afinando). */
+  private measureRing(F: MapFlight, i: number): void {
+    const r = F.rings[i];
+    let top = NaN;
+    for (const [a, b] of RING_AT) {
+      const g = this.topAt(r.x + a * MAP.ringR, r.z + b * MAP.ringR, 0);
+      if (!Number.isNaN(g) && !(g <= top)) top = g;
+    }
+    if (Number.isNaN(top)) return;
+    const y = top + MAP.ringClear + MAP.ringR, y0 = F.ringY[i];
+    F.ringY[i] = Number.isNaN(y0) ? y : y0 + (y - y0) * 0.4;
   }
 
   /** Aro pasado: se abre y se desvanece, puntos, sonido y vibración, y el nombre del monumento. */
@@ -387,7 +456,6 @@ export class MapSystem extends createSystem({}) {
     HOOKS.say(`¡${F.city.route[done].name}!`, '#3cf0c6', 1.6, false);
   }
 
-  /** Los créditos del mapa (lo que pide cada fuente; Google, siempre): se repintan solo si cambian. */
   private drawCredits(tiles: TilesRenderer): void {
     this.attr.length = 0;
     tiles.getAttributions(this.attr);
