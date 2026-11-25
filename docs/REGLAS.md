@@ -398,36 +398,43 @@ No las cambies sin preguntarle.
 **Barras**
 - **La aventura en la cuerda del remo invertido** (pedido del usuario; elegido de las propuestas: «A con tramos de B»; plan en
   `docs/PLAN-BARRAS-CUERDA.md`): una opción de Barras («Remo invertido: aventura en la cuerda», *en pruebas*), con **una
-  paralela o dos**. Cuelgas boca arriba de un cable y **cada remo es un tirón** (corregido por el usuario: «no un movimiento constante»): subes
-  mientras tiras, pegado a los brazos, y al bajar te lleva un poco la inercia, que se apaga; más remos, más deprisa. Si dejas de remar,
-  **resbalas un poco** («mínimamente»: nunca más abajo de la plataforma de salida). La escena, la A de los bocetos
-  (elegida por el usuario: lo primero, un cañón de rocas con la cuerda ondulante, era «muy poco atractivo»): **torres de madera
-  sobre un valle alpino**. **Como una tirolina de verdad**: cada tramo, **un cable recto y tenso** (con una comba leve) de la
-  plataforma de una torre a la siguiente, con su cuesta fija (de 30° a 42°), y lo último, **en vertical** por una cuerda fija
-  junto a la torre hasta su plataforma (se ve sobre ti: el tramo superado). **Nada flota**: la ladera es un suelo de verdad,
-  las torres apoyan en él sus patas y cada árbol, su tronco (y lejos de la cuerda). El cielo sigue arriba (el mundo no se
-  inclina: subir es que el valle baje y venga hacia ti). **La cuerda sube hacia tus pies** (corregido por el usuario con su
-  vídeo: subía hacia lo alto de la cabeza y había que mirar hacia atrás para ver adónde ibas): tumbado, lo que se acerca se ve
-  sin echar la cabeza atrás. Con dos paralelas, dos cables; con una, un cable por encima y la barra
-  colgada de una polea. **Fondo realista según la altura** (elegido por el usuario: «sigue tus propuestas», con la lógica del
-  mundo real: «no pongas el fondo en el cielo»): abajo, los Alpes desde el valle; a media subida, la montaña y el valle y las
-  colinas con nubes; en el último tramo, la vista desde la cima. La foto solo pone lo lejano (el cielo y las montañas del
-  horizonte, siempre derecho y a la altura de los ojos, girada hacia donde subes); por debajo del horizonte, la ladera del juego
-  y, más allá, **un mar de nubes en el valle** (las fotos están hechas de pie en un prado: sin él, se veía su hierba enorme). La
-  bruma, del color del horizonte de cada foto. La pared rocosa vertical, para las dominadas.
+  paralela o dos**. Cuelgas boca arriba de un cable y **cada remo es un tirón** (corregido por el usuario: «no un movimiento
+  constante»): subes mientras tiras, pegado a los brazos, y al bajar te lleva un poco la inercia, que se apaga; más remos, más
+  deprisa. Si dejas de remar, **resbalas un poco** («mínimamente»: nunca más abajo del final del tramo anterior).
+  **Un solo cable, del valle a la cima** (opción A del usuario, tras verla en las gafas: la cuerda «hacía pliegues
+  antinaturales», como si tuviera anclajes suspendidos en el aire, y las plataformas no tenían sentido): un cable tenso, como el
+  de un teleférico, de la estación del valle a la de la cima, sin torres ni apoyos por el medio y **sin pliegues** (su cuesta
+  crece poco a poco, de unos 25° abajo a unos 48° arriba). **Cada tramo acaba en un cofre colgado del cable**, a un lado de las
+  paralelas (no tropieza con las manos), que se abre al llegar; el último, en la plataforma de la estación de la cima. **La
+  cuerda sube hacia tus pies** (corregido por el usuario con su vídeo: subía hacia lo alto de la cabeza y había que mirar hacia
+  atrás para ver adónde ibas): tumbado, lo que se acerca se ve sin echar la cabeza atrás. El cielo sigue arriba (el mundo no se
+  inclina: subir es que la montaña baje y venga hacia ti). Con dos paralelas, dos cables; con una, un cable por encima y la barra
+  colgada de una polea.
+  **Una montaña, de abajo arriba** (los mundos, en la opción A): según lo que llevas subido, debajo pasan **el valle** (prados con
+  flores, el lago y bosquecillos), **el bosque** (pinares con claros, helechos y setas), **la garganta** (el río entre paredes de
+  roca, con sus cascadas) y **la cima** (roca, peñas y hierba rala); se ven llegar y cambian poco a poco (al entrar en cada una,
+  su nombre; sin portales ni destellos). Por zonas, no salpicado: los árboles, en bosquecillos. La montaña mide como poco 110 m
+  de cable: en una ronda corta se sube solo su principio y la estación de llegada queda en un mirador. **Todo nace de algo**
+  (idea 1 del usuario: las cascadas «parecían emerger de ninguna parte»): un manantial en la cima da un arroyo que cae en cascada
+  por la pared de la cabecera de la garganta; cada cascada de sus paredes viene de un arroyo que corre por lo alto desde su
+  manantial y, al pie, su agua corre hasta el río; el río baja siempre cuesta abajo por la garganta y el bosque hasta el lago del
+  valle (sin garganta en la ronda, un arroyo del bosque llena el lago). El agua, realista (corriente, espuma en las orillas y al
+  pie de las cascadas, reflejo y destellos; el lago, más claro en la orilla) y con bruma al pie de cada cascada. **Nada flota**:
+  el suelo es la ladera de la montaña con el cauce del río y la cubeta del lago, y cada árbol y cada roca se apoyan en él (nunca
+  en el agua, en una pared ni bajo la cuerda). **Fondo realista según la altura** (elegido por el usuario: «sigue tus
+  propuestas», con la lógica del mundo real: «no pongas el fondo en el cielo»): la foto de la zona de cada tramo (el valle, la
+  montaña, la cumbre), que cambia en el descanso; solo pone lo lejano (el cielo y las montañas del horizonte, siempre derecho y a
+  la altura de los ojos, girada hacia donde subes); por debajo del horizonte, la montaña del juego y, más allá, **un mar de nubes
+  en el valle** (las fotos están hechas de pie en un prado: sin él, se veía su hierba enorme). La bruma, del color del horizonte
+  de cada foto. La pared rocosa vertical, para las dominadas.
   **Retos y premios** (los del plan, «sigue tus propuestas»): piden **otro movimiento que el remo** y llegan por donde se ven
   tumbado (desde lo alto o por el cable), sin aviso antes (al fallar, se dice cómo se hace): **el enjambre** baja por el cable
   hacia tu cara (**quédate abajo**, brazos estirados); **la ráfaga** cruza el cielo (**aguanta arriba**, pegado al cable);
   **la piedra** cae de lo alto hacia tu cara (**aparta la cabeza** a un lado); **el cable deshilachado** se pasa con **un remo
   explosivo**. Si fallas, frenas a la mitad y se rompe la racha, sin vidas. Premios: **frutas** junto al cable, que se cogen
-  **subiendo el pecho** al pasar (se encogen al llegar a los ojos), y **el cofre de cada plataforma**, que se abre al llegar y
-  suelta sus premios flotando (los puntos y una gema). El primer tramo, solo frutas y enjambres; el cable roto, desde el tercero.
-  **Los mundos** (los de los bocetos: la A para empezar; la B, la C y la D, «los mundos siguientes»): **los Alpes** (torres de
-  madera), **la garganta** (pilares de roca entre dos paredes con cascadas, lejos de la cuerda), **la selva** (árboles gigantes con
-  la plataforma en lo alto) y **la costa** (del barco pirata al acantilado, con palmeras y el mar debajo), cada uno con su foto
-  de fondo (la costa acaba al ocaso). Con 4 tramos o menos, uno cada uno (se ven varios aunque la ronda sea corta); con más, a
-  partes iguales. Se pasa al siguiente al llegar a la plataforma, con un destello y su nombre («MUNDO 2 · La garganta»).
-  **El jefe** (el dragón, en el último tramo, antes de la subida final; con un solo tramo, sin jefe): te corta el paso (ni subes
+  **subiendo el pecho** al pasar (se encogen al llegar a los ojos), y **el cofre de cada tramo**, que se abre al llegar y suelta
+  sus premios flotando (los puntos y una gema). El primer tramo, solo frutas y enjambres; el cable roto, desde el tercero.
+  **El jefe** (el dragón, en el último tramo, antes de la estación de la cima; con un solo tramo, sin jefe): te corta el paso (ni subes
   ni resbalas) y, casi encima de ti, escupe bolas de fuego con aviso (se echa atrás y ruge): **a la cara, aparta la cabeza**;
   **rasante por encima del cable, quédate abajo**. Tras tres, **se marea** y baja hasta encima de ti: **un remo explosivo o bajar
   con la carga aguantada (×2 o más)** le da; a la tercera, derrotado y se va. Si no le das mareado, se recupera; tras dos veces,

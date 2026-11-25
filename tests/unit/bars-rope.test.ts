@@ -1,136 +1,167 @@
 // La aventura en la cuerda del remo invertido (pedido del usuario: «A con tramos de B», resbalar mínimamente, en Barras, con
-// una paralela o dos; la escena A: torres sobre un valle alpino): cables rectos de torre en torre que acaban en vertical hasta
-// la plataforma; cada remo sube y, sin remar, se resbala un poco, nunca más abajo de la plataforma de salida. Nada flota.
+// una paralela o dos). Rehecha con la opción A del usuario: un solo cable, del valle a la cima, sin pliegues ni plataformas,
+// con un cofre colgado al final de cada tramo; debajo, una montaña de abajo arriba (valle, bosque, garganta y cima) en la que
+// todo nace de algo (opción 1: el río viene de las cascadas, y cada cascada, de un arroyo que nace en un manantial) y nada
+// flota. Cada remo, un tirón; sin remar, se resbala un poco, nunca más abajo del final del tramo anterior.
 import { describe, expect, it } from 'vitest';
-import { FALL, PULL, ROPE, ROPE_CHUNK, RopeCourse, RopeRun, ropeDecoPuts } from '../../src/modes/bars/rope';
-import { ROPE_WORLDS, worldOf, worldPano, worldStarts } from '../../src/modes/bars/rope-worlds';
+import { CHEST, chestAt, GORGE, PULL, ROPE, ROPE_CHUNK, RopeCourse, RopeRun, ropeDecoPuts } from '../../src/modes/bars/rope';
+import { ROPE_WORLDS, worldPano, zoneNo, zoneWeight } from '../../src/modes/bars/rope-worlds';
 
 const DEG = 180 / Math.PI;
 const lens = [10, 12, 14, 16, 18].map((r) => r * ROPE.perRep);
-const TREES = ['Pine_2', 'Pine_4', 'Pine_5', 'DeadTree_1'];
+const TREES = /Tree|Pine/;
+const STANDS = /Tree|Pine|Fern|Plant|Bush|Flower|Clover|Grass|Mushroom|Rock_Medium/;
+/** Todo lo que se pinta de la ronda (todos sus trozos). */
+const allPuts = (C: RopeCourse) => {
+  const out = [];
+  for (let c = -8; c * ROPE_CHUNK < C.h(C.len) + 40; c++) out.push(...ropeDecoPuts(C, c, []));
+  return out;
+};
 
-describe('el recorrido de la cuerda', () => {
+describe('el cable: uno solo, del valle a la cima', () => {
   const C = new RopeCourse(lens, 7);
 
-  it('sube siempre; cada cable, recto y tenso (de 30° a 42°, con una comba leve: menos de 3° de diferencia de punta a punta)', () => {
-    let lastH = -1, lastY = -1;
-    for (let s = 0; s < C.ends[C.ends.length - 1]; s += 0.5) {
-      expect(C.h(s)).toBeGreaterThanOrEqual(lastH - 1e-3);
-      expect(C.y(s)).toBeGreaterThan(lastY - 1e-4);
+  it('sube siempre y sin pliegues: su cuesta crece poco a poco, de unos 25° a unos 48°', () => {
+    let lastH = -1e9, lastY = -1e9, lastP = 0;
+    for (let s = -8; s <= C.len; s += 0.25) {
+      const p = C.pitch(s);
+      expect(C.h(s)).toBeGreaterThan(lastH);
+      expect(C.y(s)).toBeGreaterThan(lastY);
+      if (s > -8) {
+        expect(p).toBeGreaterThanOrEqual(lastP - 1e-6); // (nunca se dobla hacia abajo)
+        expect((p - lastP) * DEG).toBeLessThan(0.5); // (ni de golpe: ningún pliegue)
+      }
       lastH = C.h(s);
       lastY = C.y(s);
+      lastP = p;
     }
-    for (let i = 0; i < C.ends.length; i++) {
-      const a = (i ? C.ends[i - 1] : 0) + 2, b = C.verts[i][0] - 2;
-      let lo = 9, hi = -9;
-      for (let s = a; s <= b; s += 0.25) {
-        lo = Math.min(lo, C.pitch(s));
-        hi = Math.max(hi, C.pitch(s));
-      }
-      expect(lo * DEG).toBeGreaterThan(ROPE.pitch[0] * DEG - 3);
-      expect(hi * DEG).toBeLessThan(ROPE.pitch[1] * DEG + 3);
-      expect((hi - lo) * DEG).toBeLessThan(3);
-    }
+    expect(C.pitch(0) * DEG).toBeGreaterThan(20);
+    expect(C.pitch(0) * DEG).toBeLessThan(30);
+    expect(C.pitch(C.top) * DEG).toBeGreaterThan(40);
+    expect(C.pitch(C.top) * DEG).toBeLessThan(55);
   });
 
-  it('cada tramo acaba en vertical junto a su torre, hasta la plataforma', () => {
-    expect(C.verts.length).toBe(lens.length);
-    for (let i = 0; i < C.ends.length; i++) {
-      const [a, b] = C.verts[i];
-      expect(b - a).toBeGreaterThanOrEqual(ROPE.vLen[0] - 1);
-      expect(C.pitch((a + b) / 2) * DEG).toBeGreaterThan(80);
-      expect(C.inChimney((a + b) / 2)).toBe(true);
-      const T = C.towers[i + 1];
-      expect(Math.abs(C.h(C.ends[i]) - T.h)).toBeLessThan(0.6);
-      expect(Math.abs(C.y(C.ends[i]) - T.top)).toBeLessThan(0.6);
+  it('cada tramo acaba en su cofre, colgado del cable a un lado (no tropieza con las manos); el último, en la estación de la cima', () => {
+    expect(C.ends.length).toBe(lens.length);
+    expect(C.top).toBeCloseTo(lens.reduce((a, b) => a + b), 5);
+    for (let i = 0; i < C.ends.length - 1; i++) {
+      const [u, y, h] = chestAt(C, i);
+      expect(u).toBeCloseTo(CHEST.u, 5);
+      expect(h).toBeCloseTo(C.h(C.ends[i]), 5);
+      expect(y).toBeLessThan(C.y(C.ends[i]) - 0.3);
     }
+    const [, y, h] = chestAt(C, C.ends.length - 1), deck = allPuts(C).filter((P) => P.n === 'Dock');
+    expect(h).toBeGreaterThan(C.h(C.top));
+    expect(deck.length).toBe(2); // (las dos estaciones)
+    expect(y).toBeLessThan(C.y(C.top));
     expect(C.wave(0)).toBe(0);
     expect(C.wave(C.ends[0] + 0.1)).toBe(1);
   });
 
-  it('la cuerda va siempre muy por encima del suelo (como poco 5 m)', () => {
-    for (let s = 0; s < C.ends[C.ends.length - 1]; s += 0.5) {
-      for (const u of [-0.3, 0, 0.3]) expect(C.y(s) - C.ground(C.h(s), u)).toBeGreaterThan(5);
-    }
-  });
-
-  it('nada flota: cada árbol, piedra y pata de torre, apoyado en el suelo; los árboles, lejos de la cuerda', () => {
-    let trees = 0, docks = 0, chests = 0;
-    const hEnd = C.h(C.len);
-    for (let c = -5; c * ROPE_CHUNK < hEnd; c++)
-      for (const P of ropeDecoPuts(C, c, [])) {
-        if (TREES.includes(P.n)) {
-          trees++;
-          expect(Math.abs(P.u)).toBeGreaterThanOrEqual(ROPE.treeU - 1e-6);
-          const g = C.ground(P.ds, P.u);
-          expect(P.y).toBeLessThanOrEqual(g + 1e-6); // (el tronco, en la tierra)
-          expect(P.y).toBeGreaterThan(g - 0.3);
-        }
-        if (P.n.startsWith('Rock_Medium')) expect(P.y).toBeLessThanOrEqual(C.ground(P.ds, P.u) + 1e-6);
-        if (P.n === 'Dock') docks++;
-        if (P.n === 'Chest_Closed') chests++;
-        if (P.n === 'Dock_Pole' && Math.abs(P.rz) < 1e-6) {
-          // (las patas: su pie, bajo tierra)
-          const foot = P.y + -1.999561 * P.sy;
-          expect(foot).toBeLessThanOrEqual(C.ground(P.ds, P.u) + 1e-3);
-        }
-      }
-    expect(trees).toBeGreaterThan(50);
-    expect(docks).toBe(C.towers.length);
-    expect(chests).toBe(lens.length);
+  it('la cuerda va siempre muy por encima del suelo (como poco 7 m), salvo al llegar a la estación de la cima', () => {
+    for (let s = 0; s < C.top - 10; s += 0.5) for (const u of [-0.4, 0, 0.4]) expect(C.y(s) - C.ground(C.h(s), u)).toBeGreaterThan(ROPE.clear);
+    for (let s = C.top - 10; s <= C.top; s += 0.5) expect(C.y(s) - C.ground(C.h(s), 0)).toBeGreaterThan(2.5);
   });
 
   it('el valle baja a los lados hasta su fondo, a lo lejos (la foto de fondo solo pone lo de encima del horizonte)', () => {
-    const h = C.h(20), g0 = C.ground(h, 0);
-    expect(C.ground(h, 60)).toBeLessThan(g0 - 10);
-    expect(C.ground(h, 2000)).toBeGreaterThan(g0 - 125);
+    const h = C.h(15), g0 = C.ground(h, 0);
+    expect(C.ground(h, -60)).toBeLessThan(g0 - 10);
+    expect(C.ground(h, 2000)).toBeGreaterThan(g0 - 130);
     expect(C.ground(h, 2000)).toBeLessThan(C.ground(h, 300) + 1e-6);
   });
+});
 
-  it('los mundos: con 4 tramos o menos, uno cada uno; con más, a partes iguales; y su foto, la de su mundo', () => {
-    expect([0, 1, 2, 3].map((i) => worldOf(i, 4).key)).toEqual(['alps', 'gorge', 'jungle', 'coast']);
-    expect([0, 1, 2].map((i) => worldOf(i, 3).key)).toEqual(['alps', 'gorge', 'jungle']);
-    expect(Array.from({ length: 8 }, (_, i) => worldOf(i, 8).key)).toEqual(['alps', 'alps', 'gorge', 'gorge', 'jungle', 'jungle', 'coast', 'coast']);
-    expect(worldStarts(2, 8)).toBe(true);
-    expect(worldStarts(1, 8)).toBe(false);
-    expect(worldStarts(0, 8)).toBe(false);
-    // (los Alpes, según la altura: abajo, desde el valle; arriba, la montaña; la costa acaba al ocaso)
-    expect(worldPano(0, 8)).toBe('aldea');
-    expect(worldPano(1, 8)).toBe('montana');
-    expect(worldPano(7, 8)).toBe('ocaso');
-    expect(worldPano(0, 1)).toBe('aldea');
-    for (const W of ROPE_WORLDS) expect(W.panos.length).toBeGreaterThan(0);
+describe('la montaña, de abajo arriba', () => {
+  const C = new RopeCourse(lens, 7);
+
+  it('valle, bosque, garganta y cima, un cuarto de la subida cada una; en el paso, se mezclan', () => {
+    expect([0.1, 0.3, 0.6, 0.9].map((f) => ROPE_WORLDS[zoneNo(f)].key)).toEqual(['valley', 'forest', 'gorge', 'summit']);
+    expect(zoneWeight(0, 0.1)).toBe(1);
+    expect(zoneWeight(1, 0.25)).toBeGreaterThan(0.3);
+    expect(zoneWeight(0, 0.25)).toBeGreaterThan(0.3);
+    expect(C.fracAt(C.h(C.top))).toBeCloseTo(1, 3);
+    // (la foto de fondo, la de la zona de cada tramo: cambia solo entre tramos)
+    expect(worldPano(0, 4)).toBe('aldea');
+    expect(worldPano(3, 4)).toBe('cumbre');
   });
 
-  it('nada flota en ningún mundo: árboles, palmeras, plantas y piedras, en el suelo (y en la costa, por encima del mar)', () => {
-    const hEnd = C.h(C.len), seaY = C.towers[0].base - 3;
-    for (const w of ['jungle', 'coast', 'gorge'] as const) {
-      let n = 0;
-      for (let c = -5; c * ROPE_CHUNK < hEnd; c++)
-        for (const P of ropeDecoPuts(C, c, [], undefined, w, w === 'coast' ? seaY : -1e9, w === 'coast' ? 3 : NaN)) {
-          if (!/Tree|Pine|Palm|Fern|Plant|Bush|Rock_Medium/.test(P.n) || (w === 'jungle' && P.n === 'CommonTree_4' && Math.abs(P.u) < 4)) continue;
-          n++;
-          const g = C.ground(P.ds, P.u);
-          expect(P.y, `${w}: ${P.n}`).toBeLessThanOrEqual(g + 1e-6);
-          expect(P.y, `${w}: ${P.n}`).toBeGreaterThan(g - 0.6);
-          if (w === 'coast') expect(g).toBeGreaterThan(seaY);
-          if (/Tree|Palm/.test(P.n)) expect(Math.abs(P.u)).toBeGreaterThanOrEqual(ROPE.treeU - 1e-6);
-        }
-      expect(n, w).toBeGreaterThan(w === 'gorge' ? 5 : 20); // (la garganta, casi solo roca)
+  it('todo nace de algo: el río baja siempre hasta el lago, cada cascada tiene su arroyo y cada arroyo, su manantial', () => {
+    const R = C.river;
+    expect(R.length).toBeGreaterThan(10);
+    for (let i = 1; i < R.length; i++) expect(R[i].y).toBeGreaterThanOrEqual(R[i - 1].y - 1e-6); // (de abajo arriba: nunca sube aguas abajo)
+    expect(R[0].y).toBeCloseTo(C.lake.y, 5);
+    expect(Math.hypot(R[0].h - C.lake.h, R[0].u - C.lake.u)).toBeLessThan(C.lake.r);
+    // la de la cabecera cae al principio del río; las de las paredes, al fondo de la garganta
+    expect(C.falls.length).toBeGreaterThan(1);
+    const top = R[R.length - 1];
+    expect(C.falls.some((F) => Math.abs(F.h - top.h) < 1 && Math.abs(F.u - top.u) < 1 && Math.abs(F.bot - top.y) < 0.2)).toBe(true);
+    for (const F of C.falls) {
+      expect(F.top - F.bot).toBeGreaterThan(5);
+      // (por arriba le llega un arroyo; y el arroyo nace en un manantial)
+      const S = C.streams.find((S) => S.pts.some((p) => Math.hypot(p.h - F.h, p.u - F.u) < GORGE.u1 - GORGE.u0 + 1 && Math.abs(p.y - F.top) < 1.5));
+      expect(S, `cascada en h ${F.h.toFixed(1)}`).toBeTruthy();
+      expect(C.springs.some((sp) => Math.hypot(sp.h - S!.pts[0].h, sp.u - S!.pts[0].u) < 0.1)).toBe(true);
     }
   });
 
-  it('la garganta: paredes lejos de la cuerda (no agobian) y alguna cascada; la costa, su barco', () => {
-    let falls = 0, ship = 0;
-    for (let c = 0; c < 30; c++) {
-      for (const P of ropeDecoPuts(C, c, [], undefined, 'gorge')) {
-        if (P.n === FALL) falls++;
-        if (P.n === 'Cliff4' && Math.abs(P.u) > 6) expect(Math.abs(P.u)).toBeGreaterThan(11);
-      }
-      for (const P of ropeDecoPuts(C, c, [], undefined, 'coast', -20, 5)) if (P.n === 'ShipLarge') ship++;
+  it('el agua, en su sitio: el río en su cauce (el agua cubre su fondo y la orilla queda por encima) y el lago en su cubeta', () => {
+    for (const p of C.river) {
+      expect(C.ground(p.h, p.u)).toBeLessThan(p.y);
+      if (Math.hypot(p.h - C.lake.h, p.u - C.lake.u) < C.lake.r + 1) continue; // (ya en el lago)
+      if (C.streams.some((S) => S.pts.some((q) => Math.hypot(q.h - p.h, q.u - p.u) < 5))) continue; // (donde le llega un arroyo)
+      expect(C.ground(p.h, p.u + 3.2)).toBeGreaterThan(p.y - 0.05);
+      expect(C.ground(p.h, p.u - 3.2)).toBeGreaterThan(p.y - 0.05);
     }
-    expect(falls).toBeGreaterThan(3);
-    expect(ship).toBe(1);
+    const L = C.lake;
+    expect(C.ground(L.h, L.u)).toBeLessThan(L.y - 1);
+    for (let a = 0; a < 6.28; a += 0.4) {
+      const h = L.h + Math.cos(a) * (L.r + 2), u = L.u + Math.sin(a) * (L.r + 2), r = C.riverAt(h);
+      if (r && Math.abs(r.u - u) < 4) continue; // (la desembocadura)
+      expect(C.ground(h, u)).toBeGreaterThan(L.y);
+    }
+  });
+
+  it('nada flota: árboles, plantas y rocas, apoyados en el suelo; nunca en el agua, en las paredes ni bajo la cuerda', () => {
+    let n = 0, trees = 0;
+    for (const P of allPuts(C)) {
+      if (!STANDS.test(P.n)) continue;
+      n++;
+      const g = C.ground(P.ds, P.u);
+      expect(P.y, P.n).toBeLessThanOrEqual(g + 1e-6);
+      expect(P.y, P.n).toBeGreaterThan(g - 0.8);
+      if (TREES.test(P.n)) {
+        trees++;
+        expect(Math.abs(P.u)).toBeGreaterThanOrEqual(ROPE.treeU - 1e-6);
+        expect(C.wet(P.ds, P.u, 2)).toBe(false);
+      } else if (!C.springs.some((S) => Math.hypot(S.h - P.ds, S.u - P.u) < 3)) expect(C.wet(P.ds, P.u, 0.5)).toBe(false);
+      expect(C.steep(P.ds, P.u)).toBe(false);
+    }
+    expect(n).toBeGreaterThan(80);
+    expect(trees).toBeGreaterThan(20);
+  });
+
+  it('por zonas: las flores, en el valle; los pinares, en el bosque; las paredes de roca, en la garganta; y la cima, de roca', () => {
+    const at = (re: RegExp) => allPuts(C).filter((P) => re.test(P.n)).map((P) => zoneNo(C.fracAt(P.ds)));
+    const most = (z: number[], k: number) => z.filter((x) => x === k).length / Math.max(1, z.length);
+    expect(most(at(/Flower|Clover/), 0)).toBeGreaterThan(0.6);
+    expect(most(at(/Pine_2|Pine_4/), 1)).toBeGreaterThan(0.5);
+    expect(most(at(/Cliff4/), 2)).toBeGreaterThan(0.6);
+    expect(most(at(/Grass_Wispy/), 3) + most(at(/Grass_Wispy/), 2)).toBeGreaterThan(0.8);
+  });
+
+  it('las estaciones: sus postes, apoyados en el suelo', () => {
+    for (const P of allPuts(C).filter((P) => P.n === 'Dock_Pole' && Math.abs(P.rz) < 1e-6)) expect(P.y + -1.999561 * P.sy).toBeLessThanOrEqual(C.ground(P.ds, P.u) + 1e-3);
+  });
+
+  it('en una ronda corta (un tramo) se sube solo el principio de la montaña: sin garganta, el lago lo alimenta un arroyo del bosque', () => {
+    const S = new RopeCourse([12 * ROPE.perRep], 3);
+    expect(S.river.length).toBe(0);
+    expect(S.falls.length).toBe(0);
+    expect(S.streams.length).toBe(1);
+    const pts = S.streams[0].pts, last = pts[pts.length - 1];
+    for (let i = 1; i < pts.length; i++) expect(pts[i].y).toBeLessThanOrEqual(pts[i - 1].y + 1e-6);
+    expect(Math.hypot(last.h - S.lake.h, last.u - S.lake.u)).toBeLessThan(S.lake.r);
+    expect(S.fracAt(S.h(S.top))).toBeLessThan(0.3);
   });
 
   it('el mismo paisaje cada vez que se pinta un trozo', () => {

@@ -52,7 +52,7 @@ export interface Trial {
 
 export type TrialEv = { t: 'start'; tr: Trial } | { t: 'pass'; tr: Trial } | { t: 'fail'; tr: Trial } | { t: 'fruit'; tr: Trial };
 
-/** Dónde sale cada reto y cada fruta de la ronda: en la parte inclinada de cada tramo (no en la subida vertical), cada 5-8 m;
+/** Dónde sale cada reto y cada fruta de la ronda: a lo largo de cada tramo (no encima de su cofre), cada 5-8 m;
  * el primer tramo, solo frutas y enjambres; desde el segundo, también la ráfaga y la piedra; desde el tercero, el cable roto. */
 export function buildTrials(C: RopeCourse): Trial[] {
   const R = trekRng((Math.imul(C.seed | 0, 0x2c1b3c6d) ^ 0x297a2d39) >>> 0), out: Trial[] = [];
@@ -61,7 +61,7 @@ export function buildTrials(C: RopeCourse): Trial[] {
   // (los retos, por turnos a lo largo de toda la ronda, empezando por los nuevos de cada tramo: así salen todos)
   const order: TrialKind[] = ['gust', 'rock', 'swarm', 'frayed'];
   for (let w = 0; w < C.ends.length; w++) {
-    const a = (w ? C.ends[w - 1] : 0) + TRIAL.first, b = C.verts[w][0] - 2;
+    const a = (w ? C.ends[w - 1] : 0) + TRIAL.first, b = C.ends[w] - 3; // (hasta llegar a su cofre)
     const ok = (t: TrialKind): boolean => (w === 0 ? t === 'swarm' : t === 'frayed' ? w >= 2 : true);
     let fruitNext = true;
     for (let s = a; s < b; s += between(TRIAL.gap[0], TRIAL.gap[1])) {

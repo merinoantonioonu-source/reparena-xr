@@ -1,31 +1,33 @@
 /**
- * Lo que se ve de la aventura en la cuerda (src/modes/bars/rope.ts): la ladera del valle con sus pinos, las torres de madera
- * y la cuerda, que bajan y pasan por encima de ti, hacia atrás, a medida que subes. Tumbado bajo las paralelas, la cuerda sigue la línea de lo que agarras: con **dos paralelas**, dos cables (cada
- * paralela es un trozo de su cable, que sigue delante y detrás); con **una**, cruzada sobre ti, un cable que pasa por encima
- * de su centro, a lo largo de tu cuerpo, y la barra cuelga de él por una polea. Delante (hacia tus pies: tumbado, lo que
- * se ve sin echar la cabeza atrás) la cuerda sube recta con la cuesta del tramo; al final, en vertical junto a la torre, hacia su plataforma.
+ * Lo que se ve de la aventura en la cuerda (src/modes/bars/rope.ts): la montaña de abajo arriba (el valle, el bosque, la garganta
+ * y la cima, con su suelo teñido de cada zona), su agua (el río, el lago, los arroyos y las cascadas, src/modes/bars/rope-water.ts),
+ * sus árboles y rocas, los cofres colgados del cable, las estaciones del valle y de la cima, y el cable, que baja y pasa por
+ * encima de ti, hacia atrás, a medida que subes. Tumbado bajo las paralelas, el cable sigue la línea de lo que agarras: con **dos
+ * paralelas**, dos cables (cada paralela es un trozo de su cable, que sigue delante y detrás); con **una**, cruzada sobre ti, un
+ * cable que pasa por encima de su centro, a lo largo de tu cuerpo, y la barra cuelga de él por una polea. Delante (hacia tus
+ * pies: tumbado, lo que se ve sin echar la cabeza atrás) el cable sube, sin pliegues, hasta la estación de la cima.
  *
- * El mundo no se inclina (el cielo sigue arriba): subir es que el valle entero baje y venga hacia ti. Todo cuelga de un
- * grupo (`track`) que se desplaza cada fotograma: el suelo (una malla de la ladera, hecha una vez por ronda), los pinos, las
- * piedras y las torres (instancias, al cambiar de trozo) y los cables (cada fotograma, sin crear nada).
+ * El mundo no se inclina (el cielo sigue arriba): subir es que la montaña entera baje y venga hacia ti. Todo cuelga de un grupo
+ * (`track`) que se desplaza cada fotograma: el suelo y el agua (mallas de la ronda, hechas al empezar), los árboles, las rocas,
+ * los cofres y las estaciones (instancias, al cambiar de trozo) y los cables (cada fotograma, sin crear nada).
  */
-import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CylinderGeometry, DoubleSide, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, Euler, ShaderMaterial, SphereGeometry, TorusGeometry, Vector3 } from '@iwsdk/core';
+import { BufferAttribute, BufferGeometry, Color, CylinderGeometry, DoubleSide, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, Euler, ShaderMaterial, TorusGeometry, Vector3 } from '@iwsdk/core';
 import { kitParts } from '../../env/scenery.js';
 import { warmKeep } from '../../style/warm.js';
 import type { Put } from '../trek/plat/pieces.js';
-import { chestMouth, FALL, ROPE_CHUNK, ROPE_MODELS, ropeDecoPuts, type RopeCourse } from './rope.js';
-import { ROPE_WORLDS, type RopeWorldKey } from './rope-worlds.js';
-import { Sea } from '../trek/sea.js';
+import { chestAt, chestMouth, CHEST, ROPE_CHUNK, ROPE_FOG, ROPE_MODELS, ropeDecoPuts, type RopeCourse } from './rope.js';
+import { ROPE_WORLDS, zoneWeight } from './rope-worlds.js';
 import { CloudSea } from '../trek/cloud-sea.js';
+import { RopeWater } from './rope-water.js';
 
 /** Lo que se ve de la cuerda hacia delante y hacia atrás (m) y el largo de cada trozo de cable (m). */
-const AHEAD = 110, BEHIND = 30, SEG = 2;
+const AHEAD = 120, BEHIND = 30, SEG = 2;
 const SEGS = Math.ceil((AHEAD + BEHIND) / SEG) + 2;
 /** Lo que se pintan del paisaje (en horizontal): los trozos de detrás y de delante. */
 const CH_BACK = 4, CH_AHEAD = Math.ceil(AHEAD / ROPE_CHUNK) + 2;
-/** El suelo: la rejilla fina cerca (m a los lados, y su paso a lo largo y a lo ancho) y, más allá, cada vez más ancha hasta
- * `FAR` m (más allá no se pinta: la cámara llega a 200 m; detrás, el mar de nubes). */
-const GROUND_U = 120, GROUND_DH = 3, GROUND_DU = 6, FAR = 300;
+/** El suelo: la rejilla fina cerca (m a los lados, y su paso a lo largo y a lo ancho: se ven el cauce del río y las paredes de la
+ * garganta) y, más allá, cada vez más ancha hasta `FAR` m (más allá no se pinta: la cámara llega a 200 m; detrás, el mar de nubes). */
+const GROUND_U = 64, GROUND_DH = 1.5, GROUND_DU = 2, FAR = 300;
 /** Los puntos de la rejilla de `a` a `b` cada `d` m y, por fuera, cada vez más separados hasta `far` m más allá. */
 function spread(a: number, b: number, d: number, far: number): number[] {
   const out: number[] = [];
@@ -34,18 +36,20 @@ function spread(a: number, b: number, d: number, far: number): number[] {
   for (let x = out[out.length - 1] + d, g = d * 2; x < b + far; x += g, g *= 1.35) out.push(x);
   return out;
 }
-/** Las cascadas de la garganta que puede haber a la vista a la vez. */
-const FALLS = 12;
 /** El agua que cae: franjas claras que bajan deprisa por la cara de la roca, con espuma abajo y transparente por los bordes. */
 const FALL_VS = `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const FALL_FS = `uniform float uT; varying vec2 vUv;
-float h(float x){ return fract(sin(x * 91.7) * 43758.5); }
+float hash(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
 void main() {
-  float col = floor(vUv.x * 18.0), sp = 0.6 + h(col) * 0.6, y = vUv.y * 6.0 + uT * 3.0 * sp + h(col + 3.0) * 7.0;
-  float streak = smoothstep(0.55, 1.0, fract(y)) * 0.6 + 0.4;
-  float edge = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x), foam = smoothstep(0.12, 0.0, vUv.y);
-  vec3 c = mix(vec3(0.62, 0.8, 0.9), vec3(1.0), streak * 0.6 + foam);
-  gl_FragColor = vec4(c, edge * (0.55 + 0.35 * streak) + foam * 0.3);
+  // (el agua que cae: hilos que bajan deprisa, a distinta velocidad, con su transparencia; espuma blanca en el borde de arriba,
+  // donde rompe, y abajo, donde choca; los bordes, deshilachados)
+  vec2 p = vec2(vUv.x * 14.0, vUv.y * 3.0 + uT * 2.6);
+  float n = vnoise(p) * 0.55 + vnoise(p * vec2(2.3, 1.7) + 7.1) * 0.3 + vnoise(p * vec2(5.0, 3.1) - 2.3) * 0.15;
+  float edge = smoothstep(0.0, 0.14 + 0.08 * vnoise(vec2(vUv.y * 9.0 - uT, 1.0)), vUv.x) * smoothstep(1.0, 0.86 - 0.08 * vnoise(vec2(vUv.y * 9.0 - uT, 5.0)), vUv.x);
+  float foam = smoothstep(0.16, 0.0, vUv.y) + smoothstep(0.93, 1.0, vUv.y) * 0.8;
+  vec3 c = mix(vec3(0.42, 0.62, 0.72), vec3(0.95, 0.98, 1.0), clamp(n * 0.9 + foam, 0.0, 1.0));
+  gl_FragColor = vec4(c, edge * (0.5 + 0.45 * n) + foam * 0.35);
 }`;
 /** Con una paralela, lo que sube el cable sobre ella (m). */
 const PULLEY_UP = 0.32;
@@ -65,16 +69,10 @@ export class RopeScene {
   private cable: InstancedMesh | null = null;
   private pulley: Group | null = null;
   private ground: Mesh | null = null;
-  /** El mundo de ahora (rope-worlds.ts), el nivel del mar (la costa) y dónde está fondeado su barco (h). */
-  private world: RopeWorldKey = 'alps';
-  private seaY = -1e9;
-  private shipH = NaN;
-  private readonly ocean = new Sea();
+  /** El agua de la ronda (el río, el lago, los arroyos y la bruma de las cascadas) y las cascadas. */
+  private readonly water = new RopeWater();
   private falls: Mesh[] = [];
   private fallMat: ShaderMaterial | null = null;
-  /** El destello blanco al cambiar de mundo (como el portal de la Travesía). */
-  private flash: Mesh | null = null;
-  private flashT = 0;
   /** El mar de nubes del valle (el del risco de la Travesía): bajo el horizonte tapa el suelo de la foto de fondo, que está
    * hecha de pie en un prado (sin él, mirando al valle se veía la hierba de la foto, enorme); encima, las montañas de la foto. */
   private readonly sea = new CloudSea([0.012, -0.004]);
@@ -86,10 +84,10 @@ export class RopeScene {
   /** Los cables: a qué lado van (m) y a qué altura sobre las paralelas. */
   private lanes: number[] = [0];
   private laneY = 0;
-  /** Lo que está escondido de la arena (compuertas, suelo, valle y nubes) mientras se ve el cañón. */
+  /** Lo que está escondido de la arena (compuertas, suelo, valle y nubes) mientras se ve la montaña. */
   private hidden: Object3D[] = [];
   private shown = false;
-  /** ¿Está colocado el cañón (ya te colgaste en esta ronda)? */
+  /** ¿Está colocada la cuerda (ya te colgaste en esta ronda)? */
   placed = false;
   private readonly m4 = new Matrix4();
   private readonly q = new Quaternion();
@@ -102,9 +100,9 @@ export class RopeScene {
 
   constructor(parent: Object3D, private readonly arenaOf: () => Object3D[], private readonly fogHex: () => number = () => 0xc8d6e4) {
     parent.add(this.root);
-    this.frame.add(this.ocean.mesh);
     this.root.add(this.sea.mesh);
     warmKeep(new Mesh(this.sea.mesh.geometry, this.sea.mesh.material));
+    for (const m of this.water.samples()) warmKeep(m);
     this.root.add(this.frame);
     this.frame.add(this.track);
     this.root.visible = false;
@@ -129,9 +127,9 @@ export class RopeScene {
       });
       this.batches.set(`${M.kit}:${M.n}`, { ims, n: 0, cap: M.cap });
     }
-    // el cable: trozos de un cilindro fino de acero trenzado (dos por trozo con dos paralelas)
+    // el cable: trozos de un cilindro fino de acero trenzado (dos por trozo con dos paralelas), y los brazos de los cofres
     const mat = new MeshStandardMaterial({ color: 0x8a7a62, roughness: 0.85, metalness: 0.2 });
-    this.cable = new InstancedMesh(new CylinderGeometry(0.014, 0.014, 1, 6, 1), mat, SEGS * 2);
+    this.cable = new InstancedMesh(new CylinderGeometry(0.014, 0.014, 1, 6, 1), mat, SEGS * 2 + 16);
     this.cable.count = 0;
     this.cable.frustumCulled = false;
     this.frame.add(this.cable);
@@ -145,52 +143,57 @@ export class RopeScene {
     p.visible = false;
     this.frame.add(p);
     this.pulley = p;
-    // las cascadas (planos con el agua que cae; se colocan al pintar el paisaje)
     this.fallMat = new ShaderMaterial({ uniforms: { uT: { value: 0 } }, vertexShader: FALL_VS, fragmentShader: FALL_FS, transparent: true, depthWrite: false, side: DoubleSide, toneMapped: false });
-    for (let i = 0; i < FALLS; i++) {
-      const m = new Mesh(new PlaneGeometry(1, 1).translate(0, 0.5, 0), this.fallMat);
-      m.visible = false;
-      m.userData.noInk = true;
-      this.track.add(m);
-      this.falls.push(m);
-    }
-    warmKeep(new Mesh(this.falls[0].geometry, this.fallMat));
-    // el destello: una esfera blanca alrededor de la cabeza, que se desvanece
-    this.flash = new Mesh(new SphereGeometry(1.5, 16, 8), new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: BackSide, depthTest: false, depthWrite: false, toneMapped: false, fog: false, blending: AdditiveBlending }));
-    this.flash.renderOrder = 1e6;
-    this.flash.visible = false;
-    this.flash.userData.noInk = true;
-    this.root.add(this.flash);
+    warmKeep(new Mesh(new PlaneGeometry(1, 1), this.fallMat));
     this.built = true;
+    if (this.course) this.buildWater(this.course);
     return true;
   }
 
-  /** La ronda nueva: su recorrido (el paisaje se rehace). */
+  /** La ronda nueva: su recorrido (el paisaje, el suelo y el agua se rehacen). */
   setCourse(C: RopeCourse | null): void {
     if (C === this.course) return;
     this.course = C;
     this.opened.clear();
-    this.world = 'alps';
-    this.seaY = -1e9;
-    this.shipH = NaN;
-    this.flashT = 0;
-    this.groundMat?.color.setHex(ROPE_WORLDS[0].ground);
     this.cache.clear();
     this.chunkFrom = -999;
     this.placed = false;
     if (C) this.buildGround(C);
+    if (this.built) this.buildWater(C);
   }
 
-  // la ladera de toda la ronda (una malla, hecha al empezar: en plena ronda no se crea nada), de color de hierba de montaña;
-  // llega muy lejos (hasta perderse en la bruma), para que de la foto de fondo solo se vea lo de encima del horizonte
+  // el agua y las cascadas de la ronda (cada una, de arriba abajo por la cara de su pared, de cara a la cuerda)
+  private buildWater(C: RopeCourse | null): void {
+    this.water.build(C, this.track);
+    for (const m of this.falls) {
+      this.track.remove(m);
+      m.geometry.dispose();
+    }
+    this.falls = [];
+    if (!C) return;
+    for (const F of C.falls) {
+      const m = new Mesh(new PlaneGeometry(F.w, F.top - F.bot).translate(0, (F.top - F.bot) / 2, 0), this.fallMat!);
+      m.position.set(F.u, F.bot, -F.h);
+      m.rotation.y = F.face;
+      m.userData.noInk = true;
+      m.frustumCulled = false;
+      this.track.add(m);
+      this.falls.push(m);
+    }
+  }
+
+  // el suelo de la montaña (una malla, hecha al empezar: en plena ronda no se crea nada): fina cerca de la cuerda (se ven el
+  // cauce del río y las paredes de la garganta) y cada vez más ancha hasta perderse en la bruma (de la foto de fondo solo se ve
+  // lo de encima del horizonte). Teñida de cada zona (la hierba del valle, el pinar, la roca), con la roca a la vista donde es
+  // empinado y la tierra húmeda en las orillas
   private buildGround(C: RopeCourse): void {
     if (this.ground) {
       this.track.remove(this.ground);
       this.ground.geometry.dispose();
     }
-    this.groundMat ??= new MeshStandardMaterial({ color: 0x86b25e, roughness: 1, metalness: 0 });
-    const hEnd = C.h(C.len), hs = spread(-60, hEnd + 20, GROUND_DH, FAR), us = spread(-GROUND_U, GROUND_U, GROUND_DU, FAR);
-    const nh = hs.length, nu = us.length, pos = new Float32Array(nh * nu * 3), idx: number[] = [];
+    this.groundMat ??= new MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, vertexColors: true });
+    const hEnd = C.h(C.len), hs = spread(-60, hEnd + 40, GROUND_DH, FAR), us = spread(-GROUND_U, GROUND_U, GROUND_DU, FAR);
+    const nh = hs.length, nu = us.length, pos = new Float32Array(nh * nu * 3), col = new Float32Array(nh * nu * 3), idx: number[] = [];
     for (let i = 0; i < nh; i++)
       for (let j = 0; j < nu; j++) {
         const k = (i * nu + j) * 3;
@@ -207,6 +210,34 @@ export class RopeScene {
     g.setAttribute('position', new BufferAttribute(pos, 3));
     g.setIndex(idx);
     g.computeVertexNormals();
+    const nrm = g.attributes.normal.array as Float32Array, zc = ROPE_WORLDS.map((W) => new Color(W.ground)), rock = new Color(0x6f685f), rockDk = new Color(0x55504a), wet = new Color(0x5f6143), tmp = new Color(), rk = new Color();
+    for (let i = 0; i < nh; i++) {
+      const f = C.fracAt(hs[i]);
+      for (let j = 0; j < nu; j++) {
+        const k = (i * nu + j) * 3;
+        tmp.setRGB(0, 0, 0);
+        for (let z = 0; z < zc.length; z++) {
+          const w = zoneWeight(z, f);
+          tmp.r += zc[z].r * w;
+          tmp.g += zc[z].g * w;
+          tmp.b += zc[z].b * w;
+        }
+        // (la roca donde es empinado; las orillas, tierra húmeda; un poco de variación, para que no sea una manta lisa)
+        // (la roca, en estratos: franjas claras y oscuras a lo alto)
+        rk.copy(rock).lerp(rockDk, 0.5 + 0.5 * Math.sin(pos[k + 1] * 1.7 + Math.sin(hs[i] * 0.3) * 0.8));
+        const nearWater = Math.abs(us[j]) < 70 && C.wet(hs[i], us[j], 1.5);
+        if (!nearWater) tmp.lerp(rk, smooth01(0.72, 0.5, nrm[k + 1]));
+        // (en la cima, la roca asoma a manchas entre la hierba rala)
+        const ws = zoneWeight(3, f), patch = Math.sin(hs[i] * 0.23 + us[j] * 0.11) * Math.sin(us[j] * 0.19 - hs[i] * 0.07);
+        if (ws > 0) tmp.lerp(rk, ws * smooth01(0.1, 0.5, patch) * 0.8);
+        if (nearWater) tmp.lerp(wet, 0.5);
+        const n = 0.93 + 0.07 * Math.sin(hs[i] * 0.37 + us[j] * 0.21) * Math.sin(us[j] * 0.13 - hs[i] * 0.11);
+        col[k] = tmp.r * n;
+        col[k + 1] = tmp.g * n;
+        col[k + 2] = tmp.b * n;
+      }
+    }
+    g.setAttribute('color', new BufferAttribute(col, 3));
     this.ground = new Mesh(g, this.groundMat);
     this.ground.receiveShadow = false; // (una ladera tan grande recibiendo sombras pesa mucho; desde la cuerda, no se ven)
     this.ground.frustumCulled = false;
@@ -214,30 +245,19 @@ export class RopeScene {
     this.track.add(this.ground);
   }
 
-  /** Pasa al mundo `key` (al llegar a la plataforma del último tramo del anterior): su paisaje, su suelo y su mar, de golpe tras
-   * un destello blanco. `seaY`, el nivel del mar (la costa); `shipH`, dónde fondea su barco (h; NaN, sin barco). */
-  setWorld(key: RopeWorldKey, seaY = -1e9, shipH = NaN, flash = true): void {
-    this.world = key;
-    this.seaY = seaY;
-    this.shipH = shipH;
-    this.cache.clear();
-    this.chunkFrom = -999;
-    this.groundMat?.color.setHex(ROPE_WORLDS.find((w) => w.key === key)?.ground ?? 0x86b25e);
-    if (flash) this.flashT = 1;
-  }
-  /** Dónde está tu cabeza (para el destello). */
+  /** Dónde está tu cabeza. */
   readonly eye = new Vector3();
 
-  /** Los cofres ya abiertos (por su torre): se pintan llenos de oro. */
+  /** Los cofres ya abiertos (por su tramo): se pintan llenos de oro. */
   private readonly opened = new Set<number>();
-  /** Abre el cofre de la torre i (al llegar a su plataforma) y deja en `out` dónde está su boca, en el mundo. */
+  /** Abre el cofre del tramo i (al llegar a él) y deja en `out` dónde está su boca, en el mundo. */
   openChest(i: number, out: Vector3): Vector3 | null {
-    const C = this.course, T = C?.towers[i];
-    if (!C || !T) return null;
+    const C = this.course;
+    if (!C || i < 0 || i >= C.ends.length) return null;
     this.opened.add(i);
     this.cache.clear(); // (se rehace el paisaje: el cofre, abierto)
     this.chunkFrom = -999;
-    const [u, y, h] = chestMouth(T);
+    const [u, y, h] = chestMouth(C, i);
     this.track.updateMatrixWorld(true);
     return this.track.localToWorld(out.set(u, y, -h));
   }
@@ -277,20 +297,11 @@ export class RopeScene {
     this.setShown(on);
     this.clock += 1 / 72;
     this.sea.update(on, this.clock, this.fogHex());
-    if (this.flash) {
-      this.flashT = Math.max(0, this.flashT - 1 / 72 / 0.9);
-      this.flash.visible = this.flashT > 0;
-      this.flash.position.copy(this.eye);
-      (this.flash.material as MeshBasicMaterial).opacity = this.flashT;
-    }
     if (!on) return;
     const C = this.course!;
-    // subir: el valle baja y viene hacia ti (lo de s queda en tus manos)
+    // subir: la montaña baja y viene hacia ti (lo de s queda en tus manos)
     this.track.position.set(0, -C.y(s), C.h(s));
-    // el mar de la costa: a su nivel, con sus olas quietas en el recorrido (bajan contigo al subir)
-    const coast = this.world === 'coast';
-    this.ocean.update(coast, this.clock, 0, -C.h(s), 0, 0, this.fogHex(), 0.006, 0);
-    if (coast) this.ocean.mesh.position.y = this.seaY - C.y(s);
+    this.water.update(this.clock, this.fogHex(), ROPE_FOG);
     if (this.fallMat) this.fallMat.uniforms.uT.value = this.clock;
     const from = Math.floor(C.h(s) / ROPE_CHUNK) - CH_BACK;
     if (from !== this.chunkFrom) this.paintDeco(C, from);
@@ -301,7 +312,7 @@ export class RopeScene {
     }
   }
 
-  // las rocas de los trozos a la vista (cada trozo se calcula una vez y se guarda mientras se ve)
+  // lo de los trozos a la vista (cada trozo se calcula una vez y se guarda mientras se ve)
   private paintDeco(C: RopeCourse, from: number): void {
     this.chunkFrom = from;
     for (const k of [...this.cache.keys()]) if (k < from || k > from + CH_BACK + CH_AHEAD) this.cache.delete(k);
@@ -309,23 +320,11 @@ export class RopeScene {
     for (let c = from; c <= from + CH_BACK + CH_AHEAD; c++) {
       let L = this.cache.get(c);
       if (!L) {
-        L = ropeDecoPuts(C, c, [], this.opened, this.world, this.seaY, this.shipH);
+        L = ropeDecoPuts(C, c, [], this.opened);
         this.cache.set(c, L);
       }
       for (const P of L) this.put(P);
     }
-    // las cascadas: en la cara de su pared, de cara a la cuerda
-    let f = 0;
-    for (let c = from; c <= from + CH_BACK + CH_AHEAD; c++)
-      for (const P of this.cache.get(c) ?? [])
-        if (P.n === FALL && f < this.falls.length) {
-          const m = this.falls[f++];
-          m.position.set(P.u, P.y, -P.ds);
-          m.rotation.set(0, P.u < 0 ? Math.PI / 2 : -Math.PI / 2, 0);
-          m.scale.set(P.sx, P.sy, 1);
-          m.visible = true;
-        }
-    for (; f < this.falls.length; f++) this.falls[f].visible = false;
     for (const b of this.batches.values())
       for (const im of b.ims) {
         im.count = b.n;
@@ -343,18 +342,31 @@ export class RopeScene {
     b.n++;
   }
 
-  // los cables: de las paralelas hacia delante (subiendo con la cuesta) y hacia atrás, a trozos de SEG metros
+  // los cables: de las paralelas hacia delante (subiendo, hasta la estación de la cima) y hacia atrás (hasta la del valle), a
+  // trozos de SEG metros; y el brazo de cada cofre a la vista, del cable al cofre
   private paintCable(C: RopeCourse, s: number): void {
-    const im = this.cable!, h0 = C.h(s), y0 = C.y(s);
+    const im = this.cable!, h0 = C.h(s), y0 = C.y(s), a0 = Math.max(-8 - s, -BEHIND), a1 = Math.min(C.len - s, AHEAD);
     let n = 0;
     for (const lane of this.lanes) {
-      for (let k = -Math.ceil(BEHIND / SEG); k < Math.ceil(AHEAD / SEG); k++) {
-        const sa = s + k * SEG, sb = sa + SEG;
+      for (let k = a0; k < a1 - 1e-3; k += SEG) {
+        const sa = s + k, sb = s + Math.min(a1, k + SEG);
         // (un punto de la cuerda, respecto a tus manos: −z hacia delante)
         this.a.set(lane, this.laneY + C.y(sa) - y0, -(C.h(sa) - h0));
         this.b.set(lane, this.laneY + C.y(sb) - y0, -(C.h(sb) - h0));
         this.seg(n++, this.a, this.b);
       }
+    }
+    const lane = this.lanes[this.lanes.length - 1];
+    for (let i = 0; i < C.ends.length - 1 && n < im.instanceMatrix.count; i++) {
+      const e = C.ends[i];
+      if (e < s - BEHIND || e > s + AHEAD) continue;
+      const [u, y, h] = chestAt(C, i), top = y + CHEST.size * 0.75;
+      // (del cable, un brazo hacia fuera y la cuerda que baja al cofre)
+      this.a.set(lane, this.laneY + C.y(e) - y0, -(h - h0));
+      this.b.set(u, this.laneY + C.y(e) - y0 + 0.05, -(h - h0));
+      this.seg(n++, this.a, this.b);
+      this.a.set(u, top - y0, -(h - h0));
+      this.seg(n++, this.b, this.a);
     }
     im.count = n;
     im.instanceMatrix.needsUpdate = true;
@@ -368,7 +380,7 @@ export class RopeScene {
     this.cable!.setMatrixAt(i, this.m4);
   }
 
-  // se ve o no: con el cañón, fuera la arena (y al quitarlo, vuelve)
+  // se ve o no: con la montaña, fuera la arena (y al quitarla, vuelve)
   private setShown(on: boolean): void {
     if (on === this.shown) return;
     this.shown = on;
@@ -382,8 +394,13 @@ export class RopeScene {
     }
   }
 
-  /** ¿Se ve el cañón? (el entorno de serie, entonces, se aparta) */
+  /** ¿Se ve la montaña? (el entorno de serie, entonces, se aparta) */
   get visible(): boolean {
     return this.shown;
   }
 }
+
+const smooth01 = (a: number, b: number, x: number): number => {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};

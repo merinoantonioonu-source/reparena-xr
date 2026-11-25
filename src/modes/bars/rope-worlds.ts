@@ -1,49 +1,46 @@
 /**
- * Los mundos de la cuerda del remo invertido (PR 3 de docs/PLAN-BARRAS-CUERDA.md; los de los bocetos del usuario: la A para
- * empezar y la B, la C y la D como «los mundos siguientes»): cada uno, su paisaje, su foto de fondo y sus torres.
- *  - **Los Alpes** (A): torres de madera por la ladera de un valle con pinos.
- *  - **La garganta** (B): pilares de roca entre dos paredes con cascadas, sobre el río.
- *  - **La selva** (C): árboles gigantes con plataformas en lo alto, entre árboles y matorral.
- *  - **La costa** (D): del barco pirata al acantilado, con palmeras y el mar debajo.
- * Se pasa de uno al siguiente al llegar a la plataforma de su último tramo (con un destello, como el portal de la Travesía).
+ * Las zonas de la montaña de la cuerda del remo invertido (elegido por el usuario: «A», un solo cable del valle a la cima, y
+ * los mundos como **una montaña, de abajo arriba**): según lo que llevas subido de la ronda, debajo pasan el valle, el bosque,
+ * la garganta y la cima, como en una montaña de verdad. Se ven llegar (el paisaje de delante ya es el de la zona siguiente) y
+ * cambian poco a poco, sin portales ni destellos.
+ *  - **El valle**: prados con flores, el lago donde acaba el río y bosquecillos en los bordes.
+ *  - **El bosque**: pinares cerrados con claros, helechos y rocas; el río baja por un lado.
+ *  - **La garganta**: el río encajonado entre dos paredes de roca, con las cascadas que le dan agua.
+ *  - **La cima**: roca desnuda y hierba rala; abajo, el mar de nubes; arriba, la estación.
  * Lógica pura, sin IWSDK.
  */
 
-export type RopeWorldKey = 'alps' | 'gorge' | 'jungle' | 'coast';
+export type RopeWorldKey = 'valley' | 'forest' | 'gorge' | 'summit';
 
 export interface RopeWorld {
   key: RopeWorldKey;
   name: string;
-  /** Sus fotos de fondo (de `public/fondos`), de abajo arriba: según lo que llevas subido en el mundo. */
-  panos: string[];
-  /** El color del suelo (la ladera). */
+  /** Su foto de fondo (de `public/fondos`): lo lejano, según la altura. */
+  pano: string;
+  /** El color de su hierba (el suelo se tiñe poco a poco de una zona a la otra; donde es empinado, roca). */
   ground: number;
-  /** Cómo son sus torres. */
-  tower: 'wood' | 'rock' | 'tree';
 }
 
 export const ROPE_WORLDS: RopeWorld[] = [
-  { key: 'alps', name: 'Los Alpes', panos: ['aldea', 'montana'], ground: 0x86b25e, tower: 'wood' },
-  { key: 'gorge', name: 'La garganta', panos: ['bosque'], ground: 0x9c8a6e, tower: 'rock' },
-  { key: 'jungle', name: 'La selva', panos: ['lago'], ground: 0x4f8a3c, tower: 'tree' },
-  { key: 'coast', name: 'La costa', panos: ['cumbre', 'ocaso'], ground: 0xc9b483, tower: 'wood' },
+  { key: 'valley', name: 'El valle', pano: 'aldea', ground: 0x7aa653 },
+  { key: 'forest', name: 'El bosque', pano: 'montana', ground: 0x55803f },
+  { key: 'gorge', name: 'La garganta', pano: 'montana', ground: 0x6b8a4e },
+  { key: 'summit', name: 'La cima', pano: 'cumbre', ground: 0x8a9270 },
 ];
 
-/** Cuántos tramos dura cada mundo en una ronda de n: con 4 o menos, uno cada uno (se ven varios aunque la ronda sea corta,
- * como en la Travesía); con más, a partes iguales. */
-export const worldLen = (n: number): number => Math.max(1, Math.ceil(n / ROPE_WORLDS.length));
-
-/** El mundo del tramo i (de n): su número (vuelve a empezar pasado el último). */
-export const worldNo = (i: number, n: number): number => Math.floor(Math.max(0, i) / worldLen(n)) % ROPE_WORLDS.length;
-export const worldOf = (i: number, n: number): RopeWorld => ROPE_WORLDS[worldNo(i, n)];
-
-/** ¿Es el tramo i el primero de un mundo nuevo (al llegar a él, se cambia)? */
-export const worldStarts = (i: number, n: number): boolean => i > 0 && worldNo(i, n) !== worldNo(i - 1, n);
-
-/** La foto del tramo i (de n): la de su mundo, según lo que llevas subido en él (abajo, la primera; arriba, la última). En
- * la costa, el último tramo de la ronda, al ocaso. */
-export function worldPano(i: number, n: number): string {
-  const W = worldOf(i, n), L = worldLen(n), k = i % L;
-  if (W.key === 'coast' && i === n - 1 && L > 1) return W.panos[W.panos.length - 1];
-  return W.panos[Math.min(W.panos.length - 1, L > 1 ? Math.floor((k / L) * W.panos.length) : 0)];
+/** La zona de un punto de la subida (`f`: lo subido de la ronda, de 0 a 1): un cuarto cada una. */
+export const zoneNo = (f: number): number => Math.max(0, Math.min(ROPE_WORLDS.length - 1, Math.floor(f * ROPE_WORLDS.length)));
+export const zoneOf = (f: number): RopeWorld => ROPE_WORLDS[zoneNo(f)];
+/** Lo que pesa cada zona en `f` (0-1), para teñir y mezclar el paisaje en el paso de una a otra (`w` de ancho, en f). */
+export function zoneWeight(k: number, f: number, w = 0.035): number {
+  const n = ROPE_WORLDS.length, a = k / n, b = (k + 1) / n;
+  const up = k === 0 ? 1 : smooth(a - w, a + w, f), down = k === n - 1 ? 1 : 1 - smooth(b - w, b + w, f);
+  return Math.max(0, Math.min(up, down));
 }
+const smooth = (a: number, b: number, x: number): number => {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/** La foto del tramo i (de n): la de la zona de su mitad. Cambia solo entre tramos (en el descanso: la foto no se funde). */
+export const worldPano = (i: number, n: number): string => zoneOf((Math.max(0, i) + 0.5) / Math.max(1, n)).pano;

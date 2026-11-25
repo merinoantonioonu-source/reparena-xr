@@ -24,11 +24,11 @@ function fight(you: (B: RopeBoss, t: number) => Partial<BossEnv>, maxT = 240): {
 const good = (B: RopeBoss): Partial<BossEnv> => ({ side: B.st === 'fly' && B.shot === 'ball' ? 0.12 : 0, up: 0, strike: B.st === 'dizzy' && B.t > 1 });
 
 describe('el dragón', () => {
-  it('sale en el último tramo, antes de la subida vertical', () => {
+  it('sale en el último tramo, antes de la estación de la cima', () => {
     const B = new RopeBoss(C);
     expect(B.wave).toBe(C.ends.length - 1);
     expect(B.at).toBeGreaterThan(C.ends[B.wave - 1]);
-    expect(B.at).toBeLessThan(C.verts[B.wave][0]);
+    expect(B.at).toBeLessThan(C.ends[B.wave] - 3);
   });
 
   it('haciéndolo bien: esquivas todas, se marea tres veces, le das tres y queda derrotado', () => {

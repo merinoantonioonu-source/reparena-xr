@@ -23,12 +23,12 @@ function run(T: RopeTrials, pose: (t: number) => Partial<TrialEnv>, s0 = 8, v = 
 
 describe('dónde salen', () => {
   const L = buildTrials(C);
-  it('en la parte inclinada de cada tramo (nunca en la subida vertical), separados, premio y reto por turnos', () => {
+  it('a lo largo de cada tramo (nunca encima de su cofre), separados, premio y reto por turnos', () => {
     expect(L.length).toBeGreaterThan(10);
     for (let i = 0; i < L.length; i++) {
       const T = L[i], w = C.wave(T.s);
       expect(T.wave).toBe(w);
-      expect(T.s).toBeLessThan(C.verts[w][0] - 1);
+      expect(T.s).toBeLessThan(C.ends[w] - 2);
       if (i && L[i - 1].wave === T.wave) {
         expect(T.s - L[i - 1].s).toBeGreaterThanOrEqual(TRIAL.gap[0] - 1e-6);
         expect(T.kind === 'fruit').not.toBe(L[i - 1].kind === 'fruit');

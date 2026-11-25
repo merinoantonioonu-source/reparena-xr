@@ -1,6 +1,6 @@
 /**
  * El jefe de la cuerda del remo invertido (PR 3 de docs/PLAN-BARRAS-CUERDA.md; «el jefe, un águila o el dragón que lanza cosas
- * desde arriba: boca arriba se ven muy bien»): en el último tramo de la ronda, antes de la subida final, el dragón te corta el
+ * desde arriba: boca arriba se ven muy bien»): en el último tramo de la ronda, antes de la estación de la cima, el dragón te corta el
  * paso. Se queda delante y por encima de ti y lanza bolas de fuego, con aviso (se echa atrás y ruge):
  *  - **a la cara** (`ball`): apartar la cabeza a un lado cuando llega;
  *  - **rasante por encima del cable** (`sweep`): quedarse abajo, con los brazos estirados, mientras pasa.
@@ -26,7 +26,7 @@ export const BOSS = {
   dizzy: 5,
   hits: 3,
   rest: 0.7,
-  /** Dónde corta el paso: antes de la subida vertical del último tramo (m de cuerda). */
+  /** Dónde corta el paso: antes de llegar a la estación de la cima (m de cuerda). */
   before: 5,
 };
 
@@ -63,8 +63,8 @@ export class RopeBoss {
 
   constructor(C: RopeCourse) {
     this.wave = C.ends.length - 1;
-    const v0 = C.verts[this.wave][0], a = this.wave ? C.ends[this.wave - 1] : 0;
-    this.at = Math.max(a + 3, v0 - BOSS.before);
+    const end = C.ends[this.wave], a = this.wave ? C.ends[this.wave - 1] : 0;
+    this.at = Math.max(a + 3, end - BOSS.before);
   }
 
   /** ¿Te corta el paso ahora? (mientras, la cuerda no avanza) */

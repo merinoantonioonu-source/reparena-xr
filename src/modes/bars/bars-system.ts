@@ -25,7 +25,7 @@ import type { BarEvent, BarsEnv, PlaceEnv } from './env.js';
 import { Placer, PLACE_HOLD, type PlaceEvent } from './place.js';
 import { BarField, HeadTarget, hangSecs, TGT } from './targets.js';
 import { ROPE, RopeCourse, RopeRun } from './rope.js';
-import { worldNo, worldOf, worldPano, worldStarts } from './rope-worlds.js';
+import { ROPE_WORLDS, worldPano } from './rope-worlds.js';
 import { buildTrials, RopeTrials, TRIAL_FAIL, TRIAL_PASS, type Trial, type TrialEnv } from './rope-trials.js';
 import { RopeTrialsLook, type LookFrame } from './rope-trials-look.js';
 import { BOSS, BOSS_SAY, RopeBoss, type BossEnv } from './rope-boss.js';
@@ -180,11 +180,11 @@ export class BarsSystem extends createSystem({}) {
   get ropeShown(): boolean {
     return !!this.ropeScene?.visible;
   }
-  /** La foto de fondo de la cuerda (la del tramo, según la altura: rope.ts, `ropePano`) y hacia dónde mira (rad). */
+  /** La foto de fondo de la cuerda (la de la zona de la montaña de cada tramo: rope-worlds.ts, `worldPano`) y hacia dónde mira (rad). */
   get ropePano(): string {
     const R = this.rope;
     if (!R || !this.ropeShown) return '';
-    // (llegado a la plataforma, ya la del tramo siguiente: cambia mientras descansas)
+    // (llegado al final del tramo, ya la del siguiente: cambia mientras descansas)
     const i = R.reached ? R.course.wave(R.end + 0.01) : R.course.wave(R.s);
     return worldPano(Math.min(i, R.course.ends.length - 1), R.course.ends.length);
   }
@@ -266,7 +266,6 @@ export class BarsSystem extends createSystem({}) {
     }
     this.trialsLook.reset();
     this.ropeScene.setCourse(this.rope?.course ?? null);
-    if (this.rope) this.enterWorld(0, false);
   }
 
   /** La oleada i va a empezar (la partida ya la preparó): la cola de objetivos, o los segundos de colgado. */
@@ -286,7 +285,7 @@ export class BarsSystem extends createSystem({}) {
   waveCleared(): boolean {
     if (this.mstate !== 'play') return false;
     if (str('exercise') === 'hang') return this.bar.hold >= this.bar.need || this.bar.failed;
-    if (this.rope) return this.rope.reached; // (la cuerda: al llegar a la plataforma de la torre del tramo)
+    if (this.rope) return this.rope.reached; // (la cuerda: al llegar al cofre del tramo)
     return this.field.cleared();
   }
 
@@ -424,7 +423,7 @@ export class BarsSystem extends createSystem({}) {
     equipAnchorFrame(this.eq, this.anchorPose, (k, v) => store(k, v));
   }
 
-  // la cuerda: subes remando y, sin remar, resbalas un poco; al llegar a la plataforma de la torre, el tramo superado
+  // la cuerda: subes remando y, sin remar, resbalas un poco; al llegar al cofre del tramo, el tramo superado
   private stepRope(dt: number): void {
     const R = this.rope;
     if (!R) return;
@@ -437,13 +436,13 @@ export class BarsSystem extends createSystem({}) {
     this.ropeScene.update(true, R.s); // (con lo que has subido en este fotograma)
     for (const e of R.ev) {
       if (e.t === 'ledge') {
-        HOOKS.say('¡PLATAFORMA!', '#ffd166', 1.6, false);
+        const last = e.wave >= R.course.ends.length - 1;
+        HOOKS.say(last ? '¡LA CIMA!' : '¡COFRE!', '#ffd166', 1.6, false);
         HOOKS.score(50, true);
         SND.combo();
-        // pasado el último tramo de un mundo, al siguiente (con un destello y su nombre)
-        if (worldStarts(e.wave + 1, R.course.ends.length)) this.enterWorld(e.wave + 1, true);
-        // el cofre de la plataforma se abre y suelta sus premios (los puntos y una gema), que suben flotando
-        const at = this.ropeScene.openChest(e.wave + 1, this.chestAt);
+        // el cofre del tramo (colgado del cable; el último, en la estación de la cima) se abre y suelta sus premios (los puntos
+        // y una gema), que suben flotando
+        const at = this.ropeScene.openChest(e.wave, this.chestAt);
         if (at) {
           HOOKS.prize(at, [
             { icon: 'coins', text: '+50 puntos', color: '#ffd166' },
@@ -452,7 +451,8 @@ export class BarsSystem extends createSystem({}) {
           HOOKS.sparks(at, 24, 0xffd166);
         }
       } else if (e.t === 'slip') HOOKS.say('¡Resbalas! Sigue remando', WARN, 1.6, true);
-      else if (e.t === 'chimney' && e.on) HOOKS.say('¡A la torre! Sube por la cuerda', '#3cf0c6', 1.6, false);
+      // (al entrar en otra zona de la montaña, su nombre: se ve llegar, sin destellos)
+      else if (e.t === 'zone') HOOKS.say(ROPE_WORLDS[e.k].name.toUpperCase(), '#ffd166', 2.2, false);
     }
     R.ev.length = 0;
     this.stepTrials(dt, playing);
@@ -554,18 +554,6 @@ export class BarsSystem extends createSystem({}) {
     this.bossLook.update(dt, this.ropeScene.visible, B, F, this.tEnv.req);
   }
   private readonly v1 = new Vector3();
-
-  // el mundo del tramo i (rope-worlds.ts): su paisaje y, en la costa, su mar (bajo el pie de la torre de donde sale) y su barco
-  private enterWorld(i: number, flash: boolean): void {
-    const R = this.rope;
-    if (!R) return;
-    const n = R.course.ends.length, W = worldOf(i, n), T = R.course.towers[Math.min(i, R.course.towers.length - 1)];
-    this.ropeScene.setWorld(W.key, W.key === 'coast' ? T.base - 3 : -1e9, W.key === 'coast' ? T.h - 12 : NaN, flash);
-    if (flash) {
-      HOOKS.say(`MUNDO ${worldNo(i, n) + 1} · ${W.name}`, '#ffd166', 3, false);
-      SND.horn();
-    }
-  }
 
   // al colgarte la primera vez en la ronda: la cuerda pasa por tus paralelas, a lo largo de tu cuerpo, subiendo hacia tus pies
   // (tumbado, es lo que se ve sin echar la cabeza atrás: lo que se acerca, a la vista; pedido del usuario, que lo veía «al
