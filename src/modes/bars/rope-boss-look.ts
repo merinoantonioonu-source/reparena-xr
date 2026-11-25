@@ -10,7 +10,7 @@ import { Missile } from '../../style/missile-fx.js';
 import { BOSS, type RopeBoss } from './rope-boss.js';
 import type { LookFrame } from './rope-trials-look.js';
 
-/** Dónde se queda (respecto a tu cabeza: hacia lo alto de tu cabeza y hacia arriba, m) y su tamaño. */
+/** Dónde se queda (respecto a tu cabeza: hacia donde subes y hacia arriba, m) y su tamaño. */
 const HOVER = { fwd: 2.5, up: 7 }, DIZZY = { fwd: 0.6, up: 2.8 }, SCALE = 2.4; // (casi encima: tumbado mirando arriba, a la vista)
 
 export class RopeBossLook {
@@ -116,7 +116,7 @@ export class RopeBossLook {
       if (this.bite && this.fly && k < dt * 2) this.fly.reset().play().crossFadeFrom(this.bite, 0.2, false);
       const e = Math.min(1.25, k / BOSS.fly);
       this.pos.copy(this.mouth).lerp(this.aim, e);
-      // (la rasante sigue de largo hacia tus pies)
+      // (la rasante sigue de largo, por encima de tu cabeza)
       if (B.shot === 'sweep' && e > 1) this.pos.addScaledVector(F.fwd, -(e - 1) * 12);
       this.ball!.fly(this.pos, dt, F.head);
     }

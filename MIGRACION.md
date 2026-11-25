@@ -419,6 +419,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **La cuerda, hacia los pies** (vídeo del usuario en las gafas: subía hacia lo alto de la cabeza y había que mirar atrás para
+  ver adónde ibas): `BarsSystem.placeRope` pone la cuerda subiendo hacia los pies (lo contrario de la coronilla al colgarte),
+  como lo demás de Barras en el remo (`barFront`). Todo lo de la cuerda (retos, frutas, dragón, foto de fondo) sigue al marco
+  (`RopeScene.yaw`, `LookFrame.fwd`), así que se gira con ella. En ese vídeo salía además el mapa de la Travesía: ya lo quitó
+  #120 («solo en la Travesía»).
+
 - **La cuerda, PR 3 (mundos y jefe)**: el plan de la cuerda está entero (`docs/PLAN-BARRAS-CUERDA.md`). Los mundos se eligen
   por tramo (`rope-worlds.ts`) y se cambian al llegar a la plataforma (`BarsSystem.enterWorld` → `RopeScene.setWorld`: rehace el
   paisaje con el estilo del mundo; la foto la pone `EnvSystem` con `ropePano`, que ahora es la del mundo). El dragón
