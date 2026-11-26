@@ -6,7 +6,7 @@
  * detecta, qué sale y cuándo lo dice la lógica pura (detect.ts, targets.ts, place.ts, equip.ts), comparada con RepArena;
  * aquí se pinta, suena y puntúa. La partida (GameSystem) pasa las oleadas con lo que este sistema le dice (`waveCleared`).
  */
-import { AnimationMixer, AssetManager, createSystem, DoubleSide, Group, LoopRepeat, Mesh, MeshBasicMaterial, CylinderGeometry, Vector3, XRAnchor, type Entity } from '@iwsdk/core';
+import { AnimationMixer, AssetManager, createSystem, DoubleSide, Group, LoopRepeat, Mesh, MeshBasicMaterial, CylinderGeometry, Quaternion, Vector3, XRAnchor, type Entity } from '@iwsdk/core';
 import type { Material, Object3D, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { dv, nWaves, store, waveReps } from '../../core/settings.js';
@@ -21,7 +21,7 @@ import { BUBBLE_SPLASH, createBubble, createDipBars, createDoorBar, type BarRigP
 import { BarDetector, powRgb } from './detect.js';
 import { ANCHOR_MAKE_T, ANCHOR_SAFE_T } from './anchor-guard.js';
 import { askRoomAnchor, ROOM, roomRisk, roomSafe } from './room-anchor.js';
-import { dipOne, eqName, eqPose, equipAnchorFrame, loadEquip, type Equip, type FloorPose } from './equip.js';
+import { dipOne, EQ_KINDS, eqName, eqPose, equipAnchorFrame, equipFrame, equipRefReset, equipSessionStart, loadEquip, type Equip, type FloorPose } from './equip.js';
 import { yawOf } from './env.js';
 import { diagEvent } from '../../core/diag.js';
 import type { BarEvent, BarsEnv, PlaceEnv } from './env.js';
@@ -70,6 +70,22 @@ export class BarsSystem extends createSystem({}) {
   private anchorStep = 0;
   private anchorT = 0;
   private readonly anchorPose: FloorPose = { x: 0, z: 0, yaw: 0 };
+  /** El suelo del guardián (`bounded-floor`: el mismo en todas las sesiones mientras no cambies el límite de la habitación):
+   * la sesión a la que se le pidió, su espacio, el de referencia al que ya se le escucha el recentrado, dónde está su origen
+   * en el de referencia y si ya se contó en el diagnóstico. */
+  private guardSes: XRSession | null = null;
+  private guardRef: XRReferenceSpace | null = null;
+  private guardBase: XRReferenceSpace | null = null;
+  private readonly guardPose: FloorPose = { x: 0, z: 0, yaw: 0 };
+  private readonly guardQ = new Quaternion();
+  private guardTold = false;
+  private readonly noAnchors = {};
+  private readonly onRefReset = (ev: Event): void => {
+    const T = (ev as XRReferenceSpaceEvent).transform;
+    if (!T) return;
+    equipRefReset(this.eq, T, !!this.guardRef, this.penv.store);
+    diagEvent('aparatos: las gafas se han recentrado');
+  };
   private mstate: BState = 'off';
   private readonly arena = { x: 0, z: 0, ry: 0 };
   private readonly out: BarEvent[] = [];
@@ -412,6 +428,7 @@ export class BarsSystem extends createSystem({}) {
 
   update(dt: number, time: number): void {
     this.clock += dt;
+    this.stepGuardian();
     this.stepAnchor(dt);
     if (!this.on) {
       if (this.entries.length || this.mstate !== 'off') this.clear();
@@ -447,6 +464,56 @@ export class BarsSystem extends createSystem({}) {
     this.field.update(dt, time, this.env, this.out);
     this.applyAll();
     this.syncTargets(dt);
+  }
+
+  // el suelo del guardián (pedido del usuario: «tengo que recolocarlas cada vez que entro»): los aparatos se guardan respecto
+  // a él (como en RepArena: `equip.ts` ya lo traía, pero nada le decía dónde estaba) y en cada sesión vuelven a su sitio de la
+  // habitación, aunque las gafas pongan su origen (local-floor) donde entres. Sin anclas: solo se lee una pose por fotograma
+  private stepGuardian(): void {
+    const xrm = this.world.renderer.xr, ses = xrm.isPresenting ? xrm.getSession() : null;
+    if (ses !== this.guardSes) {
+      this.guardSes = ses;
+      this.guardRef = null;
+      this.guardTold = false;
+      equipSessionStart(this.eq);
+      if (ses)
+        ses.requestReferenceSpace('bounded-floor').then(
+          (r) => {
+            if (this.guardSes === ses) this.guardRef = r as XRReferenceSpace;
+          },
+          () => {
+            if (this.guardSes === ses) diagEvent('aparatos: sin suelo del guardián (límite fijo o sin límite): se quedan donde las gafas pongan su origen');
+          },
+        );
+    }
+    if (!ses) return;
+    const frame = xrm.getFrame(), ref = xrm.getReferenceSpace();
+    if (!frame || !ref) return;
+    if (ref !== this.guardBase) {
+      this.guardBase?.removeEventListener('reset', this.onRefReset);
+      this.guardBase = ref;
+      ref.addEventListener('reset', this.onRefReset);
+    }
+    if (this.guardRef) {
+      const bp = frame.getPose(this.guardRef, ref);
+      if (bp) {
+        const p = bp.transform.position, o = bp.transform.orientation, G = this.guardPose;
+        G.x = p.x;
+        G.z = p.z;
+        G.yaw = yawOf(this.guardQ.set(o.x, o.y, o.z, o.w));
+        this.eq.b2l = G;
+      }
+    }
+    // (lo que cada aparato tenía guardado, antes de que lo siga: para el diagnóstico)
+    const tell = !this.guardTold && !!this.eq.b2l;
+    let had = '';
+    if (tell) for (const k of EQ_KINDS) if (this.eq.xr[k].set) had += ` · ${k === 'spot' ? 'el sitio' : eqName(k, false).name}: ${this.eq.xr[k].b ? 'a su sitio guardado' : 'sin sitio guardado (el de ahora se guarda)'}`;
+    equipFrame(this.eq, this.noAnchors, this.penv.store);
+    if (tell) {
+      this.guardTold = true;
+      const G = this.guardPose;
+      diagEvent(`aparatos: suelo del guardián a ${G.x.toFixed(2)} ${G.z.toFixed(2)} m y ${Math.round((G.yaw * 180) / Math.PI)}° de donde entraste${had || ' · ninguno colocado'}`);
+    }
   }
 
   // el ancla de la habitación (IWSDK: XRAnchor, restaurada en cada sesión; «en pruebas», room-anchor.ts): en cuanto está en su

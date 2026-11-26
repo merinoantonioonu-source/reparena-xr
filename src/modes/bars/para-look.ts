@@ -1,9 +1,9 @@
 /**
  * Lo que se ve del parapente (segunda entrega): **la vela** encima de ti y **sus líneas a tus manos**.
  *
- * Boca arriba el mapa va levantado hacia tu vista (`MAPPILOT.pitch`), así que «arriba» en el vuelo queda hacia lo alto de tu
- * cabeza: la vela está allí, lejos (no tapa lo que miras: se ve echando la cabeza atrás, como un piloto que mira su ala), y
- * de cada mano salen cuatro líneas hacia su mitad. Se ladea al virar. Todo hecho una vez: en cada fotograma solo se mueven
+ * Colgado, el mapa va inclinado hacia tu vista (`MAPPILOT.pitch`: «Parapente: inclinación del mapa»), así que «arriba» en el
+ * vuelo queda por encima de ti y algo hacia lo alto de tu cabeza: la vela está allí, lejos (no tapa lo que miras: se ve
+ * echando la cabeza atrás, como un piloto que mira su ala), y de cada mano salen cuatro líneas hacia su mitad. Se ladea al virar. Todo hecho una vez: en cada fotograma solo se mueven
  * la vela y las puntas de las líneas.
  */
 import { BufferAttribute, BufferGeometry, Color, DoubleSide, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Quaternion, Vector3 } from '@iwsdk/core';

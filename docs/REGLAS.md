@@ -476,10 +476,17 @@ No las cambies sin preguntarle.
   la postura 1 y estos mandos; «Remo invertido: parapente sobre el mapa», *en pruebas*): cuelgas boca arriba de las paralelas,
   inclinado como en la silla de un parapente, y vuelas sobre el mundo de verdad (los mapas 3D de Google, con la clave de
   Cesium ion del jugador; el mismo vuelo que en la Travesía: con inercia, sin atravesar nada, con aros en las ciudades). **El
-  mapa, donde miras** (corregido por el usuario con su vídeo: «yo no veo nada en la posición del remo invertido, ya que el mapa
-  queda totalmente abajo»): boca arriba se mira al techo, así que el mapa se levanta hacia tu vista: mirando recto arriba ves
-  lo de delante y abajo (el suelo por delante, hacia tus pies; el horizonte y el cielo, hacia lo alto de tu cabeza), como en
-  el modo tumbado de las gafas. El cielo, de un solo color. Los mandos:
+  mapa, inclinado a tu mirada** (corregido dos veces por el usuario con sus vídeos: primero «no veo nada… el mapa queda
+  totalmente abajo»; luego, con el mapa levantado como si mirase al techo, «lo veo como si estuviera colgando bocabajo… la
+  cabeza no está orientada al techo, las gafas se caerían: el usuario suele mirar hacia adelante con una ligera inclinación
+  hacia arriba, de unos 30 grados respecto al plano del suelo»): el mapa se inclina hacia tu vista lo que diga
+  **«Parapente: inclinación del mapa»**, medido respecto al suelo y hacia tus pies (de 0° a 90°, de 5 en 5; **30° de serie**):
+  con 0° va derecho; con 30°, su horizonte queda 30° por encima del suelo, en el centro de la vista de quien cuelga mirando
+  así (el cielo arriba, la ciudad abajo); más grados suben el horizonte (más ciudad por delante) y menos lo bajan (más
+  cielo). Se cambia en Ajustes → Modo Barras, en la pausa y en la tira de la muñeca, y **se nota al momento**. En la pausa y
+  en la tira, **«Ajustar a mi mirada»** pone los grados a los que mirabas colgado (lo que mira tu cabeza por encima del
+  suelo mientras remas, de 5 en 5). **De pie, el mapa se pone derecho** (la cabeza por encima de las paralelas; al volver a
+  tumbarte se inclina otra vez, suave): nunca se ve del revés. El cielo, de un solo color. Los mandos:
   - **Tirón con los dos brazos** (un remo): un impulso que da altura y marcha y que se va perdiendo; para seguir en el aire
     hay que seguir remando (uno cada 10 s, más o menos, mantiene la altura; el explosivo da más). Se nota: vibración y un
     golpe de aire.
@@ -895,11 +902,14 @@ No las cambies sin preguntarle.
 
 **Realidad mixta**
 - Puede usar la habitación escaneada o colocarse a mano. Lo colocado (y las barras y paralelas) se recuerda entre
-  sesiones: **en el mismo sitio de la habitación** (pedido del usuario: tenía que recolocarlas en cada partida), con el ancla
-  persistente de IWSDK, aunque las gafas pongan su origen en otro sitio al entrar. *En pruebas*: «Barras: recordar el sitio en
-  la habitación» (apagado de serie: al estrenarlo, la sesión de VR se cerraba sola al entrar); el ancla solo se crea jugando a
-  Barras y, si la sesión se cerrara otra vez por ella, el ajuste se apaga solo. Hasta que el usuario lo dé por bueno en las
-  gafas, apagado: los aparatos se recuerdan como antes (hay que recolocarlos si las gafas cambian su origen).
+  sesiones: **en el mismo sitio de la habitación** (pedido del usuario: tenía que recolocarlas en cada partida), aunque las
+  gafas pongan su origen en otro sitio al entrar. **De serie, respecto al suelo del guardián** (insistido por el usuario:
+  «tengo que recolocarlas cada vez que entro a RepArena, como si nunca recordara las coordenadas respecto al room scale. Eso
+  no debería pasar»): el límite de la habitación que dibujan las gafas es el mismo en todas las sesiones, y cada aparato se
+  guarda respecto a él, sin anclas; lo ya colocado de antes se recoloca **una vez** y desde entonces vuelve solo. Si se
+  vuelve a dibujar el límite (o es el fijo, sin habitación), hay que recolocar. Además, *en pruebas*, el ancla persistente de
+  IWSDK: «Barras: recordar el sitio en la habitación» (apagado de serie: al estrenarlo, la sesión de VR se cerraba sola al
+  entrar); el ancla solo se crea jugando a Barras y, si la sesión se cerrara otra vez por ella, el ajuste se apaga solo.
 
 **Página web**
 - En el ordenador y en el navegador de las gafas, lo primero que se ve son los botones de entrar (realidad mixta, VR,

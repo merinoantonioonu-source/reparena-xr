@@ -86,8 +86,8 @@ export const LITE = { on: false };
 export const MAPVIEW = { on: false, alt: 0, haze: [0.72, 0.84, 0.98], flat: false };
 /** Quien pilota el mapa cuando no es la Travesía (el parapente de Barras: lo llena `BarsSystem`, lo lee `MapSystem`): si
  * está en marcha, lo que vira (−1 a 1; +, a la derecha), lo que sube o baja (−1 a 1), la marcha, dónde queda el punto del
- * vuelo en la habitación (tu cabeza al colgarte) y hacia dónde se vuela en ella (rad: 0, hacia −z), lo que se levanta el mapa hacia tu vista (`pitch`, rad: boca arriba se
- * mira al techo, y ahí tiene que estar lo de delante y abajo) y lo volado (m). */
+ * vuelo en la habitación (tu cabeza al colgarte) y hacia dónde se vuela en ella (rad: 0, hacia −z), lo que se inclina el mapa hacia tu vista (`pitch`, rad, respecto al
+ * suelo y hacia tus pies: «Parapente: inclinación del mapa»; de pie, 0) y lo volado (m). */
 export const MAPPILOT = {
   on: false,
   steer: 0,
@@ -114,6 +114,9 @@ export const MAPPILOT = {
     { x: 0, z: 0, r: 80, on: false },
   ],
   shadow: false,
+  /** Hacia dónde mira el jugador colgado, por encima del suelo y hacia sus pies (grados; −1, aún no se sabe): con «Ajustar
+   * a mi mirada», la inclinación del mapa. */
+  gaze: -1,
 };
 /** Un momento especial de la partida (la fiebre de Arcos, el relámpago de Combate, el turbo o la supervelocidad de la
  * Travesía): las luciérnagas destellan más vivas. Lo pone la partida en cada fotograma. */

@@ -1543,6 +1543,19 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   reciban Rubik y Bungee (con el panel aún oculto): son inofensivos, no vuelven durante la partida.
 - Los sonidos del usuario suenan sin el eco de sala que les añadía RepArena (IWSDK no lo tiene); los de serie lo llevan.
 
+- **Las barras, en su sitio sin anclas: el suelo del guardián** (el usuario: «el problema de la colocación de las barras
+  persiste: tengo que recolocarlas cada vez que entro»). El ancla de IWSDK está apagada de serie desde el PR 131 y, sin
+  ella, los aparatos seguían en local-floor (su origen cambia en cada sesión). `equip.ts` traía de RepArena lo del suelo del
+  guardián (`EqPose.b`, `EQ.b2l`, `eqToBounded`/`eqFromBounded`, `equipFrame`, `equipSessionStart`, `equipRefReset`), pero
+  nada le decía dónde estaba: ahora `BarsSystem.stepGuardian` pide a la sesión el espacio `bounded-floor` (IWSDK ya lo
+  ofrece de serie al entrar y las gafas del usuario lo conceden), lee en cada fotograma dónde está respecto al espacio de
+  referencia (`frame.getPose`) y llama a `equipFrame`; al recentrar, `equipRefReset`. Sin anclas ni nada que crear: una pose
+  por fotograma. `equipChanged` sin guardián borra `b` (era de otro sitio). El diagnóstico dice «aparatos: suelo del
+  guardián a … de donde entraste» y qué aparato vuelve a su sitio. Pruebas: `tests/unit/bars-guardian.test.ts` (dos
+  sesiones con el origen en otro sitio) y la VR emulada (ahí el guardián coincide con local-floor: solo prueba el cableado).
+  **Por confirmar en las gafas**: que el suelo del guardián no cambie entre sesiones (en RepArena era así). El ancla de
+  IWSDK sigue aparte, en pruebas; si está en marcha, manda ella.
+
 - **El parapente del remo invertido sobre el mapa** (Barras, en pruebas; pedido del usuario, postura 1 y mandos aprobados).
   La lógica, pura y con pruebas, en `src/modes/bars/para.ts` (`ParaPilot`: el impulso de cada remo que se pierde, la marcha,
   frenar aguantando arriba, virar con lo que te vas a un lado); `para-flight.ts` la une a la escena (al colgarte fija el punto
@@ -1562,6 +1575,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   daba «te soltaste» (una vida y a colgarse otra vez, quieto 1 s: mientras, planeaba solo). Ahora `handsLow`/`handsOnBar`
   se saltan las manos con `est` (en todo Barras: la regla ya lo pedía), en el parapente `BarsEnv.lenient` no mira las manos
   y la caída no quita vidas. El diagnóstico apunta las caídas con su motivo y, del parapente, cada remo y cómo va cada 4 s.
+  *Tras el segundo vídeo* (26/11): el mapa levantado 115° daba por hecho que boca arriba se mira al techo; el usuario cuelga
+  mirando hacia los pies, unos 30° por encima del suelo, y lo veía del revés. `PARA.viewPitch` se quita: `MAPPILOT.pitch` es
+  ahora el ajuste «Parapente: inclinación del mapa» (`barParaTilt`, 0-90°, 30 de serie, respecto al suelo y hacia los pies),
+  leído en cada fotograma por `ParaFlight.step` (suave, `PARA.tiltTau`; también en pausa: se nota al cambiarlo) y a 0 con la
+  cabeza por encima de las paralelas (`PARA.standUp`: de pie, derecho). `ParaFlight` guarda la mirada de colgado
+  (`gazeDeg`, suavizada; `MAPPILOT.gaze`) y «Ajustar a mi mirada» (pausa y tira rápida, `menus.ts`) pone el ajuste con ella
+  (`tiltOfGaze`). Los créditos, 34° por debajo del horizonte del mapa, hacia los pies. `MAPVIEW.flat`, siempre en el
+  parapente. Probado sin gafas con la cámara tumbada mirando a 30° (el horizonte, en el centro) y de pie (derecho).
   Además, en ese diagnóstico la imagen iba a 3072×3457 por ojo (antes, 2520×2640): a 72 imágenes por segundo el navegador
   de las Quest da un lienzo mayor y «Alta ×1,4» lo multiplica; sobre el mapa, 16-26 imágenes por segundo. Propuesto al
   usuario un tope de píxeles.

@@ -1,6 +1,6 @@
 /** El parapente del remo invertido: cada remo, un impulso que se pierde; irte a un lado vira; aguantar arriba frena. */
 import { describe, expect, it } from 'vitest';
-import { PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from '../../src/modes/bars/para.js';
+import { gazeDeg, tiltOfGaze, PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from '../../src/modes/bars/para.js';
 import { CITIES, MAP, MapFlight, type MapIn } from '../../src/modes/trek/map/map-route.js';
 
 const DT = 1 / 72;
@@ -190,5 +190,23 @@ describe('las térmicas del parapente', () => {
     for (let t = 0; t < 60; t += DT) T.step(DT, 0, 0, 0, 1, false, rnd);
     expect(T.list.some((q) => q.on)).toBe(false);
     expect(T.lift).toBe(0);
+  });
+});
+
+describe('el parapente: la inclinación del mapa y tu mirada', () => {
+  it('la mirada se mide respecto al suelo, hacia los pies: 30° mirando algo hacia arriba, 0 hacia el suelo y 90 al techo o más atrás', () => {
+    const d = (deg: number): [number, number] => [Math.sin((deg * Math.PI) / 180), Math.cos((deg * Math.PI) / 180)];
+    expect(gazeDeg(...d(30))).toBeCloseTo(30, 5);
+    expect(gazeDeg(...d(0))).toBeCloseTo(0, 5);
+    expect(gazeDeg(...d(75))).toBeCloseTo(75, 5);
+    expect(gazeDeg(...d(-20))).toBe(0);
+    expect(gazeDeg(...d(90))).toBeCloseTo(90, 5);
+    expect(gazeDeg(...d(120))).toBe(90);
+  });
+  it('«Ajustar a mi mirada» pone los grados de 5 en 5, entre 0 y 90', () => {
+    expect(tiltOfGaze(31.8)).toBe(30);
+    expect(tiltOfGaze(33)).toBe(35);
+    expect(tiltOfGaze(-4)).toBe(0);
+    expect(tiltOfGaze(97)).toBe(90);
   });
 });

@@ -40,10 +40,26 @@ export const PARA = {
   sideDead: 0.03,
   sideFull: 0.14,
   sideTau: 0.15,
-  /** Lo que se levanta el mapa hacia tu vista (rad): boca arriba se mira al techo; con 115°, mirando recto arriba ves lo de
-   * delante unos 25° por debajo del horizonte (el suelo por delante, hacia tus pies; el horizonte, hacia lo alto de la cabeza). */
-  viewPitch: (115 * Math.PI) / 180,
+  /** La inclinación del mapa («Parapente: inclinación del mapa», respecto al suelo): lo que tarda en ponerse (s); de pie (la
+   * cabeza esto por encima de las paralelas, m) el mapa se pone derecho; y la mirada de colgado: su suavizado (s) y lo que
+   * hay que llevar colgado para darla por buena (s). */
+  tiltTau: 0.35,
+  standUp: 0.2,
+  gazeTau: 3,
+  gazeMin: 2,
 } as const;
+
+/**
+ * Lo que mira el jugador por encima del suelo, hacia sus pies (grados, de 0 a 90): `fy`, lo que sube su mirada; `fh`, lo que
+ * avanza hacia los pies (las dos, de la dirección de la mirada). Mirando al techo o más atrás, 90; hacia el suelo, 0.
+ */
+export function gazeDeg(fy: number, fh: number): number {
+  if (fy <= 0) return 0;
+  if (fh <= 0) return 90;
+  return (Math.atan2(fy, fh) * 180) / Math.PI;
+}
+/** La inclinación que se pone con «Ajustar a mi mirada»: la mirada, de 5 en 5 y entre 0 y 90. */
+export const tiltOfGaze = (deg: number): number => Math.min(90, Math.max(0, Math.round(deg / 5) * 5));
 
 /** Lo que se lee del cuerpo en cada fotograma. */
 export interface ParaIn {

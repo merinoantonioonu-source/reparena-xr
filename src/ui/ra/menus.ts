@@ -8,7 +8,8 @@ import { BODY_NOTE, EX_NAMES, EX_SHORT, MODE_EX, MODE_NAMES, RANKS } from '../..
 import { FIELD, SCHEMA } from '../../core/schema.js';
 import { comboKnown, fieldShown, fieldVisible, menuFull, nLives, nWaves, rankIdx, rankName, setSetting, speedKey, devEye } from '../../core/settings.js';
 import { num, settings } from '../../core/values.js';
-import { GAME, HOOKS } from '../../core/state.js';
+import { GAME, HOOKS, MAPPILOT } from '../../core/state.js';
+import { tiltOfGaze } from '../../modes/bars/para.js';
 import { foeList, isCombat } from '../../core/rules.js';
 import { devFoe } from '../../combat/foes.js';
 import { DEV, devTap } from '../../core/dev.js';
@@ -393,7 +394,17 @@ function settingsMenu(back: () => void): void {
 
 // ---------------------------------------------------------------- la pausa, el resumen y las cartas
 
-const PAUSE = { diag: false };
+const PAUSE = { diag: false, gaze: false };
+/** El parapente de Barras: ¿se juega? Y «Ajustar a mi mirada»: pone la inclinación del mapa a los grados a los que mirabas
+ * colgado (de 5 en 5); `false`, si aún no se sabe (no te has colgado lo bastante). */
+const paraOn = (): boolean => settings.mode === 'bars' && settings.exercise === 'row' && !!settings.barPara && !!FIELD.barParaTilt && fieldVisible(FIELD.barParaTilt);
+const gazeLabel = (): string => (MAPPILOT.gaze < 0 ? 'Ajustar a mi mirada' : `Ajustar a mi mirada (${tiltOfGaze(MAPPILOT.gaze)}°)`);
+function gazeTilt(): boolean {
+  if (MAPPILOT.gaze < 0) return false;
+  setSetting('barParaTilt', tiltOfGaze(MAPPILOT.gaze));
+  return true;
+}
+const GAZE_WAIT = 'Cuélgate y rema unos segundos mirando como sueles: luego, este botón';
 /** La pausa: cómo vas, seguir, las mejoras que llevas, los últimos avisos, los submenús, recolocarte y terminar. */
 export function pauseMenu(): void {
   const bars = settings.mode === 'bars', P = MENU_ENV.pauseInfo;
@@ -407,6 +418,8 @@ export function pauseMenu(): void {
       ...(PAUSE.diag ? [{ t: 'text' as const, text: 'Diagnóstico guardado: en la página del juego, «Descargar la caja negra» (o «Copiar el último»)', color: '#3cf0c6' }] : []),
       // («Manos: filtro nuevo», en pruebas: a mano en la pausa para comparar; vale al seguir)
       ...(fieldVisible(FIELD.handsNew) ? [{ t: 'field' as const, key: 'handsNew' }] : []),
+      // (el parapente: la inclinación del mapa, que se nota al momento, y ponerla a donde mirabas colgado)
+      ...(paraOn() ? [{ t: 'field' as const, key: 'barParaTilt' }, { t: 'btns' as const, items: [{ label: gazeLabel(), accent: '#3cf0c6', onPress: () => ((PAUSE.gaze = !gazeTilt()), pauseMenu()) }] }, ...(PAUSE.gaze ? [{ t: 'text' as const, text: GAZE_WAIT, color: '#ff8a3d' }] : [])] : []),
       // (la Travesía volando: el asistente, en el próximo cofre o, si aún no ha empezado el primer tramo, ya)
       ...(settings.mode === 'trek' && settings.exercise === 'pushup' && num('trekFly') > 0 ? [{ t: 'btns' as const, items: [{ label: 'Ajustar el vuelo', accent: '#3cf0c6', onPress: () => (HOOKS.flyCoach(), HOOKS.resume(), HOOKS.toast('Ajuste del vuelo: en el próximo cofre', '#3cf0c6', 3)) }] }] : []),
       { t: 'btns', items: [{ label: 'Sonido  ▸', accent: MC.sound, onPress: () => soundMenu(pauseMenu) }, { label: 'Entorno  ▸', accent: MC.scene, onPress: () => sceneMenu(pauseMenu) }, { label: 'Ajustes  ▸', accent: MC.set, onPress: () => settingsMenu(pauseMenu) }] },
@@ -417,7 +430,7 @@ export function pauseMenu(): void {
     'pause',
   );
   m.rebuild = pauseMenu;
-  PAUSE.diag = false; // (el aviso, solo esta vez)
+  PAUSE.diag = PAUSE.gaze = false; // (los avisos, solo esta vez)
 }
 
 // ---------------------------------------------------------------- la tira rápida de la muñeca
@@ -430,6 +443,7 @@ function quickFields(): string[] {
   const trek = settings.mode === 'trek', fly = trek && settings.exercise === 'pushup' && num('trekFly') > 0, map = fly && !!settings.flyMap;
   const para = settings.mode === 'bars' && settings.exercise === 'row' && !!settings.barPara;
   const k: string[] = [];
+  if (para) k.push('barParaTilt');
   if (map || para) k.push('flyMapSharp', 'flyMapBank');
   else if (fly) k.push('flyGauges');
   else if (trek) k.push('trekCurves');
@@ -465,6 +479,7 @@ export function quickMenu(low = false): void {
     for (const k of fields) rows.push({ t: 'field', key: k, after: () => (QUICK.pressT = performance.now() / 1000) });
     if (settings.mode === 'trek' && settings.exercise === 'pushup' && num('trekFly') > 0)
       rows.push({ t: 'btns', items: [{ label: 'Ajustar el vuelo', accent: '#3cf0c6', onPress: touch(() => (HOOKS.flyCoach(), hideMenu(), HOOKS.toast('Ajuste del vuelo: en el próximo cofre', '#3cf0c6', 3))) }] });
+    if (paraOn()) rows.push({ t: 'btns', items: [{ label: gazeLabel(), accent: '#3cf0c6', onPress: touch(() => (gazeTilt() ? again() : HOOKS.toast(GAZE_WAIT, '#ff8a3d', 4))) }] });
   }
   rows.push({ t: 'btns', h: 0.065, items: [
     { label: bars ? 'Volver a colgarme' : 'Recalibrar', accent: MC.body, onPress: touch(() => (hideMenu(), HOOKS.recalibrate())) },
