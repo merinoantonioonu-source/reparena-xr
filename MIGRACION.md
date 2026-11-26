@@ -1583,6 +1583,15 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   (`gazeDeg`, suavizada; `MAPPILOT.gaze`) y «Ajustar a mi mirada» (pausa y tira rápida, `menus.ts`) pone el ajuste con ella
   (`tiltOfGaze`). Los créditos, 34° por debajo del horizonte del mapa, hacia los pies. `MAPVIEW.flat`, siempre en el
   parapente. Probado sin gafas con la cámara tumbada mirando a 30° (el horizonte, en el centro) y de pie (derecho).
+  *Tras el tercer vuelo* (26/11, «muchísimo mejor», dos problemas): (1) no sabía bajar (cada remo subía unos 20 m y en
+  planeo se bajaban 1,8 m/s: remando no se paraba de subir) y, aguantando arriba, salía «CARGA» (la del remo de las pompas):
+  elegido por el usuario, **brazos estirados, bajas**: `ParaIn.low` (la cabeza a menos de `PARA.lowUp` del recorrido de la
+  referencia de abajo, `BarsSystem.stepPara`), `ParaPilot.dive` (tras `diveAfter`, hasta `diveMax` en `diveRamp`; un remo
+  lo corta), `climbK` a la mitad, y `BarsEnv.lenient` también quita la carga y la onda (`detect.ts`). El marcador dice lo
+  que bajas (`MapSystem.hud().vs`). (2) Los aros quedaban entre edificios: en el parapente, `measureRing` mira una rejilla de
+  30 m hasta 200 m (`PARA_RING_AT`, lo de cerca primero y corrida media casilla en cada pasada) y el borde de abajo, 40 m por
+  encima de lo más alto (`PARA_RING_CLEAR`). Probado sin gafas: con una torre de 300 m a 150 m, el aro a 380 m; bajando, a
+  unos 17 m/s.
   Además, en ese diagnóstico la imagen iba a 3072×3457 por ojo (antes, 2520×2640): a 72 imágenes por segundo el navegador
   de las Quest da un lienzo mayor y «Alta ×1,4» lo multiplica; sobre el mapa, 16-26 imágenes por segundo. Propuesto al
   usuario un tope de píxeles.

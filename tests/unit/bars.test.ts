@@ -137,6 +137,16 @@ describe('el modo Barras', () => {
     expect(w.bar.pw).toBe(1);
   });
 
+  it('en el parapente aguantar arriba frena: ni carga ni onda (el remo cuenta igual)', () => {
+    const w = mkWorld();
+    w.env.lenient = true;
+    w.mount();
+    w.pull(0.36, 1, 1, 2);
+    expect(w.count('rep')).toBe(1);
+    expect(w.log.some((e) => e.type === 'cheer' && /CARGA|ONDA/.test(e.text))).toBe(false);
+    expect(w.bar.pw).toBe(1);
+  });
+
   it('bajar más del margen es caerse: vuelve a colgarse y sigue la oleada', () => {
     const w = mkWorld();
     w.mount();
