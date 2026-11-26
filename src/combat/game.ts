@@ -722,7 +722,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       } else if (settings.mode === 'bars') {
         // Barras: lo que queda por reventar o los segundos colgado
         const h = this.bars()?.hud();
-        if (h) lines[0] = settings.exercise === 'hang' ? `Colgado ${Math.floor(h.hold)} de ${Math.round(h.need)} s` : h.bossLeft !== null ? `Dragón: le quedan ${h.bossLeft}` : h.ropeLeft !== null ? `Faltan ${h.ropeLeft} m` : `Quedan ${h.left}`;
+        if (h) lines[0] = settings.exercise === 'hang' ? `Colgado ${Math.floor(h.hold)} de ${Math.round(h.need)} s` : h.bossLeft !== null ? `${h.bossName}: le quedan ${h.bossLeft}` : h.ropeLeft !== null ? `Faltan ${h.ropeLeft} m${h.turbo ? ' · TURBO ×2' : ''}` : `Quedan ${h.left}`;
         const g = this.rw.ghostText();
         if (g) lines[1] = minus(g[0]);
       } else if (settings.mode === 'touch') {
@@ -2166,7 +2166,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.stepTrophy(dt);
     // un momento especial (las luciérnagas destellan más vivas): la fiebre, el relámpago, el turbo o la supervelocidad
     const tk = settings.mode === 'trek' ? this.trek()?.runner : null;
-    SPECIAL.on = GAME.phase === 'playing' && !GAME.paused && !GAME.between && (!!this.rw?.rush.on || (settings.mode === 'arcs' && !!this.arcs()?.arx.fever) || (!!tk && (tk.tk.turbo || tk.superT > 0)));
+    SPECIAL.on = GAME.phase === 'playing' && !GAME.paused && !GAME.between && (!!this.rw?.rush.on || (settings.mode === 'arcs' && !!this.arcs()?.arx.fever) || (!!tk && (tk.tk.turbo || tk.superT > 0)) || (settings.mode === 'bars' && !!this.bars()?.ropeTurbo));
     this.boardT -= dt;
     if (this.boardT <= 0) {
       this.boardT = 0.25;

@@ -73,3 +73,16 @@ La pared rocosa (C) queda para las dominadas, donde de verdad cuelgas en vertica
 
 `src/modes/bars/rope.ts` (lógica pura: `RopeCourse`, `RopeRun`, `ropeDecoPuts`; pruebas en `tests/unit/bars-rope.test.ts`),
 `src/modes/bars/rope-scene.ts` (lo que se ve: la ladera, una malla hecha una vez por ronda; los pinos, las piedras, las torres y los cables, con instancias) y `BarsSystem` (`ropeOn`, `stepRope`, `placeRope`); el ajuste, `barRope`.
+
+## Retos en la cuerda (25/11/2026)
+
+Pedido del usuario: «más emocionante, con enemigos que esquivar colgado, colgarse de una mano…». De las propuestas («Retos en
+la cuerda»), todos menos la persecución (9) y los cofres con sorpresa (12):
+
+- [x] **Parte 1 · Esquivar y turbo**: los murciélagos (1), el cangrejo del cable (2), los tiradores (3), la abeja (4) y el turbo
+  por racha (11); cada zona, sus retos.
+- [x] **Parte 2 · Agarre y fuerza**: el remo a una mano (5), coger con una mano (6), aguantar a media altura (7) y los remos
+  lentos (8).
+- [x] **Parte 3 · Un jefe en cada zona** (10): el demonio en el bosque, el cíclope en la garganta y el yeti en la cima, además del
+  dragón.
+

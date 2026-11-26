@@ -430,6 +430,28 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
 
+- **Retos en la cuerda, parte 3 (un jefe en cada zona)**: `RopeBoss` admite otro jefe (`kind`, `at`, `throws`, `hits`;
+  `nThrows`, `nHits`) y `ropeBosses(C)` da los de la ronda por orden (el demonio, el cíclope y el yeti en `MINI.at`, si la ronda
+  mide 50 m o más y no quedan a menos de 12 m de otro, y el dragón); `BarsSystem.bosses`, con `boss`, el que toca (derrotado, el
+  siguiente). Los del cable, de pie en él a 3,5 m por delante, los pinta `rope-mini-look.ts` (el dragón sigue en
+  `rope-boss-look.ts`). Los retos a menos de 6 m de un jefe se quitan. Con esto, «Retos en la cuerda» está entero; falta que el
+  usuario lo vea en las gafas.
+
+- **Retos en la cuerda, parte 2 (agarre y fuerza)**: `onehand` (la mano de su lado suelta; `TrialEnv.rep`, cada remo), `reach`
+  (un premio: la muñeca de su lado, `TrialEnv.wrist`, en el marco de la cuerda, llega a la gema; `RopeTrials` recibe el recorrido
+  para saber dónde queda), `midhold` (la cabeza entre el 30 % y el 80 % de la subida) y `slow` (`TrialEnv.descent`: lo que
+  tarda cada bajada, de más del 85 % a menos del 15 % de la subida; `RopeScene.shake` tiembla el cable). Los que duran lo que
+  tardes (`HELD`) no dejan empezar otro. Ahora hay un premio y dos retos por turnos (`gap` de 4,5 a 7 m). Lo que se ve, también
+  en `rope-foes-look.ts`. Falta la parte 3 (un jefe en cada zona).
+
+- **Retos en la cuerda, parte 1 (esquivar y turbo)**: el usuario eligió de «Retos en la cuerda» todos menos la persecución (9) y
+  los cofres con sorpresa (12); van en tres PR. Este: `bats`, `crab`, `shooter` y `bee` en `rope-trials.ts` (con `side`, `n`,
+  `k` y `shot` en cada `Trial`; `TrialEnv.free`, qué mano está suelta: `BarsSystem.handFree`, la muñeca separada de la barra o
+  sin ver; `handSide`, qué mano va a cada lado), por zonas (`ZONE_TRIALS`, `trialZone`: por lo que llevas de la ronda); lo que
+  se ve, `rope-foes-look.ts` (monstruitos del catálogo; las bolas, `Missile`); y el turbo en `RopeRun` (`TURBO`, suceso
+  `turbo`; `GAME.ptsK`, el marcador y las luciérnagas). Falta: la parte 2 (remo a una mano, coger con una mano, aguantar a media
+  altura, remos lentos) y la 3 (un jefe en cada zona).
+
 - **La cuerda, rehecha (opción A e idea 1 del usuario)**: `RopeCourse` es ahora un solo cable (su cuesta, `pitchOf`, crece
   de `p0` a `p1` con lo subido de la montaña; tabla cada 0,25 m; `sAt` es su inversa), con las estaciones del valle (s = −8) y
   de la cima (`top`, el final del último tramo; el cable acaba en `len`) y `ends[i]`, el cofre de cada tramo (`chestAt`,

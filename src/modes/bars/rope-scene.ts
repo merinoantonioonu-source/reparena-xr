@@ -89,6 +89,8 @@ export class RopeScene {
   private shown = false;
   /** ¿Está colocada la cuerda (ya te colgaste en esta ronda)? */
   placed = false;
+  /** Lo que tiembla el cable (0-1: cruje en los remos lentos; de golpe, se sacude); se calma solo. */
+  shake = 0;
   private readonly m4 = new Matrix4();
   private readonly q = new Quaternion();
   private readonly e = new Euler();
@@ -353,9 +355,16 @@ export class RopeScene {
         // (un punto de la cuerda, respecto a tus manos: −z hacia delante)
         this.a.set(lane, this.laneY + C.y(sa) - y0, -(C.h(sa) - h0));
         this.b.set(lane, this.laneY + C.y(sb) - y0, -(C.h(sb) - h0));
+        // (temblando: una onda que corre por el cable, más fuerte cerca de tus manos)
+        if (this.shake > 0.01) {
+          const w = this.shake * 0.05;
+          this.a.y += w * Math.sin(this.clock * 38 - k * 0.9) / (1 + Math.abs(k) * 0.08);
+          this.b.y += w * Math.sin(this.clock * 38 - (k + SEG) * 0.9) / (1 + Math.abs(k + SEG) * 0.08);
+        }
         this.seg(n++, this.a, this.b);
       }
     }
+    this.shake *= 0.96;
     const lane = this.lanes[this.lanes.length - 1];
     for (let i = 0; i < C.ends.length - 1 && n < im.instanceMatrix.count; i++) {
       const e = C.ends[i];

@@ -8,7 +8,11 @@
  * da. A la tercera, derrotado (se va volando). Si no le das mientras está mareado, se recupera y vuelve a lanzar; tras dos
  * veces, vale cualquier remo (la pelea siempre se acaba, como el jefe de la Travesía). Si te da una bola, se rompe la racha,
  * sin vidas. Mientras pelea, no se sube (ni se resbala): `RopeRun.hold`.
- * Lógica pura, sin IWSDK; lo que se ve, src/modes/bars/rope-boss-look.ts.
+ * **Un jefe en cada zona** (reto 10 de «Retos en la cuerda», elegido por el usuario), además del dragón: al final del bosque, el
+ * **demonio** (bolas de fuego); al final de la garganta, el **cíclope** (piedras); en la cima, el **yeti** (bolas de nieve). Se
+ * plantan de pie en el cable, por delante de ti, y pelean igual pero más corto (dos lanzamientos por ronda de ataque y dos
+ * golpes para derrotarlos); derrotados, caen del cable.
+ * Lógica pura, sin IWSDK; lo que se ve, src/modes/bars/rope-boss-look.ts (el dragón) y rope-mini-look.ts (los del cable).
  */
 import type { RopeCourse } from './rope.js';
 
@@ -31,6 +35,12 @@ export const BOSS = {
 };
 
 export type BossShot = 'ball' | 'sweep';
+export type BossKind = 'dragon' | 'demon' | 'cyclops' | 'yeti';
+/** Los jefes de cada zona: lanzamientos por ronda de ataque, golpes para derrotarlos, dónde salen (lo que llevas de la ronda,
+ * 0-1), lo separados que tienen que estar de otro jefe (m de cuerda) y lo larga que tiene que ser la ronda para que salgan (m). */
+export const MINI = { throws: 2, hits: 2, at: { demon: 0.47, cyclops: 0.72, yeti: 0.9 } as Record<string, number>, gap: 12, min: 50 };
+/** Sus nombres (en los avisos y el marcador). */
+export const BOSS_NAME: Record<BossKind, string> = { dragon: 'El dragón', demon: 'El demonio', cyclops: 'El cíclope', yeti: 'El yeti' };
 export type BossState = 'off' | 'intro' | 'wind' | 'fly' | 'rest' | 'dizzy' | 'down';
 export type BossEv = { t: 'appear' } | { t: 'wind'; shot: BossShot } | { t: 'throw'; shot: BossShot } | { t: 'dodge'; shot: BossShot } | { t: 'burn'; shot: BossShot } | { t: 'dizzy' } | { t: 'recover' } | { t: 'hit'; left: number } | { t: 'down' };
 
@@ -61,10 +71,24 @@ export class RopeBoss {
   private missed = 0;
   readonly ev: BossEv[] = [];
 
-  constructor(C: RopeCourse) {
-    this.wave = C.ends.length - 1;
-    const end = C.ends[this.wave], a = this.wave ? C.ends[this.wave - 1] : 0;
-    this.at = Math.max(a + 3, end - BOSS.before);
+  /** Qué jefe es, cuántos lanzamientos hace por ronda de ataque y cuántos golpes aguanta. */
+  readonly kind: BossKind;
+  readonly nThrows: number;
+  readonly nHits: number;
+
+  /** De serie, el dragón del último tramo; con `o`, otro (dónde corta el paso, cuántos lanzamientos y cuántos golpes). */
+  constructor(C: RopeCourse, o: { kind?: BossKind; at?: number; throws?: number; hits?: number } = {}) {
+    this.kind = o.kind ?? 'dragon';
+    this.nThrows = o.throws ?? BOSS.throws;
+    this.nHits = o.hits ?? BOSS.hits;
+    if (o.at !== undefined) {
+      this.at = o.at;
+      this.wave = C.wave(o.at);
+    } else {
+      this.wave = C.ends.length - 1;
+      const end = C.ends[this.wave], a = this.wave ? C.ends[this.wave - 1] : 0;
+      this.at = Math.max(a + 3, end - BOSS.before);
+    }
   }
 
   /** ¿Te corta el paso ahora? (mientras, la cuerda no avanza) */
@@ -102,7 +126,7 @@ export class RopeBoss {
       }
       case 'rest':
         if (this.t >= BOSS.rest) {
-          if (this.thrown >= BOSS.throws) {
+          if (this.thrown >= this.nThrows) {
             this.go('dizzy');
             this.ev.push({ t: 'dizzy' });
           } else this.windUp();
@@ -111,11 +135,11 @@ export class RopeBoss {
       case 'dizzy':
         if (E.strike || (this.missed >= 2 && E.rep)) {
           this.hits++;
-          if (this.hits >= BOSS.hits) {
+          if (this.hits >= this.nHits) {
             this.go('down');
             this.ev.push({ t: 'down' });
           } else {
-            this.ev.push({ t: 'hit', left: BOSS.hits - this.hits });
+            this.ev.push({ t: 'hit', left: this.nHits - this.hits });
             this.thrown = 0;
             this.go('rest');
           }
@@ -148,6 +172,20 @@ export class RopeBoss {
   }
 }
 
+/** Los jefes de la ronda, por orden: uno en cada zona (si la ronda es lo bastante larga y no quedan pegados a otro) y el dragón
+ * en el último tramo (con un solo tramo, sin dragón). */
+export function ropeBosses(C: RopeCourse): RopeBoss[] {
+  const out: RopeBoss[] = [], dragon = C.ends.length > 1 ? new RopeBoss(C) : null;
+  if (C.top >= MINI.min)
+    for (const k of ['demon', 'cyclops', 'yeti'] as const) {
+      const at = MINI.at[k] * C.top;
+      if (at < 10 || (dragon && Math.abs(dragon.at - at) < MINI.gap) || out.some((B) => Math.abs(B.at - at) < MINI.gap)) continue;
+      out.push(new RopeBoss(C, { kind: k, at, throws: MINI.throws, hits: MINI.hits }));
+    }
+  if (dragon) out.push(dragon);
+  return out;
+}
+
 /** Lo que se dice en la pelea: lo que hay que hacer (las órdenes de la pelea con el jefe sí se dicen: regla del usuario). */
 export const BOSS_SAY = {
   appear: '¡EL DRAGÓN! Esquiva su fuego',
@@ -157,3 +195,6 @@ export const BOSS_SAY = {
   recover: 'Se ha recuperado…',
   down: '¡DRAGÓN DERROTADO!',
 };
+/** Lo que se dice al salir y al derrotarlo, según el jefe. */
+export const bossAppear = (k: BossKind): string => ({ dragon: BOSS_SAY.appear, demon: '¡EL DEMONIO! Esquiva su fuego', cyclops: '¡EL CÍCLOPE! Esquiva sus piedras', yeti: '¡EL YETI! Esquiva sus bolas' })[k];
+export const bossDown = (k: BossKind): string => ({ dragon: BOSS_SAY.down, demon: '¡DEMONIO DERROTADO!', cyclops: '¡CÍCLOPE DERROTADO!', yeti: '¡YETI DERROTADO!' })[k];

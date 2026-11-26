@@ -45,6 +45,10 @@ export const ROPE = { perRep: 1.7, slide: 0.1, slideAfter: 1.2, vert: 0.7, pitch
  * constante»): la parte que se sube mientras tiras (`share`), lo pegado que va a los brazos (1/s) y lo que dura la inercia
  * al soltar (s: lleva el resto del remo mientras bajas y se apaga). */
 export const PULL = { share: 0.7, follow: 12, glideT: 0.45 };
+/** El turbo por racha (reto 11 del usuario, como el de la Travesía): `n` remos seguidos a buen ritmo (como mucho `gap` s entre
+ * uno y otro) lo encienden; cada remo, entonces, sube `k` veces más (y los puntos valen el doble: la partida); un parón de
+ * `idle` s o un reto fallado lo apagan. */
+export const TURBO = { n: 6, gap: 3.8, idle: 3.5, k: 1.25 };
 /** El paso de la tabla del cable (m), lo que hay de cable detrás de la salida (hasta la estación del valle) y pasada la llegada
  * (hasta la rueda de la estación de la cima), y el paso de la tabla del terreno (m en horizontal). */
 const STEP = 0.25, START = 8, TOP = 3, GSTEP = 1;
@@ -421,7 +425,7 @@ export class RopeCourse {
 }
 
 /** Los sucesos del avance, para quien lo pinta y lo cuenta. */
-export type RopeEv = { t: 'ledge'; wave: number } | { t: 'slip' } | { t: 'zone'; k: number };
+export type RopeEv = { t: 'ledge'; wave: number } | { t: 'slip' } | { t: 'zone'; k: number } | { t: 'turbo'; on: boolean };
 
 /** El avance por la cuerda: cada remo te empuja y, sin remar, resbalas un poco. */
 export class RopeRun {
@@ -447,6 +451,10 @@ export class RopeRun {
   reached = true;
   private slipping = false;
   private zone = 0;
+  /** El turbo, los remos seguidos a buen ritmo que lleva y cuándo fue el último (s). */
+  turbo = false;
+  private tg = 0;
+  private lastRep = -1;
   readonly ev: RopeEv[] = [];
 
   constructor(readonly course: RopeCourse) {}
@@ -458,6 +466,9 @@ export class RopeRun {
     this.s = Math.max(this.s, this.start);
     this.v = this.owe = this.glideV = this.fMax = this.slideV = 0;
     this.repDone = false;
+    this.tg = 0;
+    this.lastRep = -1;
+    this.setTurbo(false);
     this.idle = 0;
     this.reached = false;
   }
@@ -488,9 +499,13 @@ export class RopeRun {
   /** Un remo completo (arriba): lo que faltara del tirón y la inercia al soltar, que te lleva un poco más mientras bajas y se
    * apaga sola. Bien hecho, algo más; `speedK`, la «Velocidad» del jugador. (`now`, el reloj: no hace falta, el ritmo sale
    * solo de cuántos tirones das.) */
-  rep(_now: number, perfect: boolean, speedK = 1): void {
+  rep(now: number, perfect: boolean, speedK = 1): void {
     if (this.reached) return;
-    const k = (perfect ? 1.1 : 1) * speedK, f0 = this.repDone ? 0 : this.fMax;
+    // (la racha: a buen ritmo, uno más; si no, vuelta a empezar)
+    this.tg = this.lastRep >= 0 && now - this.lastRep > TURBO.gap ? 1 : this.tg + 1;
+    this.lastRep = now;
+    if (!this.turbo && this.tg >= TURBO.n) this.setTurbo(true);
+    const k = (perfect ? 1.1 : 1) * speedK * (this.turbo ? TURBO.k : 1), f0 = this.repDone ? 0 : this.fMax;
     this.owe += (1 - f0) * this.reach(PULL.share);
     this.fMax = 1;
     this.repDone = true;
@@ -500,6 +515,8 @@ export class RopeRun {
 
   /** Un reto fallado: frenas a la mitad (como en la Travesía) y lo que llevabas de tirón se pierde a medias. */
   stumble(): void {
+    this.tg = 0;
+    this.setTurbo(false);
     this.v *= 0.5;
     this.owe *= 0.5;
     this.glideV *= 0.5;
@@ -518,6 +535,10 @@ export class RopeRun {
     }
     const C = this.course, th = C.pitch(this.s);
     this.idle += dt;
+    if (this.idle > TURBO.idle) {
+      this.tg = 0;
+      this.setTurbo(false);
+    }
     // el tirón, pegado a los brazos (un pelín detrás: no da saltos), y la inercia, que se apaga sola
     const pay = this.owe * (1 - Math.exp(-dt * PULL.follow));
     this.owe -= pay;
@@ -554,6 +575,12 @@ export class RopeRun {
       this.reached = true;
       this.ev.push({ t: 'ledge', wave: C.wave(this.end - 0.01) });
     }
+  }
+
+  private setTurbo(on: boolean): void {
+    if (on === this.turbo) return;
+    this.turbo = on;
+    this.ev.push({ t: 'turbo', on });
   }
 
   /** Lo que falta hasta el final del tramo (m). */
