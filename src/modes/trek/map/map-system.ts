@@ -11,7 +11,7 @@
  * (el aro va por encima). Los mapas, sin el estilo cómic ni niebla (son fotos de verdad), con solo el cielo alrededor
  * (`MAPVIEW`: lo pone EnvSystem, más oscuro cuanto más alto) y con sus créditos de Google a la vista (lo exigen).
  */
-import { AdditiveBlending, CanvasTexture, Color, ConeGeometry, createSystem, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Quaternion, Raycaster, TorusGeometry, Vector2, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, CanvasTexture, Color, ConeGeometry, createSystem, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Quaternion, Raycaster, RepeatWrapping, TorusGeometry, Vector2, Vector3 } from '@iwsdk/core';
 import type { Material, PerspectiveCamera, WebGLRenderer } from '@iwsdk/core';
 // (el descompresor de los modelos de Google: el mismo paquete de Three que reexporta IWSDK —IWSDK lo importa igual—)
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -54,6 +54,50 @@ const AX_Y = new Vector3(0, 1, 0), AX_Z = new Vector3(0, 0, 1);
 /** La flecha al aro que viene: desde cuánto de lado sale y hasta cuánto se queda (rad), lo adelante que va (m por delante de
  * ti, en el suelo) y su tamaño (× el de antes). Los créditos del mapa: lo atrás que van (m hacia los pies) y su tamaño. */
 const ARROW_ON = 0.6, ARROW_OFF = 0.35, ARROW_AT = 1.1, ARROW_K = 0.5, CREDITS_AT = 0.5, CREDITS_K = 0.5;
+
+/** La textura de una térmica: franjas en diagonal (al girar la columna, suben en espiral) que se apagan hacia arriba. */
+function thermalTexture(): CanvasTexture {
+  const cv = document.createElement('canvas');
+  cv.width = 128;
+  cv.height = 256;
+  const g = cv.getContext('2d')!;
+  g.clearRect(0, 0, 128, 256);
+  for (let y = 0; y < 256; y++) {
+    const fade = Math.pow(y / 255, 1.4); // (arriba del lienzo es lo alto de la columna: se desvanece)
+    for (let k = 0; k < 4; k++) {
+      const x = ((y * 0.5 + k * 32) % 128 + 128) % 128;
+      g.fillStyle = `rgba(255,255,255,${(0.75 * fade).toFixed(3)})`;
+      g.fillRect(x, y, 9, 1);
+    }
+    g.fillStyle = `rgba(255,255,255,${(0.12 * fade).toFixed(3)})`;
+    g.fillRect(0, y, 128, 1);
+  }
+  const t = new CanvasTexture(cv);
+  t.wrapS = RepeatWrapping;
+  return t;
+}
+
+/** La sombra de la vela: su silueta en arco, blanda. */
+function wingShadowTexture(): CanvasTexture {
+  const cv = document.createElement('canvas');
+  cv.width = 256;
+  cv.height = 128;
+  const g = cv.getContext('2d')!;
+  g.clearRect(0, 0, 256, 128);
+  g.filter = 'blur(6px)';
+  g.fillStyle = 'rgba(8,10,24,0.9)';
+  g.beginPath();
+  // (el borde de ataque, arriba: una media luna)
+  g.moveTo(14, 78);
+  g.quadraticCurveTo(128, -6, 242, 78);
+  g.quadraticCurveTo(128, 50, 14, 78);
+  g.fill();
+  // (y el piloto, un punto debajo)
+  g.beginPath();
+  g.arc(128, 100, 7, 0, Math.PI * 2);
+  g.fill();
+  return new CanvasTexture(cv);
+}
 
 export class MapSystem extends createSystem({}) {
   private root!: Group;
@@ -118,6 +162,11 @@ export class MapSystem extends createSystem({}) {
    * la flecha que señala al que viene y los créditos. */
   private rings: Mesh[] = [];
   private beam!: Mesh;
+  /** Las columnas de luz (las térmicas del parapente) y la sombra del que vuela, sobre los tejados. */
+  private readonly cols: Mesh[] = [];
+  private shade!: Mesh;
+  private shadeT = 0;
+  private shadeY = NaN;
   private pop!: Mesh;
   private popT = -1;
   private arrow!: Mesh;
@@ -152,6 +201,22 @@ export class MapSystem extends createSystem({}) {
       this.root.add(m);
       this.rings.push(m);
     }
+    // las térmicas: columnas de aire que sube (una espiral de luz turquesa, que gira despacio)
+    const colTex = thermalTexture();
+    for (let i = 0; i < MAPPILOT.cols.length; i++) {
+      const m = new Mesh(new CylinderGeometry(1, 1, 1, 28, 1, true).translate(0, 0.5, 0), new MeshBasicMaterial({ map: colTex, color: 0x9fffe8, transparent: true, opacity: 0.5, blending: AdditiveBlending, depthWrite: false, toneMapped: false, fog: false, side: DoubleSide }));
+      m.userData.noInk = true;
+      m.renderOrder = 6;
+      m.visible = false;
+      this.root.add(m);
+      this.cols.push(m);
+    }
+    // la sombra de la vela: una mancha oscura con su forma, tendida sobre lo que haya
+    this.shade = new Mesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new MeshBasicMaterial({ map: wingShadowTexture(), transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false, fog: true, polygonOffset: true, polygonOffsetFactor: -4 }));
+    this.shade.userData.noInk = true;
+    this.shade.renderOrder = 5;
+    this.shade.visible = false;
+    this.root.add(this.shade);
     // el haz de luz: sube desde lo alto del aro que viene (se ve de lejos, por encima de los edificios)
     this.beam = new Mesh(new CylinderGeometry(3, 3, 1, 10, 1, true).translate(0, 0.5, 0), new MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.28, blending: AdditiveBlending, depthWrite: false, toneMapped: false, fog: false, side: DoubleSide }));
     this.beam.userData.noInk = true;
@@ -224,6 +289,13 @@ export class MapSystem extends createSystem({}) {
         I.ctl = this.ctl;
         F.step(dt, I);
         MAPPILOT.flown = F.flown;
+        MAPPILOT.px = F.x;
+        MAPPILOT.pz = F.z;
+        MAPPILOT.heading = F.heading;
+        MAPPILOT.bank = F.bank;
+        MAPPILOT.agl = F.agl;
+        MAPPILOT.speed = F.speed;
+        MAPPILOT.scale = F.scale;
       } else {
         const G = R!.glider, L = R!.handLine;
         I.ctl = null;
@@ -313,6 +385,31 @@ export class MapSystem extends createSystem({}) {
     this.beam.position.y += MAP.ringR;
     this.beam.scale.set(1, 2500, 1);
     this.beam.visible = route;
+    // lo que pide el piloto del parapente: las térmicas (columnas de luz) y su sombra, por delante (el sol, a la espalda)
+    for (let i = 0; i < this.cols.length; i++) {
+      const m = this.cols[i], c = MAPPILOT.cols[i];
+      m.visible = para && !!c?.on;
+      if (!m.visible) continue;
+      m.position.set(c.x, F.ground - 120, c.z);
+      m.scale.set(c.r, 5000, c.r);
+      m.rotation.y += dt * 0.5;
+    }
+    const sh = para && MAPPILOT.shadow && F.placed && F.agl < 1500;
+    this.shade.visible = sh;
+    if (sh) {
+      const d = F.agl * 1.1, sx = F.x - Math.sin(F.heading) * d, sz = F.z - Math.cos(F.heading) * d;
+      this.shadeT -= dt;
+      if (this.shadeT <= 0) {
+        this.shadeT = 0.5;
+        const g = this.topAt(sx, sz, F.alt);
+        if (!Number.isNaN(g)) this.shadeY = g;
+      }
+      if (Number.isNaN(this.shadeY)) this.shadeY = F.ground;
+      const span = Math.max(14, F.agl * 0.11);
+      this.shade.position.set(sx, this.shadeY + 2, sz);
+      this.shade.rotation.set(0, F.heading, F.bank * 0.3, 'YXZ');
+      this.shade.scale.set(span, 1, span * 0.5);
+    }
 
     if (this.popT >= 0) {
       this.popT += dt;

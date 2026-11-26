@@ -494,9 +494,15 @@ No las cambies sin preguntarle.
   de las paralelas (o la cabeza en el suelo), y entonces planea solo hasta que vuelves, sin perder vidas.
   Cada oleada pide sus remos; **en el descanso el parapente planea solo** (recto y sin perder altura) y sigue cuando te
   vuelves a colgar. Hasta que te cuelgas la primera vez se ve la arena de siempre; luego, solo el cielo, el mapa y tus
-  paralelas. Los créditos del mapa, pequeños, hacia los pies. Sin clave o sin de dónde salir, el remo de siempre. *Primera
-  entrega* (los mandos y el vuelo); lo que se ve y se oye (la vela, las líneas a tus manos, tu sombra, el viento, las
-  térmicas), en la segunda. Las otras posturas propuestas (dominadas en la barra, fondos), sin hacer.
+  paralelas. Los créditos del mapa, pequeños, hacia los pies. Sin clave o sin de dónde salir, el remo de siempre.
+  **Lo que se ve y se oye** (segunda entrega, «adelante con la segunda parte»): **la vela**, de celdas rosas, blancas y
+  turquesas, encima de ti en el vuelo (hacia lo alto de tu cabeza: se ve echando la cabeza atrás, como un piloto que mira su
+  ala; no tapa lo que miras) y **cuatro líneas de cada mano** a su mitad de la vela, que se ladea al virar; **tu sombra**,
+  con la forma de la vela, corriendo sobre los tejados por delante de ti (más grande cuanto más alto vas: dice lo alto que
+  estás); **el viento** en la cara, más fuerte cuanto más deprisa; y **las térmicas**: columnas de aire que sube (una espiral
+  de luz turquesa) que salen de vez en cuando por delante y algo a un lado: virando hacia ellas y pasando por dentro subes
+  sin remar, y unos segundos más al salir (un premio, con sus puntos: no pasar no cuesta nada). Las otras posturas
+  propuestas (dominadas en la barra, fondos), sin hacer.
 - **En Barras, las manos que el juego calcula no cuentan** (con el diagnóstico del usuario: tumbado, las manos colocadas
   con el cuerpo al perderlas salían por debajo del suelo y el juego decía «te soltaste»): para saber si te has soltado solo
   valen las manos que las gafas ven de verdad.

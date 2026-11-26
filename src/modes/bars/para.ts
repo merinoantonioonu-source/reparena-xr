@@ -57,6 +57,8 @@ export interface ParaIn {
   rep: boolean;
   fast: boolean;
   perfect: boolean;
+  /** Lo que te sube una térmica (0: ninguna; `Thermals.lift`). */
+  thermal?: number;
 }
 
 const c01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -113,7 +115,8 @@ export class ParaPilot {
     }
     // el impulso se pierde; sin él, planeas perdiendo altura despacio
     this.lift *= Math.exp(-dt / PARA.liftTau);
-    this.climb = Math.min(1, this.lift * PARA.climbK) - PARA.sink;
+    // (dentro de una térmica subes sin remar)
+    this.climb = Math.min(1, this.lift * PARA.climbK + (I.thermal ?? 0)) - PARA.sink;
     // la marcha se va perdiendo hasta la de planeo
     this.stored = Math.max(PARA.gear0, this.stored - PARA.gearLoss * dt);
     // aguantar arriba frena (y al soltar vuelve la marcha que llevabas)
@@ -124,5 +127,96 @@ export class ParaPilot {
     // irte a un lado vira hacia ese lado, en proporción
     const a = Math.abs(I.side), s = Math.sign(I.side) * c01((a - PARA.sideDead) / (PARA.sideFull - PARA.sideDead));
     this.steer += (s - this.steer) * (1 - Math.exp(-dt / PARA.sideTau));
+  }
+}
+
+/**
+ * Las térmicas (segunda entrega: «aros o térmicas como retos»): columnas de aire que sube. Salen de vez en cuando por
+ * delante y algo a un lado (hay que virar hacia ellas, tirando más de un brazo); dentro subes sin remar, y unos segundos
+ * más al salir. Son un premio: no pasar por ellas no cuesta nada. En el mapa (x al oeste, z al norte; el rumbo, como
+ * `MapFlight`: se avanza hacia (−sin, −cos)).
+ */
+export const THERMAL = {
+  /** Su radio (m) y cuántas hay a la vez como mucho. */
+  r: 80,
+  max: 2,
+  /** Cada cuánto sale una (s, entre estos dos), a cuánto por delante (m, × lo deprisa que va todo por la altura) y cuánto
+   * a un lado como mucho (rad). */
+  every: [12, 22],
+  ahead: [450, 800],
+  side: 0.45,
+  /** Lo que duran sin usar (s) y a cuánto por detrás se dan por pasadas (m). */
+  life: 70,
+  behind: 250,
+  /** Lo que suben (× la subida del vuelo), lo que sigue subiendo al salir (s) y los puntos al entrar. */
+  lift: 0.55,
+  hold: 3,
+  pts: 40,
+} as const;
+
+export interface Thermal {
+  x: number;
+  z: number;
+  on: boolean;
+  t: number;
+  used: boolean;
+}
+
+export class Thermals {
+  readonly list: Thermal[] = [];
+  /** Lo que te sube ahora (0 a `THERMAL.lift`, suave) y si acabas de entrar en una (para decirlo y puntuar). */
+  lift = 0;
+  entered = false;
+  private next: number = THERMAL.every[0] * 0.5;
+  private inT = 0;
+
+  constructor() {
+    for (let i = 0; i < THERMAL.max; i++) this.list.push({ x: 0, z: 0, on: false, t: 0, used: false });
+  }
+
+  reset(): void {
+    for (const T of this.list) T.on = false;
+    this.lift = this.inT = 0;
+    this.entered = false;
+    this.next = THERMAL.every[0] * 0.5;
+  }
+
+  /**
+   * Un fotograma: dónde estás (x, z), el rumbo, lo deprisa que va todo por la altura (`scale`, 1 a ras de ciudad) y si se
+   * juega (en el descanso no salen ni suben).
+   */
+  step(dt: number, x: number, z: number, heading: number, scale: number, playing: boolean, rnd: () => number): void {
+    this.entered = false;
+    const fx = -Math.sin(heading), fz = -Math.cos(heading);
+    let inside = false;
+    for (const T of this.list) {
+      if (!T.on) continue;
+      T.t += dt;
+      const dx = T.x - x, dz = T.z - z, r = THERMAL.r * scale;
+      if (playing && dx * dx + dz * dz < r * r) {
+        inside = true;
+        if (!T.used) {
+          T.used = true;
+          this.entered = true;
+        }
+      } else if (T.t > THERMAL.life || dx * fx + dz * fz < -THERMAL.behind * scale || (T.used && T.t > 6 && dx * dx + dz * dz > r * r * 9)) T.on = false;
+    }
+    // dentro sube; al salir, unos segundos más
+    this.inT = inside ? THERMAL.hold : Math.max(0, this.inT - dt);
+    const want = playing && this.inT > 0 ? THERMAL.lift : 0;
+    this.lift += (want - this.lift) * (1 - Math.exp(-dt / 0.6));
+    // de vez en cuando, otra por delante y algo a un lado
+    if (!playing) return;
+    this.next -= dt;
+    if (this.next > 0) return;
+    const T = this.list.find((q) => !q.on);
+    this.next = THERMAL.every[0] + (THERMAL.every[1] - THERMAL.every[0]) * rnd();
+    if (!T) return;
+    const a = heading + (rnd() * 2 - 1) * THERMAL.side, d = (THERMAL.ahead[0] + (THERMAL.ahead[1] - THERMAL.ahead[0]) * rnd()) * scale;
+    T.x = x - Math.sin(a) * d;
+    T.z = z - Math.cos(a) * d;
+    T.on = true;
+    T.used = false;
+    T.t = 0;
   }
 }

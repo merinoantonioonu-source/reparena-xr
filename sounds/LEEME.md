@@ -139,6 +139,7 @@ Que el final empalme con el principio sin corte. Pueden durar varios segundos.
 | `zumbido-avispa` | Vuelo de avispones, avispas y la reina (cada uno con su tono). |
 | `espada-laser-zumbido` | Zumbido de la espada láser (sube de tono y volumen al moverla). |
 | `remolino` | Succión del remolino (sube con lo abierto que está). |
+| `viento` | El viento en la cara volando en parapente (Barras, sobre el mapa): más fuerte cuanto más deprisa vas. |
 | `arco-zumbido` | Zumbido de los arcos de energía en Arcos. |
 
 Consejos: los efectos, cortos (menos de 2 s, salvo `caida-foso`, `victoria` y `derrota`), sin silencio al

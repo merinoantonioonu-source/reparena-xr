@@ -88,7 +88,33 @@ export const MAPVIEW = { on: false, alt: 0, haze: [0.72, 0.84, 0.98], flat: fals
  * está en marcha, lo que vira (−1 a 1; +, a la derecha), lo que sube o baja (−1 a 1), la marcha, dónde queda el punto del
  * vuelo en la habitación (tu cabeza al colgarte) y hacia dónde se vuela en ella (rad: 0, hacia −z), lo que se levanta el mapa hacia tu vista (`pitch`, rad: boca arriba se
  * mira al techo, y ahí tiene que estar lo de delante y abajo) y lo volado (m). */
-export const MAPPILOT = { on: false, steer: 0, climb: 0, gear: 1, x: 0, y: 1.2, z: 0, yaw: 0, pitch: 0, flown: 0 };
+export const MAPPILOT = {
+  on: false,
+  steer: 0,
+  climb: 0,
+  gear: 1,
+  x: 0,
+  y: 1.2,
+  z: 0,
+  yaw: 0,
+  pitch: 0,
+  flown: 0,
+  /** Lo que el mapa le cuenta de vuelta (en el mapa: x al oeste, z al norte): dónde vas, el rumbo, lo ladeado, la altura
+   * sobre lo de debajo, la velocidad y lo deprisa que va todo por la altura. */
+  px: 0,
+  pz: 0,
+  heading: 0,
+  bank: 0,
+  agl: 260,
+  speed: 0,
+  scale: 1,
+  /** Lo que el piloto pide pintar en el mapa: columnas de luz (las térmicas: dónde y su radio) y su sombra por delante. */
+  cols: [
+    { x: 0, z: 0, r: 80, on: false },
+    { x: 0, z: 0, r: 80, on: false },
+  ],
+  shadow: false,
+};
 /** Un momento especial de la partida (la fiebre de Arcos, el relámpago de Combate, el turbo o la supervelocidad de la
  * Travesía): las luciérnagas destellan más vivas. Lo pone la partida en cada fotograma. */
 export const SPECIAL = { on: false };
