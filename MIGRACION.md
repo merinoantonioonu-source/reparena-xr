@@ -1547,6 +1547,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   Además, en ese diagnóstico la imagen iba a 3072×3457 por ojo (antes, 2520×2640): a 72 imágenes por segundo el navegador
   de las Quest da un lienzo mayor y «Alta ×1,4» lo multiplica; sobre el mapa, 16-26 imágenes por segundo. Propuesto al
   usuario un tope de píxeles.
+  *Segunda entrega* (lo que se ve y se oye): `para-look.ts` (la vela, una tira en arco de celdas de colores, y las líneas
+  a las manos que se ven de verdad, en el marco del vuelo: `MAPPILOT.yaw`/`pitch` y el ladeo); en el mapa, lo que pide el
+  piloto por `MAPPILOT`: `cols` (las térmicas, columnas de luz que giran) y `shadow` (la sombra de la vela, por delante,
+  apoyada en lo que haya: un rayo cada medio segundo); `Thermals` (`para.ts`, lógica pura con pruebas: salen por delante y
+  a un lado, dentro suben `THERMAL.lift` y unos segundos más); el viento, un sonido en bucle nuevo (`viento`, de serie en
+  `sounds/de-serie/viento.ogg`, sintetizado: ruido filtrado con ráfagas; su volumen, por lo cerca que se pone de la cabeza).
 
 ## Fallos de IWSDK
 

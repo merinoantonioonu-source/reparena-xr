@@ -183,7 +183,7 @@ export class BarsSystem extends createSystem({}) {
     const arena = ['arena-floor', 'gate-left', 'gate-center', 'gate-right', 'comic-valley', 'comic-clouds'];
     this.hang.arenaOf = () => arena.map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is NonNullable<typeof o> => !!o);
     this.ropeScene = new RopeScene(this.root, this.hang.arenaOf, () => (this.world.scene as unknown as { fog: { color: { getHex(): number } } | null }).fog?.color.getHex() ?? 0xc8d6e4);
-    this.para = new ParaFlight(this.hang.arenaOf);
+    this.para = new ParaFlight(this.hang.arenaOf, this.root);
     this.trialsLook = new RopeTrialsLook(this.root, this.ropeScene.trackGroup);
     this.foesLook = new RopeFoesLook(this.root, this.ropeScene.trackGroup, (p, n, c) => HOOKS.sparks(p, n, c));
     this.bossLook = new RopeBossLook(this.root, (p, n, c) => HOOKS.sparks(p, n, c));

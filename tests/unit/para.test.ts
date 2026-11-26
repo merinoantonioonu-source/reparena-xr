@@ -1,6 +1,6 @@
 /** El parapente del remo invertido: cada remo, un impulso que se pierde; irte a un lado vira; aguantar arriba frena. */
 import { describe, expect, it } from 'vitest';
-import { PARA, ParaPilot, type ParaIn } from '../../src/modes/bars/para.js';
+import { PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from '../../src/modes/bars/para.js';
 import { CITIES, MAP, MapFlight, type MapIn } from '../../src/modes/trek/map/map-route.js';
 
 const DT = 1 / 72;
@@ -139,5 +139,56 @@ describe('el parapente sobre el mapa (con el vuelo de la Travesía)', () => {
     const a = fly(8, 3, 0.2).F, b = fly(8, 3, -0.2).F, c = fly(8, 3, 0).F;
     expect(a.heading).toBeLessThan(c.heading - 0.5); // (a la derecha)
     expect(b.heading).toBeGreaterThan(c.heading + 0.5);
+  });
+});
+
+describe('las térmicas del parapente', () => {
+  const rng = (seed: number) => () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+
+  it('salen por delante y algo a un lado, de vez en cuando, y nunca más de las que caben', () => {
+    const T = new Thermals(), rnd = rng(7);
+    let x = 0, z = 0, seen = 0;
+    const heading = Math.PI; // (hacia el norte: +z)
+    for (let t = 0; t < 120; t += DT) {
+      z += 40 * DT;
+      const before = T.list.filter((q) => q.on).length;
+      T.step(DT, x, z, heading, 1, true, rnd);
+      const now = T.list.filter((q) => q.on);
+      if (now.length > before) {
+        seen++;
+        const N = T.list.filter((q) => q.on && q.t === 0)[0];
+        // por delante (más al norte) y no muy a un lado
+        expect(N.z - z).toBeGreaterThan(THERMAL.ahead[0] * 0.85);
+        expect(Math.abs(N.x - x)).toBeLessThan(THERMAL.ahead[1] * Math.sin(THERMAL.side) + 1);
+      }
+      expect(now.length).toBeLessThanOrEqual(THERMAL.max);
+    }
+    expect(seen).toBeGreaterThanOrEqual(4);
+  });
+
+  it('dentro subes sin remar (y unos segundos más al salir); se dice una vez', () => {
+    const T = new Thermals(), P = new ParaPilot(), never = () => 0.99; // (las que salgan, bien a un lado: no se cruzan)
+    Object.assign(T.list[0], { x: 0, z: 300, on: true, t: 0, used: false });
+    let entered = 0, z = 0, top = 0;
+    for (let t = 0; t < 30; t += DT) {
+      z += 40 * DT;
+      T.step(DT, 0, z, Math.PI, 1, true, never);
+      if (T.entered) entered++;
+      P.step(DT, mk({ thermal: T.lift }));
+      top = Math.max(top, P.climb);
+      // justo al salir sigue subiendo un momento
+      if (Math.abs(z - (300 + THERMAL.r + 40)) < 0.3) expect(P.climb).toBeGreaterThan(0.2);
+    }
+    expect(entered).toBe(1);
+    expect(top).toBeGreaterThan(THERMAL.lift - PARA.sink - 0.05);
+    // pasada y lejos, otra vez planeando hacia abajo
+    expect(P.climb).toBeLessThan(0);
+  });
+
+  it('en el descanso ni salen ni suben', () => {
+    const T = new Thermals(), rnd = rng(3);
+    for (let t = 0; t < 60; t += DT) T.step(DT, 0, 0, 0, 1, false, rnd);
+    expect(T.list.some((q) => q.on)).toBe(false);
+    expect(T.lift).toBe(0);
   });
 });

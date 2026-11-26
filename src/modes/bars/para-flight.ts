@@ -5,7 +5,7 @@
  * Hasta que te cuelgas la primera vez se ve la arena de siempre; luego, solo el cielo y el mapa (y tus paralelas).
  */
 import { Vector3 } from '@iwsdk/core';
-import type { Object3D } from '@iwsdk/core';
+import type { Group, Object3D } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { diagEvent } from '../../core/diag.js';
 import { HOOKS, MAPPILOT } from '../../core/state.js';
@@ -13,7 +13,9 @@ import { head } from '../../input/hand-model.js';
 import { haptic } from '../../input/hand-system.js';
 import type { BarHits } from './detect.js';
 import { eqAxes, type EqPose } from './equip.js';
-import { PARA, ParaPilot, type ParaIn } from './para.js';
+import { PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from './para.js';
+import { ParaLook } from './para-look.js';
+import { loopSound, type SoundLoop } from '../../audio/sound.js';
 
 export class ParaFlight {
   readonly pilot = new ParaPilot();
@@ -43,13 +45,22 @@ export class ParaFlight {
   private said = false;
   private logT = 0;
 
-  constructor(private readonly arenaOf: () => Object3D[]) {}
+  /** Las térmicas (columnas de aire que sube), la vela con sus líneas y el viento en la cara (segunda entrega). */
+  readonly thermals = new Thermals();
+  private readonly look: ParaLook;
+  private wind: SoundLoop | null = null;
+  private readonly windAt = new Vector3();
+
+  constructor(private readonly arenaOf: () => Object3D[], root: Group) {
+    this.look = new ParaLook(root);
+  }
 
   /** Empieza la ronda: de parapente o no. */
   begin(want: boolean): void {
     this.clear();
     this.on = want;
     this.pilot.reset();
+    this.thermals.reset();
   }
 
   /** Empieza una oleada: los remos que pide. */
@@ -82,6 +93,7 @@ export class ParaFlight {
     MAPPILOT.yaw = Math.atan2(-fx, -fz);
     MAPPILOT.pitch = PARA.viewPitch;
     this.placed = true;
+    this.look.place();
     if (!this.said) {
       this.said = true;
       HOOKS.say('Rema: subes y coges marcha · Tira más de un brazo: viras', '#3cf0c6', 6, false);
@@ -104,8 +116,10 @@ export class ParaFlight {
       } else {
         for (const o of this.hidden) o.visible = true;
         this.hidden.length = 0;
+        this.quiet();
       }
     }
+    this.look.update(show);
     if (!show || paused) return;
     const I = this.inp, P = this.pilot;
     I.playing = playing;
@@ -115,7 +129,33 @@ export class ParaFlight {
     I.fast = this.fast;
     I.perfect = this.perfect;
     this.rep = false;
+    // las térmicas: por delante y a un lado; dentro, subes sin remar
+    const T = this.thermals;
+    T.step(dt, MAPPILOT.px, MAPPILOT.pz, MAPPILOT.heading, MAPPILOT.scale, playing, Math.random);
+    I.thermal = T.lift;
+    for (let i = 0; i < MAPPILOT.cols.length; i++) {
+      const c = MAPPILOT.cols[i], t = T.list[i];
+      c.on = !!t?.on;
+      if (!t?.on) continue;
+      c.x = t.x;
+      c.z = t.z;
+      c.r = THERMAL.r * MAPPILOT.scale;
+    }
+    if (T.entered) {
+      HOOKS.say('¡TÉRMICA! Subes sin remar', '#3cf0c6', 2, false);
+      HOOKS.score(THERMAL.pts, true);
+      SND.combo();
+      haptic('left', 0.4, 140);
+      haptic('right', 0.4, 140);
+    }
     P.step(dt, I);
+    MAPPILOT.shadow = true;
+    // el viento en la cara: más cerca (más fuerte) cuanto más deprisa vas
+    if (!this.wind) this.wind = loopSound('viento', 1, 1);
+    if (this.wind) {
+      const k = Math.min(1, Math.max(0, (P.gear - 0.3) / 5));
+      this.wind.set(this.windAt.copy(head.p).setY(head.p.y + 4.5 - 4 * k));
+    }
     MAPPILOT.steer = P.steer;
     MAPPILOT.climb = P.climb;
     MAPPILOT.gear = P.gear;
@@ -143,5 +183,15 @@ export class ParaFlight {
       for (const o of this.hidden) o.visible = true;
     }
     this.hidden.length = 0;
+    this.look?.update(false);
+    this.quiet();
+  }
+
+  // sin el viento ni lo que se pinta en el mapa
+  private quiet(): void {
+    this.wind?.stop();
+    this.wind = null;
+    MAPPILOT.shadow = false;
+    for (const c of MAPPILOT.cols) c.on = false;
   }
 }
