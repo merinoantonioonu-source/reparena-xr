@@ -1525,6 +1525,18 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   reciban Rubik y Bungee (con el panel aún oculto): son inofensivos, no vuelven durante la partida.
 - Los sonidos del usuario suenan sin el eco de sala que les añadía RepArena (IWSDK no lo tiene); los de serie lo llevan.
 
+- **El parapente del remo invertido sobre el mapa** (Barras, en pruebas; pedido del usuario, postura 1 y mandos aprobados).
+  La lógica, pura y con pruebas, en `src/modes/bars/para.ts` (`ParaPilot`: el impulso de cada remo que se pierde, la marcha,
+  frenar aguantando arriba, virar con lo que te vas a un lado); `para-flight.ts` la une a la escena (al colgarte fija el punto
+  del vuelo en tu cabeza y la dirección hacia tus pies, como `placeRope`; lee el remo del detector de las paralelas con sus
+  `BarHits`) y se lo pasa al mapa por `MAPPILOT` (`src/core/state.ts`). `MapSystem` ya no depende solo de la Travesía: con
+  `MAPPILOT.on` en Barras vuela con `MapIn.ctl` (lo que sube y la marcha, ya decididos; `MapFlight.pilot` no cuenta), gira el
+  mapa con `MAPPILOT.yaw` y pone los créditos de pie hacia los pies. `paraWanted()` (`map-key.ts`): Barras, remo, `barPara`
+  (de dónde salir: las mismas opciones que `flyMap`) y la clave; con él, ni pompas ni cuerda (`ropeOn`). Cada oleada, sus
+  remos (`waveReps`); en el descanso planea solo. Probado sin gafas con la ciudad de pega forzando el «colgarse» (en el
+  ordenador nadie se cuelga): por confirmar en las gafas los signos (hacia qué lado vira) y los números (`PARA`). Segunda
+  entrega: lo que se ve y se oye (vela, líneas, sombra, viento, térmicas).
+
 ## Fallos de IWSDK
 
 - **El ancla del mundo, puesta en la configuración, cierra la sesión de VR** (confirmado por el usuario: al quitarla, «ahora

@@ -20,8 +20,8 @@ import { TilesRenderer } from '3d-tiles-renderer/three';
 import { CesiumIonAuthPlugin, GLTFExtensionsPlugin, ReorientationPlugin, TilesFadePlugin } from '3d-tiles-renderer/plugins';
 import { SND } from '../../../audio/sound.js';
 import { diagEvent } from '../../../core/diag.js';
-import { GAME, HOOKS, MAPVIEW } from '../../../core/state.js';
-import { num, on as isOn, settings } from '../../../core/values.js';
+import { GAME, HOOKS, MAPPILOT, MAPVIEW } from '../../../core/state.js';
+import { num, on as isOn, settings, str } from '../../../core/values.js';
 import { head } from '../../../input/hand-model.js';
 import { haptic } from '../../../input/hand-system.js';
 import { FLY } from '../plat/fly.js';
@@ -46,6 +46,8 @@ const FAR_K = 30, FAR_MIN = 6000, HAZE = 1.5;
 const DETAIL_TAU = 2.5, PARSE_JOBS = 6;
 /** El filtro de las fotos vistas de lado: como mucho este (con el máximo de las gafas, 16, cada píxel costaba mucho más). */
 const ANISO = 4;
+/** Los créditos del mapa en el parapente: a cuánto por delante de ti (m). */
+const PARA_CREDITS_AT = 2.4;
 /** El aro se mide en su centro y en cuatro puntos de su borde (× su radio): vale lo más alto. */
 const RING_AT: readonly [number, number][] = [[0, 0], [0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]];
 const AX_Y = new Vector3(0, 1, 0), AX_Z = new Vector3(0, 0, 1);
@@ -91,6 +93,9 @@ export class MapSystem extends createSystem({}) {
   private farK: number = DETAIL.far;
   /** El apretón por la memoria (0-2: map-detail.ts), lo que hay en uso (MB) y cuánto lleva llena. */
   private squeeze = 0;
+  /** ¿Lo pilota el parapente de Barras? (y lo que le manda: `MapIn.ctl`) */
+  private para = false;
+  private readonly ctl = { climb: 0, gear: 1 };
   /** La foveación de antes de volar sobre el mapa (−1: sin tocar). */
   private fovWas = -1;
   /** El presupuesto, lo guardado y el tope de la memoria (MB; las pruebas los achican). */
@@ -173,11 +178,15 @@ export class MapSystem extends createSystem({}) {
   update(dt: number): void {
     const T = this.world.getSystem(TrekSystem), R = T?.runner;
     // (solo en la Travesía: el corredor se queda con el modo del mapa al cambiar a otro modo)
-    const on = !!R && R.mapMode && settings.mode === 'trek' && GAME.phase === 'playing';
-    if (!on) {
+    const trekOn = !!R && R.mapMode && settings.mode === 'trek' && GAME.phase === 'playing';
+    // (o en Barras, el parapente del remo invertido: lo pilota BarsSystem por `MAPPILOT`)
+    const para = !trekOn && MAPPILOT.on && settings.mode === 'bars' && GAME.phase === 'playing';
+    if (!trekOn && !para) {
       if (this.active) this.end();
       return;
     }
+    if (this.active && para !== this.para) this.end(); // (de un mando al otro: se empieza de nuevo)
+    this.para = para;
     if (!this.active && !this.start()) return;
     const F = this.flight!, tiles = this.tiles!;
     // (sin nada del mapa en un rato: la clave mal pegada, sin permiso para esta dirección o sin wifi)
@@ -188,7 +197,7 @@ export class MapSystem extends createSystem({}) {
     this.sqT += dt;
     if (!this.loaded && !this.errSaid && this.waitT > WAIT) this.fail(`sin ningún trozo en ${WAIT} s${this.asked ? ' (pedidos)' : ' (ni pedidos)'}`);
     // (lo de las marchas, un poco después de lo de la altura)
-    if (!this.gearSaid && this.waitT > 9 && T!.playing()) {
+    if (!para && !this.gearSaid && this.waitT > 9 && T!.playing()) {
       this.gearSaid = true;
       HOOKS.say('Impulso adelante: una marcha más · Echarte atrás: frenas', '#3cf0c6', 5, false);
     }
@@ -202,22 +211,37 @@ export class MapSystem extends createSystem({}) {
     if (!GAME.paused) {
       // lo que manda el cuerpo: escorarte (el cuello, no las gafas: girar la cabeza no desvía), la flexión entera (subir,
       // recto, bajar, el picado) y la cabeza adelante y atrás (las marchas)
-      const I = this.inp, G = R.glider, L = R.handLine, g0 = Math.floor(F.gear + 1e-6);
-      I.live = T!.playing() && !R.coaching;
-      I.steer = G.tgtU / FLY.uMax;
-      I.head = R.env.head.y;
-      I.ref = T!.calibRef;
-      I.lean = L.lean;
-      I.kick = L.kick;
-      F.step(dt, I);
-      R.mapFlown = F.flown;
-      // el impulso se nota: vibración, un golpe de aire y la marcha que llevas
-      if (I.live && I.kick) {
-        haptic('left', 0.7, 90);
-        haptic('right', 0.7, 90);
-        SND.whoosh(head.p);
-        HOOKS.say(`¡Impulso! Marcha ${Math.round(F.gear)}`, '#3cf0c6', 1.2, false);
-      } else if (I.live && g0 > 0 && F.gear <= 0) HOOKS.say('Frenado · un impulso adelante para arrancar', '#ffd166', 2.5, false);
+      const I = this.inp, g0 = Math.floor(F.gear + 1e-6);
+      if (para) {
+        // el parapente: lo que vira, sube y corre ya viene decidido (para.ts); en el descanso planea solo
+        I.live = true;
+        I.steer = MAPPILOT.steer;
+        I.head = I.ref = I.lean = 0;
+        I.kick = false;
+        this.ctl.climb = MAPPILOT.climb;
+        this.ctl.gear = MAPPILOT.gear;
+        I.ctl = this.ctl;
+        F.step(dt, I);
+        MAPPILOT.flown = F.flown;
+      } else {
+        const G = R!.glider, L = R!.handLine;
+        I.ctl = null;
+        I.live = T!.playing() && !R!.coaching;
+        I.steer = G.tgtU / FLY.uMax;
+        I.head = R!.env.head.y;
+        I.ref = T!.calibRef;
+        I.lean = L.lean;
+        I.kick = L.kick;
+        F.step(dt, I);
+        R!.mapFlown = F.flown;
+        // el impulso se nota: vibración, un golpe de aire y la marcha que llevas
+        if (I.live && I.kick) {
+          haptic('left', 0.7, 90);
+          haptic('right', 0.7, 90);
+          SND.whoosh(head.p);
+          HOOKS.say(`¡Impulso! Marcha ${Math.round(F.gear)}`, '#3cf0c6', 1.2, false);
+        } else if (I.live && g0 > 0 && F.gear <= 0) HOOKS.say('Frenado · un impulso adelante para arrancar', '#ffd166', 2.5, false);
+      }
       if (F.judge()) this.passed(F);
       // (la Tierra es redonda: lejos del punto del mapa, se vuelve a anclar debajo de ti)
       if (F.reanchor() && this.reorient) {
@@ -253,17 +277,19 @@ export class MapSystem extends createSystem({}) {
     }
     // donde lo dejas (para «Donde lo dejaste»): cada pocos segundos, ya sobre el suelo de verdad
     this.lastT -= dt;
-    if (this.lastT <= 0 && F.placed && T!.playing()) {
+    if (this.lastT <= 0 && F.placed && (para || T!.playing())) {
       this.lastT = 5;
       const W = F.where(this.spot);
       setMapLast({ lat: +W.lat.toFixed(6), lon: +W.lon.toFixed(6), agl: Math.round(F.agl), heading: +F.heading.toFixed(3) });
     }
     // el mapa, girado (y ladeado un poco al virar, como un ave) y desplazado para que donde vuelas quede en tu cabeza (el
     // centro del vuelo, quieto: lo de la Travesía)
-    const B = R.flyBody, eye = T!.calibRef;
+    // (en el parapente, el punto del vuelo es tu cabeza al colgarte y se vuela hacia tus pies: `MAPPILOT`)
+    const cx = para ? MAPPILOT.x : R!.flyBody.x0, cz = para ? MAPPILOT.z : R!.flyBody.z0, eye = para ? MAPPILOT.y : T!.calibRef;
     this.root.quaternion.setFromAxisAngle(AX_Z, isOn('flyMapBank') ? F.bank * MAP.roll : 0).multiply(this.q.setFromAxisAngle(AX_Y, -F.heading));
+    if (para) this.root.quaternion.premultiply(this.q.setFromAxisAngle(AX_Y, MAPPILOT.yaw));
     this.v.set(F.x, F.alt, F.z).applyQuaternion(this.root.quaternion);
-    this.root.position.set(B.x0 - this.v.x, eye - this.v.y, B.z0 - this.v.z);
+    this.root.position.set(cx - this.v.x, eye - this.v.y, cz - this.v.z);
     this.root.updateMatrixWorld(true);
     // los aros: el que viene y el siguiente, por encima de lo que tengan debajo y de cara a ti (se entra por donde vengas)
     // (desde un lugar cualquiera no hay ruta: ni aros ni flecha)
@@ -294,19 +320,32 @@ export class MapSystem extends createSystem({}) {
     const toward = F.toNext();
     // (pedido del usuario: la flecha y el letrero de Google estorbaban, grandes y justo delante de la cara al mirar abajo)
     this.room.visible = true;
-    this.room.position.set(B.x0, 0.015, B.z0);
-    this.room.rotation.set(0, Math.atan2(-B.fx, -B.fz), 0);
+    if (para) {
+      this.room.position.set(cx, eye, cz);
+      this.room.rotation.set(0, MAPPILOT.yaw, 0);
+    } else {
+      this.room.position.set(cx, 0.015, cz);
+      this.room.rotation.set(0, Math.atan2(-R!.flyBody.fx, -R!.flyBody.fz), 0);
+    }
     // la flecha: pequeña, más adelante, y solo cuando el aro no te queda de frente (yendo hacia él no hace falta)
     const off = Math.abs(toward.bearing);
     if (off > ARROW_ON) this.arrowOn = true;
     else if (off < ARROW_OFF) this.arrowOn = false;
-    this.arrow.visible = route && this.arrowOn;
+    this.arrow.visible = route && this.arrowOn && !para; // (boca arriba el suelo no se ve: sin flecha)
     this.arrow.position.set(0, 0, -ARROW_AT);
     this.arrow.scale.setScalar(ARROW_K);
     this.arrow.rotation.set(0, toward.bearing, 0);
     // los créditos: pequeños y hacia los pies, bajo el cuerpo (a la vista si miras atrás; Google pide que se vean)
-    this.credits.position.set(0, 0.002, CREDITS_AT);
-    this.credits.scale.setScalar(CREDITS_K);
+    // (en el parapente, boca arriba: de pie y pequeños, hacia los pies y por debajo de la vista)
+    if (para) {
+      this.credits.position.set(0, -0.55, -PARA_CREDITS_AT);
+      this.credits.rotation.set(Math.PI / 2 - 0.25, 0, 0);
+      this.credits.scale.setScalar(1);
+    } else {
+      this.credits.position.set(0, 0.002, CREDITS_AT);
+      this.credits.rotation.set(0, 0, 0);
+      this.credits.scale.setScalar(CREDITS_K);
+    }
     this.creditT -= dt;
     if (this.creditT <= 0) {
       this.creditT = 2;
@@ -381,7 +420,7 @@ export class MapSystem extends createSystem({}) {
 
   /** Empieza el vuelo sobre el mapa: la ciudad, sus mapas (con la clave del jugador) y lo lejos que se ve. */
   private start(): boolean {
-    const from = mapStart(), key = mapKey();
+    const from = mapStart(this.para ? str('barPara') : undefined), key = mapKey();
     if (!from || !key) return false;
     const city = from.city, cid = `${city.id}:${city.lat},${city.lon}`;
     this.active = true;

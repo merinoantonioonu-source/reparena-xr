@@ -38,6 +38,8 @@ import { RopeMiniLook } from './rope-mini-look.js';
 import { barReq } from './detect.js';
 import { RopeScene } from './rope-scene.js';
 import { eqAxes } from './equip.js';
+import { ParaFlight } from './para-flight.js';
+import { paraWanted } from '../trek/map/map-key.js';
 import type { BarHits } from './detect.js';
 
 /** Dónde está la partida de Barras: colgándose (la cuenta atrás), jugando o descansando. */
@@ -123,6 +125,8 @@ export class BarsSystem extends createSystem({}) {
   private miniLook!: RopeMiniLook;
   private readonly bEnv: BossEnv = { s: 0, up: 0, req: 0.3, side: 0, strike: false, rep: false, playing: false };
   private strikeRep = false;
+  /** El parapente del remo invertido sobre el mapa («en pruebas»: para.ts, para-flight.ts). */
+  para!: ParaFlight;
   private anyRep = false;
   private readonly ropeHits: BarHits = {
     rep: (o) => {
@@ -179,6 +183,7 @@ export class BarsSystem extends createSystem({}) {
     const arena = ['arena-floor', 'gate-left', 'gate-center', 'gate-right', 'comic-valley', 'comic-clouds'];
     this.hang.arenaOf = () => arena.map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is NonNullable<typeof o> => !!o);
     this.ropeScene = new RopeScene(this.root, this.hang.arenaOf, () => (this.world.scene as unknown as { fog: { color: { getHex(): number } } | null }).fog?.color.getHex() ?? 0xc8d6e4);
+    this.para = new ParaFlight(this.hang.arenaOf);
     this.trialsLook = new RopeTrialsLook(this.root, this.ropeScene.trackGroup);
     this.foesLook = new RopeFoesLook(this.root, this.ropeScene.trackGroup, (p, n, c) => HOOKS.sparks(p, n, c));
     this.bossLook = new RopeBossLook(this.root, (p, n, c) => HOOKS.sparks(p, n, c));
@@ -200,7 +205,7 @@ export class BarsSystem extends createSystem({}) {
 
   /** ¿Se juega la aventura en la cuerda? (el remo invertido, con «Remo invertido: aventura en la cuerda») */
   ropeOn(): boolean {
-    return this.on && str('exercise') === 'row' && num('barRope') > 0;
+    return this.on && str('exercise') === 'row' && num('barRope') > 0 && !paraWanted(); // (el parapente sobre el mapa manda)
   }
   /** ¿Se ve la escena de la cuerda? (el entorno de serie se aparta) */
   get ropeShown(): boolean {
@@ -278,6 +283,7 @@ export class BarsSystem extends createSystem({}) {
     this.bar.reset();
     this.bar.toMount(0, false);
     this.mstate = 'mount';
+    this.para.begin(paraWanted());
     // la cuerda de toda la ronda: cada tramo, lo que piden sus repeticiones
     if (this.ropeOn()) {
       const lens: number[] = [];
@@ -303,7 +309,8 @@ export class BarsSystem extends createSystem({}) {
 
   /** La oleada i va a empezar (la partida ya la preparó): la cola de objetivos, o los segundos de colgado. */
   startWave(i: number): void {
-    if (this.rope) this.rope.startWave(i);
+    if (this.para.on) this.para.startWave(waveReps(i));
+    else if (this.rope) this.rope.startWave(i);
     else this.field.startWave(this.env, i);
     this.mstate = 'play';
   }
@@ -318,14 +325,15 @@ export class BarsSystem extends createSystem({}) {
   waveCleared(): boolean {
     if (this.mstate !== 'play') return false;
     if (str('exercise') === 'hang') return this.bar.hold >= this.bar.need || this.bar.failed;
+    if (this.para.on) return this.para.cleared; // (el parapente: hechos los remos de la oleada)
     if (this.rope) return this.rope.reached; // (la cuerda: al llegar al cofre del tramo)
     return this.field.cleared();
   }
 
   /** Para el marcador. */
-  hud(): { hold: number; need: number; left: number; mount: boolean; ropeLeft: number | null; bossLeft: number | null; bossName: string; turbo: boolean } {
+  hud(): { hold: number; need: number; left: number; mount: boolean; paraLeft: number | null; ropeLeft: number | null; bossLeft: number | null; bossName: string; turbo: boolean } {
     const B = this.boss;
-    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount', ropeLeft: this.rope ? Math.ceil(this.rope.left) : null, bossLeft: B && B.blocking ? B.nHits - B.hits : null, bossName: B ? BOSS_NAME[B.kind].replace(/^El /, '').replace(/^./, (c) => c.toUpperCase()) : '', turbo: !!this.rope?.turbo };
+    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount', paraLeft: this.para.on ? this.para.left : null, ropeLeft: this.rope ? Math.ceil(this.rope.left) : null, bossLeft: B && B.blocking ? B.nHits - B.hits : null, bossName: B ? BOSS_NAME[B.kind].replace(/^El /, '').replace(/^./, (c) => c.toUpperCase()) : '', turbo: !!this.rope?.turbo };
   }
   /** ¿Va la cuerda con el turbo? (las luciérnagas destellan, como en la Travesía) */
   get ropeTurbo(): boolean {
@@ -383,6 +391,7 @@ export class BarsSystem extends createSystem({}) {
     for (const e of this.entries) this.free(e);
     this.entries.length = 0;
     this.mstate = 'off';
+    this.para?.clear();
     this.hang?.clear();
     if (this.rig) this.rig.grp.visible = false;
     this.rope = null;
@@ -417,6 +426,7 @@ export class BarsSystem extends createSystem({}) {
     this.syncRig();
     this.stepHang(dt, time);
     this.ropeScene.update(GAME.phase === 'playing' && this.mstate !== 'off' && !!this.rope, this.rope?.s ?? 0);
+    this.stepPara(dt);
     if (GAME.phase !== 'playing' || this.mstate === 'off') return;
     if (GAME.paused) return;
     if (this.mstate === 'mount') {
@@ -424,9 +434,9 @@ export class BarsSystem extends createSystem({}) {
       this.applyAll();
     }
     if (this.mstate === 'play' && !GAME.between) {
-      this.bar.detect(time, dt, this.env, this.out, this.rope ? this.ropeHits : this.field);
+      this.bar.detect(time, dt, this.env, this.out, this.para.on ? this.para.hits : this.rope ? this.ropeHits : this.field);
       this.applyAll();
-      if (this.mstate === 'play' && !this.rope) {
+      if (this.mstate === 'play' && !this.rope && !this.para.on) {
         this.field.spawnStep(dt, this.env, this.out, 1, true);
         this.applyAll();
       }
@@ -495,6 +505,13 @@ export class BarsSystem extends createSystem({}) {
     this.anchorPose.z = g.position.z;
     this.anchorPose.yaw = yawOf(g.quaternion);
     equipAnchorFrame(this.eq, this.anchorPose, (k, v) => store(k, v));
+  }
+
+  // el parapente sobre el mapa: lo que mandas colgado (el remo, irte a un lado, aguantar arriba) va al mapa; en el descanso planea solo
+  private stepPara(dt: number): void {
+    const live = GAME.phase === 'playing' && this.mstate !== 'off', playing = this.mstate === 'play' && !GAME.between;
+    const up = playing && this.bar.det !== 'down' ? (head.p.y - this.bar.ref) / Math.max(0.05, barReq(this.env)) : 0;
+    this.para.step(dt, live, GAME.paused, playing, up);
   }
 
   // la cuerda: subes remando y, sin remar, resbalas un poco; al llegar al cofre del tramo, el tramo superado
@@ -814,6 +831,7 @@ export class BarsSystem extends createSystem({}) {
       }
       case 'mounted':
         this.placeRope();
+        this.para.mount(eqPose(this.eq, false, 'dip'), dipOne(str('dipBars')));
         if (ev.resume) {
           this.mstate = 'play';
           HOOKS.say('¡Sigue!', '#3cf0c6', 1.2, false);

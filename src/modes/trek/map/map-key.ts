@@ -47,8 +47,8 @@ export const setMapLast = (p: MapSpot): void => {
  * página) o «Donde lo dejaste» (tu último vuelo; si aún no hay, tu lugar); los dos últimos, sin aros: vuelo libre. null: no
  * hay de dónde salir (sin elegir, o «Tu lugar» sin poner).
  */
-export function mapStart(): { city: City; agl?: number; heading?: number } | null {
-  const id = str('flyMap'), c = cityOf(id);
+export function mapStart(id: string = str('flyMap')): { city: City; agl?: number; heading?: number } | null {
+  const c = cityOf(id);
   if (c) return { city: c };
   const free = (name: string, s: MapSpot): { city: City; agl?: number; heading?: number } => ({ city: { id, name, lat: s.lat, lon: s.lon, h: 0, route: [] }, agl: s.agl, heading: s.heading });
   if (id === 'last') {
@@ -64,6 +64,10 @@ export function mapStart(): { city: City; agl?: number; heading?: number } | nul
 
 /** ¿Se vuela sobre el mapa? En la Travesía, en plancha y volando, con de dónde salir y la clave puesta. */
 export const mapWanted = (): boolean => settings.mode === 'trek' && settings.exercise === 'pushup' && num('trekFly') > 0 && !!mapStart() && !!mapKey();
+
+/** ¿Se vuela en parapente sobre el mapa? En Barras, con el remo invertido, «Remo invertido: parapente sobre el mapa», de
+ * dónde salir y la clave puesta (si no, el remo de siempre). */
+export const paraWanted = (): boolean => settings.mode === 'bars' && settings.exercise === 'row' && !!str('barPara') && !!mapStart(str('barPara')) && !!mapKey();
 
 /** Lo que le ha pasado al mapa las últimas veces (en este aparato; no viaja con la sincronización): la página lo enseña en
  * «Volar sobre el mapa», para saber por qué no carga sin depender del diagnóstico (que solo guarda los últimos 30 s). */

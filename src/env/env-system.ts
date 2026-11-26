@@ -277,14 +277,14 @@ export class EnvSystem extends createSystem({}) {
     if ((!playing && this.wasPlaying) || (this.seed === 0 && num('envVary') > 0)) this.seed = num('envVary') > 0 ? 1 + Math.floor(Math.random() * 999983) : 0;
     if (!(num('envVary') > 0)) this.seed = 0;
     this.wasPlaying = playing;
-    // (de noche en el bosque de Barras, o en el cañón de la cuerda del remo invertido, el entorno de serie se aparta)
-    const bs = this.world.getSystem(BarsSystem), night = bs?.nightForest ?? false, rope = bs?.ropeShown ?? false, want = night || rope ? 'arena' : this.sceneryWanted(), D = num('depth') > 0 ? num('depth') : 11;
+    // (de noche en el bosque de Barras, en el cañón de la cuerda del remo invertido o volando sobre el mapa, el entorno de serie se aparta)
+    const bs = this.world.getSystem(BarsSystem), night = bs?.nightForest ?? false, rope = bs?.ropeShown ?? false, want = night || rope || MAPVIEW.on ? 'arena' : this.sceneryWanted(), D = num('depth') > 0 ? num('depth') : 11;
     if (want === 'arena') this.scenery.hide();
     else if (!this.scenery.show(want, D, !!this.panoWanted(), this.gateList(), this.seed)) this.scenery.hide();
     this.stepTravel(D);
     if (!this.floor.length) this.floor = ['arena-floor', 'comic-valley', 'comic-clouds'].map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is Object3D => !!o);
     const on = this.scenery.visible;
-    if (!night && !rope && settings.mode !== 'trek') for (const o of this.floor) o.visible = !on && !(this.panoWanted() && o !== this.floor[0]); // (la Travesía los esconde ella)
+    if (!night && !rope && !MAPVIEW.on && settings.mode !== 'trek') for (const o of this.floor) o.visible = !on && !(this.panoWanted() && o !== this.floor[0]); // (la Travesía los esconde ella)
     this.scenery.lite(LITE.on); // (con un menú abierto en las gafas, sin el bosque: va más fluido)
     this.scenery.update(dt, time, head.p, (at, isl, night) => (night ? SND.owl(this.tmp.copy(at)) : isl ? SND.gull(this.tmp.copy(at)) : SND.bird(this.tmp.copy(at)))); // (en el cementerio, búhos)
     this.stepSky(dt, time, want);
