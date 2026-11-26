@@ -164,7 +164,7 @@ export class DiagSystem extends createSystem({}, {}) {
     return [
       `${new Date().toLocaleString('es-ES')} · ${navigator.userAgent}`,
       `Imágenes/s: ${xs?.frameRate ?? '?'} · entrada: ${src || '?'} · modo ${settings.mode}, ejercicio ${settings.exercise}`,
-      `Ajustes: manos que se ven ${settings.handLook}, menú en ${settings.menuWhere}, tamaño del menú ${settings.menuSize} %, calidad ${settings.quality}`,
+      `Ajustes: manos que se ven ${settings.handLook}, menú grande a ${settings.farDist} cm, tamaño del menú ${settings.menuSize} %, calidad ${settings.quality}`,
       // (el vuelo sobre el mapa: lo último que le pasó, que no cabe en los 30 s de los sucesos)
       ...(settings.flyMap ? ['Mapa, lo último: ' + mapLogRead().slice(-10).map((l) => `${new Date(l.t).toLocaleTimeString('es-ES')} ${l.text}`).join(' | ')] : []),
     ].join('\n');

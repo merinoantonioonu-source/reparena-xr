@@ -823,12 +823,34 @@ No las cambies sin preguntarle.
   el resumen desaparecía): en negro solo se ven el resumen, tus manos y los avisos, se mueva uno como se mueva.
 
 **Menús**
-- **Menú de muñeca:**
-  - se abre con el botón MENÚ de la muñeca izquierda y se queda **quieto delante del jugador**, de cara y derecho; ni la
-    mano ni el mando lo mueven (mirar a la muñeca no lo recoloca; con mandos, X/Y lo recoge si está a la vista);
-  - se cierra con la palma izquierda hacia abajo o con el puño;
-  - los menús nuevos salen solos.
-- **Cada menú sale donde estaba el anterior**: «Traer menú», «Volver», «Menú principal» y el resumen no se alejan.
+- **El menú grande y la tira de la muñeca** (elegido por el usuario de los modelos visuales: «A + 3»; sustituye al menú de
+  muñeca de antes y al atril):
+  - **El menú grande** (modelo A, «la pantalla»): lo que se elige antes de jugar (el principal, Opciones, Sesiones, la pausa
+    y el resumen) sale en una pantalla grande **fija en la habitación**, delante, a la altura de los ojos de pie y a
+    «Distancia del menú grande» (2,5 m de serie; del mismo tamaño a la vista que el de antes al alcance de la mano). No sigue
+    la cabeza. Se pulsa **con el rayo** de la mano (pellizcando) o del mando (gatillo); si te acercas, también con el dedo.
+    El rayo tiene **imán** (la tecla iluminada no se suelta hasta que el punto sale de ella más de 3 cm) y, al pellizcar,
+    cuenta la tecla de un momento antes (al juntar los dedos el rayo se desvía). Se cierra con «✕ Cerrar» (la palma hacia
+    abajo no lo cierra: está lejos).
+  - El principal: arriba, las pestañas (Jugar, Rivales y armas, Progreso, Sonido, Entorno y Ajustes) y las metas de hoy; a
+    la izquierda, el modo y **los ejercicios en fichas con su cortinilla**; a la derecha, **EMPEZAR**, siempre a la vista,
+    con cómo será la ronda y la dificultad; abajo, Spotify; y, a la izquierda del menú, la columna HOY.
+  - **La tira de la muñeca** (modelo 3): en plena ronda, el botón MENÚ de la muñeca izquierda (o X/Y del mando) abre una tira
+    pequeña, quieta delante del pecho, **sin parar la partida**: la música y «Esta partida» (lo que se puede cambiar sobre la
+    marcha en lo que juegas: la nitidez del mapa, ladearse al virar, los instrumentos, el sendero con curvas, el ambiente…),
+    Recalibrar y **PAUSA** (que abre el menú grande). Otra vez MENÚ, la palma hacia abajo o el puño la recogen. **En
+    plancha**, sale con la palma izquierda hacia la cara medio segundo, en el suelo delante de las manos, y se pulsa con una
+    mano (se va sola a los 12 s sin tocarla o al ponerte de pie). La «Nitidez en las gafas» nunca va aquí (se elige al entrar).
+  - Fuera de la ronda (o en la pausa), el botón MENÚ trae el menú grande delante de ti. Las cartas de mejora siguen saliendo
+    de la muñeca y quedándose quietas delante; el asistente del vuelo, en el suelo delante de las manos.
+- **Cada menú sale donde estaba el anterior**: el menú grande, siempre en su sitio de la habitación (si ya no te queda
+  delante —más de 70° a un lado—, sale delante de ti); «Volver», «Menú principal» y el resumen no se mueven.
+- **Lo de cada ejercicio, como la última vez** (pedido del usuario: «que la app recuerde las opciones elegidas para cada
+  ejercicio y las mantenga, y que al elegir el ejercicio siempre aparezca la tecla EMPEZAR»): cada modo con cada ejercicio
+  guarda todo lo de su partida (el rango, las oleadas o tramos, las vidas, los enemigos, las armas, los ajustes del modo y
+  del ejercicio y, en la Travesía, el vuelo, el mapa, las cuestas, el avance solo…): al elegirlo vuelve como lo dejaste y
+  EMPEZAR juega con eso. Lo común no cambia con el ejercicio (el entorno, el sonido, el menú, tu perfil, la nitidez del mapa y
+  el sitio de las barras).
 - **[PR 31: la pulsación de RepArena entera (opción B del usuario), con el dedo de cualquier mano y con el rayo de IWSDK y la pinza (`src/ui/ra/poke.ts`)]** Los botones de los menús se pulsan con **las dos manos** (el botón MENÚ de la muñeca izquierda, con la derecha). Las
   teclas son **sólidas**: al llegar al fondo, la mano que se ve se queda apoyada en ella y no la atraviesa; el panel
   también (el fondo y los huecos entre teclas). Y tienen **imán** (opción B elegida): la iluminada sigue iluminada hasta que
@@ -848,16 +870,18 @@ No las cambies sin preguntarle.
   cubre casi toda la vista, iba a saltos al mover la cabeza (el resumen, pequeño, no). Un panel de menú nuevo, con la suya.
 - **[PR 31: como en RepArena (opción B)]** Tras pulsar un botón, hay que **retirar el dedo** antes de que cuente otra pulsación, para que no se toquen dos
   opciones ni el menú siguiente.
-- Menús compactos y al alcance de la mano:
+- Menús compactos (el grande, a distancia: «El menú grande y la tira de la muñeca», arriba):
   - lo poco usado va en submenús (Sonido, Entorno, Ajustes…);
-  - el menú principal, simple (el usuario lo complica si quiere, en Opciones): arriba, **EMPEZAR** grande (en lugar del
-    título; con Sesiones, EMPEZAR SESIÓN); debajo, las **metas de hoy** en una franja (las tres misiones con su barra y la racha con
-    sus escudos; al tocarla, Progreso → Misiones); a la izquierda del menú, la columna «HOY» (metas, cofre, racha y nivel);
-    al entrar en las gafas, la carátula «METAS DE HOY» (8 s, o cualquier botón). Las tres cosas, elegidas por el usuario; luego el **modo** (Combate, Arcos, Barras, Toques) con su color y, tras un separador, **Sesiones**; con un
-    modo, sus ejercicios y la dificultad (galones, «Al fallo», la ronda en una ficha y lo del ojo); con Sesiones, la
-    sesión bloque a bloque, legible; el modo, los ejercicios y la dificultad, cada uno en su caja con título y color
-    (los modos, teclas enteras de su color; los ejercicios, en blanco); Spotify; y **Opciones ▸** (Rivales y armas, Progreso, Sonido, Entorno y Ajustes, en
-    pestañas) y Salir; en Ajustes, las pestañas de los modos se llaman «Modo Arcos», «Modo Barras» y «Modo Toques»;
+  - el menú principal, simple (el usuario lo complica si quiere, en Opciones; modelo A del usuario): arriba, las pestañas
+    (**Jugar** y las de Opciones: Rivales y armas, Progreso, Sonido, Entorno y Ajustes) y, debajo, las **metas de hoy** en
+    una franja (las tres misiones con su barra y la racha con sus escudos; al tocarla, Progreso → Misiones); a la izquierda
+    del menú, la columna «HOY» (metas, cofre, racha y nivel); al entrar en las gafas, la carátula «METAS DE HOY» (8 s, o
+    cualquier botón). Las tres cosas, elegidas por el usuario. Luego, en dos cajas: a la izquierda, el **modo** (Combate,
+    Arcos, Barras, Toques, Travesía, con su color, y **Sesiones**) y sus ejercicios **en fichas con su cortinilla**; a la
+    derecha, **EMPEZAR** (con Sesiones, EMPEZAR SESIÓN), «Como la última vez» (cómo será la ronda: el rango, las oleadas o
+    tramos, las vidas y lo que cambia la forma de jugar, como volar sobre un mapa), la dificultad (galones, «Al fallo» y lo
+    del ojo) y Salir; abajo, Spotify. En Ajustes, las pestañas de los modos se llaman «Modo Arcos», «Modo Barras» y «Modo
+    Toques»;
   - el jugador solo ve lo que el desarrollador marca con el ojo en su tabla de dificultad (`src/67_dev.js`); el menú
     completo y la tabla son del modo desarrollador, que está escondido; ya no hay estrellas de favoritos;
   - las canciones de cada ejercicio son del jugador (también se ponen de serie desde la tabla); las elegidas, las de cada

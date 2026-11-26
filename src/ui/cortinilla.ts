@@ -23,6 +23,12 @@ export function cortUrl(mode: string, ex: string, base = '/'): string | null {
   return `${base}cortinillas/${CORT_SAME[k] ?? k}.jpg`;
 }
 
+/** La de la ficha del ejercicio en el menú (la misma imagen, pequeña: `public/cortinillas/fichas`). */
+export function fichaUrl(mode: string, ex: string, base = '/'): string | null {
+  const u = cortUrl(mode, ex, base);
+  return u && u.replace(/cortinillas\/([^/]+)$/, 'cortinillas/fichas/$1');
+}
+
 /** El texto de la franja de abajo: las oleadas (en la Travesía, los tramos; «Al fallo» o sin fin) y las vidas (la Travesía
  * no quita vidas: solo los tramos). `waves` 0 es sin fin; `lives` 0, infinitas. */
 export function cortInfo(mode: string, waves: number, lives: number, toFail: boolean): string {

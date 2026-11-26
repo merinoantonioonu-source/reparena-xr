@@ -23,6 +23,8 @@ export const DEV_KEY = 'reparena3-dev';
 export const DEV_ON_KEY = 'reparena3-devon';
 /** Los ajustes que solo tiene RepArena XR (los de `xr` en el esquema): aparte, para no tocar los de RepArena. */
 export const XR_STORE_KEY = 'reparenaxr-settings';
+/** Lo que RepArena XR recuerda además de cada modo con cada ejercicio (lo suyo y la Travesía): aparte, para no tocar lo de RepArena. */
+export const XR_COMBO_KEY = 'reparenaxr-combos';
 
 // los de RepArena (sin los de RepArena XR) y los de RepArena XR, por separado
 const splitXr = (all: Record<string, SettingValue>, xr: boolean): Record<string, SettingValue> => {
@@ -141,16 +143,30 @@ let _comboKeys: string[] | null = null;
 export const comboKeys = (): string[] => _comboKeys || (_comboKeys = SCHEMA.filter((f) => COMBO_G.has(f.g) && !COMBO_SKIP.has(f.key) && !f.xr).map((f) => f.key));
 export const comboId = (): string => settings.mode + '|' + settings.exercise;
 type Combos = Record<string, Record<string, SettingValue>>;
+// Lo de RepArena XR también se recuerda por modo y ejercicio (pedido del usuario: «que la app recuerde las opciones elegidas
+// para cada ejercicio y las mantenga»): sus ajustes propios de esos grupos y toda la Travesía (volando, el mapa, las cuestas…).
+// Se guarda aparte (reparenaxr-combos): lo de RepArena (reparena3-combos) sigue con su forma. Fuera, lo de tus gafas y tu
+// habitación: la nitidez del mapa (va con las gafas, como la nitidez de la imagen), el sitio de las barras en la habitación y
+// el asistente del vuelo (se apaga solo al usarse)
+const XR_COMBO_SKIP = new Set(['barsAnchor', 'flyMapSharp', 'flyPractice']);
+let _comboKeysXr: string[] | null = null;
+export const comboKeysXr = (): string[] =>
+  _comboKeysXr || (_comboKeysXr = SCHEMA.filter((f) => ((COMBO_G.has(f.g) && f.xr) || f.g === 'travesia') && !COMBO_SKIP.has(f.key) && !XR_COMBO_SKIP.has(f.key)).map((f) => f.key));
 export function comboSave(id = comboId()): void {
   const all = store<Combos>(COMBO_KEY) || {};
   all[id] = Object.fromEntries(comboKeys().map((k) => [k, settings[k]]));
   store(COMBO_KEY, all);
+  const xr = store<Combos>(XR_COMBO_KEY) || {};
+  xr[id] = Object.fromEntries(comboKeysXr().map((k) => [k, settings[k]]));
+  store(XR_COMBO_KEY, xr);
 }
+/** ¿Ya se ha jugado (o tocado) este modo con este ejercicio? (sus ajustes, como los dejaste) */
+export const comboKnown = (id = comboId()): boolean => !!(store<Combos>(COMBO_KEY) || {})[id];
 // Lo de serie de cada modo cuando aún no lo has tocado (y, en los demás, lo de serie del ajuste): Arcos va «Al fallo»
 const MODE_DEF: Record<string, Record<string, SettingValue>> = { arcs: { toFail: 1 } }, MODE_DEF_KEYS = ['toFail'];
 /** Carga los de este modo y ejercicio; devuelve los ajustes que cambian. */
 export function comboLoad(id = comboId()): string[] {
-  const o = (store<Combos>(COMBO_KEY) || {})[id], ch: string[] = [];
+  const ch = comboLoadXr(id), o = (store<Combos>(COMBO_KEY) || {})[id];
   if (!o) {
     const d = MODE_DEF[id.split('|')[0]] || {};
     for (const k of MODE_DEF_KEYS) {
@@ -164,6 +180,20 @@ export function comboLoad(id = comboId()): string[] {
   }
   for (const k of comboKeys()) {
     if (o[k] === undefined) continue;
+    const v = clampSetting(FIELD[k], o[k]);
+    if (v !== settings[k]) {
+      settings[k] = v;
+      ch.push(k);
+    }
+  }
+  return ch;
+}
+// (lo de RepArena XR de este modo y ejercicio; si aún no lo has tocado, se queda lo que tenías)
+function comboLoadXr(id: string): string[] {
+  const o = (store<Combos>(XR_COMBO_KEY) || {})[id], ch: string[] = [];
+  if (!o || typeof o !== 'object') return ch;
+  for (const k of comboKeysXr()) {
+    if (o[k] === undefined || !FIELD[k]) continue;
     const v = clampSetting(FIELD[k], o[k]);
     if (v !== settings[k]) {
       settings[k] = v;
@@ -314,7 +344,7 @@ export function fieldVisible(f: FieldDef | undefined): boolean {
 // Menú sencillo: solo lo básico de cada grupo (en Ejercicio, todo menos lo de afinar)
 const BASIC = new Set(['rank', 'toFail', 'lives', 'waves', 'repsWave', 'hangTime', 'rest', 'foeKind', 'foesGate', 'foesHatch', 'foesFly', 'aim', 'walkTime', 'flySpeed', 'maxAlive', 'pistol',
   'tchArrive', 'tchHands', 'jumpHeight', 'arcJumpH', 'arcHurdles', 'arcBurpee', 'comboBase', 'comboStand', 'comboFloor', 'comboAbs', 'arcMin', 'arcMax', 'arcRate', 'arcMaxGap', 'arcSpeed', 'arcJump', 'arcMace', 'arcPlank', 'barTarget', 'barRope', 'barArrive', 'hangPit', 'trekSpeed', 'trekWorld', 'trekAuto', 'trekLegReps', 'trekCurves', 'doorH', 'dipH',
-  'sword', 'swordKind', 'swordHand', 'padHands', 'handLook', 'bodyHands', 'menuSize', 'menuLevel', 'menuWhere', 'xrHz', 'quality', 'look', 'exSort', 'goalMin', 'weight', 'hrMax', 'volume', 'ambient', 'bpm', 'scenery', 'pano', 'motes', 'depth', 'board']);
+  'sword', 'swordKind', 'swordHand', 'padHands', 'handLook', 'bodyHands', 'menuSize', 'menuLevel', 'farDist', 'wristDist', 'xrHz', 'quality', 'look', 'exSort', 'goalMin', 'weight', 'hrMax', 'volume', 'ambient', 'bpm', 'scenery', 'pano', 'motes', 'depth', 'board']);
 const FINE_EX = ['thrUp', 'splDrop', 'supArms', 'perfectTime'];
 // lo que marca la dificultad lo elige el desarrollador (el ojo de su tabla); lo demás, como siempre
 export const isBasic = (f: FieldDef): boolean => (devRowOk(f) ? devEye().includes(f.key) : f.g === 'ejercicio' ? !FINE_EX.includes(f.key) : BASIC.has(f.key));

@@ -9,3 +9,12 @@ La franja de abajo de cada imagen («OLEADAS: 3 · VIDAS: 3») la tapa el juego 
 
 Provisional: la Travesía con flexiones (`trek-pushup`) usa la de Combate (`combat-pushup.jpg`, `CORT_SAME` en
 `src/ui/cortinilla.ts`) hasta que haya la suya.
+
+## Fichas del menú
+
+`fichas/` son las mismas imágenes en pequeño (288 px de ancho): las fichas de los ejercicios del menú grande (`src/ui/ra/ex-cards.ts`).
+Un ejercicio nuevo, también aquí; se rehacen con ImageMagick, desde esta carpeta:
+
+```bash
+for f in *.jpg; do convert "$f" -resize 288x -strip -quality 72 "fichas/$f"; done
+```
