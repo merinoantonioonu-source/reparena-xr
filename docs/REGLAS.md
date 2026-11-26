@@ -291,7 +291,11 @@ No las cambies sin preguntarle.
       bien, porque mientras había cola se aflojaba la nitidez de todo el mapa y la ciudad se cargaba hasta tres veces): lo
       de debajo de ti y alrededor se pide ya a la nitidez elegida; **lo lejano, con menos detalle** (la mitad al fondo, entre
       la calima; con mucha cola, menos todavía, solo lo lejano); y solo volando muy deprisa para tu altura se afloja algo
-      lo de cerca (pasa tan rápido que no se aprecia).
+      lo de cerca (pasa tan rápido que no se aprecia). **Nunca quedan huecos sin mapa** (el usuario, con su vídeo: trozos de
+      cielo donde faltaba ciudad, lo demás sin afinarse y cambiar la nitidez en la partida no hacía nada; su registro: la
+      memoria del mapa se llenaba a los 18 s y desde ahí no se cargaba ni un trozo más): la memoria del mapa no se llena
+      nunca; si la ciudad pide más de la que hay, el detalle se afloja solo, primero lo lejano y, si no basta, lo de cerca,
+      y vuelve poco a poco cuando hay sitio. **La nitidez se cambia en plena partida** (desde la pausa) y se nota al momento.
     - **Desde cualquier lugar del mundo** (elegido por el usuario: «1 y 2»; «¿por qué hay que limitar a ciudades concretas?»):
       en «Volando: sobre el mapa», además de las cuatro ciudades, **«Tu lugar»** (unas coordenadas o un enlace largo de Google
       Maps pegados en la página, en «Volar sobre el mapa» → «Tu lugar»; viaja con la sincronización) y **«Donde lo dejaste»**

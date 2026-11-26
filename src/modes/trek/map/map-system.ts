@@ -28,13 +28,13 @@ import { FLY } from '../plat/fly.js';
 import { TrekSystem } from '../trek-system.js';
 import { GOOGLE_3D_ASSET, mapKey, mapLog, mapStart, setMapLast } from './map-key.js';
 import { headingTo, MAP, MapFlight, type MapIn } from './map-route.js';
-import { DETAIL, fallDist, farFactor, nearRelax } from './map-detail.js';
+import { DETAIL, fallDist, farFactor, MEM, nearRelax, squeezeFar, squeezeNear, squeezeStep } from './map-detail.js';
 
 const DEG = Math.PI / 180, RE = 6371000;
 /** Lo más cerca que se pone el fondo de lo que se pinta (m: la ciudad entera; más alto, hasta el horizonte), cada cuánto se
  * mide lo que hay debajo, por delante y bajo los aros (s), lo que pueden ocupar los mapas en memoria (bytes) y el aviso. El
  * detalle, del ajuste «Volando sobre el mapa: nitidez» (`flyMapSharp`). */
-const GROUND_T = 0.4, AHEAD_T = 0.25, RING_T = 0.5, CACHE_BYTES = 600 * 1024 * 1024, WAIT = 20;
+const GROUND_T = 0.4, AHEAD_T = 0.25, RING_T = 0.5, WAIT = 20, MB = 1e6;
 /** Lo lejos que se ve (y se pide mapa): tantas veces tu altura (como poco `FAR_MIN` m; como mucho, el horizonte), con calima
  * al fondo (la niebla de la escena, del color del horizonte). En las gafas, con la ciudad hasta el horizonte a 260 m de alto
  * se pedían miles de trozos, la cola nunca se vaciaba (más de 1.000 esperando siempre) y el juego iba a 17 imágenes por
@@ -44,6 +44,8 @@ const FAR_K = 30, FAR_MIN = 6000, HAZE = 1.5;
  * tardan en asentarse sus cambios (s) y los trabajos de procesar trozos a la vez (la cola arranca como mucho estos en cada
  * imagen: con 4 y a 22 imágenes por segundo, había siempre más de 200 trozos ya bajados esperando su turno). */
 const DETAIL_TAU = 2.5, PARSE_JOBS = 6;
+/** El filtro de las fotos vistas de lado: como mucho este (con el máximo de las gafas, 16, cada píxel costaba mucho más). */
+const ANISO = 4;
 /** El aro se mide en su centro y en cuatro puntos de su borde (× su radio): vale lo más alto. */
 const RING_AT: readonly [number, number][] = [[0, 0], [0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]];
 const AX_Y = new Vector3(0, 1, 0), AX_Z = new Vector3(0, 0, 1);
@@ -87,6 +89,16 @@ export class MapSystem extends createSystem({}) {
   private errK = 1;
   /** Cuánto más error admite lo lejano que lo cercano (suavizado). */
   private farK: number = DETAIL.far;
+  /** El apretón por la memoria (0-2: map-detail.ts), lo que hay en uso (MB) y cuánto lleva llena. */
+  private squeeze = 0;
+  /** La foveación de antes de volar sobre el mapa (−1: sin tocar). */
+  private fovWas = -1;
+  /** El presupuesto, lo guardado y el tope de la memoria (MB; las pruebas los achican). */
+  private mem = { budget: MEM.budgetMB as number, keep: MEM.keepMB as number, hard: MEM.hardMB as number, ceil: MEM.ceilMB as number, bump: MEM.bumpMB as number };
+  private usedMB = 0;
+  private fullT = 0;
+  private sqN = 0;
+  private sqT = 0;
   /** Los trozos cargados desde la última línea del registro. */
   private got = 0;
   private errT = 0;
@@ -172,6 +184,8 @@ export class MapSystem extends createSystem({}) {
     this.waitT += dt;
     this.frames++;
     this.framesT += dt;
+    this.sqN++;
+    this.sqT += dt;
     if (!this.loaded && !this.errSaid && this.waitT > WAIT) this.fail(`sin ningún trozo en ${WAIT} s${this.asked ? ' (pedidos)' : ' (ni pedidos)'}`);
     // (lo de las marchas, un poco después de lo de la altura)
     if (!this.gearSaid && this.waitT > 9 && T!.playing()) {
@@ -300,6 +314,13 @@ export class MapSystem extends createSystem({}) {
     }
     // el cielo (EnvSystem): solo cielo y mapa, más oscuro cuanto más alto
     MAPVIEW.on = true;
+    // (sobre el mapa, la vista periférica con menos resolución: aligera sin tocar el centro; la resolución no se cambia)
+    const xr0 = (this.world.renderer as WebGLRenderer).xr;
+    if (!xr0.isPresenting) this.fovWas = -1;
+    else if (this.fovWas < 0) {
+      this.fovWas = xr0.getFoveation() ?? 0;
+      xr0.setFoveation(1);
+    }
     MAPVIEW.alt = F.agl;
     // lo lejos que se pinta (y se pide mapa): unas 30 veces tu altura y, como mucho, el horizonte, con calima al fondo (a
     // saltos: no en cada fotograma)
@@ -322,8 +343,26 @@ export class MapSystem extends createSystem({}) {
       const step = 0.5 - this.errT, k = 1 - Math.exp(-step / DETAIL_TAU);
       this.errT = 0.5;
       const S = (tiles as unknown as { stats: Record<string, number> }).stats, wait = S.parsing + S.queued + S.downloading;
+      // la memoria: lo que está en uso manda en el detalle (llena, la librería se bloquea y no carga nada más)
+      const C = tiles.lruCache as unknown as { usedSet: Set<unknown>; bytesMap: Map<unknown, number>; maxBytesSize: number; isFull(): boolean };
+      let used = 0;
+      for (const it of C.usedSet) used += C.bytesMap.get(it) ?? 0;
+      this.usedMB = used / MB;
+      const fps = this.sqT > 1 ? this.sqN / this.sqT : 0;
+      if (this.sqT > 2) this.sqN = this.sqT = 0;
+      this.squeeze = squeezeStep(this.squeeze, this.usedMB, fps, wait > 8, step, this.mem.budget);
+      if (C.isFull()) {
+        // (no debería pasar; si pasa, más tope: lleno no carga nada, y el apretón ya está bajando lo que se pide)
+        this.fullT += step;
+        if (this.fullT > 1.5 && C.maxBytesSize < this.mem.ceil * MB) {
+          C.maxBytesSize += this.mem.bump * MB;
+          this.fullT = 0;
+          this.squeeze = Math.min(2, this.squeeze + 0.5);
+          this.log(`memoria llena: tope a ${Math.round(C.maxBytesSize / MB)} MB`);
+        }
+      } else this.fullT = 0;
       this.errK += (nearRelax(F.speed, F.agl) - this.errK) * k;
-      this.farK += (farFactor(wait) - this.farK) * k;
+      this.farK += (Math.max(farFactor(wait), squeezeFar(this.squeeze)) - this.farK) * k;
       this.applyDetail(tiles, F.agl);
     }
     // los mapas: desde la cámara de ahora (en las gafas, la de los dos ojos)
@@ -358,8 +397,8 @@ export class MapSystem extends createSystem({}) {
       // los cambios de detalle, fundidos (sin el salto de un trozo borroso a uno nítido)
       tiles.registerPlugin(new TilesFadePlugin({ maximumFadeOutTiles: 30 }));
       // (la memoria de los mapas: con poca, se llenaba y la ciudad se quedaba borrosa)
-      tiles.lruCache.maxBytesSize = CACHE_BYTES;
-      tiles.lruCache.minBytesSize = CACHE_BYTES * 0.75;
+      tiles.lruCache.maxBytesSize = this.mem.hard * MB;
+      tiles.lruCache.minBytesSize = this.mem.keep * MB;
       // solo lo que se va a ver y lo más cercano primero (lo de serie carga además todos los trozos de menos detalle de
       // cada sitio, de lejos a cerca: lo de debajo de ti llegaba lo último)
       (tiles as unknown as { loadAncestors: boolean }).loadAncestors = false;
@@ -410,6 +449,7 @@ export class MapSystem extends createSystem({}) {
     this.errK = 1;
     this.farK = DETAIL.far;
     this.got = 0;
+    this.squeeze = this.usedMB = this.fullT = this.sqN = this.sqT = 0;
     this.errT = 0;
     this.frames = this.framesT = 0;
     const fog = (this.world.scene as unknown as { fog: { color: Color; density: number } | null }).fog;
@@ -425,7 +465,7 @@ export class MapSystem extends createSystem({}) {
     this.groundT = this.aheadT = this.ringT = this.wallT = 0;
     this.ringPt = 0;
     this.gearSaid = false;
-    this.aniso = (this.world.renderer as WebGLRenderer).capabilities.getMaxAnisotropy();
+    this.aniso = Math.min(ANISO, (this.world.renderer as WebGLRenderer).capabilities.getMaxAnisotropy());
     this.root.visible = true;
     // (solo el cielo y el mapa: sin la plataforma de debajo de los pies)
     this.pad = this.world.getSceneEntity('player-pad')?.object3D ?? null;
@@ -462,6 +502,10 @@ export class MapSystem extends createSystem({}) {
   private end(): void {
     this.active = false;
     MAPVIEW.on = false;
+    if (this.fovWas >= 0) {
+      (this.world.renderer as WebGLRenderer).xr.setFoveation(this.fovWas);
+      this.fovWas = -1;
+    }
     this.root.visible = this.room.visible = false;
     if (this.pad) this.pad.visible = this.padWas;
     const fog = (this.world.scene as unknown as { fog: { color: Color; density: number } | null }).fog;
@@ -499,7 +543,7 @@ export class MapSystem extends createSystem({}) {
 
   /** Pone en la librería la nitidez de cerca (el ajuste) y la de lejos (su `errorFalloff`: menos detalle con la distancia). */
   private applyDetail(tiles: TilesRenderer, agl: number): void {
-    const near = (num('flyMapSharp') || 8) * DETAIL.errK * this.errK, T = tiles as unknown as { errorFalloff: number; errorFalloffDensity: number };
+    const near = (num('flyMapSharp') || 8) * DETAIL.errK * this.errK * squeezeNear(this.squeeze), T = tiles as unknown as { errorFalloff: number; errorFalloffDensity: number };
     tiles.errorTarget = near;
     T.errorFalloff = near * (this.farK - 1);
     T.errorFalloffDensity = 1 / fallDist(agl);
@@ -510,9 +554,10 @@ export class MapSystem extends createSystem({}) {
   private stateOf(tiles: TilesRenderer): string {
     const S = (tiles as unknown as { stats: Record<string, number> }).stats, r = this.world.renderer as WebGLRenderer, C = tiles.lruCache as unknown as { cachedBytes: number; isFull(): boolean };
     r.getSize(this.size);
+    const info = r.info.render;
     const fps = this.framesT > 0 ? Math.round(this.frames / this.framesT) : 0, rate = this.framesT > 0 ? (this.got / this.framesT).toFixed(1) : '0';
     this.frames = this.framesT = this.got = 0;
-    return `a los ${Math.round(this.waitT)} s · ${fps} img/s · raíz ${(tiles as unknown as { rootLoadingState: number }).rootLoadingState} · en cola ${S.queued} · bajando ${S.downloading} · procesando ${S.parsing} · cargados ${S.loaded} (${rate} por s) · fallidos ${S.failed} · visibles ${tiles.visibleTiles.size} · memoria ${Math.round(C.cachedBytes / 1e6)} MB${C.isFull() ? ' (llena)' : ''} · nitidez ${Math.round(tiles.errorTarget)} (lejos ${Math.round(tiles.errorTarget + (tiles as unknown as { errorFalloff: number }).errorFalloff)}) · se ve a ${Math.round(this.farNow / 1000)} km · ${this.size.x}×${this.size.y}${r.xr.isPresenting ? ' (VR)' : ''}`;
+    return `a los ${Math.round(this.waitT)} s · ${fps} img/s · raíz ${(tiles as unknown as { rootLoadingState: number }).rootLoadingState} · en cola ${S.queued} · bajando ${S.downloading} · procesando ${S.parsing} · cargados ${S.loaded} (${rate} por s) · fallidos ${S.failed} · visibles ${tiles.visibleTiles.size} · pinta ${info.calls} piezas y ${Math.round(info.triangles / 1000)} mil triángulos · memoria ${Math.round(C.cachedBytes / 1e6)} MB (en uso ${Math.round(this.usedMB)}${C.isFull() ? ', llena' : ''}) · apretón ${this.squeeze.toFixed(1)} · nitidez ${Math.round(tiles.errorTarget)} (lejos ${Math.round(tiles.errorTarget + (tiles as unknown as { errorFalloff: number }).errorFalloff)}) · se ve a ${Math.round(this.farNow / 1000)} km · ${this.size.x}×${this.size.y}${r.xr.isPresenting ? ' (VR)' : ''}`;
   }
 
   /** Al diagnóstico y al registro del mapa (que enseña la página: no se borra a los 30 s). */

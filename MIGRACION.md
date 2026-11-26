@@ -629,6 +629,20 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
     imagen). El registro apunta los trozos cargados por segundo y la nitidez de cerca y de lejos, más a menudo al principio.
     Por confirmar en las gafas (las imágenes por segundo dependen sobre todo de lo que se pinta: con menos trozos lejanos
     deberían subir).
+  - **Huecos de cielo y nada más cargaba** (el vídeo y el registro del usuario tras el PR 131: «cargados 703 (0.0 por s) ·
+    memoria 631 MB (llena)» desde los 18 s hasta el final, visibles de 16 a 477). Con lo de cerca a su nitidez, Nueva York
+    pide más memoria que los 600 MB de la caché de la librería, y la librería con la caché llena **se bloquea**: rechaza los
+    trozos nuevos (`isFull`) y no suelta los viejos, que da por «en uso» mientras no lleguen los que los sustituyen
+    (`recursivelyMarkPreviouslyUsed`). Reproducido aquí con un árbol de trozos de pega y la caché pequeña (los 64 trozos
+    del principio, «en uso» para siempre, volando a 5 km de ellos). Ahora la caché no se llena nunca: su tope queda lejos
+    (`MEM.hardMB`, 950 MB; si aun así se llenara, sube de 100 en 100 y se apunta) y se controla **lo que se pide**
+    (`squeezeStep`, `map-detail.ts`): lo que está en uso (la suma de `usedSet`) contra un presupuesto (`MEM.budgetMB`, 540 MB)
+    da un apretón de 0 a 2 que afloja primero lo lejano (hasta × 4) y luego lo cercano (hasta × 2), deprisa al pasarse y
+    despacio al volver; con menos de 30 imágenes por segundo sin estar cargando, aprieta solo lo lejano. El filtro de las
+    fotos vistas de lado, de 16 a 4 (`ANISO`). El registro apunta lo que hay en uso y el apretón. El cambio de nitidez ya se
+    aplicaba al momento: no se notaba porque no cargaba nada. Las imágenes por segundo (21-29, también con 16 trozos a la
+    vista: no las manda el número de trozos) siguen por explicar: sobre el mapa la foveación va al máximo (la periferia con
+    menos resolución; la capa no se cambia) y el registro apunta las piezas y los triángulos que se pintan.
   - **Los mandos frenaban solos**: `HandLine` tomaba su referencia una vez (al calibrar o al volver a poner el centro, en la
     postura que fuera) y, recolocado un palmo, leía «atrás»: la pica, frenando del todo (`bk` 1000 más de la mitad del
     tiempo), y en pica no se sube ni se baja. Ahora la referencia sigue despacio (`HL.adapt`) y da el impulso (`kick`).
