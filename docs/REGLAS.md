@@ -471,6 +471,26 @@ No las cambies sin preguntarle.
   con la carga aguantada (×2 o más)** le da; a la tercera, derrotado y se va. Si no le das mareado, se recupera; tras dos veces,
   vale cualquier remo (la pelea siempre se acaba). Si te da una bola, se rompe la racha, sin vidas. **El paisaje, ligero**: lo
   que se ve a la vez no pide más que el bosque de Combate (unos 50 árboles y 50 plantas).
+- **El parapente del remo invertido** (pedido del usuario: «una mezcla de barra y travesía: el uso de las paralelas para
+  emular que el usuario va en una especie de parapente y va volando por los mapas en función de qué brazo flexiona»; elegidos
+  la postura 1 y estos mandos; «Remo invertido: parapente sobre el mapa», *en pruebas*): cuelgas boca arriba de las paralelas,
+  inclinado como en la silla de un parapente, y vuelas sobre el mundo de verdad (los mapas 3D de Google, con la clave de
+  Cesium ion del jugador; el mismo vuelo que en la Travesía: con inercia, sin atravesar nada, con aros en las ciudades). **Se
+  vuela hacia tus pies**: el mapa se ve mirando hacia delante y abajo. Los mandos:
+  - **Tirón con los dos brazos** (un remo): un impulso que da altura y marcha y que se va perdiendo; para seguir en el aire
+    hay que seguir remando (uno cada 10 s, más o menos, mantiene la altura; el explosivo da más). Se nota: vibración y un
+    golpe de aire.
+  - **Tirar más de un brazo** (el pecho y la cabeza se van hacia esa barra): viras hacia ese lado, más cuanto más te vas (3 cm
+    no cuentan; del todo, con 14 cm).
+  - **Aguantar arriba** (más de medio segundo): frenas, como con los dos frenos, y te quedas casi en el sitio; al soltar,
+    vuelve la marcha que llevabas.
+  - **Brazos estirados**: planeo de descanso, perdiendo altura despacio (unos 2 m/s). Nunca te caes: el suelo y los tejados
+    te sostienen.
+  Cada oleada pide sus remos; **en el descanso el parapente planea solo** (recto y sin perder altura) y sigue cuando te
+  vuelves a colgar. Hasta que te cuelgas la primera vez se ve la arena de siempre; luego, solo el cielo, el mapa y tus
+  paralelas. Los créditos del mapa, pequeños, hacia los pies. Sin clave o sin de dónde salir, el remo de siempre. *Primera
+  entrega* (los mandos y el vuelo); lo que se ve y se oye (la vela, las líneas a tus manos, tu sombra, el viento, las
+  térmicas), en la segunda. Las otras posturas propuestas (dominadas en la barra, fondos), sin hacer.
 
 **Repeticiones y disparo**
 - Cada repetición (sentadilla, zancada…) carga **un disparo por mano**, como mucho uno por mano y sin acumular.

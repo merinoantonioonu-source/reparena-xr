@@ -722,8 +722,17 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       } else if (settings.mode === 'bars') {
         // Barras: lo que queda por reventar o los segundos colgado
         const h = this.bars()?.hud();
-        if (h) lines[0] = settings.exercise === 'hang' ? `Colgado ${Math.floor(h.hold)} de ${Math.round(h.need)} s` : h.bossLeft !== null ? `${h.bossName}: le quedan ${h.bossLeft}` : h.ropeLeft !== null ? `Faltan ${h.ropeLeft} m${h.turbo ? ' · TURBO ×2' : ''}` : `Quedan ${h.left}`;
-        const g = this.rw.ghostText();
+        const M = h && h.paraLeft !== null ? this.mapFly()?.hud() : null;
+        if (h && h.paraLeft !== null) {
+          // el parapente sobre el mapa: los remos que faltan y, del vuelo, la velocidad, la altura y el aro (o por dónde vas)
+          const far = (m: number): string => (m >= 1000 ? `${(m / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(m / 10) * 10} m`);
+          lines[0] = h.mount ? 'Parapente: a las paralelas' : `Remos: faltan ${h.paraLeft}`;
+          if (M) {
+            lines[1] = `${Math.round(M.kmh)} km/h · a ${far(M.agl)} del suelo`;
+            lines[2] = M.next ? `Aro: ${M.next} · ${far(M.dist)}${Math.abs(M.dy) > 25 ? ` · ${M.dy > 0 ? 'sube' : 'baja'} ${far(Math.abs(M.dy))}` : ''}` : placeText(M.lat, M.lon);
+          }
+        } else if (h) lines[0] = settings.exercise === 'hang' ? `Colgado ${Math.floor(h.hold)} de ${Math.round(h.need)} s` : h.bossLeft !== null ? `${h.bossName}: le quedan ${h.bossLeft}` : h.ropeLeft !== null ? `Faltan ${h.ropeLeft} m${h.turbo ? ' · TURBO ×2' : ''}` : `Quedan ${h.left}`;
+        const g = M ? null : this.rw.ghostText();
         if (g) lines[1] = minus(g[0]);
       } else if (settings.mode === 'touch') {
         // Toques: cuántos quedan y de dónde vienen (la ayuda de cada tipo la dan los avisos al fallar)

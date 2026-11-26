@@ -149,6 +149,9 @@ export interface MapIn {
   /** Lo que te has echado adelante (+) o atrás (−) respecto a como sueles estar (m) y si has dado un impulso adelante. */
   lean: number;
   kick: boolean;
+  /** Con otro mando (el parapente de Barras: `para.ts`), lo que sube o baja (−1 a 1) y la marcha, ya decididos: entonces no
+   * cuentan la flexión ni la cabeza adelante y atrás. */
+  ctl?: { climb: number; gear: number } | null;
 }
 
 export class MapFlight {
@@ -284,7 +287,11 @@ export class MapFlight {
   step(dt: number, I: MapIn): void {
     if (dt <= 0) return;
     const c = (v: number): number => Math.max(-1, Math.min(1, v));
-    if (I.live) this.pilot(dt, I);
+    if (I.live && I.ctl) {
+      this.climb = c(I.ctl.climb);
+      this.dive = 0;
+      this.gear = Math.max(0, Math.min(MAP.gearMax, I.ctl.gear));
+    } else if (I.live) this.pilot(dt, I);
     else this.climb = this.dive = 0;
     // el ladeo sigue a lo que te escoras, con su inercia: entra y sale del viraje suave (antes viraba en seco)
     this.bank += ((I.live ? c(I.steer) : 0) - this.bank) * (1 - Math.exp(-dt / MAP.bankTau));
