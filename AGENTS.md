@@ -107,8 +107,14 @@ tabla de `README.md` dice qué hace cada archivo.
   texto, dibujo, botones, pestañas, fichas, opciones, ajustes del esquema o columnas en cajas) que pinta `openMenu`
   (`menu-core.ts`) en una bandeja de 90 cm con teclas planas (`btn.ts`). Se pulsan con el dedo de cualquier mano (`poke.ts`:
   sólidas, pegadas, con imán y retirar el dedo) y con el rayo de IWSDK y la pinza o el gatillo (`RayInteractable` en el grupo
-  de los menús). En las gafas salen de la muñeca («Menú en: Muñeca», de serie) o en el atril; cada menú nuevo, donde estaba el
-  anterior. Los menús concretos, en `menus.ts` (`lobbyMenu`, `optionsMenu`, `pauseMenu`, `endMenu`, `perkMenu`); lo que pasa
+  de los menús; con imán, `RAY_KEEP`, y la tecla de antes del pellizco, `RAY_PINCH`). En las gafas, el **menú grande** (modelo A
+  del usuario): fijo en la habitación a «Distancia del menú grande» (`farAnchor`, `UI.far`; `farRecall` lo trae delante),
+  escalado (`farScale`), para el principal, Opciones, las pantallas, la pausa y el resumen; de la muñeca (`NEAR_KINDS`) solo
+  las cartas y la **tira rápida** (`quickMenu`, tipo `quick`: el botón MENÚ en plena ronda; en plancha, `low`, en el suelo); el
+  asistente del vuelo, en el suelo (`low`). Las fichas de los ejercicios, con su cortinilla pequeña (`ex-cards.ts`). Los
+  ajustes de cada modo y ejercicio se recuerdan solos (`comboSave`/`comboLoad`, en `reparena3-combos` los de RepArena y en
+  `reparenaxr-combos` los de RepArena XR y la Travesía: `comboKeysXr`). Los menús concretos, en `menus.ts` (`lobbyMenu`,
+  `optionsMenu`, `pauseMenu`, `endMenu`, `perkMenu`, `quickMenu`); lo que pasa
   en cada fotograma, en `RaMenuSystem` (`menu-system.ts`). La partida y el menú se avisan con `HOOKS.startRound`,
   `HOOKS.showMenu`, `HOOKS.hideMenu`, `HOOKS.showSummary`, `HOOKS.pause`/`resume`, `HOOKS.perksOpen`/`perksClose` y
   `HOOKS.openScreen` (una pantalla de filas: la música, pasar datos…); `GAME.menu` dice cuál se ve (en pausa, `GAME.paused`

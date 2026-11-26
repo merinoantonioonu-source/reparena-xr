@@ -3,7 +3,11 @@
  * (src/80_main.js: fingers, updateWatch, updateWristMenu, pokeWidgets; src/40_models.js: gloveHold) y los avisos entre el
  * juego y los menús (HOOKS: el principal, Opciones, la pausa, el resumen, las cartas y las pantallas).
  *  - Se pulsan con el dedo (src/ui/ra/poke.ts) y con el rayo de IWSDK: RayInteractable en el grupo de los menús; el rayo
- *    ilumina la tecla y el pellizco (o el gatillo) la pulsa.
+ *    ilumina la tecla y el pellizco (o el gatillo) la pulsa. Para el menú grande, a distancia, el rayo lleva imán (la tecla
+ *    iluminada no se suelta hasta salir de ella 3 cm) y, al pellizcar, cuenta la tecla de un momento antes (al juntar los
+ *    dedos, la mano se mueve y el rayo se desvía).
+ *  - El botón MENÚ de la muñeca: en plena ronda, la tira rápida (sin parar); fuera, o en la pausa, trae el menú grande
+ *    delante. En plancha, la tira sale con la palma izquierda hacia la cara un momento, en el suelo delante de las manos.
  *  - La mano que se ve se apoya en las teclas y en el panel (HOLD: la usan los guantes, y se mueve igual la mano de IWSDK).
  *  - El menú se recoge con la palma izquierda hacia abajo o con el puño, y con «✕ Cerrar»; vuelve con el botón MENÚ.
  */
@@ -13,14 +17,14 @@ import type { Object3D } from '@iwsdk/core';
 import { GAME, HOOKS, LITE } from '../../core/state.js';
 import { onSettingsChange } from '../../core/settings.js';
 import { settings } from '../../core/values.js';
-import { hands, isFist, SIDES } from '../../input/hand-model.js';
+import { hands, head, isFist, SIDES } from '../../input/hand-model.js';
 import { HOLD } from '../../input/hold.js';
 import { SND, unlockAudio } from '../../audio/sound.js';
 import { HITCH } from '../../core/hitch.js';
 import { diagEvent } from '../../core/diag.js';
 import type { Btn, Widget } from './btn.js';
-import { activeWidgets, ENV, hideMenu, lowAnchor, menuClose, noteStand, openMenu, refreshFields, UI, updateWatch, updateWristMenu, WATCH, watchBtn, WM, wristOpen, wristReady, type Row } from './menu-core.js';
-import { endMenu, lobbyMenu, MENU_ENV, pauseMenu, perkClose, perkMenu } from './menus.js';
+import { activeWidgets, ENV, farRecall, hideMenu, lowAnchor, menuClose, noteStand, openMenu, refreshFields, UI, updateWatch, updateWristMenu, WATCH, watchBtn, WM, wristOpen, wristReady, type Row } from './menu-core.js';
+import { endMenu, lobbyMenu, MENU_ENV, pauseMenu, perkClose, perkMenu, QUICK, quickMenu } from './menus.js';
 import { fingers, pokeHold, pokeIdle, pokeWidgets, POKE } from './poke.js';
 import type { Summary } from '../../core/run.js';
 import { marqStep, spSync } from '../screens/music-screens.js';
@@ -36,7 +40,15 @@ const QUALITY_KEY = 'reparenaxr-quality';
 /** Lo que la pausa cuenta además (lo pone la partida). */
 export const PAUSE_INFO = MENU_ENV.pauseInfo;
 
-type Ev = { object?: Object3D; pointerId?: number; stopPropagation?(): void };
+type Ev = { object?: Object3D; pointerId?: number; point?: Vector3; stopPropagation?(): void };
+/** El imán del rayo (m en el mundo) y lo de antes del pellizco que cuenta (s). */
+const RAY_KEEP = 0.03, RAY_PINCH = 0.15;
+/** Lo de cada rayo: la tecla que ilumina (con imán) y las últimas que tuvo, con cuándo. */
+interface RayState {
+  w: Widget | null;
+  hist: { t: number; w: Widget | null }[];
+  outT: number;
+}
 /** La tecla a la que pertenece lo que toca el rayo. */
 const widgetOf = (o: Object3D | undefined): Widget | null => {
   for (let p: Object3D | null | undefined = o, k = 0; p && k < 4; p = p.parent, k++) if (p.userData.widget) return p.userData.widget as Widget;
@@ -59,6 +71,10 @@ export class RaMenuSystem extends createSystem({}, {}) {
   private rayOn = false;
   /** La tecla en la que se apretó cada rayo (para pulsarla al soltar). */
   private downOn = new Map<number, Widget | null>();
+  private rays = new Map<number, RayState>();
+  private rs = new Vector3();
+  /** Lo que lleva la palma izquierda hacia la cara en plancha (s): abre la tira rápida en el suelo. */
+  private palmT = 0;
 
   private inXR(): boolean {
     return this.world.visibilityState.peek() !== VisibilityState.NonImmersive;
@@ -80,15 +96,29 @@ export class RaMenuSystem extends createSystem({}, {}) {
     HOOKS.spChanged = spSync;
     // el rayo: sobre una tecla, la ilumina; al pulsar (el pellizco o el gatillo), la pulsa como el dedo
     const R = this.root as unknown as { addEventListener(t: string, f: (e: Ev) => void): void };
-    R.addEventListener('pointerover', (ev) => this.rayHover(widgetOf(ev.object), true));
-    R.addEventListener('pointerout', (ev) => this.rayHover(widgetOf(ev.object), false));
+    R.addEventListener('pointerover', (ev) => this.rayAt(ev));
+    R.addEventListener('pointermove', (ev) => this.rayAt(ev));
+    R.addEventListener('pointerout', (ev) => {
+      const st = this.rays.get(ev.pointerId ?? 0);
+      if (st && st.w && widgetOf(ev.object) === st.w) st.outT = performance.now() / 1000; // (si no vuelve enseguida, se apaga)
+    });
     // (se pulsa al soltar el pellizco sobre la misma tecla en la que se apretó, tarde lo que tarde: el «click» de IWSDK
-    // solo cuenta si se suelta en menos de 0,8 s, y con el pellizco mantenido no llegaba)
-    R.addEventListener('pointerdown', (ev) => this.downOn.set(ev.pointerId ?? 0, widgetOf(ev.object)));
+    // solo cuenta si se suelta en menos de 0,8 s, y con el pellizco mantenido no llegaba). Cuenta la tecla de un momento antes
+    // de apretar si era una tecla (al juntar los dedos, el rayo se desvía) y, al soltar, vale con seguir en su imán
+    R.addEventListener('pointerdown', (ev) => {
+      const id = ev.pointerId ?? 0, st = this.rays.get(id), now = performance.now() / 1000;
+      let w = st ? st.w : widgetOf(ev.object);
+      if (st) {
+        let before: Widget | null | undefined;
+        for (const e of st.hist) if (e.t <= now - RAY_PINCH) before = e.w;
+        if (before && before !== w && before.kind === 'btn' && before.mesh.visible) w = before;
+      }
+      this.downOn.set(id, w);
+    });
     R.addEventListener('pointerup', (ev) => {
-      const w = widgetOf(ev.object), d = this.downOn.get(ev.pointerId ?? 0);
-      this.downOn.delete(ev.pointerId ?? 0);
-      if (w && w === d) this.rayPress(w);
+      const id = ev.pointerId ?? 0, d = this.downOn.get(id), st = this.rays.get(id);
+      this.downOn.delete(id);
+      if (d && (widgetOf(ev.object) === d || st?.w === d || (ev.point && this.inMagnet(d, ev.point)))) this.rayPress(d);
     });
     // la nitidez
     try {
@@ -147,6 +177,7 @@ export class RaMenuSystem extends createSystem({}, {}) {
         // al entrar o salir de las gafas, el menú se rehace en su sitio nuevo
         UI.anchor = null;
         UI.lastAnchor = null;
+        farRecall(); // (el grande, delante de ti al entrar)
         this.rebuild();
         this.applyQuality();
         this.applyRate();
@@ -200,6 +231,31 @@ export class RaMenuSystem extends createSystem({}, {}) {
 
   // ---------------------------------------------------------------- el rayo
 
+  /** ¿Está el punto (en el mundo) sobre la tecla o a menos de RAY_KEEP de ella? */
+  private inMagnet(w: Widget, p: Vector3): boolean {
+    const o = w as unknown as { w?: number; h?: number };
+    if (!o.w || !o.h || !w.mesh.parent) return false;
+    const k = RAY_KEEP / Math.max(1e-3, w.mesh.getWorldScale(this.rs).x), l = w.mesh.worldToLocal(this.rs.copy(p));
+    return Math.abs(l.x) <= o.w / 2 + k && Math.abs(l.y) <= o.h / 2 + k;
+  }
+  /** Por dónde pasa un rayo: su tecla, con imán (la que tenía se queda mientras el punto siga a menos de 3 cm). */
+  private rayAt(ev: Ev): void {
+    const id = ev.pointerId ?? 0, o = widgetOf(ev.object);
+    let st = this.rays.get(id);
+    if (!st) this.rays.set(id, (st = { w: null, hist: [], outT: -1 }));
+    st.outT = -1;
+    if (st.w && st.w !== o && ev.point && this.inMagnet(st.w, ev.point)) return;
+    this.raySet(st, o);
+  }
+  private raySet(st: RayState, w: Widget | null): void {
+    if (st.w === w) return;
+    const old = st.w;
+    st.w = w;
+    st.hist.push({ t: performance.now() / 1000, w });
+    if (st.hist.length > 8) st.hist.shift();
+    if (old && ![...this.rays.values()].some((r) => r.w === old)) this.rayHover(old, false);
+    if (w) this.rayHover(w, true);
+  }
   private rayHover(w: Widget | null, on: boolean): void {
     if (!w || w.rayHover === on) return;
     w.rayHover = on;
@@ -236,11 +292,16 @@ export class RaMenuSystem extends createSystem({}, {}) {
       SND.tick();
       return;
     }
+    // en plena ronda: la tira rápida, sin parar (otra vez, se recoge)
     if (GAME.phase === 'playing' && !GAME.paused) {
-      HOOKS.pause();
+      if (m?.kind === 'quick' && !m.closed && (!m.wrist || WM.on)) hideMenu();
+      else this.open(() => quickMenu(false));
+      SND.tick();
       return;
     }
-    if (m?.wrist) wristOpen(); // el menú recogido (o perdido de vista) sale delante
+    // fuera de la ronda (o en la pausa): el menú grande, delante de ti
+    farRecall();
+    if (m?.wrist) wristOpen(); // (las cartas recogidas vuelven)
     else if (m) {
       m.closed = false;
       m.group.visible = true;
@@ -252,7 +313,7 @@ export class RaMenuSystem extends createSystem({}, {}) {
   private watchLabel(): string {
     const m = UI.menu;
     if (HOOKS.placing()) return 'CANCELAR';
-    if (GAME.phase === 'playing' && !GAME.paused) return 'PAUSA';
+    if (GAME.phase === 'playing' && !GAME.paused) return m?.kind === 'quick' && !m.closed && (!m.wrist || WM.on) ? 'CERRAR' : 'MENÚ';
     if (m?.wrist) return WM.on ? 'TRAER MENÚ' : 'MENÚ';
     return m && !m.closed ? 'TRAER MENÚ' : 'MENÚ';
   }
@@ -283,6 +344,12 @@ export class RaMenuSystem extends createSystem({}, {}) {
       const shown = !m.closed && m.group.visible && (!m.wrist || WM.on);
       pokeWidgets(activeWidgets(), dt, m.age > 0.5 && wristReady(), true, m, shown);
     } else pokeIdle('menu'); // (sin menú, nada se queda pulsado ni apoyado: la de EMPEZAR seguía «hundida» en la partida)
+    // el rayo que salió de su tecla y no ha vuelto enseguida (salió del menú): la tecla se apaga
+    const now = performance.now() / 1000;
+    for (const st of this.rays.values()) if (st.outT > 0 && now - st.outT > 0.1) {
+      st.outT = -1;
+      this.raySet(st, null);
+    }
     // el rayo de IWSDK, solo con un menú a la vista (si no, no se pinta ni estorba en la partida)
     const rayWant = inXR ? !!m && !m.closed && m.group.visible : true;
     if (rayWant !== this.rayOn) {
@@ -294,7 +361,8 @@ export class RaMenuSystem extends createSystem({}, {}) {
     // (en la pausa de una ronda, nunca: recogido el menú, la partida se quedaba parada sin nada a la vista —parecía colgada—,
     // también al abrir la música desde la pausa, que es una pantalla de las que se recogen)
     const inPause = GAME.phase === 'playing' && GAME.paused;
-    const closing = inXR && !inPause && !!m && (m.kind === 'lobby' || m.kind === 'options' || m.kind === 'screen') && !m.closed && (!m.wrist || WM.on) && h.ok && !h.est && !h.virt && (isFist(h) || this.tmp.set(0, 1, 0).applyQuaternion(h.wristQ).y > 0.85);
+    // (el grande no: está lejos y se cierra con «✕ Cerrar»; la tira en el suelo tampoco: al pulsarla, la palma va hacia abajo)
+    const closing = inXR && !inPause && !!m && !m.far && !m.low && (m.kind === 'lobby' || m.kind === 'options' || m.kind === 'screen' || m.kind === 'quick') && !m.closed && (!m.wrist || WM.on) && h.ok && !h.est && !h.virt && (isFist(h) || this.tmp.set(0, 1, 0).applyQuaternion(h.wristQ).y > 0.85);
     this.closeT = closing ? this.closeT + dt : 0;
     if (this.closeT > 0.5) {
       this.closeT = 0;
@@ -311,13 +379,30 @@ export class RaMenuSystem extends createSystem({}, {}) {
     }
     // qué menú se ve (para la partida): el que está abierto aunque esté recogido
     const k = UI.menu?.kind;
-    GAME.menu = k === 'lobby' ? 'lobby' : k === 'options' || k === 'screen' || k === 'coach' ? 'options' : k === 'pause' ? 'pause' : k === 'summary' ? 'summary' : 'none';
-    // en plena partida no hay más menú que la pausa, las cartas y la pregunta del asistente del vuelo
-    if (GAME.phase === 'playing' && !GAME.paused && m && m.kind !== 'pause' && m.kind !== 'perks' && m.kind !== 'coach') hideMenu();
+    GAME.menu = k === 'lobby' ? 'lobby' : k === 'options' || k === 'screen' || k === 'coach' || k === 'quick' ? 'options' : k === 'pause' ? 'pause' : k === 'summary' ? 'summary' : 'none';
+    // en plena partida no hay más menú que la pausa, las cartas, la pregunta del asistente del vuelo y la tira rápida
+    if (GAME.phase === 'playing' && !GAME.paused && m && m.kind !== 'pause' && m.kind !== 'perks' && m.kind !== 'coach' && m.kind !== 'quick') hideMenu();
+    // la tira rápida: fuera de la ronda no está; en el suelo, se va si no la tocas en 12 s o si te levantas
+    const q = UI.menu;
+    if (q?.kind === 'quick' && (GAME.phase !== 'playing' || GAME.paused || (q.low && (now - QUICK.pressT > 12 || head.p.y > 1.15)))) hideMenu();
+    // en plancha, la palma izquierda hacia la cara medio segundo (la mano de verdad, a menos de 60 cm): la tira, en el suelo
+    const low = inXR && GAME.phase === 'playing' && !GAME.paused && head.p.y < 0.95 && h.ok && !h.est && h.isHand && !isFist(h);
+    let palm = false;
+    if (low) {
+      this.a.copy(head.p).sub(h.wrist);
+      const d = this.a.length();
+      palm = d < 0.6 && this.tmp.set(0, -1, 0).applyQuaternion(h.wristQ).dot(this.a.divideScalar(Math.max(d, 1e-3))) > 0.75;
+    }
+    this.palmT = palm && UI.menu?.kind !== 'quick' && UI.menu?.kind !== 'coach' && UI.menu?.kind !== 'perks' ? this.palmT + dt : 0;
+    if (this.palmT > 0.5) {
+      this.palmT = 0;
+      diagEvent('la palma hacia la cara en plancha: la tira rápida, en el suelo');
+      this.open(() => quickMenu(true));
+    }
     // con un menú abierto (y a la vista) en las gafas, la escena se aligera (sin el bosque ni los enemigos: src/core/state.ts);
     // con la pregunta del asistente, no (se ve dónde vuelas)
     const mm = UI.menu;
-    LITE.on = inXR && !!mm && !mm.closed && mm.group.visible && mm.kind !== 'perks' && mm.kind !== 'coach' && (!mm.wrist || WM.on);
+    LITE.on = inXR && !!mm && !mm.closed && mm.group.visible && mm.kind !== 'perks' && mm.kind !== 'coach' && mm.kind !== 'quick' && (!mm.wrist || WM.on);
     this.applyHold(dt, inXR);
   }
 

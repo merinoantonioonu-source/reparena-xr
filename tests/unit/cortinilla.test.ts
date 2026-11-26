@@ -3,7 +3,7 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { MODE_EX } from '../../src/core/catalog.js';
-import { cortInfo, cortUrl } from '../../src/ui/cortinilla.js';
+import { cortInfo, cortUrl, fichaUrl } from '../../src/ui/cortinilla.js';
 
 describe('las cortinillas', () => {
   it('cada ejercicio de cada modo tiene la suya en public/cortinillas', () => {
@@ -13,6 +13,9 @@ describe('las cortinillas', () => {
         const url = cortUrl(mode, ex, 'public/');
         expect(url, `${mode} · ${ex}`).not.toBeNull();
         expect(existsSync(url!), url!).toBe(true);
+        const f = fichaUrl(mode, ex, 'public/'); // (y su ficha pequeña, la del menú)
+        expect(f, `${mode} · ${ex}`).toMatch(/^public\/cortinillas\/fichas\//);
+        expect(existsSync(f!), f!).toBe(true);
         n++;
       }
     expect(n).toBe(36);

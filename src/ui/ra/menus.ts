@@ -1,13 +1,12 @@
 /**
- * Los menús de RepArena (src/70_game.js: lobbyMenu, optionsMenu, foesRows, armsRows, lobbyExRows, lobbyDiffRows,
- * drawRoundInfo, soundRows, sceneRows, settingsRows, pauseMenu, endMenu; src/73_career.js: progRows, goalTiles, goalSide;
+ * Los menús de RepArena (src/70_game.js: lobbyMenu, optionsMenu, foesRows, armsRows, lobbyExRows, soundRows, sceneRows, settingsRows, pauseMenu, endMenu; src/73_career.js: progRows, goalTiles, goalSide;
  * src/79_perks.js: perkMenu), portados con los datos de RepArena XR (opción B del usuario, PR 31). Cada uno es una lista de
  * filas que pinta openMenu (src/ui/ra/menu-core.ts).
  */
 import { Group } from '@iwsdk/core';
 import { BODY_NOTE, EX_NAMES, EX_SHORT, MODE_EX, MODE_NAMES, RANKS } from '../../core/catalog.js';
 import { FIELD, SCHEMA } from '../../core/schema.js';
-import { fieldShown, fieldVisible, menuFull, nLives, nWaves, rankIdx, rankName, setSetting, speedKey, waveReps, hangSecs, devEye } from '../../core/settings.js';
+import { comboKnown, fieldShown, fieldVisible, menuFull, nLives, nWaves, rankIdx, rankName, setSetting, speedKey, devEye } from '../../core/settings.js';
 import { num, settings } from '../../core/values.js';
 import { GAME, HOOKS } from '../../core/state.js';
 import { foeList, isCombat } from '../../core/rules.js';
@@ -17,16 +16,16 @@ import { CAMP_N, CAMP_REG, campId, LOOKS, MIS, PROG_COL, SHIELD_COL, SHIELD_MAX,
 import { career, history, progressNow, setLook } from '../../combat/career-hub.js';
 import type { Summary } from '../../core/run.js';
 import { PLAY_MODES, playable, playableEx } from '../../core/playable.js';
-import { settingsGroups, groupName, summaryText } from '../fields.js';
+import { settingsGroups, groupName } from '../fields.js';
 import { uiPrefs, uiSave } from '../../page/dom.js';
 import { resetGroup } from '../../page/form.js';
 import { musicScreen, spWideRows, tempoRows } from '../screens/music-screens.js';
 import { syncScreen, xferScreen } from '../screens/xfer-screens.js';
-import { FB, fitFont, rr } from '../canvas-kit.js';
 import { drawCampMap, drawGoal, drawHoy, drawMissions, drawStreakTile, drawWeek, drawXP } from './career-draw.js';
 import { drawSummary, SUM_CHIP, SUM_H } from './summary-draw.js';
-import { drawRank, MC, makePanel, type FoeCard } from './kit.js';
-import { GAP, hideMenu, menuOccluder, MW, openMenu, RO, UI, type Menu, type Row, type RowItem } from './menu-core.js';
+import { MC, type FoeCard } from './kit.js';
+import { ENV, GAP, hideMenu, lowAnchor, menuClose, menuOccluder, MW, openMenu, RO, UI, type Menu, type Row, type RowItem } from './menu-core.js';
+import { fichaImg, fichasLoad, FICHAS, paintFicha } from './ex-cards.js';
 import { CARD_H } from './kit.js';
 import { cachedQuad } from './btn.js';
 
@@ -67,23 +66,30 @@ function pickMode(m: string): void {
   if (ex !== settings.exercise) setSetting('exercise', ex);
 }
 
-// Los ejercicios del modo, en rejilla (6 por fila si son muchos), y lo que le toca: la barra o las paralelas en Barras
-function lobbyExRows(again: () => void): Row[] {
-  const list = (MODE_EX[settings.mode] ?? []).slice(), per = list.length > 15 ? 6 : list.length > 4 ? 5 : 4, rows: Row[] = [];
+// Los ejercicios del modo, en fichas con su cortinilla (modelo A del usuario: se aciertan bien con el rayo), y lo que le
+// toca: la barra o las paralelas en Barras. `cw`: el ancho de la columna donde van (m de la bandeja)
+function lobbyExRows(again: () => void, cw = MW): Row[] {
+  const list = (MODE_EX[settings.mode] ?? []).slice(), per = Math.min(4, list.length), rows: Row[] = [];
+  const fw = (cw - GAP * (per - 1)) / per, fh = Math.max(0.055, fw * 0.72);
+  fichasLoad(import.meta.env.BASE_URL);
   for (let i = 0; i < list.length; i += per) {
-    const items: RowItem[] = list.slice(i, i + per).map((x) => ({
-      label: exName(x),
-      style: !playable(settings.mode, x) ? 'ghost' : x === settings.exercise ? 'selected' : 'normal',
-      tint: EX_COL,
-      font: 0.42,
-      onPress: () => {
-        if (!playable(settings.mode, x)) return say('Este ejercicio aún no está');
-        setSetting('exercise', x);
-        again();
-      },
-    }));
-    while (items.length < per && list.length > per) items.push({ sep: true, blank: true }); // (la última fila, con las teclas del mismo ancho)
-    rows.push({ t: 'btns', h: 0.05, items });
+    const items: RowItem[] = list.slice(i, i + per).map((x) => {
+      const img = fichaImg(settings.mode, x), name = exName(x), st = !playable(settings.mode, x) ? 'off' : x === settings.exercise ? 'sel' : '';
+      return {
+        label: name,
+        style: st === 'off' ? 'ghost' : st === 'sel' ? 'selected' : 'normal',
+        tint: EX_COL,
+        psig: `ficha|${settings.mode}|${x}|${img ? 1 : 0}|${st}`,
+        paint: (c: CanvasRenderingContext2D, W: number, H: number, tc: string) => paintFicha(c, W, H, tc, name, img, st),
+        onPress: () => {
+          if (!playable(settings.mode, x)) return say('Este ejercicio aún no está');
+          setSetting('exercise', x); // (y salen sus ajustes, los de la última vez: src/core/settings.ts, comboLoad)
+          again();
+        },
+      };
+    });
+    while (items.length < per && list.length > per) items.push({ sep: true, blank: true }); // (la última fila, con las fichas del mismo ancho)
+    rows.push({ t: 'btns', h: fh, items });
   }
   if (settings.mode === 'bars') {
     const placed = HOOKS.eqPlaced(), row = settings.exercise === 'row', n = row ? 'las paralelas' : 'la barra';
@@ -92,58 +98,6 @@ function lobbyExRows(again: () => void): Row[] {
       { t: 'text', text: !placed ? `Primero coloca ${n}: pulsa Colocar` : row ? `Paralelas colocadas a ${num('dipH')} cm de altura` : `Barra colocada a ${num('doorH')} cm de altura`, color: !placed ? '#ffd166' : '#a49fc8' },
     );
   }
-  return rows;
-}
-
-// Cómo es la ronda, en una ficha: el galón y el rango a la izquierda; a la derecha, oleadas, repeticiones, vidas y descanso
-function drawRoundInfo(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
-  rr(c, x, y, w, h, h * 0.3);
-  c.fillStyle = 'rgba(90,184,255,0.08)';
-  c.fill();
-  drawRank(c, rankIdx(), x + h * 0.55, y + h / 2, h * 0.62, '#eeeaff');
-  const t1 = `${rankName()} · ${exName(settings.exercise)}`;
-  c.textAlign = 'left';
-  c.textBaseline = 'middle';
-  c.fillStyle = DIFF_COL;
-  fitFont(c, t1, w * 0.3, Math.round(h * 0.42), '700 %px ' + FB);
-  c.fillText(t1, x + h * 1.05, y + h / 2);
-  const hang = settings.exercise === 'hang', chips: [string, string][] = [
-    [nWaves() ? `${nWaves()} oleadas` : num('toFail') ? 'al fallo' : 'sin fin', '#ffd166'],
-    [hang ? `${hangSecs(0)} s (+${num('hangInc')})` : `${waveReps(0)} reps (+${num('repsInc')})`, '#3cf0c6'],
-    [nLives() ? `${nLives()} vidas` : 'vidas sin límite', '#ff4fa3'],
-    [`${num('rest')} s descanso`, '#a68bff'],
-  ];
-  const x0 = x + w * 0.4, cw = (w * 0.6 - 10) / chips.length;
-  chips.forEach(([t, col], k) => {
-    const cx = x0 + k * cw;
-    rr(c, cx + 4, y + h * 0.16, cw - 8, h * 0.68, h * 0.3);
-    c.fillStyle = 'rgba(255,255,255,0.06)';
-    c.fill();
-    c.lineWidth = 2;
-    c.strokeStyle = col;
-    c.stroke();
-    c.textAlign = 'center';
-    c.fillStyle = col;
-    fitFont(c, t, cw - 20, Math.round(h * 0.36), '600 %px ' + FB);
-    c.fillText(t, cx + cw / 2, y + h / 2 + 1);
-  });
-}
-
-// La dificultad: los galones del rango, «Al fallo», cómo es la ronda (en una ficha) y lo que el desarrollador ha marcado
-function lobbyDiffRows(again: () => void): Row[] {
-  const fail = fieldVisible(FIELD.toFail), rows: Row[] = [
-    {
-      t: 'btns',
-      h: 0.052,
-      items: [
-        ...RANKS.map(([v], i) => ({ label: '', badge: i, style: i === rankIdx() ? 'selected' : 'normal', tint: DIFF_COL, onPress: () => (setSetting('rank', v), again()) })),
-        ...(fail ? [{ sep: true, flex: 0.25 }, { label: 'Al fallo', flex: 1.7, font: 0.42, style: num('toFail') ? 'selected' : 'normal', tint: DIFF_COL, onPress: () => (setSetting('toFail', num('toFail') ? 0 : 1), again()) }] : []),
-      ],
-    },
-    { t: 'canvas', h: 0.05, text: `${rankName()} en ${exName(settings.exercise)} · ${summaryText()}`, draw: drawRoundInfo },
-  ];
-  const eyeF = menuFull() ? [speedKey() ?? '', settings.mode === 'arcs' ? 'arcMax' : settings.mode === 'bars' && settings.exercise === 'hang' ? 'hangInc' : 'repsWave'] : devEye();
-  for (const key of eyeF) if (FIELD[key] && fieldVisible(FIELD[key]) && key !== 'toFail') rows.push({ t: 'field', key, after: FIELD[key].relayout ? again : undefined });
   return rows;
 }
 
@@ -182,32 +136,90 @@ function goalSide(m: Menu): void {
   menuOccluder(q, HOY_W, HOY_H);
 }
 
-/** El menú principal, simple (lo demás, en Opciones): EMPEZAR grande, las metas de hoy, el modo, el ejercicio, la dificultad
- * y, abajo, Opciones y Salir. */
+// Las pestañas de arriba del menú grande (modelo A del usuario): Jugar (el principal) y las de Opciones, y en las gafas «✕
+// Cerrar» (el menú se va y lo trae el botón MENÚ de la muñeca)
+function optTabs(): [string, string, string][] {
+  return [...(isCombat() ? [['foes', 'Rivales y armas', MC.foes] as [string, string, string]] : armsAny() ? [['foes', 'Armas', MC.arms] as [string, string, string]] : []), ['prog', 'Progreso', PROG_COL], ['sound', 'Sonido', MC.sound], ['scene', 'Entorno', MC.scene], ['set', 'Ajustes', MC.set]];
+}
+function topTabs(cur: string): Row {
+  const items: RowItem[] = [
+    { label: 'Jugar', style: cur === 'play' ? 'selected' : 'normal', accent: '#ff8a3d', tint: '#ff8a3d', font: 0.44, onPress: () => cur !== 'play' && ((LOBBY.resetArm = ''), lobbyMenu()) },
+    ...optTabs().map(([k, l, c2]) => ({ label: l, style: k === cur ? 'selected' : 'normal', accent: c2, tint: c2, font: 0.44, onPress: () => ((LOBBY.opt = k), uiSave('lobbyOpt', k), (LOBBY.resetArm = ''), optionsMenu()) })),
+  ];
+  if (ENV.inXR()) items.push({ sep: true, flex: 0.15 }, { label: '✕ Cerrar', style: 'ghost', flex: 0.9, font: 0.42, onPress: menuClose });
+  return { t: 'btns', h: 0.055, items };
+}
+
+// Cómo será la ronda, en pocas palabras: el rango, las oleadas (o tramos) y las vidas, y lo que cambia la forma de jugar
+// (volando, sobre qué mapa, la cuerda…): lo que se juega al pulsar EMPEZAR, como la última vez con este ejercicio
+function lastLines(): [string, string] {
+  const trek = settings.mode === 'trek', w = nWaves(), waves = num('toFail') ? 'al fallo' : w ? `${w} ${trek ? 'tramos' : 'oleadas'}` : trek ? 'tramos sin fin' : 'oleadas sin fin';
+  const l1 = [rankName(), waves, ...(trek ? [] : [nLives() ? `${nLives()} vidas` : 'vidas sin límite'])].join(' · ');
+  const extra: string[] = [];
+  const optName = (k: string): string => String((FIELD[k]?.opts ?? []).find((o) => o[0] === settings[k])?.[1] ?? '');
+  if (trek && settings.exercise === 'pushup' && num('trekFly')) extra.push(settings.flyMap ? `volando sobre ${optName('flyMap').replace(/ \(.*$/, '')}` : 'volando');
+  if (trek && num('trekAuto') && ['pushup', 'lunge'].includes(String(settings.exercise))) extra.push(settings.exercise === 'pushup' ? 'avance solo' : 'zancada estática');
+  if (trek && num('trekHills')) extra.push('con cuestas');
+  if (settings.mode === 'bars' && settings.exercise === 'row' && settings.barPara) extra.push('parapente');
+  else if (settings.mode === 'bars' && settings.exercise === 'row' && num('barRope') > 0) extra.push('aventura en la cuerda');
+  if (!extra.length) extra.push(`${exName(settings.exercise)} en ${MODE_NAMES[settings.mode]}`);
+  return [l1, extra.join(' · ')];
+}
+
+// La columna de la derecha: EMPEZAR (siempre a la vista: elegir un ejercicio y pulsarlo juega con lo de la última vez), cómo
+// será la ronda, la dificultad (galones, «Al fallo» y lo que marca el ojo del desarrollador) y salir
+function lobbyPlayRows(again: () => void, start: () => void, last: string): Row[] {
+  const fail = fieldVisible(FIELD.toFail), [l1, l2] = lastLines(), vr = MENU_ENV.enterVR;
+  const rows: Row[] = [
+    { t: 'btns', h: 0.12, items: [{ label: last ? 'OTRA RONDA' : 'EMPEZAR', style: 'primary', font: 0.42, onPress: start }] },
+    { t: 'text', text: l1, color: '#eeeaff' },
+    { t: 'text', text: l2, color: '#a49fc8' },
+    ...(last ? [{ t: 'text' as const, text: last, color: '#a49fc8' }] : []),
+    { t: 'btns', h: 0.05, items: RANKS.map(([v], i) => ({ label: '', badge: i, style: i === rankIdx() ? 'selected' : 'normal', tint: DIFF_COL, onPress: () => (setSetting('rank', v), again()) })) },
+    ...(fail ? [{ t: 'btns' as const, h: 0.045, items: [{ label: 'Al fallo (sin fin)', font: 0.42, style: num('toFail') ? 'selected' : 'normal', tint: DIFF_COL, onPress: () => (setSetting('toFail', num('toFail') ? 0 : 1), again()) }] }] : []),
+  ];
+  const eyeF = menuFull() ? [speedKey() ?? '', settings.mode === 'arcs' ? 'arcMax' : settings.mode === 'bars' && settings.exercise === 'hang' ? 'hangInc' : 'repsWave'] : devEye();
+  for (const key of eyeF) if (FIELD[key] && fieldVisible(FIELD[key]) && key !== 'toFail') rows.push({ t: 'field', key, after: FIELD[key].relayout ? again : undefined });
+  rows.push({ t: 'btns', h: 0.045, items: [vr ? { label: 'Entrar en VR', style: 'primary', font: 0.42, onPress: vr } : { label: 'Salir del juego', style: 'danger', font: 0.42, onPress: () => MENU_ENV.exit() }] });
+  return rows;
+}
+
+/** El menú principal (modelo A del usuario: en las gafas, la pantalla grande a distancia): arriba, las pestañas (Jugar y las de
+ * Opciones) y las metas de hoy; a la izquierda, el modo y el ejercicio en fichas con su cortinilla; a la derecha, EMPEZAR con
+ * lo de la última vez de ese ejercicio y la dificultad; abajo, Spotify. A la izquierda del menú, la columna «HOY». */
 export function lobbyMenu(last = ''): void {
   const again = (): void => lobbyMenu(last);
   const bars = settings.mode === 'bars', start = (): void => (bars && !HOOKS.eqPlaced() ? HOOKS.placeEq(`Antes de empezar, coloca ${settings.exercise === 'row' ? 'las paralelas' : 'la barra'}`) : HOOKS.startRound());
   const modes: RowItem[] = [
-    ...Object.entries(MODE_NAMES).map(([v, l]) => ({ label: l, style: PLAY_MODES.includes(v) ? (v === settings.mode ? 'selected' : 'normal') : 'ghost', fill: PLAY_MODES.includes(v) ? MODE_COL[v] : undefined, font: 0.48, onPress: () => (pickMode(v), again()) })),
-    { sep: true, flex: 0.2 },
-    { label: 'Sesiones', style: 'ghost', font: 0.48, onPress: () => say(SOON.ses) },
+    ...Object.entries(MODE_NAMES).map(([v, l]) => ({ label: l, style: PLAY_MODES.includes(v) ? (v === settings.mode ? 'selected' : 'normal') : 'ghost', fill: PLAY_MODES.includes(v) ? MODE_COL[v] : undefined, font: 0.44, onPress: () => (pickMode(v), again()) })),
+    { label: 'Sesiones', style: 'ghost', font: 0.44, onPress: () => say(SOON.ses) },
   ];
-  const box = (title: string, color: string, rows: Row[]): Row[] => (rows.length ? [{ t: 'cols', titles: [title], colors: [color], cols: [rows] }] : []);
-  const exR = lobbyExRows(again).filter((r) => r.t !== 'field' || fieldVisible(FIELD[r.key]));
-  const vr = MENU_ENV.enterVR;
+  // (las columnas: 60 % y 40 % del ancho, como en openMenu: lo que queda tras los huecos y su margen)
+  const FR = [0.6, 0.4], colW = (MW - 0.044 - GAP * 2) * FR[0] - 0.024;
+  const known = comboKnown();
   const rows: Row[] = [
-    { t: 'title', text: '', big: { label: last ? 'OTRA RONDA' : 'EMPEZAR', onPress: start } },
-    ...(last ? [{ t: 'text' as const, text: last, color: '#a49fc8' }] : []),
-    { t: 'btns', h: 0.1, items: goalTiles() },
-    ...box('Modo', MODE_BOX, [{ t: 'btns', h: 0.06, items: modes }]),
-    ...box(`Ejercicio · ${MODE_NAMES[settings.mode]}`, EX_COL, exR),
-    ...box('Dificultad', DIFF_COL, lobbyDiffRows(again).filter((r) => r.t !== 'field' || fieldVisible(FIELD[r.key]))),
+    topTabs('play'),
+    { t: 'btns', h: 0.09, items: goalTiles() },
+    {
+      t: 'cols',
+      fr: FR,
+      lw: [0.165, 0.12], // (a la derecha, la etiqueta de los ajustes más corta: si no, no cabía su valor)
+      titles: [`Modo y ejercicio · ${MODE_NAMES[settings.mode]}`, known ? 'Como la última vez' : 'Tu ronda'],
+      colors: [MODE_COL[settings.mode] || MODE_BOX, DIFF_COL],
+      cols: [
+        [{ t: 'btns', h: 0.05, items: modes }, ...lobbyExRows(again, colW).filter((r) => r.t !== 'field' || fieldVisible(FIELD[r.key]))],
+        lobbyPlayRows(again, start, last),
+      ],
+    },
     ...spWideRows(), // (Spotify: lo que suena y sus mandos, si está conectado; RepArena: spWideRows)
-    { t: 'btns', h: 0.052, items: [{ label: 'Opciones  ▸', flex: 3, accent: MC.set, onPress: () => optionsMenu() }, vr ? { label: 'Entrar en VR', style: 'primary', onPress: vr } : { label: 'Salir', style: 'danger', onPress: () => MENU_ENV.exit() }] },
   ];
-  const m = openMenu(rows, {}, 'lobby');
+  const m = openMenu(rows, { noClose: true }, 'lobby');
   m.rebuild = again;
   goalSide(m); // (a la izquierda, la columna «HOY»)
+  // (las fichas de este modo, cuando llegan sus imágenes: el menú se rehace una vez)
+  FICHAS.onReady = (mode) => {
+    if (UI.menu === m && mode === settings.mode) again();
+  };
 }
 
 // ---------------------------------------------------------------- Opciones
@@ -352,17 +364,13 @@ function settingsRows(go: (g: string) => void, back: (() => void) | null): Row[]
 /** Opciones: todo lo que no está en el principal, en pestañas con su color; «Volver» deja el principal en el mismo sitio. */
 export function optionsMenu(): void {
   const again = (): void => optionsMenu();
-  const tabs: [string, string, string][] = [...(isCombat() ? [['foes', 'Rivales y armas', MC.foes] as [string, string, string]] : armsAny() ? [['foes', 'Armas', MC.arms] as [string, string, string]] : []), ['prog', 'Progreso', PROG_COL], ['sound', 'Sonido', MC.sound], ['scene', 'Entorno', MC.scene], ['set', 'Ajustes', MC.set]];
+  const tabs = optTabs();
   if (!tabs.some((t) => t[0] === LOBBY.opt)) LOBBY.opt = tabs[0][0];
   const o = LOBBY.opt, col = tabs.find((t) => t[0] === o)![2];
   const body = o === 'foes' ? (isCombat() ? foesRows(again, armsAny()) : armsRows(again)) : o === 'prog' ? progRows(again) : o === 'sound' ? soundRows(again, again) : o === 'scene' ? sceneRows(again) : settingsRows((g) => ((LOBBY.tab = g), uiSave('tab', g), again()), null);
-  const rows: Row[] = [
-    { t: 'title', text: 'OPCIONES', color: col },
-    { t: 'btns', h: 0.052, items: tabs.map(([k, l, c2]) => ({ label: l, style: k === o ? 'selected' : 'normal', accent: c2, tint: c2, font: 0.44, onPress: () => ((LOBBY.opt = k), uiSave('lobbyOpt', k), (LOBBY.resetArm = ''), again()) })) },
-    ...body.filter((r) => r.t !== 'field' || fieldVisible(FIELD[r.key])),
-    { t: 'btns', items: [{ label: 'Volver', onPress: () => lobbyMenu() }] },
-  ];
-  const m = openMenu(rows, { accent: col }, 'options');
+  // (las mismas pestañas que el principal: «Jugar» vuelve a él)
+  const rows: Row[] = [topTabs(o), ...body.filter((r) => r.t !== 'field' || fieldVisible(FIELD[r.key]))];
+  const m = openMenu(rows, { accent: col, noClose: true }, 'options');
   m.rebuild = again;
 }
 
@@ -410,6 +418,61 @@ export function pauseMenu(): void {
   );
   m.rebuild = pauseMenu;
   PAUSE.diag = false; // (el aviso, solo esta vez)
+}
+
+// ---------------------------------------------------------------- la tira rápida de la muñeca
+
+/** La tira rápida (modelo 3 del usuario): lo que se cambia sin parar la ronda. Su pestaña y cuándo se tocó por última vez (en
+ * plancha se cierra sola si no la tocas). */
+export const QUICK = { tab: '', pressT: 0 };
+/** Lo de esta partida que se puede cambiar sobre la marcha (según lo que juegas). */
+function quickFields(): string[] {
+  const trek = settings.mode === 'trek', fly = trek && settings.exercise === 'pushup' && num('trekFly') > 0, map = fly && !!settings.flyMap;
+  const para = settings.mode === 'bars' && settings.exercise === 'row' && !!settings.barPara;
+  const k: string[] = [];
+  if (map || para) k.push('flyMapSharp', 'flyMapBank');
+  else if (fly) k.push('flyGauges');
+  else if (trek) k.push('trekCurves');
+  if (settings.mode === 'combat' || settings.mode === 'touch' || settings.mode === 'arcs') k.push('ambient');
+  k.push('handsNew');
+  return k.filter((x) => FIELD[x] && fieldVisible(FIELD[x]));
+}
+/** Abre la tira rápida: de pie, sale de la muñeca; en plancha (`low`), en el suelo delante de las manos. Dos pestañas: la
+ * música y esta partida (lo que se puede cambiar ahora), y abajo recolocarte y PAUSA (que abre el menú grande). */
+export function quickMenu(low = false): void {
+  const again = (): void => quickMenu(low);
+  const touch = (f: () => void) => (): void => {
+    QUICK.pressT = performance.now() / 1000;
+    f();
+  };
+  const fields = quickFields();
+  if (!QUICK.tab) QUICK.tab = fields.length ? 'game' : 'music';
+  const tab = QUICK.tab, bars = settings.mode === 'bars';
+  const rows: Row[] = [
+    { t: 'title', text: tab === 'music' ? 'MÚSICA' : 'ESTA PARTIDA', h: 0.06 },
+    { t: 'tabs', items: [
+      { label: 'Música', on: tab === 'music', onPress: touch(() => ((QUICK.tab = 'music'), again())) },
+      { label: 'Esta partida', on: tab === 'game', onPress: touch(() => ((QUICK.tab = 'game'), again())) },
+    ] },
+  ];
+  if (tab === 'music') {
+    const sp = spWideRows();
+    if (sp.length) rows.push(...(sp as Row[]));
+    else rows.push({ t: 'text', text: 'Spotify sin conectar: en el menú grande, Sonido → Música', color: '#a49fc8' });
+    rows.push({ t: 'field', key: 'volume' });
+  } else {
+    if (!fields.length) rows.push({ t: 'text', text: 'Nada que cambiar en este ejercicio', color: '#a49fc8' });
+    for (const k of fields) rows.push({ t: 'field', key: k, after: () => (QUICK.pressT = performance.now() / 1000) });
+    if (settings.mode === 'trek' && settings.exercise === 'pushup' && num('trekFly') > 0)
+      rows.push({ t: 'btns', items: [{ label: 'Ajustar el vuelo', accent: '#3cf0c6', onPress: touch(() => (HOOKS.flyCoach(), hideMenu(), HOOKS.toast('Ajuste del vuelo: en el próximo cofre', '#3cf0c6', 3))) }] });
+  }
+  rows.push({ t: 'btns', h: 0.065, items: [
+    { label: bars ? 'Volver a colgarme' : 'Recalibrar', accent: MC.body, onPress: touch(() => (hideMenu(), HOOKS.recalibrate())) },
+    { label: 'PAUSA', style: 'primary', font: 0.5, onPress: touch(() => (hideMenu(), HOOKS.pause())) },
+  ] });
+  QUICK.pressT = performance.now() / 1000;
+  const m = openMenu(rows, { accent: '#3cf0c6', ...(low ? { anchor: lowAnchor(), low: true } : {}) }, 'quick');
+  m.rebuild = again;
 }
 
 /** El resumen de la ronda (opción A): dónde acabó, el número grande, la medalla y las perfectas, tres casillas y un logro; y

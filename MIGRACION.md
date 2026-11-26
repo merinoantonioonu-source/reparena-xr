@@ -187,6 +187,11 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
     colgado por tramo, la montaña de abajo arriba —valle, bosque, garganta y cima— donde todo nace de algo, y cada remo, un tirón)
 - [ ] **Lo que se ve desde cada postura, el superman, las cuestas y Arcos** (plan trazado con el usuario el 22/11/2026, por
   bloques, un PR cada uno: `docs/PLAN-ERGONOMIA-Y-CUESTAS.md`; quién hace cada parte, en su apartado 0)
+- [ ] **El menú grande y la tira de la muñeca** (modelos «A + 3» elegidos por el usuario con los modelos visuales: el menú
+  grande fijo a 2,5 m que se pulsa con el rayo, con imán y la tecla de antes del pellizco; los ejercicios en fichas con su
+  cortinilla; EMPEZAR siempre a la vista con lo de la última vez; la tira rápida de la muñeca en plena ronda, también en
+  plancha; y cada ejercicio recuerda todo lo suyo, también lo de RepArena XR y la Travesía) — falta que el usuario lo pruebe
+  en las gafas
 
 ## Los PR
 
@@ -429,6 +434,19 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 ## Notas para el siguiente PR
 
 *(Las deja quien acaba cada PR: lo que el siguiente tiene que saber.)*
+
+- **El menú grande y la tira de la muñeca** (modelos «A + 3» del usuario): en las gafas, `openMenu` decide el sitio por el tipo
+  de menú: los de `NEAR_KINDS` (`perks`, `quick`) salen de la muñeca; los que llevan `anchor` o `low`, donde digan (el
+  asistente del vuelo y la tira en plancha, en el suelo: `lowAnchor`); todos los demás son el grande (`Menu.far`), en
+  `UI.far` (`farAnchor`: se queda en su sitio de la habitación mientras te quede delante; `farRecall` lo trae) y escalado con
+  `farScale` (la bandeja de 90 cm, a 2,5 m, mide 2,25 m: el mismo tamaño a la vista que antes al alcance de la mano). El
+  atril y «Menú en» ya no se usan (`menuWhere` y `menuDist` siguen en el esquema, escondidos, por RepArena; en el ordenador el
+  menú sale como siempre). El rayo (`RaMenuSystem.rayAt`, `raySet`, `inMagnet`): imán de 3 cm y, al apretar, la tecla de
+  0,15 s antes si era una tecla. El botón MENÚ: en plena ronda, la tira (`quickMenu`); fuera o en pausa, trae el grande. En
+  plancha (cabeza a menos de 95 cm), la palma izquierda hacia la cara medio segundo abre la tira en el suelo. Las fichas de
+  los ejercicios, con `public/cortinillas/fichas` (un ejercicio nuevo, también su ficha: lo comprueba `cortinilla.test.ts`).
+  Lo de cada ejercicio: `comboKeysXr` (lo de RepArena XR de los grupos de siempre y todo el grupo `travesia`, menos
+  `XR_COMBO_SKIP`) se guarda en `reparenaxr-combos`, que también se sincroniza.
 
 - **Retos en la cuerda, parte 3 (un jefe en cada zona)**: `RopeBoss` admite otro jefe (`kind`, `at`, `throws`, `hits`;
   `nThrows`, `nHits`) y `ropeBosses(C)` da los de la ronda por orden (el demonio, el cíclope y el yeti en `MINI.at`, si la ronda

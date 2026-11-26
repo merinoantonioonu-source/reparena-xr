@@ -3,13 +3,15 @@
  * «?», el atril, el panel de la muñeca y su botón MENÚ), portado tal cual (opción B del usuario, PR 31).
  *  - Un menú es una lista de filas (título, texto, dibujo, botones, pestañas, fichas, opciones, ajustes del esquema o
  *    columnas en cajas) que se pinta en una bandeja de 90 cm de ancho con teclas planas encima (src/ui/ra/btn.ts).
- *  - En las gafas, con «Menú en: Muñeca» (de serie), sale de la muñeca izquierda y se queda quieto delante de ti, a
- *    «Distancia del menú de muñeca»; con «Atril», fijo delante de ti sobre su pie, colgando de su borde de arriba e
- *    inclinado hacia ti. Cada menú nuevo sale donde estaba el anterior.
- *  - Se pulsa con el dedo de cualquier mano (src/ui/ra/poke.ts) y con el rayo de la mano o del mando, pellizcando o con el
- *    gatillo (IWSDK: RayInteractable en el grupo de los menús).
+ *  - En las gafas (modelo A del usuario), el menú grande: fijo en la habitación, delante de ti a «Distancia del menú grande»
+ *    (2,5 m de serie) y a la altura de los ojos, del mismo tamaño a la vista que el de antes al alcance de la mano; se pulsa
+ *    con el rayo de la mano o del mando, pellizcando o con el gatillo (IWSDK: RayInteractable en el grupo de los menús), y
+ *    con el dedo si te acercas. Todos salen en el mismo sitio de la habitación (`UI.far`) hasta que lo traes delante.
+ *  - En la muñeca quedan las cartas de mejora y la tira rápida (modelo 3: `quickMenu`): salen de la muñeca izquierda y se
+ *    quedan quietas delante de ti, a «Distancia del menú de muñeca», y se pulsan con el dedo de cualquier mano
+ *    (src/ui/ra/poke.ts). En plancha, la tira sale en el suelo delante de las manos (`low`).
  */
-import { AdditiveBlending, BoxGeometry, CylinderGeometry, Group, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, Sprite, SpriteMaterial, TorusGeometry, Vector3 } from '@iwsdk/core';
+import { AdditiveBlending, Group, Matrix4, Mesh, MeshBasicMaterial, PlaneGeometry, Quaternion, Sprite, SpriteMaterial, Vector3 } from '@iwsdk/core';
 import type { Object3D, Texture } from '@iwsdk/core';
 import { FIELD, type FieldDef } from '../../core/schema.js';
 import { decimals, fmtNum, fmtVal, setSetting } from '../../core/settings.js';
@@ -48,6 +50,8 @@ export type Row =
 
 export interface MenuOpts {
   accent?: string;
+  /** En el suelo delante de las manos, tumbado hacia tu cara (en plancha: el asistente del vuelo y la tira rápida). */
+  low?: boolean;
   border?: string;
   noClose?: boolean;
   anchor?: Anchor;
@@ -84,6 +88,10 @@ export interface Menu extends PokeMenu {
   /** Qué menú es (para GAME.menu: lobby, options, pause, summary, perks…). */
   kind: string;
   perks?: boolean;
+  /** El menú grande, a distancia (en las gafas). */
+  far?: boolean;
+  /** En el suelo, delante de las manos. */
+  low?: boolean;
 }
 interface Anchor {
   pos: Vector3;
@@ -122,6 +130,8 @@ export const ENV = {
 export const UI = {
   menu: null as Menu | null,
   anchor: null as Anchor | null,
+  /** Dónde está el menú grande en la habitación (null: sale delante de ti la próxima vez). */
+  far: null as Anchor | null,
   lastAnchor: null as Anchor | null,
   lastAnchorT: -9,
 };
@@ -199,9 +209,36 @@ export function lowAnchor(): Anchor {
   return { pos, yaw: a };
 }
 
+/** La distancia del menú grande (m) y su escala: a 2,5 m, 2,5 veces la bandeja de 90 cm (2,25 m de ancho, unos 48° a la
+ * vista: como el de antes al alcance de la mano), y con «Tamaño del menú». */
+export const farDist = (): number => clamp(num('farDist') || 250, 150, 350) / 100;
+export const farScale = (): number => farDist() * (menuK() / 0.75);
+/** Dónde sale el menú grande: en el sitio de la habitación donde estaba, salvo que ya no quede delante de ti (más de 70° a un
+ * lado o lejos de donde lo dejaste): entonces, delante, a la altura de los ojos de pie, hacia donde apunta el cuerpo (en
+ * plancha, también: al levantarte lo tienes delante). */
+export function farAnchor(): Anchor {
+  const F = UI.far, yw = bodyYaw();
+  if (F) {
+    _f.copy(F.pos).sub(head.p);
+    _f.y = 0;
+    const d = _f.length(), dYaw = Math.abs(Math.atan2(Math.sin(F.yaw - yw), Math.cos(F.yaw - yw)));
+    if (d > 0.8 && d < farDist() + 1.5 && dYaw < (70 * Math.PI) / 180) return F;
+  }
+  const pos = head.p.clone();
+  pos.x -= Math.sin(yw) * farDist();
+  pos.z -= Math.cos(yw) * farDist();
+  pos.y = standHeadY() - 0.05; // (su centro, algo por debajo de los ojos de pie)
+  return (UI.far = { pos, yaw: yw });
+}
+/** Trae el menú grande delante de ti (la próxima vez que salga, o ya si hay uno a la vista). */
+export function farRecall(): void {
+  UI.far = null;
+}
+
 /** El tamaño del menú del atril («Tamaño del menú»; en la muñeca, el suyo). */
 export const menuK = (): number => Math.max(0.5, Math.min(1.2, (num('menuSize') || 75) / 100));
-const wristMenuOn = (): boolean => ENV.inXR() && settings.menuWhere === 'wrist';
+/** Los que salen de la muñeca (todos los demás, en las gafas, son el menú grande). */
+const NEAR_KINDS = new Set(['perks', 'quick']);
 /** La escala del panel de la muñeca a la distancia elegida (más lejos, más grande, para que se lea igual). */
 const WMS = 0.46;
 export const wristScale = (): number => WMS * clamp(num('wristDist') / 45, 0.8, 1.7);
@@ -263,12 +300,11 @@ export function hideMenu(keepAnchor = false): void {
       UI.lastAnchorT = performance.now() / 1000;
     }
     UI.anchor = null;
-    if (STAND.g) STAND.g.visible = false;
   }
   hintClear();
 }
 
-/** «✕ Cerrar»: el menú se recoge en la muñeca (o, en el atril, desaparece) y vuelve con el botón MENÚ. */
+/** «✕ Cerrar»: el menú se recoge en la muñeca (o, el grande, desaparece) y vuelve con el botón MENÚ. */
 export function menuClose(): void {
   const m = UI.menu;
   if (!m) return;
@@ -278,30 +314,7 @@ export function menuClose(): void {
   else {
     m.closed = true;
     m.group.visible = false;
-    if (STAND.g) STAND.g.visible = false;
   }
-}
-
-// ---------------------------------------------------------------- el atril
-
-const STAND: { g: Group | null; post: Mesh | null; strip: Mesh | null } = { g: null, post: null, strip: null };
-function makeStand(): void {
-  if (STAND.g || !ENV.root) return;
-  const g = new Group(), steel = new MeshStandardMaterial({ color: 0x8a93a6, roughness: 0.5, metalness: 0.3 }), dark = new MeshStandardMaterial({ color: 0x2a2f3a, roughness: 0.7 });
-  const glow = new MeshBasicMaterial({ color: 0x3cf0c6, toneMapped: false });
-  const base = new Mesh(new CylinderGeometry(0.2, 0.24, 0.04, 24), dark);
-  base.position.y = 0.02;
-  const ring = new Mesh(new TorusGeometry(0.21, 0.006, 4, 32), glow);
-  ring.position.y = 0.042;
-  ring.rotation.x = Math.PI / 2;
-  ring.userData.noInk = true;
-  const post = new Mesh(new CylinderGeometry(0.03, 0.035, 1, 12), steel);
-  const strip = new Mesh(new BoxGeometry(0.012, 1, 0.012), glow);
-  strip.userData.noInk = true;
-  g.add(base, ring, post, strip);
-  g.visible = false;
-  ENV.root.add(g);
-  Object.assign(STAND, { g, post, strip });
 }
 
 // ---------------------------------------------------------------- abrir un menú
@@ -334,12 +347,15 @@ export function openMenu(rows: Row[], opts: MenuOpts = {}, kind = 'options'): Me
 
 function openMenuNow(rows: Row[], opts: MenuOpts, kind: string): Menu {
   rows = rows.slice();
-  makeStand();
+  // en las gafas, el menú grande (salvo los de la muñeca y los del suelo): siempre en su sitio de la habitación
+  const far = ENV.inXR() && !opts.anchor && !opts.low && !NEAR_KINDS.has(kind);
   // con un menú abierto, el siguiente sale en el mismo sitio; si no hay ninguno, delante de ti
-  const old = UI.menu, wasClosed = !!(old && UI.anchor && old.closed), reuse = !!(old && UI.anchor), recent = !reuse && !opts.anchor && !!UI.lastAnchor && performance.now() / 1000 - UI.lastAnchorT < 2;
+  const old = UI.menu, wasClosed = !!(old && UI.anchor && old.closed && old.far === far), reuse = !!(old && UI.anchor && !!old.far === far), recent = !far && !reuse && !opts.anchor && !!UI.lastAnchor && performance.now() / 1000 - UI.lastAnchorT < 2;
   hideMenu(true);
-  if (recent) UI.anchor = UI.lastAnchor;
-  else if (!reuse) UI.anchor = opts.anchor || placeAnchor((0.75 * (opts.dist || num('menuDist'))) / 100);
+  if (far) UI.anchor = farAnchor();
+  else if (opts.anchor) UI.anchor = opts.anchor;
+  else if (recent) UI.anchor = UI.lastAnchor;
+  else if (!reuse) UI.anchor = placeAnchor((0.75 * (opts.dist || num('menuDist'))) / 100);
   POKE.need.left = POKE.need.right = true; // en el menú nuevo, el dedo que acaba de pulsar tiene que retirarse antes
   // en las gafas, todo menú lleva «✕ Cerrar» arriba a la derecha (salvo mientras colocas algo)
   const closable = ENV.inXR() && !opts.noClose && !ENV.placing();
@@ -621,43 +637,36 @@ function openMenuNow(rows: Row[], opts: MenuOpts, kind: string): Menu {
     y -= h + GAP;
   });
   // (la pregunta del asistente del vuelo, nunca en la muñeca: en el suelo delante de las manos, más tumbada hacia tu cara)
-  const coach = kind === 'coach', wrist = wristMenuOn() && !coach, k = menuK(), ksc = wrist ? wristScale() : ENV.inXR() ? k : 1, tilt = coach ? 0.95 : 0.38;
+  // (la pregunta del asistente del vuelo y la tira rápida en plancha: en el suelo delante de las manos, tumbadas hacia tu cara)
+  const low = !!opts.low || kind === 'coach', wrist = ENV.inXR() && !far && !low && NEAR_KINDS.has(kind), k = menuK(), fs = farScale();
+  const ksc = wrist ? wristScale() : far ? fs : ENV.inXR() ? k : 1, tilt = low ? 0.95 : 0.38;
   BTN.later = false;
   flatKeys(widgets.filter((w): w is Btn => w.kind === 'btn'), KEY_H / ksc);
   ENV.root?.add(group);
   upTex(group);
-  const m: Menu = { group, widgets, fieldRows, rows, W: MW, H, wrist, age: reuse ? 0.4 : 0, keypad: null, closed: false, kind };
+  const m: Menu = { group, widgets, fieldRows, rows, W: MW, H, wrist, far, low, age: reuse ? 0.4 : 0, keypad: null, closed: false, kind };
   UI.menu = m;
   if (wrist) {
     // en la muñeca: la postura la pone updateWristMenu; un menú nuevo sale solo delante de ti; el siguiente, en su sitio
     if (!reuse && !recent) wristOpen();
-    if (STAND.g) STAND.g.visible = false;
     wristPose(group, H);
+  } else if (far) {
+    // el grande: derecho, de cara a ti, con su centro en el ancla (sin bajar del suelo)
+    const A = UI.anchor!;
+    group.scale.setScalar(fs);
+    group.rotation.set(0, A.yaw, 0);
+    group.position.set(A.pos.x, Math.max(A.pos.y, (H * fs) / 2 + 0.12), A.pos.z);
   } else {
     // cuelga de su borde de arriba (inclinado hacia ti): el centro, más abajo y algo más cerca
     const A = UI.anchor!, s = ENV.inXR() ? k : 1, Hs = H * s, hz = (Hs / 2) * Math.sin(tilt);
     group.scale.setScalar(s);
     group.rotation.set(-tilt, A.yaw, 0);
     group.position.set(A.pos.x + hz * Math.sin(A.yaw), A.pos.y - (Hs / 2) * Math.cos(tilt), A.pos.z + hz * Math.cos(A.yaw));
-    const st = STAND.g;
-    if (st) {
-      st.visible = ENV.inXR() && settings.menuWhere === 'stand' && !coach;
-      if (st.visible) {
-        const nx = -Math.sin(A.yaw), nz = -Math.cos(A.yaw), postH = Math.max(0.1, group.position.y - (Hs / 2) * Math.cos(0.38) - 0.02);
-        st.position.set(group.position.x + nx * 0.06, 0, group.position.z + nz * 0.06);
-        STAND.post!.scale.y = postH;
-        STAND.post!.position.y = postH / 2;
-        STAND.strip!.scale.y = postH * 0.85;
-        STAND.strip!.position.set(0.034 * nx * 0, postH / 2, 0.034);
-        st.rotation.y = A.yaw;
-      }
-    }
   }
   if (wasClosed && !wrist) {
     // cerrado sigue cerrado (lo trae el botón de la muñeca)
     m.closed = true;
     group.visible = false;
-    if (STAND.g) STAND.g.visible = false;
   }
   return m;
 }
@@ -680,7 +689,7 @@ export function openKeypad(f: FieldDef, row: FieldRow | null, opt: Keypad['opt']
   if (!m) return;
   closeKeypad();
   const KW = 0.32, kw = 0.086, kh = 0.06, g = 0.01, dispH = 0.09, KH = PAD * 2 + dispH + 5 * kh + 5 * g;
-  const ksc = m.wrist ? wristScale() : ENV.inXR() ? menuK() : 1, kkh = KEY_H / ksc, kd = 0.01 / ksc;
+  const ksc = m.wrist ? wristScale() : m.far ? farScale() : ENV.inXR() ? menuK() : 1, kkh = KEY_H / ksc, kd = 0.01 / ksc;
   const grp = new Group();
   grp.position.set(0, 0, kkh + kd + 0.004 / ksc); // (por encima de las teclas del menú)
   m.group.add(grp);
