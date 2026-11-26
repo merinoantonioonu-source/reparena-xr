@@ -18,44 +18,53 @@ describe('el parapente: lo que manda el cuerpo', () => {
     expect(P.steer).toBe(0);
   });
 
-  it('un remo es un impulso: subes y coges marcha, y se va perdiendo', () => {
+  it('un remo es un impulso de altura (sin acelerar) y se va perdiendo', () => {
     const P = new ParaPilot();
     P.step(DT, mk({ rep: true }));
     expect(P.kicked).toBe(true);
+    expect(P.boosted).toBe(false);
     expect(P.reps).toBe(1);
-    expect(P.climb).toBeGreaterThan(0.15);
-    expect(P.gear).toBeGreaterThan(PARA.gear0 + 0.5);
-    const c0 = P.climb, g0 = P.gear;
+    expect(P.climb).toBeGreaterThan(0.25);
+    expect(P.gear).toBeCloseTo(PARA.gear0, 5);
+    const c0 = P.climb;
     run(P, 3, mk());
     expect(P.kicked).toBe(false);
     expect(P.climb).toBeLessThan(c0 * 0.5);
-    expect(P.gear).toBeLessThan(g0);
     // pasado un rato, otra vez planeando hacia abajo y a la marcha de planeo
     run(P, 20, mk());
     expect(P.climb).toBeLessThan(0);
     expect(P.gear).toBeCloseTo(PARA.gear0, 3);
   });
 
-  it('remando seguido subes de verdad y coges marcha, sin pasar del tope', () => {
-    const P = new ParaPilot();
+  it('remando seguido subes de verdad; con remos explosivos, además, coges marcha sin pasar del tope', () => {
+    const P = new ParaPilot(), Q = new ParaPilot();
     let sum = 0, n = 0;
     for (let t = 0; t < 60; t += DT) {
-      P.step(DT, mk({ rep: Math.floor(t / 3) !== Math.floor((t - DT) / 3) }));
+      const rep = Math.floor(t / 3) !== Math.floor((t - DT) / 3);
+      P.step(DT, mk({ rep }));
+      Q.step(DT, mk({ rep, fast: true }));
       sum += P.climb;
       n++;
     }
-    expect(sum / n).toBeGreaterThan(0.08);
-    expect(P.gear).toBeGreaterThan(3);
+    expect(sum / n).toBeGreaterThan(0.15);
+    expect(P.gear).toBeCloseTo(PARA.gear0, 5);
+    expect(Q.gear).toBeGreaterThan(5);
+    expect(Q.gear).toBeLessThanOrEqual(PARA.gearMax);
     expect(P.gear).toBeLessThanOrEqual(PARA.gearMax);
     expect(P.climb).toBeLessThanOrEqual(1);
   });
 
-  it('el remo explosivo da más', () => {
+  it('el remo explosivo sube lo mismo y además mete una marcha, que se pierde despacio hasta la de crucero', () => {
     const A = new ParaPilot(), B = new ParaPilot();
     A.step(DT, mk({ rep: true }));
     B.step(DT, mk({ rep: true, fast: true }));
-    expect(B.climb).toBeGreaterThan(A.climb);
-    expect(B.gear).toBeGreaterThan(A.gear);
+    expect(B.climb).toBeCloseTo(A.climb, 5);
+    expect(B.boosted).toBe(true);
+    expect(B.gear).toBeCloseTo(PARA.gear0 + PARA.gearFast, 2);
+    run(B, 5, mk());
+    expect(B.gear).toBeGreaterThan(PARA.gear0 + PARA.gearFast * 0.5);
+    run(B, 30, mk());
+    expect(B.gear).toBeCloseTo(PARA.gear0, 3);
   });
 
   it('irte a un lado vira hacia ese lado, en proporción; un poco no cuenta', () => {
@@ -76,7 +85,7 @@ describe('el parapente: lo que manda el cuerpo', () => {
 
   it('aguantar arriba frena, y al soltar vuelve la marcha que llevabas', () => {
     const P = new ParaPilot();
-    for (let i = 0; i < 4; i++) P.step(DT, mk({ rep: true }));
+    for (let i = 0; i < 4; i++) P.step(DT, mk({ rep: true, fast: true }));
     const g = P.gear;
     // un remo normal pasa por arriba un instante: no frena
     run(P, 0.3, mk({ up: 1 }));
@@ -151,11 +160,11 @@ describe('el parapente sobre el mapa (con el vuelo de la Travesía)', () => {
     expect(low.agl).toBeGreaterThanOrEqual(MAP.floor - 0.5);
   });
 
-  it('un remo cada 3 s te hace subir; uno cada 10 s, más o menos te mantiene', () => {
-    expect(fly(30, 3).F.agl).toBeGreaterThan(MAP.alt0 + 60);
-    const keep = fly(60, 10).F.agl;
-    expect(keep).toBeGreaterThan(MAP.alt0 - 60);
-    expect(keep).toBeLessThan(MAP.alt0 + 120);
+  it('un remo cada 3 s te hace subir (unos 15 m cada uno a ras de ciudad); uno cada 12 s, más o menos, te mantiene', () => {
+    expect(fly(30, 3).F.agl).toBeGreaterThan(MAP.alt0 + 70);
+    const keep = fly(120, 12).F.agl;
+    expect(keep).toBeGreaterThan(MAP.alt0 - 40);
+    expect(keep).toBeLessThan(MAP.alt0 + 40);
   });
 
   it('con los brazos estirados bajas de verdad: desde 260 m, a ras de ciudad en menos de medio minuto', () => {

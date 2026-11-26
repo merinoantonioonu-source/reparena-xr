@@ -1592,6 +1592,12 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   30 m hasta 200 m (`PARA_RING_AT`, lo de cerca primero y corrida media casilla en cada pasada) y el borde de abajo, 40 m por
   encima de lo más alto (`PARA_RING_CLEAR`). Probado sin gafas: con una torre de 300 m a 150 m, el aro a 380 m; bajando, a
   unos 17 m/s.
+  *Y para subir* (el usuario: «cuando subo con los dos brazos solo aumento la velocidad»): cada remo daba 10 m de altura (y
+  se perdían 5 m planeando hasta el siguiente: no se notaba) y media marcha. Elegido por el usuario, **el remo sube y el
+  explosivo acelera**: `climbK` 0,33 (unos 15 m por remo; uno cada 12 s mantiene), sin `gearRep` ni `liftFast`, y la marcha
+  solo con el explosivo (`gearFast`, `ParaPilot.boosted`). Explosivo es la subida en menos de `PARA.fastT` (0,4 s): el
+  detector pasa ahora lo que tardó (`BarHits.rep`, `dur`), porque su `fast` (un cuarto de «Duración mínima de una
+  PERFECTA», 0,3 s) casi nunca salía. El diagnóstico apunta lo que tarda cada subida, para afinar el 0,4 con el usuario.
   Además, en ese diagnóstico la imagen iba a 3072×3457 por ojo (antes, 2520×2640): a 72 imágenes por segundo el navegador
   de las Quest da un lienzo mayor y «Alta ×1,4» lo multiplica; sobre el mapa, 16-26 imágenes por segundo. Propuesto al
   usuario un tope de píxeles.

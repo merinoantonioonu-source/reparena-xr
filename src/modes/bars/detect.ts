@@ -29,7 +29,8 @@ export const powRgb = (p: number): [number, number, number] => {
 
 /** Lo que reciben las repeticiones y las ondas (targets.ts: BarField). */
 export interface BarHits {
-  rep(o: { perfect: boolean; fast: boolean }, env: BarsEnv, out: BarEvent[]): void;
+  /** `dur`: lo que tardó la subida (s; desde que despega de abajo hasta arriba). */
+  rep(o: { perfect: boolean; fast: boolean; dur?: number }, env: BarsEnv, out: BarEvent[]): void;
   blast(p: number, from: Vector3, env: BarsEnv, out: BarEvent[]): void;
 }
 
@@ -247,7 +248,7 @@ export class BarDetector {
         this.det = 'top';
         // aprende hacia dónde se desplaza la cabeza al subir (en el remo, hacia los pies)
         this.drift.lerp(_bl.set(HL.x - this.refXZ.x, 0, HL.z - this.refXZ.z), this.drift.lengthSq() ? 0.5 : 1);
-        this.rep({ perfect: dur >= pt * 0.5 && dur < 6, fast: pt > 0 && dur < pt * 0.25 }, env, out, hits);
+        this.rep({ perfect: dur >= pt * 0.5 && dur < 6, fast: pt > 0 && dur < pt * 0.25, dur }, env, out, hits);
         this.pwT = 0;
         this.pw = 1;
       } else if (y < this.ref + 0.05) {
@@ -282,7 +283,7 @@ export class BarDetector {
   }
 
   /** Una subida entera (RepArena: barRep): cuenta si no contó ya al reventar uno con la cabeza. */
-  private rep(o: { perfect: boolean; fast: boolean }, env: BarsEnv, out: BarEvent[], hits?: BarHits): void {
+  private rep(o: { perfect: boolean; fast: boolean; dur?: number }, env: BarsEnv, out: BarEvent[], hits?: BarHits): void {
     if (env.state !== 'play' || env.str('exercise') === 'hang' || this.contact) return; // ya contó al reventarlo con la cabeza
     out.push({ type: 'rep', perfect: o.perfect, fast: o.fast, contact: false });
     if (o.perfect) out.push({ type: 'snd', name: 'perfect', args: [] });

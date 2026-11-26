@@ -5,8 +5,11 @@
  * Cuelgas boca arriba de las paralelas, inclinado como en la silla de un parapente, y vuelas sobre el mapa (el mismo vuelo
  * de la Travesía: `MapFlight`, que aquí recibe ya decidido lo que sube y la marcha). Lo que manda el cuerpo:
  *
- * - **Tirón con los dos brazos** (un remo): un impulso que da altura y marcha y que se va perdiendo. Para seguir en el aire
- *   hay que seguir remando; el explosivo, más.
+ * - **Tirón con los dos brazos** (un remo): un impulso de altura que se va perdiendo. Para seguir en el aire hay que
+ *   seguir remando.
+ * - **Remo explosivo** (subir de golpe): además, **una marcha más** (elegido por el usuario: «el remo con los dos brazos
+ *   suba la altura, pero no se me ocurre cómo aumentar la velocidad»; como el acelerador de pie de un parapente, con los
+ *   brazos). La marcha se va perdiendo despacio hasta la de crucero.
  * - **Tirar más de un brazo** (el pecho y la cabeza se van hacia esa barra): viras hacia ese lado, más cuanto más te vas.
  * - **Aguantar arriba**: frenas (como tirando de los dos frenos) y te quedas casi en el sitio; al soltar, vuelve tu marcha.
  * - **Brazos estirados**: planeo de descanso, perdiendo altura despacio; aguantando así más de segundo y medio, **bajas**, cada
@@ -16,15 +19,14 @@
  * Lógica pura (sin IWSDK), con pruebas en `tests/unit/para.test.ts`.
  */
 export const PARA = {
-  /** El impulso de cada remo (y lo que suma de más el explosivo y el perfecto) y lo que tarda en perderse (s). */
+  /** El impulso de cada remo (y lo que suma de más el perfecto) y lo que tarda en perderse (s). */
   lift: 1,
-  liftFast: 0.5,
   liftPerfect: 0.15,
   liftTau: 2.5,
   liftMax: 3,
-  /** Lo que sube el impulso (× la subida de `MapFlight`: con 0,45, unos 20 m por remo y no se paraba de subir; la mitad) y
-   * lo que se pierde planeando (× su bajada: unos 1,8 m/s). */
-  climbK: 0.225,
+  /** Lo que sube el impulso (× la subida de `MapFlight`: unos 15 m por remo, que se note; con 20 y sin forma de bajar no se
+   * paraba de subir, y con 10 no se notaba) y lo que se pierde planeando (× su bajada: unos 1,8 m/s). */
+  climbK: 0.33,
   sink: 0.04,
   /** Bajar con los brazos estirados: lo cerca de abajo que cuenta como estirados (parte del recorrido), lo que hay que
    * aguantar así (s), lo que tarda en llegar al picado (s), lo que baja en el picado (× la bajada de `MapFlight`: unos
@@ -34,10 +36,11 @@ export const PARA = {
   diveRamp: 3,
   diveMax: 0.33,
   diveGear: 0.5,
-  /** La marcha: la de planeo (nunca menos), lo que suma cada remo, lo que se pierde por segundo y el tope. */
+  /** La marcha: la de crucero (nunca menos), la que suma un remo explosivo (solo él: el normal sube, no acelera), lo que
+   * se pierde por segundo y el tope; y cuándo un remo es explosivo (la subida, en menos de estos segundos). */
   gear0: 1,
-  gearRep: 0.6,
   gearFast: 1,
+  fastT: 0.4,
   gearLoss: 0.08,
   gearMax: 8,
   /** Frenar: aguantando arriba (desde esta parte de la subida) más de `brakeAfter` s; la marcha que queda del todo frenado
@@ -82,7 +85,7 @@ export interface ParaIn {
   low?: boolean;
   /** Lo que se ha ido tu cabeza a un lado desde que te colgaste (m; +, a tu derecha). */
   side: number;
-  /** ¿Acabas de completar un remo? ¿Explosivo? ¿Perfecto? */
+  /** ¿Acabas de completar un remo? ¿Explosivo (la subida, en menos de `PARA.fastT`)? ¿Perfecto? */
   rep: boolean;
   fast: boolean;
   perfect: boolean;
@@ -104,8 +107,9 @@ export class ParaPilot {
   /** Los remos de esta oleada y de la ronda. */
   reps = 0;
   total = 0;
-  /** ¿Acaba de entrar un impulso? (para que se note: vibración y golpe de aire) */
+  /** ¿Acaba de entrar un impulso? ¿Y una marcha (un remo explosivo)? (para que se note: vibración y golpe de aire) */
   kicked = false;
+  boosted = false;
   /** Lo que bajas con los brazos estirados (0-1: 1, el picado) y cuánto llevas así (s). */
   dive = 0;
   private lowT = 0;
@@ -116,7 +120,7 @@ export class ParaPilot {
     this.lift = this.brake = this.steer = this.climb = this.topT = this.dive = this.lowT = 0;
     this.stored = this.gear = PARA.gear0;
     this.reps = this.total = 0;
-    this.kicked = false;
+    this.kicked = this.boosted = false;
   }
 
   /** Empieza una oleada: sus remos, de cero (el vuelo sigue como iba). */
@@ -126,7 +130,7 @@ export class ParaPilot {
 
   /** Un fotograma. */
   step(dt: number, I: ParaIn): void {
-    this.kicked = false;
+    this.kicked = this.boosted = false;
     if (dt <= 0) return;
     if (!I.playing) {
       // en el descanso planeas solo: recto, sin perder altura y a la marcha de planeo
@@ -137,10 +141,14 @@ export class ParaPilot {
       this.gear = this.stored;
       return;
     }
-    // el remo: un impulso de altura y de marcha
+    // el remo: un impulso de altura (y, el explosivo, una marcha)
     if (I.rep) {
-      this.lift = Math.min(PARA.liftMax, this.lift + PARA.lift + (I.fast ? PARA.liftFast : 0) + (I.perfect ? PARA.liftPerfect : 0));
-      this.stored = Math.min(PARA.gearMax, this.stored + (I.fast ? PARA.gearFast : PARA.gearRep));
+      this.lift = Math.min(PARA.liftMax, this.lift + PARA.lift + (I.perfect ? PARA.liftPerfect : 0));
+      // (solo el explosivo acelera)
+      if (I.fast) {
+        this.stored = Math.min(PARA.gearMax, this.stored + PARA.gearFast);
+        this.boosted = true;
+      }
       this.reps++;
       this.total++;
       this.kicked = true;
