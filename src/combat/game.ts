@@ -728,7 +728,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
           const far = (m: number): string => (m >= 1000 ? `${(m / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(m / 10) * 10} m`);
           lines[0] = h.mount ? 'Parapente: a las paralelas' : `Remos: faltan ${h.paraLeft}`;
           if (M) {
-            lines[1] = `${Math.round(M.kmh)} km/h · a ${far(M.agl)} del suelo`;
+            lines[1] = `${Math.round(M.kmh)} km/h · a ${far(M.agl)} del suelo${M.vs < -3 ? ` · bajas ${Math.round(-M.vs)} m/s` : ''}`;
             lines[2] = M.next ? `Aro: ${M.next} · ${far(M.dist)}${Math.abs(M.dy) > 25 ? ` · ${M.dy > 0 ? 'sube' : 'baja'} ${far(Math.abs(M.dy))}` : ''}` : placeText(M.lat, M.lon);
           }
         } else if (h) lines[0] = settings.exercise === 'hang' ? `Colgado ${Math.floor(h.hold)} de ${Math.round(h.need)} s` : h.bossLeft !== null ? `${h.bossName}: le quedan ${h.bossLeft}` : h.ropeLeft !== null ? `Faltan ${h.ropeLeft} m${h.turbo ? ' · TURBO ×2' : ''}` : `Quedan ${h.left}`;

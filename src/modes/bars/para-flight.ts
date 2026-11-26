@@ -50,6 +50,9 @@ export class ParaFlight {
   private hidden: Object3D[] = [];
   private said = false;
   private logT = 0;
+  /** Las veces que se ha dicho en esta ronda que bajas y que frenas (solo las primeras). */
+  private toldDive = 0;
+  private toldBrake = 0;
 
   /** Las térmicas (columnas de aire que sube), la vela con sus líneas y el viento en la cara (segunda entrega). */
   readonly thermals = new Thermals();
@@ -68,6 +71,7 @@ export class ParaFlight {
     this.pilot.reset();
     this.thermals.reset();
     this.gaze = this.gazeT = 0;
+    this.toldDive = this.toldBrake = 0;
     MAPPILOT.gaze = -1;
   }
 
@@ -120,7 +124,7 @@ export class ParaFlight {
    * Cada fotograma: `live`, en partida y con el aparato en marcha; `paused`, en pausa (todo quieto); `playing`, colgado y en
    * la oleada (si no, planeas solo); `up`, lo subido que llevas el pecho en este remo (0-1).
    */
-  step(dt: number, live: boolean, paused: boolean, playing: boolean, up: number): void {
+  step(dt: number, live: boolean, paused: boolean, playing: boolean, up: number, low = false): void {
     const show = this.on && live && this.placed;
     if (show !== MAPPILOT.on) {
       MAPPILOT.on = show;
@@ -154,6 +158,7 @@ export class ParaFlight {
     const I = this.inp, P = this.pilot;
     I.playing = playing;
     I.up = up < 0 ? 0 : up > 1 ? 1 : up;
+    I.low = low;
     I.side = (head.p.x - this.head0.x) * this.right.x + (head.p.z - this.head0.z) * this.right.z;
     I.rep = playing && this.rep;
     I.fast = this.fast;
@@ -178,12 +183,21 @@ export class ParaFlight {
       haptic('left', 0.4, 140);
       haptic('right', 0.4, 140);
     }
+    const dove = P.dive > 0.05, braked = P.brake > 0.6;
     P.step(dt, I);
     MAPPILOT.shadow = true;
+    // que se entienda qué pasa (las primeras veces): bajando y frenando
+    if (!dove && P.dive > 0.05) {
+      haptic('left', 0.3, 60);
+      haptic('right', 0.3, 60);
+      if (this.toldDive++ < 2) HOOKS.say('Bajas · un remo lo corta', '#3cf0c6', 2.5, false);
+      diagEvent(`parapente: bajas con los brazos estirados · a ${Math.round(MAPPILOT.agl)} m del suelo`);
+    }
+    if (!braked && P.brake > 0.6 && this.toldBrake++ < 2) HOOKS.say('Frenas · baja para seguir', '#3cf0c6', 2.5, false);
     // el viento en la cara: más cerca (más fuerte) cuanto más deprisa vas
     if (!this.wind) this.wind = loopSound('viento', 1, 1);
     if (this.wind) {
-      const k = Math.min(1, Math.max(0, (P.gear - 0.3) / 5));
+      const k = Math.min(1, Math.max(0, (P.gear - 0.3) / 5 + P.dive * 0.5));
       this.wind.set(this.windAt.copy(head.p).setY(head.p.y + 4.5 - 4 * k));
     }
     MAPPILOT.steer = P.steer;
@@ -200,7 +214,7 @@ export class ParaFlight {
     this.logT -= dt;
     if (this.logT <= 0) {
       this.logT = 4;
-      diagEvent(`parapente: ${playing ? 'colgado' : 'planea solo'} · subido ${I.up.toFixed(2)} · de lado ${Math.round(I.side * 100)} cm · vira ${P.steer.toFixed(2)} · sube ${P.climb.toFixed(2)} · marcha ${P.gear.toFixed(1)} · miras a ${MAPPILOT.gaze < 0 ? '?' : Math.round(MAPPILOT.gaze)}° (mapa a ${Math.round((MAPPILOT.pitch * 180) / Math.PI)}°)`);
+      diagEvent(`parapente: ${playing ? 'colgado' : 'planea solo'} · subido ${I.up.toFixed(2)} · de lado ${Math.round(I.side * 100)} cm · vira ${P.steer.toFixed(2)} · sube ${P.climb.toFixed(2)}${P.dive > 0 ? ` (baja ${P.dive.toFixed(2)})` : ''} · marcha ${P.gear.toFixed(1)} · miras a ${MAPPILOT.gaze < 0 ? '?' : Math.round(MAPPILOT.gaze)}° (mapa a ${Math.round((MAPPILOT.pitch * 180) / Math.PI)}°)`);
     }
   }
 

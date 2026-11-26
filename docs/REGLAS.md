@@ -488,14 +488,22 @@ No las cambies sin preguntarle.
   suelo mientras remas, de 5 en 5). **De pie, el mapa se pone derecho** (la cabeza por encima de las paralelas; al volver a
   tumbarte se inclina otra vez, suave): nunca se ve del revés. El cielo, de un solo color. Los mandos:
   - **Tirón con los dos brazos** (un remo): un impulso que da altura y marcha y que se va perdiendo; para seguir en el aire
-    hay que seguir remando (uno cada 10 s, más o menos, mantiene la altura; el explosivo da más). Se nota: vibración y un
-    golpe de aire.
+    hay que seguir remando (uno cada 5 s, más o menos, mantiene la altura; el explosivo da más; cada remo sube unos 10 m: con
+    20, remando no se paraba de subir). Se nota: vibración y un golpe de aire.
   - **Tirar más de un brazo** (el pecho y la cabeza se van hacia esa barra): viras hacia ese lado, más cuanto más te vas (3 cm
     no cuentan; del todo, con 14 cm).
-  - **Aguantar arriba** (más de medio segundo): frenas, como con los dos frenos, y te quedas casi en el sitio; al soltar,
-    vuelve la marcha que llevabas.
-  - **Brazos estirados**: planeo de descanso, perdiendo altura despacio (unos 2 m/s). Nunca te caes: el suelo y los tejados
-    te sostienen.
+  - **Aguantar arriba** (más de medio segundo): frenas, como con los dos frenos, y te quedas casi en el sitio («Frenas», las
+    primeras veces); al soltar, vuelve la marcha que llevabas. **Sin carga ni onda** (el usuario veía «CARGA» sin saber qué
+    era: es la del remo de las pompas, que aquí no sirve).
+  - **Brazos estirados, bajas** (elegido por el usuario: «no veo cómo puedo bajar»; abajo en el cuerpo, abajo en el aire):
+    un momento con los brazos estirados es planeo de descanso, perdiendo altura despacio (unos 2 m/s); **aguantando así más
+    de segundo y medio, bajas, cada vez más deprisa hasta un picado** (unos 15 m/s a ras de ciudad, más desde lo alto; con
+    algo más de marcha y de viento; «Bajas · un remo lo corta», las primeras veces, y el marcador dice lo que bajas). El
+    siguiente remo lo corta. Nunca te caes: el suelo y los tejados te sostienen.
+  - **Los aros, siempre por encima de los edificios** (pedido del usuario: «se colocan entre edificios y es muy difícil
+    maniobrar para pasar por ellos… tienen que quedar siempre encima de los edificios, para que no tenga que pasar entre
+    ellos salvo que yo quiera»): cada aro mira todo lo que tiene alrededor (200 m) y su borde de abajo pasa 40 m por encima
+    de lo más alto. (En la Travesía, como antes: por encima de lo que tienen debajo.)
   **Soltarte no quita vidas** (el usuario «murió» sin saber por qué: las gafas dejaron de ver sus manos al mirar hacia los
   pies y el juego contó tres caídas): en el parapente, soltar una mano o que las gafas no las vean no es soltarse; solo irte
   de las paralelas (o la cabeza en el suelo), y entonces planea solo hasta que vuelves, sin perder vidas.

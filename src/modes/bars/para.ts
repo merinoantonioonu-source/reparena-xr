@@ -9,7 +9,9 @@
  *   hay que seguir remando; el explosivo, más.
  * - **Tirar más de un brazo** (el pecho y la cabeza se van hacia esa barra): viras hacia ese lado, más cuanto más te vas.
  * - **Aguantar arriba**: frenas (como tirando de los dos frenos) y te quedas casi en el sitio; al soltar, vuelve tu marcha.
- * - **Brazos estirados**: planeo de descanso, perdiendo altura despacio. Nunca te caes: el suelo y los tejados te sostienen.
+ * - **Brazos estirados**: planeo de descanso, perdiendo altura despacio; aguantando así más de segundo y medio, **bajas**, cada
+ *   vez más deprisa hasta un picado (elegido por el usuario: «no veo cómo puedo bajar»; abajo en el cuerpo, abajo en el
+ *   aire). El siguiente remo lo corta. Nunca te caes: el suelo y los tejados te sostienen.
  *
  * Lógica pura (sin IWSDK), con pruebas en `tests/unit/para.test.ts`.
  */
@@ -20,9 +22,18 @@ export const PARA = {
   liftPerfect: 0.15,
   liftTau: 2.5,
   liftMax: 3,
-  /** Lo que sube el impulso (× la subida de `MapFlight`) y lo que se pierde planeando (× su bajada: unos 1,8 m/s). */
-  climbK: 0.45,
+  /** Lo que sube el impulso (× la subida de `MapFlight`: con 0,45, unos 20 m por remo y no se paraba de subir; la mitad) y
+   * lo que se pierde planeando (× su bajada: unos 1,8 m/s). */
+  climbK: 0.225,
   sink: 0.04,
+  /** Bajar con los brazos estirados: lo cerca de abajo que cuenta como estirados (parte del recorrido), lo que hay que
+   * aguantar así (s), lo que tarda en llegar al picado (s), lo que baja en el picado (× la bajada de `MapFlight`: unos
+   * 15 m/s a ras de ciudad, más arriba más) y la marcha que gana (parte de la que llevas). */
+  lowUp: 0.2,
+  diveAfter: 1.5,
+  diveRamp: 3,
+  diveMax: 0.33,
+  diveGear: 0.5,
   /** La marcha: la de planeo (nunca menos), lo que suma cada remo, lo que se pierde por segundo y el tope. */
   gear0: 1,
   gearRep: 0.6,
@@ -67,6 +78,8 @@ export interface ParaIn {
   playing: boolean;
   /** Lo subido que llevas el pecho en este remo (0, brazos estirados; 1, en las barras). */
   up: number;
+  /** ¿Brazos estirados? (la cabeza cerca de la referencia de abajo; para bajar) */
+  low?: boolean;
   /** Lo que se ha ido tu cabeza a un lado desde que te colgaste (m; +, a tu derecha). */
   side: number;
   /** ¿Acabas de completar un remo? ¿Explosivo? ¿Perfecto? */
@@ -93,11 +106,14 @@ export class ParaPilot {
   total = 0;
   /** ¿Acaba de entrar un impulso? (para que se note: vibración y golpe de aire) */
   kicked = false;
+  /** Lo que bajas con los brazos estirados (0-1: 1, el picado) y cuánto llevas así (s). */
+  dive = 0;
+  private lowT = 0;
   private topT = 0;
 
   /** Otra ronda: de cero. */
   reset(): void {
-    this.lift = this.brake = this.steer = this.climb = this.topT = 0;
+    this.lift = this.brake = this.steer = this.climb = this.topT = this.dive = this.lowT = 0;
     this.stored = this.gear = PARA.gear0;
     this.reps = this.total = 0;
     this.kicked = false;
@@ -114,7 +130,7 @@ export class ParaPilot {
     if (dt <= 0) return;
     if (!I.playing) {
       // en el descanso planeas solo: recto, sin perder altura y a la marcha de planeo
-      this.lift = this.brake = this.topT = 0;
+      this.lift = this.brake = this.topT = this.dive = this.lowT = 0;
       this.steer += (0 - this.steer) * (1 - Math.exp(-dt / PARA.sideTau));
       this.climb = 0;
       this.stored += (PARA.gear0 - this.stored) * (1 - Math.exp(-dt / 2));
@@ -131,15 +147,18 @@ export class ParaPilot {
     }
     // el impulso se pierde; sin él, planeas perdiendo altura despacio
     this.lift *= Math.exp(-dt / PARA.liftTau);
+    // con los brazos estirados un rato, bajas, cada vez más deprisa; un remo lo corta
+    this.lowT = I.low && !I.rep ? this.lowT + dt : 0;
+    this.dive = c01((this.lowT - PARA.diveAfter) / PARA.diveRamp);
     // (dentro de una térmica subes sin remar)
-    this.climb = Math.min(1, this.lift * PARA.climbK + (I.thermal ?? 0)) - PARA.sink;
+    this.climb = Math.min(1, this.lift * PARA.climbK + (I.thermal ?? 0)) - PARA.sink - this.dive * PARA.diveMax;
     // la marcha se va perdiendo hasta la de planeo
     this.stored = Math.max(PARA.gear0, this.stored - PARA.gearLoss * dt);
     // aguantar arriba frena (y al soltar vuelve la marcha que llevabas)
     this.topT = I.up >= PARA.brakeFrom ? this.topT + dt : 0;
     const want = this.topT > PARA.brakeAfter ? 1 : 0;
     this.brake += (want - this.brake) * (1 - Math.exp(-dt / (want ? PARA.brakeIn : PARA.brakeOut)));
-    this.gear = this.stored * (1 - (1 - PARA.brakeLeft) * this.brake);
+    this.gear = this.stored * (1 - (1 - PARA.brakeLeft) * this.brake) * (1 + PARA.diveGear * this.dive);
     // irte a un lado vira hacia ese lado, en proporción
     const a = Math.abs(I.side), s = Math.sign(I.side) * c01((a - PARA.sideDead) / (PARA.sideFull - PARA.sideDead));
     this.steer += (s - this.steer) * (1 - Math.exp(-dt / PARA.sideTau));

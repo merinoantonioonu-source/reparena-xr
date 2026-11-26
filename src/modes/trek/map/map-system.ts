@@ -50,6 +50,17 @@ const ANISO = 4;
 const PARA_CREDITS_AT = 2.4, PARA_CREDITS_LOW = 0.6;
 /** El aro se mide en su centro y en cuatro puntos de su borde (× su radio): vale lo más alto. */
 const RING_AT: readonly [number, number][] = [[0, 0], [0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]];
+/** En el parapente, los aros por encima de los edificios (pedido del usuario: «tienen que quedar siempre encima de los
+ * edificios para que no tenga que pasar entre ellos, salvo que yo quiera»): se mira todo lo que hay alrededor, hasta 200 m,
+ * en una rejilla de 30 m (lo de cerca, primero; en cada pasada, la rejilla se corre media casilla: así no se escapa una
+ * torre estrecha), y su borde de abajo pasa 40 m por encima de lo más alto; cuatro puntos cada vez. En metros. */
+const PARA_RING_STEP = 30, PARA_RING_R = 200;
+const PARA_RING_AT: readonly [number, number][] = (() => {
+  const out: [number, number][] = [], n = Math.ceil(PARA_RING_R / PARA_RING_STEP);
+  for (let i = -n; i <= n; i++) for (let k = -n; k <= n; k++) if (Math.hypot(i, k) * PARA_RING_STEP <= PARA_RING_R) out.push([i * PARA_RING_STEP, k * PARA_RING_STEP]);
+  return out.sort((a, b) => Math.hypot(a[0], a[1]) - Math.hypot(b[0], b[1]));
+})();
+const PARA_RING_CLEAR = 40, PARA_RING_PTS = 4;
 const AX_Y = new Vector3(0, 1, 0), AX_Z = new Vector3(0, 0, 1);
 /** La flecha al aro que viene: desde cuánto de lado sale y hasta cuánto se queda (rad), lo adelante que va (m por delante de
  * ti, en el suelo) y su tamaño (× el de antes). Los créditos del mapa: lo atrás que van (m hacia los pies) y su tamaño. */
@@ -124,6 +135,8 @@ export class MapSystem extends createSystem({}) {
   private ringT = 0;
   private wallT = 0;
   private ringPt = 0;
+  /** El aro que se está midiendo (al pasar al siguiente, se empieza por lo de cerca). */
+  private ringFor = -1;
   private gearSaid = false;
   private arrowOn = false;
   private lastT = 0;
@@ -346,7 +359,7 @@ export class MapSystem extends createSystem({}) {
     this.ringT -= dt;
     if (this.ringT <= 0) {
       this.ringT = RING_T;
-      if (F.rings.length && F.toward.dist < 5000) this.measureRing(F, F.next);
+      if (F.rings.length && F.toward.dist < 5000) for (let k = this.para ? PARA_RING_PTS : 1; k > 0; k--) this.measureRing(F, F.next);
     }
     // donde lo dejas (para «Donde lo dejaste»): cada pocos segundos, ya sobre el suelo de verdad
     this.lastT -= dt;
@@ -610,6 +623,7 @@ export class MapSystem extends createSystem({}) {
     this.nextState = 6;
     this.groundT = this.aheadT = this.ringT = this.wallT = 0;
     this.ringPt = 0;
+    this.ringFor = -1;
     this.gearSaid = false;
     this.aniso = Math.min(ANISO, (this.world.renderer as WebGLRenderer).capabilities.getMaxAnisotropy());
     this.root.visible = true;
@@ -628,8 +642,8 @@ export class MapSystem extends createSystem({}) {
   }
 
   /** Lo que enseñan el marcador y el panel de la ronda (null: sin mapa). Sin crear nada en cada fotograma. */
-  private readonly hudOut = { city: '', next: '', dist: 0, dy: 0, kmh: 0, agl: 0, got: 0, gear: 0, lat: 0, lon: 0 };
-  hud(): { city: string; next: string; dist: number; dy: number; kmh: number; agl: number; got: number; gear: number; lat: number; lon: number } | null {
+  private readonly hudOut = { city: '', next: '', dist: 0, dy: 0, kmh: 0, agl: 0, vs: 0, got: 0, gear: 0, lat: 0, lon: 0 };
+  hud(): { city: string; next: string; dist: number; dy: number; kmh: number; agl: number; vs: number; got: number; gear: number; lat: number; lon: number } | null {
     const F = this.flight;
     if (!this.active || !F) return null;
     const H = this.hudOut;
@@ -641,6 +655,7 @@ export class MapSystem extends createSystem({}) {
     H.dy = F.toward.dy;
     H.kmh = F.speed * 3.6;
     H.agl = F.agl;
+    H.vs = F.vs;
     H.got = F.got;
     return H;
   }
@@ -745,12 +760,24 @@ export class MapSystem extends createSystem({}) {
     return Number.isNaN(d) ? Infinity : d;
   }
 
-  /** El aro `i`, por encima de lo más alto que tenga debajo (un punto cada vez: su centro y cuatro de su borde). */
+  /** El aro `i`, por encima de lo más alto que tenga debajo (un punto cada vez: su centro y cuatro de su borde; en el
+   * parapente, todo lo de alrededor: `PARA_RING_AT`). */
   private measureRing(F: MapFlight, i: number): void {
-    const r = F.rings[i], [a, b] = RING_AT[this.ringPt++ % RING_AT.length];
-    const g = this.topAt(r.x + a * MAP.ringR, r.z + b * MAP.ringR, 0);
+    if (i !== this.ringFor) {
+      this.ringFor = i;
+      this.ringPt = 0;
+    }
+    const r = F.rings[i], n = this.ringPt++;
+    let g: number;
+    if (this.para) {
+      const [a, b] = PARA_RING_AT[n % PARA_RING_AT.length], o = Math.floor(n / PARA_RING_AT.length) % 2 ? PARA_RING_STEP / 2 : 0;
+      g = this.topAt(r.x + a + o, r.z + b + o, 0);
+    } else {
+      const [a, b] = RING_AT[n % RING_AT.length];
+      g = this.topAt(r.x + a * MAP.ringR, r.z + b * MAP.ringR, 0);
+    }
     if (Number.isNaN(g)) return;
-    const y = g + MAP.ringClear + MAP.ringR, y0 = F.ringY[i];
+    const y = g + (this.para ? PARA_RING_CLEAR : MAP.ringClear) + MAP.ringR, y0 = F.ringY[i];
     if (Number.isNaN(y0) || y > y0) F.ringY[i] = y;
   }
 

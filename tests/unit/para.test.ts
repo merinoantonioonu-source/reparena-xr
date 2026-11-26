@@ -23,7 +23,7 @@ describe('el parapente: lo que manda el cuerpo', () => {
     P.step(DT, mk({ rep: true }));
     expect(P.kicked).toBe(true);
     expect(P.reps).toBe(1);
-    expect(P.climb).toBeGreaterThan(0.3);
+    expect(P.climb).toBeGreaterThan(0.15);
     expect(P.gear).toBeGreaterThan(PARA.gear0 + 0.5);
     const c0 = P.climb, g0 = P.gear;
     run(P, 3, mk());
@@ -44,7 +44,7 @@ describe('el parapente: lo que manda el cuerpo', () => {
       sum += P.climb;
       n++;
     }
-    expect(sum / n).toBeGreaterThan(0.2);
+    expect(sum / n).toBeGreaterThan(0.08);
     expect(P.gear).toBeGreaterThan(3);
     expect(P.gear).toBeLessThanOrEqual(PARA.gearMax);
     expect(P.climb).toBeLessThanOrEqual(1);
@@ -87,6 +87,29 @@ describe('el parapente: lo que manda el cuerpo', () => {
     run(P, 2, mk({ up: 0 }));
     expect(P.brake).toBeLessThan(0.05);
     expect(P.gear).toBeGreaterThan(PARA.gear0);
+  });
+
+  it('con los brazos estirados un rato bajas, cada vez más deprisa hasta el picado; un remo lo corta', () => {
+    const P = new ParaPilot();
+    run(P, 1.2, mk({ low: true }));
+    expect(P.dive).toBe(0); // (aún no: un descanso corto entre remos no baja)
+    const glide = P.climb;
+    run(P, 1.5, mk({ low: true }));
+    expect(P.dive).toBeGreaterThan(0);
+    expect(P.dive).toBeLessThan(0.5);
+    run(P, 4, mk({ low: true }));
+    expect(P.dive).toBe(1);
+    expect(P.climb).toBeCloseTo(-PARA.sink - PARA.diveMax, 5);
+    expect(P.climb).toBeLessThan(glide - 0.3);
+    expect(P.gear).toBeGreaterThan(PARA.gear0 * 1.4); // (el picado gana marcha)
+    // un remo lo corta
+    P.step(DT, mk({ low: true, rep: true }));
+    expect(P.dive).toBe(0);
+    expect(P.climb).toBeGreaterThan(0);
+    // sin los brazos estirados (aguantando a media altura) no se baja
+    const Q = new ParaPilot();
+    run(Q, 8, mk({ low: false }));
+    expect(Q.dive).toBe(0);
   });
 
   it('en el descanso planea solo: recto, sin perder altura y sin contar remos', () => {
@@ -133,6 +156,21 @@ describe('el parapente sobre el mapa (con el vuelo de la Travesía)', () => {
     const keep = fly(60, 10).F.agl;
     expect(keep).toBeGreaterThan(MAP.alt0 - 60);
     expect(keep).toBeLessThan(MAP.alt0 + 120);
+  });
+
+  it('con los brazos estirados bajas de verdad: desde 260 m, a ras de ciudad en menos de medio minuto', () => {
+    const F = new MapFlight(CITIES[0]), P = new ParaPilot(), ctl = { climb: 0, gear: 1 };
+    const I: MapIn = { live: true, steer: 0, head: 0, ref: 0, lean: 0, kick: false, ctl };
+    F.setGround(CITIES[0].h);
+    let t = 0;
+    for (; t < 60 && F.agl > 40; t += DT) {
+      P.step(DT, mk({ low: true }));
+      ctl.climb = P.climb;
+      ctl.gear = P.gear;
+      F.step(DT, I);
+    }
+    expect(t).toBeLessThan(30);
+    expect(F.vs).toBeLessThan(-12);
   });
 
   it('tirando de un lado viras hacia ese lado', () => {

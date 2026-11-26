@@ -28,6 +28,7 @@ import type { BarEvent, BarsEnv, PlaceEnv } from './env.js';
 import { Placer, PLACE_HOLD, type PlaceEvent } from './place.js';
 import { BarField, HeadTarget, hangSecs, TGT } from './targets.js';
 import { ROPE, RopeCourse, RopeRun } from './rope.js';
+import { PARA } from './para.js';
 import { ROPE_WORLDS, worldPano } from './rope-worlds.js';
 import { buildTrials, RopeTrials, shooterOf, TRIAL_FAIL, TRIAL_PASS, trialKey, type Trial, type TrialEnv } from './rope-trials.js';
 import { RopeTrialsLook, type LookFrame } from './rope-trials-look.js';
@@ -579,8 +580,10 @@ export class BarsSystem extends createSystem({}) {
   // el parapente sobre el mapa: lo que mandas colgado (el remo, irte a un lado, aguantar arriba) va al mapa; en el descanso planea solo
   private stepPara(dt: number): void {
     const live = GAME.phase === 'playing' && this.mstate !== 'off', playing = this.mstate === 'play' && !GAME.between;
-    const up = playing && this.bar.det !== 'down' ? (head.p.y - this.bar.ref) / Math.max(0.05, barReq(this.env)) : 0;
-    this.para.step(dt, live, GAME.paused, playing, up);
+    const req = Math.max(0.05, barReq(this.env)), up = playing && this.bar.det !== 'down' ? (head.p.y - this.bar.ref) / req : 0;
+    // (brazos estirados: la cabeza cerca de donde quedaba al colgarte; para bajar)
+    const low = playing && head.p.y - this.bar.ref < req * PARA.lowUp;
+    this.para.step(dt, live, GAME.paused, playing, up, low);
   }
 
   // la cuerda: subes remando y, sin remar, resbalas un poco; al llegar al cofre del tramo, el tramo superado
