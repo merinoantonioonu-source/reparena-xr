@@ -54,3 +54,56 @@ export function errorAt(near: number, far: number, dist: number, agl: number): n
   const f = dist / fallDist(agl);
   return near + near * (far - 1) * (1 - Math.exp(-f * f));
 }
+
+/**
+ * La memoria del mapa. Con el detalle de «Alta» para todo lo que se ve, una ciudad como Nueva York pide más memoria de la
+ * que se le reserva (el registro del usuario: 631 MB a los 18 s, «llena») y la librería, con su memoria llena, **se
+ * bloquea**: no carga los trozos nuevos (los rechaza) y tampoco suelta los viejos, porque los da por «en uso» mientras no
+ * lleguen los que los sustituyen. Desde ese momento no se cargaba nada más: huecos de cielo donde faltaba mapa, lo demás
+ * sin afinarse y cambiar la nitidez no hacía nada.
+ *
+ * Así que la memoria no se llena nunca: su tope queda lejos (`hardMB`) y lo que se controla es **lo que se pide**. Un
+ * solo número, el apretón (`q`, de 0 a 2), afloja el detalle cuando lo que está en uso pasa del presupuesto (`budgetMB`):
+ * hasta 1, solo lo lejano (de × `far` a × `farMax`); de 1 a 2, también lo cercano (hasta × 2). Sube deprisa (pasarse es
+ * lo peligroso) y baja despacio. Con pocas imágenes por segundo aprieta también, pero solo lo lejano.
+ */
+export const MEM = {
+  /** Lo que se quiere tener en uso como mucho, lo que se guarda de lo ya visto (por si vuelves) y el tope de verdad (MB). */
+  budgetMB: 540,
+  keepMB: 560,
+  hardMB: 950,
+  /** Si aun así se llenara, el tope sube esto cada vez (hasta `ceilMB`): lleno, la librería no carga nada. */
+  bumpMB: 100,
+  ceilMB: 1300,
+  /** Lo que sube el apretón por segundo con la memoria al doble del presupuesto, y lo que baja por segundo con holgura. */
+  up: 1.6,
+  down: 0.1,
+  /** Por debajo de esta parte del presupuesto hay holgura (entre medias, se queda como está). */
+  slack: 0.82,
+  /** Las imágenes por segundo: por debajo de `fpsLow` aprieta lo lejano (esto por segundo); desde `fpsOk`, deja aflojar. */
+  fpsLow: 30,
+  fpsOk: 40,
+  fpsUp: 0.08,
+  /** Hasta dónde aprietan las imágenes por segundo (medio camino de lo lejano: lo demás, solo la memoria). */
+  fpsMax: 0.5,
+} as const;
+
+/**
+ * El apretón siguiente: `q` de ahora, lo que hay en uso (MB), las imágenes por segundo (0 = sin medir) y si se está
+ * cargando (cargando, las imágenes por segundo bajan por la carga misma y no cuentan).
+ */
+export function squeezeStep(q: number, usedMB: number, fps: number, loading: boolean, dt: number, budgetMB: number = MEM.budgetMB): number {
+  const p = usedMB / budgetMB;
+  if (p > 1) q += MEM.up * (p - 1) * dt + 0.04 * dt;
+  else if (fps > 0 && fps < MEM.fpsLow && !loading && q < MEM.fpsMax) q = Math.min(MEM.fpsMax, q + MEM.fpsUp * dt);
+  else if (p < MEM.slack && (fps <= 0 || fps >= MEM.fpsOk || loading)) q -= MEM.down * Math.min(1, (MEM.slack - p) / 0.3) * dt; // (más despacio al acercarse al presupuesto: sin vaivén)
+  return q < 0 ? 0 : q > 2 ? 2 : q;
+}
+
+/** Lo que el apretón afloja lo lejano (× el error de cerca) y lo cercano. */
+export function squeezeFar(q: number): number {
+  return DETAIL.far + (DETAIL.farMax - DETAIL.far) * clamp01(q);
+}
+export function squeezeNear(q: number): number {
+  return 1 + clamp01(q - 1);
+}
