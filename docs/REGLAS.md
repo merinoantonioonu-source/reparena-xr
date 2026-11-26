@@ -487,9 +487,14 @@ No las cambies sin preguntarle.
   en la tira, **«Ajustar a mi mirada»** pone los grados a los que mirabas colgado (lo que mira tu cabeza por encima del
   suelo mientras remas, de 5 en 5). **De pie, el mapa se pone derecho** (la cabeza por encima de las paralelas; al volver a
   tumbarte se inclina otra vez, suave): nunca se ve del revés. El cielo, de un solo color. Los mandos:
-  - **Tirón con los dos brazos** (un remo): un impulso que da altura y marcha y que se va perdiendo; para seguir en el aire
-    hay que seguir remando (uno cada 5 s, más o menos, mantiene la altura; el explosivo da más; cada remo sube unos 10 m: con
-    20, remando no se paraba de subir). Se nota: vibración y un golpe de aire.
+  - **Tirón con los dos brazos** (un remo): **sube** (elegido por el usuario: «el remo con los dos brazos suba la altura»;
+    antes daba altura y marcha a la vez, y solo se notaba la velocidad): un impulso de altura que se va perdiendo, unos 15 m
+    por remo a ras de ciudad (más cuanto más alto vas); uno cada 12 s, más o menos, mantiene la altura. Se nota: vibración y
+    un golpe de aire.
+  - **Remo explosivo** (subir de golpe, en menos de 0,4 s): **acelera** (elegido por el usuario entre tres: «no se me ocurre
+    cómo aumentar la velocidad»; como el acelerador de pie de un parapente de verdad, pero con los brazos): sube lo mismo y,
+    además, **una marcha más** (hasta 8), con una vibración más fuerte y «¡Acelerón! Marcha 3». La marcha se va perdiendo
+    despacio hasta la de crucero (un remo normal no acelera).
   - **Tirar más de un brazo** (el pecho y la cabeza se van hacia esa barra): viras hacia ese lado, más cuanto más te vas (3 cm
     no cuentan; del todo, con 14 cm).
   - **Aguantar arriba** (más de medio segundo): frenas, como con los dos frenos, y te quedas casi en el sitio («Frenas», las

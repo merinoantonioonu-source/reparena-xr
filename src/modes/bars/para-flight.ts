@@ -26,12 +26,15 @@ export class ParaFlight {
   need = 0;
   private rep = false;
   private fast = false;
+  private dur = 0;
   private perfect = false;
   /** Lo que el detector de las paralelas le cuenta: cada remo. */
   readonly hits: BarHits = {
     rep: (o) => {
       this.rep = true;
-      this.fast = o.fast;
+      // (explosivo: la subida, de golpe; lo del detector, `o.fast`, pedía tanta prisa que casi nunca salía)
+      this.fast = o.dur !== undefined ? o.dur < PARA.fastT : o.fast;
+      this.dur = o.dur ?? 0;
       this.perfect = o.perfect;
     },
     blast: () => {},
@@ -110,7 +113,7 @@ export class ParaFlight {
     this.look.place();
     if (!this.said) {
       this.said = true;
-      HOOKS.say('Rema: subes y coges marcha · Tira más de un brazo: viras', '#3cf0c6', 6, false);
+      HOOKS.say('Rema: subes · De golpe: aceleras · Un brazo: viras', '#3cf0c6', 6, false);
       diagEvent(`parapente: colgado · cabeza ${head.p.x.toFixed(2)} ${head.p.y.toFixed(2)} ${head.p.z.toFixed(2)} · hacia ${fx.toFixed(2)} ${fz.toFixed(2)} · mapa a ${num('barParaTilt')}°`);
     }
   }
@@ -205,10 +208,13 @@ export class ParaFlight {
     MAPPILOT.gear = P.gear;
     // el impulso se nota: vibración en las dos manos y un golpe de aire
     if (P.kicked) {
-      haptic('left', 0.6, 80);
-      haptic('right', 0.6, 80);
+      // (el explosivo, más fuerte y con su marcha dicha)
+      const b = P.boosted;
+      haptic('left', b ? 0.9 : 0.5, b ? 140 : 70);
+      haptic('right', b ? 0.9 : 0.5, b ? 140 : 70);
       SND.whoosh(head.p);
-      diagEvent(`parapente: remo ${P.reps} de ${this.need} · sube ${P.climb.toFixed(2)} · marcha ${P.gear.toFixed(1)} · de lado ${Math.round(I.side * 100)} cm`);
+      if (b) HOOKS.say(`¡Acelerón! Marcha ${Math.round(P.stored)}`, '#3cf0c6', 1.4, false);
+      diagEvent(`parapente: remo ${P.reps} de ${this.need}${b ? ' · EXPLOSIVO' : ''} · subida en ${this.dur.toFixed(2)} s · sube ${P.climb.toFixed(2)} · marcha ${P.gear.toFixed(1)} · de lado ${Math.round(I.side * 100)} cm`);
     }
     // (y, cada poco, cómo va: si no responde, se ve aquí por qué)
     this.logT -= dt;
