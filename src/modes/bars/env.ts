@@ -27,6 +27,9 @@ export interface BarGate {
 }
 
 export interface BarsEnv {
+  /** Sin castigar las manos (el parapente: soltar una mano o que las gafas no las vean no es soltarse; sí lo es irte del
+   * aparato o acabar con la cabeza en el suelo). */
+  lenient?: boolean;
   /** Un ajuste numérico (RepArena: settings[k]: doorH, pullRange, fallMargin, barWait…). */
   s(key: string): number;
   /** Un ajuste de texto (RepArena: settings[k]: exercise, dipBars, barTarget). */

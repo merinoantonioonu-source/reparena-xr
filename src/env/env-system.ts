@@ -431,8 +431,9 @@ export class EnvSystem extends createSystem({}) {
     if (!this.skyWas) this.skyWas = [sky[0], sky[1], sky[2], eq[0], eq[1], eq[2], gr[0], gr[1], gr[2]];
     // (de 8 km a 80 km de alto, del día al espacio; a saltos pequeños: no se escribe en cada fotograma)
     const t = Math.max(0, Math.min(1, Math.log(Math.max(1, MAPVIEW.alt) / 8000) / Math.log(10))), k = Math.round(t * t * (3 - 2 * t) * 100) / 100;
-    if (k === this.skyK) return;
-    this.skyK = k;
+    const key = k + (MAPVIEW.flat ? 10 : 0);
+    if (key === this.skyK) return;
+    this.skyK = key;
     const mix = (v: { [i: number]: number }, a: readonly number[], b: readonly number[]): void => {
       for (let i = 0; i < 3; i++) v[i] = a[i] + (b[i] - a[i]) * k;
     };
@@ -440,6 +441,9 @@ export class EnvSystem extends createSystem({}) {
     mix(eq, MAP_SKY.eq, MAP_SPACE.eq);
     mix(gr, MAP_SKY.gr, MAP_SPACE.gr);
     mix(MAPVIEW.haze, MAP_SKY.eq, MAP_SPACE.eq); // (la calima del fondo del mapa, del color del horizonte)
+    // (con el mapa levantado hacia la vista —el parapente, boca arriba—, el horizonte del mapa ya no es el de la sala: todo el
+    // cielo del color de la calima, para que el borde del mapa no se note)
+    if (MAPVIEW.flat) for (let i = 0; i < 3; i++) sky[i] = eq[i] = gr[i] = MAPVIEW.haze[i];
   }
 
   // la foto de fondo: el DomeTexture de IWSDK en la raíz del nivel (gana al degradado de cielo); se quita el valle y las nubes dibujados

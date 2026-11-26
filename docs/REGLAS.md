@@ -475,8 +475,11 @@ No las cambies sin preguntarle.
   emular que el usuario va en una especie de parapente y va volando por los mapas en función de qué brazo flexiona»; elegidos
   la postura 1 y estos mandos; «Remo invertido: parapente sobre el mapa», *en pruebas*): cuelgas boca arriba de las paralelas,
   inclinado como en la silla de un parapente, y vuelas sobre el mundo de verdad (los mapas 3D de Google, con la clave de
-  Cesium ion del jugador; el mismo vuelo que en la Travesía: con inercia, sin atravesar nada, con aros en las ciudades). **Se
-  vuela hacia tus pies**: el mapa se ve mirando hacia delante y abajo. Los mandos:
+  Cesium ion del jugador; el mismo vuelo que en la Travesía: con inercia, sin atravesar nada, con aros en las ciudades). **El
+  mapa, donde miras** (corregido por el usuario con su vídeo: «yo no veo nada en la posición del remo invertido, ya que el mapa
+  queda totalmente abajo»): boca arriba se mira al techo, así que el mapa se levanta hacia tu vista: mirando recto arriba ves
+  lo de delante y abajo (el suelo por delante, hacia tus pies; el horizonte y el cielo, hacia lo alto de tu cabeza), como en
+  el modo tumbado de las gafas. El cielo, de un solo color. Los mandos:
   - **Tirón con los dos brazos** (un remo): un impulso que da altura y marcha y que se va perdiendo; para seguir en el aire
     hay que seguir remando (uno cada 10 s, más o menos, mantiene la altura; el explosivo da más). Se nota: vibración y un
     golpe de aire.
@@ -486,11 +489,17 @@ No las cambies sin preguntarle.
     vuelve la marcha que llevabas.
   - **Brazos estirados**: planeo de descanso, perdiendo altura despacio (unos 2 m/s). Nunca te caes: el suelo y los tejados
     te sostienen.
+  **Soltarte no quita vidas** (el usuario «murió» sin saber por qué: las gafas dejaron de ver sus manos al mirar hacia los
+  pies y el juego contó tres caídas): en el parapente, soltar una mano o que las gafas no las vean no es soltarse; solo irte
+  de las paralelas (o la cabeza en el suelo), y entonces planea solo hasta que vuelves, sin perder vidas.
   Cada oleada pide sus remos; **en el descanso el parapente planea solo** (recto y sin perder altura) y sigue cuando te
   vuelves a colgar. Hasta que te cuelgas la primera vez se ve la arena de siempre; luego, solo el cielo, el mapa y tus
   paralelas. Los créditos del mapa, pequeños, hacia los pies. Sin clave o sin de dónde salir, el remo de siempre. *Primera
   entrega* (los mandos y el vuelo); lo que se ve y se oye (la vela, las líneas a tus manos, tu sombra, el viento, las
   térmicas), en la segunda. Las otras posturas propuestas (dominadas en la barra, fondos), sin hacer.
+- **En Barras, las manos que el juego calcula no cuentan** (con el diagnóstico del usuario: tumbado, las manos colocadas
+  con el cuerpo al perderlas salían por debajo del suelo y el juego decía «te soltaste»): para saber si te has soltado solo
+  valen las manos que las gafas ven de verdad.
 
 **Repeticiones y disparo**
 - Cada repetición (sentadilla, zancada…) carga **un disparo por mano**, como mucho uno por mano y sin acumular.

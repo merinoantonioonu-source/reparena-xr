@@ -96,6 +96,7 @@ export class MapSystem extends createSystem({}) {
   /** ¿Lo pilota el parapente de Barras? (y lo que le manda: `MapIn.ctl`) */
   private para = false;
   private readonly ctl = { climb: 0, gear: 1 };
+  private readonly axR = new Vector3();
   /** La foveación de antes de volar sobre el mapa (−1: sin tocar). */
   private fovWas = -1;
   /** El presupuesto, lo guardado y el tope de la memoria (MB; las pruebas los achican). */
@@ -287,7 +288,12 @@ export class MapSystem extends createSystem({}) {
     // (en el parapente, el punto del vuelo es tu cabeza al colgarte y se vuela hacia tus pies: `MAPPILOT`)
     const cx = para ? MAPPILOT.x : R!.flyBody.x0, cz = para ? MAPPILOT.z : R!.flyBody.z0, eye = para ? MAPPILOT.y : T!.calibRef;
     this.root.quaternion.setFromAxisAngle(AX_Z, isOn('flyMapBank') ? F.bank * MAP.roll : 0).multiply(this.q.setFromAxisAngle(AX_Y, -F.heading));
-    if (para) this.root.quaternion.premultiply(this.q.setFromAxisAngle(AX_Y, MAPPILOT.yaw));
+    if (para) {
+      this.root.quaternion.premultiply(this.q.setFromAxisAngle(AX_Y, MAPPILOT.yaw));
+      // (boca arriba se mira al techo: el mapa se levanta hacia tu vista, girando sobre tu derecha; lo de delante y abajo
+      // queda donde miras, el cielo hacia lo alto de tu cabeza y el suelo hacia tus pies)
+      if (MAPPILOT.pitch) this.root.quaternion.premultiply(this.q.setFromAxisAngle(this.axR.set(Math.cos(MAPPILOT.yaw), 0, -Math.sin(MAPPILOT.yaw)), MAPPILOT.pitch));
+    }
     this.v.set(F.x, F.alt, F.z).applyQuaternion(this.root.quaternion);
     this.root.position.set(cx - this.v.x, eye - this.v.y, cz - this.v.z);
     this.root.updateMatrixWorld(true);
@@ -338,8 +344,9 @@ export class MapSystem extends createSystem({}) {
     // los créditos: pequeños y hacia los pies, bajo el cuerpo (a la vista si miras atrás; Google pide que se vean)
     // (en el parapente, boca arriba: de pie y pequeños, hacia los pies y por debajo de la vista)
     if (para) {
-      this.credits.position.set(0, -0.55, -PARA_CREDITS_AT);
-      this.credits.rotation.set(Math.PI / 2 - 0.25, 0, 0);
+      // (hacia los pies y a unos 40° sobre ellos: abajo en lo que ves mirando al techo, de cara a ti)
+      this.credits.position.set(0, PARA_CREDITS_AT * 0.64, -PARA_CREDITS_AT * 0.77);
+      this.credits.rotation.set(2.27, 0, 0);
       this.credits.scale.setScalar(1);
     } else {
       this.credits.position.set(0, 0.002, CREDITS_AT);
@@ -353,6 +360,7 @@ export class MapSystem extends createSystem({}) {
     }
     // el cielo (EnvSystem): solo cielo y mapa, más oscuro cuanto más alto
     MAPVIEW.on = true;
+    MAPVIEW.flat = para && MAPPILOT.pitch !== 0; // (con el mapa levantado, el cielo de un solo color: su horizonte ya no es el de la sala)
     // (sobre el mapa, la vista periférica con menos resolución: aligera sin tocar el centro; la resolución no se cambia)
     const xr0 = (this.world.renderer as WebGLRenderer).xr;
     if (!xr0.isPresenting) this.fovWas = -1;
@@ -541,6 +549,7 @@ export class MapSystem extends createSystem({}) {
   private end(): void {
     this.active = false;
     MAPVIEW.on = false;
+    MAPVIEW.flat = false;
     if (this.fovWas >= 0) {
       (this.world.renderer as WebGLRenderer).xr.setFoveation(this.fovWas);
       this.fovWas = -1;
