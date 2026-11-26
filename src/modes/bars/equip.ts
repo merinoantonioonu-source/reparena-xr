@@ -164,7 +164,9 @@ export function equipChanged(EQ: Equip, preview: boolean, k: EqKind, store: Stor
   const e = eqPose(EQ, preview, k);
   e.set = true;
   if (!preview) {
-    eqToBounded(EQ, e);
+    // (sin suelo del guardián en esta sesión, lo que hubiera guardado respecto a él ya no vale: es de otro sitio)
+    if (EQ.b2l) eqToBounded(EQ, e);
+    else e.b = null;
     if (EQ.a2l) e.a = toRel(EQ.a2l, e);
     e.synced = true;
     saveEquip(EQ, store);

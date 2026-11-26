@@ -13,7 +13,8 @@ import { head } from '../../input/hand-model.js';
 import { haptic } from '../../input/hand-system.js';
 import type { BarHits } from './detect.js';
 import { eqAxes, type EqPose } from './equip.js';
-import { PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from './para.js';
+import { gazeDeg, PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from './para.js';
+import { num } from '../../core/values.js';
 import { ParaLook } from './para-look.js';
 import { loopSound, type SoundLoop } from '../../audio/sound.js';
 
@@ -41,6 +42,11 @@ export class ParaFlight {
   private readonly ax = new Vector3();
   private readonly az = new Vector3();
   private readonly upH = new Vector3();
+  /** Hacia tus pies (hacia donde se vuela), tu mirada de colgado (grados, suavizada) y lo que llevas colgado mirando (s). */
+  private readonly feet = new Vector3(0, 0, -1);
+  private readonly fwd = new Vector3();
+  private gaze = 0;
+  private gazeT = 0;
   private hidden: Object3D[] = [];
   private said = false;
   private logT = 0;
@@ -61,6 +67,8 @@ export class ParaFlight {
     this.on = want;
     this.pilot.reset();
     this.thermals.reset();
+    this.gaze = this.gazeT = 0;
+    MAPPILOT.gaze = -1;
   }
 
   /** Empieza una oleada: los remos que pide. */
@@ -91,14 +99,21 @@ export class ParaFlight {
     MAPPILOT.y = head.p.y;
     MAPPILOT.z = head.p.z;
     MAPPILOT.yaw = Math.atan2(-fx, -fz);
-    MAPPILOT.pitch = PARA.viewPitch;
+    this.feet.set(fx, 0, fz);
+    // (la primera vez el mapa sale ya inclinado: sin vaivén; al volver a colgarte, se inclina suave)
+    if (!this.placed) MAPPILOT.pitch = this.tilt();
     this.placed = true;
     this.look.place();
     if (!this.said) {
       this.said = true;
       HOOKS.say('Rema: subes y coges marcha · Tira más de un brazo: viras', '#3cf0c6', 6, false);
-      diagEvent(`parapente: colgado · cabeza ${head.p.x.toFixed(2)} ${head.p.y.toFixed(2)} ${head.p.z.toFixed(2)} · hacia ${fx.toFixed(2)} ${fz.toFixed(2)}`);
+      diagEvent(`parapente: colgado · cabeza ${head.p.x.toFixed(2)} ${head.p.y.toFixed(2)} ${head.p.z.toFixed(2)} · hacia ${fx.toFixed(2)} ${fz.toFixed(2)} · mapa a ${num('barParaTilt')}°`);
     }
+  }
+
+  // «Parapente: inclinación del mapa» (rad): lo que sube el horizonte del mapa respecto al suelo, hacia tus pies
+  private tilt(): number {
+    return (Math.min(90, Math.max(0, num('barParaTilt'))) * Math.PI) / 180;
   }
 
   /**
@@ -117,6 +132,21 @@ export class ParaFlight {
         for (const o of this.hidden) o.visible = true;
         this.hidden.length = 0;
         this.quiet();
+      }
+    }
+    if (show) {
+      // la inclinación del mapa: la del ajuste (se nota al cambiarla, también en la pausa); de pie, derecho (corregido por
+      // el usuario con su vídeo: de pie lo veía del revés)
+      const lying = head.p.y < num('dipH') / 100 + PARA.standUp, want = lying ? this.tilt() : 0;
+      MAPPILOT.pitch += (want - MAPPILOT.pitch) * (1 - Math.exp(-(dt > 0 ? dt : 1 / 72) / PARA.tiltTau));
+      if (Math.abs(want - MAPPILOT.pitch) < 1e-3) MAPPILOT.pitch = want;
+      // tu mirada de colgado (para «Ajustar a mi mirada»): lo que miras por encima del suelo, hacia tus pies
+      if (lying && playing && !paused && dt > 0) {
+        this.fwd.set(0, 0, -1).applyQuaternion(head.q);
+        const g = gazeDeg(this.fwd.y, this.fwd.x * this.feet.x + this.fwd.z * this.feet.z);
+        this.gaze = this.gazeT > 0 ? this.gaze + (g - this.gaze) * (1 - Math.exp(-dt / PARA.gazeTau)) : g;
+        this.gazeT += dt;
+        if (this.gazeT >= PARA.gazeMin) MAPPILOT.gaze = this.gaze;
       }
     }
     this.look.update(show);
@@ -170,7 +200,7 @@ export class ParaFlight {
     this.logT -= dt;
     if (this.logT <= 0) {
       this.logT = 4;
-      diagEvent(`parapente: ${playing ? 'colgado' : 'planea solo'} · subido ${I.up.toFixed(2)} · de lado ${Math.round(I.side * 100)} cm · vira ${P.steer.toFixed(2)} · sube ${P.climb.toFixed(2)} · marcha ${P.gear.toFixed(1)}`);
+      diagEvent(`parapente: ${playing ? 'colgado' : 'planea solo'} · subido ${I.up.toFixed(2)} · de lado ${Math.round(I.side * 100)} cm · vira ${P.steer.toFixed(2)} · sube ${P.climb.toFixed(2)} · marcha ${P.gear.toFixed(1)} · miras a ${MAPPILOT.gaze < 0 ? '?' : Math.round(MAPPILOT.gaze)}° (mapa a ${Math.round((MAPPILOT.pitch * 180) / Math.PI)}°)`);
     }
   }
 
@@ -178,6 +208,7 @@ export class ParaFlight {
   clear(): void {
     this.on = this.placed = this.rep = this.said = false;
     this.need = 0;
+    MAPPILOT.pitch = 0;
     if (MAPPILOT.on) {
       MAPPILOT.on = false;
       for (const o of this.hidden) o.visible = true;

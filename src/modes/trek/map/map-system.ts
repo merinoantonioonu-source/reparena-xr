@@ -47,7 +47,7 @@ const DETAIL_TAU = 2.5, PARSE_JOBS = 6;
 /** El filtro de las fotos vistas de lado: como mucho este (con el máximo de las gafas, 16, cada píxel costaba mucho más). */
 const ANISO = 4;
 /** Los créditos del mapa en el parapente: a cuánto por delante de ti (m). */
-const PARA_CREDITS_AT = 2.4;
+const PARA_CREDITS_AT = 2.4, PARA_CREDITS_LOW = 0.6;
 /** El aro se mide en su centro y en cuatro puntos de su borde (× su radio): vale lo más alto. */
 const RING_AT: readonly [number, number][] = [[0, 0], [0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]];
 const AX_Y = new Vector3(0, 1, 0), AX_Z = new Vector3(0, 0, 1);
@@ -442,8 +442,10 @@ export class MapSystem extends createSystem({}) {
     // (en el parapente, boca arriba: de pie y pequeños, hacia los pies y por debajo de la vista)
     if (para) {
       // (hacia los pies y a unos 40° sobre ellos: abajo en lo que ves mirando al techo, de cara a ti)
-      this.credits.position.set(0, PARA_CREDITS_AT * 0.64, -PARA_CREDITS_AT * 0.77);
-      this.credits.rotation.set(2.27, 0, 0);
+      // (bajo el horizonte del mapa, hacia tus pies y de cara a ti: al pie de la vista, sin estorbar)
+      const e = MAPPILOT.pitch - PARA_CREDITS_LOW;
+      this.credits.position.set(0, PARA_CREDITS_AT * Math.sin(e), -PARA_CREDITS_AT * Math.cos(e));
+      this.credits.rotation.set(e + Math.PI / 2, 0, 0);
       this.credits.scale.setScalar(1);
     } else {
       this.credits.position.set(0, 0.002, CREDITS_AT);
@@ -457,7 +459,7 @@ export class MapSystem extends createSystem({}) {
     }
     // el cielo (EnvSystem): solo cielo y mapa, más oscuro cuanto más alto
     MAPVIEW.on = true;
-    MAPVIEW.flat = para && MAPPILOT.pitch !== 0; // (con el mapa levantado, el cielo de un solo color: su horizonte ya no es el de la sala)
+    MAPVIEW.flat = para; // (con el mapa inclinado, el cielo de un solo color: su horizonte ya no es el de la sala)
     // (sobre el mapa, la vista periférica con menos resolución: aligera sin tocar el centro; la resolución no se cambia)
     const xr0 = (this.world.renderer as WebGLRenderer).xr;
     if (!xr0.isPresenting) this.fovWas = -1;
