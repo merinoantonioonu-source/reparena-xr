@@ -57,7 +57,9 @@ export function handsLow(env: BarsEnv): { low: number; ok: number } {
   LOW.low = 0;
   LOW.ok = 0;
   for (const h of [env.hands.left, env.hands.right])
-    if (h.ok) {
+    if (h.ok && !h.est) {
+      // (solo las manos que se ven de verdad: las que el juego calcula al perderlas —con el cuerpo, tumbado, salían por
+      // debajo del suelo— no dicen nada: al usuario le contaron tres caídas sin soltarse)
       LOW.ok++;
       if (h.wrist.y < y) LOW.low++;
     }
@@ -66,7 +68,8 @@ export function handsLow(env: BarsEnv): { low: number; ok: number } {
 /** ¿Alguna mano a la vista agarrada al aparato (a su altura)? (RepArena: handsOnBar). */
 export function handsOnBar(env: BarsEnv): boolean {
   const top = eqTopY(eqKind(env.str('exercise')), env.s);
-  return (env.hands.left.ok && Math.abs(env.hands.left.wrist.y - top) < 0.2) || (env.hands.right.ok && Math.abs(env.hands.right.wrist.y - top) < 0.2);
+  const L = env.hands.left, R = env.hands.right;
+  return (L.ok && !L.est && Math.abs(L.wrist.y - top) < 0.2) || (R.ok && !R.est && Math.abs(R.wrist.y - top) < 0.2);
 }
 /** ¿Las manos dicen que no estás agarrado? (RepArena: handsOff). */
 export function handsOff(env: BarsEnv): boolean {
@@ -196,12 +199,12 @@ export class BarDetector {
     if (this.det === 'down' && env.head.speed < 0.05) this.hangRef += (this.ref - this.hangRef) * Math.min(1, dt * 0.3);
     // soltarse: las manos a la vista por debajo de la barra (al caer de pie la cabeza no siempre baja)
     const off = handsLow(env);
-    this.letGo = off.low >= 2 || (off.low === 1 && off.ok === 1) ? this.letGo + dt : 0;
+    this.letGo = !env.lenient && (off.low >= 2 || (off.low === 1 && off.ok === 1)) ? this.letGo + dt : 0;
     // En el remo, tumbado boca arriba, la altura de la cabeza cambia con solo relajar el cuello o estirar del todo los
     // brazos: si las manos siguen a la vista en las paralelas, bajar no es soltarse (se toma esa altura como nueva
     // posición de abajo). Sí lo es tener la cabeza en el suelo.
     let low = y < this.hangRef - margin;
-    if (low && ex === 'row' && handsOnBar(env) && y > 0.22) {
+    if (low && ex === 'row' && (handsOnBar(env) || env.lenient) && y > 0.22) {
       low = false;
       this.hangRef = this.ref = Math.min(this.ref, y);
     }

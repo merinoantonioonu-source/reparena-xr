@@ -7,12 +7,13 @@
 import { Vector3 } from '@iwsdk/core';
 import type { Object3D } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
+import { diagEvent } from '../../core/diag.js';
 import { HOOKS, MAPPILOT } from '../../core/state.js';
 import { head } from '../../input/hand-model.js';
 import { haptic } from '../../input/hand-system.js';
 import type { BarHits } from './detect.js';
 import { eqAxes, type EqPose } from './equip.js';
-import { ParaPilot, type ParaIn } from './para.js';
+import { PARA, ParaPilot, type ParaIn } from './para.js';
 
 export class ParaFlight {
   readonly pilot = new ParaPilot();
@@ -40,6 +41,7 @@ export class ParaFlight {
   private readonly upH = new Vector3();
   private hidden: Object3D[] = [];
   private said = false;
+  private logT = 0;
 
   constructor(private readonly arenaOf: () => Object3D[]) {}
 
@@ -78,10 +80,12 @@ export class ParaFlight {
     MAPPILOT.y = head.p.y;
     MAPPILOT.z = head.p.z;
     MAPPILOT.yaw = Math.atan2(-fx, -fz);
+    MAPPILOT.pitch = PARA.viewPitch;
     this.placed = true;
     if (!this.said) {
       this.said = true;
       HOOKS.say('Rema: subes y coges marcha · Tira más de un brazo: viras', '#3cf0c6', 6, false);
+      diagEvent(`parapente: colgado · cabeza ${head.p.x.toFixed(2)} ${head.p.y.toFixed(2)} ${head.p.z.toFixed(2)} · hacia ${fx.toFixed(2)} ${fz.toFixed(2)}`);
     }
   }
 
@@ -120,6 +124,13 @@ export class ParaFlight {
       haptic('left', 0.6, 80);
       haptic('right', 0.6, 80);
       SND.whoosh(head.p);
+      diagEvent(`parapente: remo ${P.reps} de ${this.need} · sube ${P.climb.toFixed(2)} · marcha ${P.gear.toFixed(1)} · de lado ${Math.round(I.side * 100)} cm`);
+    }
+    // (y, cada poco, cómo va: si no responde, se ve aquí por qué)
+    this.logT -= dt;
+    if (this.logT <= 0) {
+      this.logT = 4;
+      diagEvent(`parapente: ${playing ? 'colgado' : 'planea solo'} · subido ${I.up.toFixed(2)} · de lado ${Math.round(I.side * 100)} cm · vira ${P.steer.toFixed(2)} · sube ${P.climb.toFixed(2)} · marcha ${P.gear.toFixed(1)}`);
     }
   }
 

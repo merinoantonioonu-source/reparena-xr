@@ -1536,6 +1536,17 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   remos (`waveReps`); en el descanso planea solo. Probado sin gafas con la ciudad de pega forzando el «colgarse» (en el
   ordenador nadie se cuelga): por confirmar en las gafas los signos (hacia qué lado vira) y los números (`PARA`). Segunda
   entrega: lo que se ve y se oye (vela, líneas, sombra, viento, térmicas).
+  *Tras probarlo el usuario* (vídeo y diagnóstico del 26/11): (1) no veía el mapa: boca arriba se mira al techo y el mapa
+  quedaba hacia los pies y abajo; ahora `MAPPILOT.pitch` (`PARA.viewPitch`, 115°) lo levanta girándolo sobre tu derecha
+  (`MapSystem`), con el cielo de un solo color (`MAPVIEW.flat`: su horizonte ya no es el de la sala) y los créditos abajo en
+  lo que ves; (2) «murió» y el parapente no respondía: al mirar hacia los pies las gafas perdían las manos, `HandSystem` las
+  colocaba con el cuerpo (`est: 'body'`) por debajo del suelo (muñecas a −26 cm), `handsLow` las contaba y `BarDetector`
+  daba «te soltaste» (una vida y a colgarse otra vez, quieto 1 s: mientras, planeaba solo). Ahora `handsLow`/`handsOnBar`
+  se saltan las manos con `est` (en todo Barras: la regla ya lo pedía), en el parapente `BarsEnv.lenient` no mira las manos
+  y la caída no quita vidas. El diagnóstico apunta las caídas con su motivo y, del parapente, cada remo y cómo va cada 4 s.
+  Además, en ese diagnóstico la imagen iba a 3072×3457 por ojo (antes, 2520×2640): a 72 imágenes por segundo el navegador
+  de las Quest da un lienzo mayor y «Alta ×1,4» lo multiplica; sobre el mapa, 16-26 imágenes por segundo. Propuesto al
+  usuario un tope de píxeles.
 
 ## Fallos de IWSDK
 

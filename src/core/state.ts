@@ -83,11 +83,12 @@ export const LITE = { on: false };
 /** El vuelo sobre el mapa (MapSystem): si está en marcha (solo el cielo y el mapa: EnvSystem quita la foto de fondo, el
  * valle y las luciérnagas) y a qué altura sobre el suelo vas (m: más alto, el cielo más oscuro, hasta el negro del espacio); `haze`, el color del
  * horizonte de ahora (lo pone EnvSystem: la calima del fondo del mapa es de ese color). */
-export const MAPVIEW = { on: false, alt: 0, haze: [0.72, 0.84, 0.98] };
+export const MAPVIEW = { on: false, alt: 0, haze: [0.72, 0.84, 0.98], flat: false };
 /** Quien pilota el mapa cuando no es la Travesía (el parapente de Barras: lo llena `BarsSystem`, lo lee `MapSystem`): si
  * está en marcha, lo que vira (−1 a 1; +, a la derecha), lo que sube o baja (−1 a 1), la marcha, dónde queda el punto del
- * vuelo en la habitación (tu cabeza al colgarte) y hacia dónde se vuela en ella (rad: 0, hacia −z), y lo volado (m). */
-export const MAPPILOT = { on: false, steer: 0, climb: 0, gear: 1, x: 0, y: 1.2, z: 0, yaw: 0, flown: 0 };
+ * vuelo en la habitación (tu cabeza al colgarte) y hacia dónde se vuela en ella (rad: 0, hacia −z), lo que se levanta el mapa hacia tu vista (`pitch`, rad: boca arriba se
+ * mira al techo, y ahí tiene que estar lo de delante y abajo) y lo volado (m). */
+export const MAPPILOT = { on: false, steer: 0, climb: 0, gear: 1, x: 0, y: 1.2, z: 0, yaw: 0, pitch: 0, flown: 0 };
 /** Un momento especial de la partida (la fiebre de Arcos, el relámpago de Combate, el turbo o la supervelocidad de la
  * Travesía): las luciérnagas destellan más vivas. Lo pone la partida en cada fotograma. */
 export const SPECIAL = { on: false };

@@ -163,6 +163,33 @@ describe('el modo Barras', () => {
     expect(f && f.type === 'fall' && f.reason).toBe('tus manos se vieron por debajo de la barra');
   });
 
+  it('las manos que el juego calcula al perderlas no dicen que te has soltado (salían bajo el suelo)', () => {
+    const w = mkWorld();
+    w.mount();
+    // las gafas dejan de ver las manos y el juego las coloca con el cuerpo, muy abajo
+    w.grip(false);
+    w.env.hands.left.est = w.env.hands.right.est = 'body';
+    for (let i = 0; i < 60; i++) w.step(w.hangY);
+    expect(w.log.some((e) => e.type === 'fall')).toBe(false);
+    expect(handsOff(w.env)).toBe(false);
+    // al verlas de verdad abajo, sí
+    w.env.hands.left.est = w.env.hands.right.est = null;
+    for (let i = 0; i < 30; i++) w.step(w.hangY);
+    expect(w.log.some((e) => e.type === 'fall')).toBe(true);
+  });
+
+  it('en el parapente (sin castigar las manos) soltar una mano no es caerse; irse del aparato, sí', () => {
+    const w = mkWorld();
+    w.env.lenient = true;
+    w.mount();
+    w.grip(false);
+    for (let i = 0; i < 60; i++) w.step(w.hangY);
+    expect(w.log.some((e) => e.type === 'fall')).toBe(false);
+    for (let i = 0; i < 10; i++) w.step(w.hangY, 1.2);
+    const f = w.log.find((e) => e.type === 'fall');
+    expect(f && f.type === 'fall' && f.reason).toBe('te alejaste del aparato');
+  });
+
   it('colgado: un punto por segundo agarrado, y la oleada pide sus segundos', () => {
     const w = mkWorld({ exercise: 'hang' });
     w.mount();

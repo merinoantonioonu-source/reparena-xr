@@ -40,6 +40,9 @@ export const PARA = {
   sideDead: 0.03,
   sideFull: 0.14,
   sideTau: 0.15,
+  /** Lo que se levanta el mapa hacia tu vista (rad): boca arriba se mira al techo; con 115°, mirando recto arriba ves lo de
+   * delante unos 25° por debajo del horizonte (el suelo por delante, hacia tus pies; el horizonte, hacia lo alto de la cabeza). */
+  viewPitch: (115 * Math.PI) / 180,
 } as const;
 
 /** Lo que se lee del cuerpo en cada fotograma. */

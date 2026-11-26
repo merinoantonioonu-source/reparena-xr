@@ -284,6 +284,7 @@ export class BarsSystem extends createSystem({}) {
     this.bar.toMount(0, false);
     this.mstate = 'mount';
     this.para.begin(paraWanted());
+    this.env.lenient = this.para.on;
     // la cuerda de toda la ronda: cada tramo, lo que piden sus repeticiones
     if (this.ropeOn()) {
       const lens: number[] = [];
@@ -392,6 +393,7 @@ export class BarsSystem extends createSystem({}) {
     this.entries.length = 0;
     this.mstate = 'off';
     this.para?.clear();
+    if (this.env) this.env.lenient = false;
     this.hang?.clear();
     if (this.rig) this.rig.grp.visible = false;
     this.rope = null;
@@ -820,10 +822,12 @@ export class BarsSystem extends createSystem({}) {
           SND.partial();
           HOOKS.sparks(ev.at, 8, 0xff8a4d);
         }
-        HOOKS.playerHit(1, true);
+        // (en el parapente no quita vidas: te has ido de las paralelas y planea solo hasta que vuelvas)
+        if (!this.para.on) HOOKS.playerHit(1, true);
+        diagEvent(`Barras: caída (${ev.reason})`);
         if (GAME.phase === 'playing') {
-          HOOKS.say(ev.text, ev.col, 1.8, false);
-          HOOKS.say(`${ev.text} (${ev.reason})`, WARN, 4, true);
+          HOOKS.say(this.para.on ? 'A las paralelas' : ev.text, ev.col, 1.8, false);
+          HOOKS.say(this.para.on ? `Vuelve a las paralelas (${ev.reason})` : `${ev.text} (${ev.reason})`, WARN, 4, true);
           this.bar.toMount(0, true);
           this.mstate = 'mount';
         }
