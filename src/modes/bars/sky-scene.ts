@@ -22,6 +22,7 @@ import { on as isOn } from '../../core/values.js';
 import { kitParts } from '../../env/scenery.js';
 import { Missile, type MissileKind } from '../../style/missile-fx.js';
 import { warmKeep } from '../../style/warm.js';
+import { SERPENT_BOSS, SERPENT_SMALL, SerpentLook, type SerpentOpt } from './serpent-look.js';
 import { ISLE_BELLY, ISLE_BUSHES, ISLE_GROUND, ISLE_SLAB, ISLE_SLAB_Y, ISLE_TREES, PUFFS, SKY, SKY_KIND, SkyFight, SkyIsles, SkyPuffs, type SkyEv, type SkyIn, type SkyKind } from './sky-fight.js';
 
 /** El cielo: su radio (m; dentro del alcance de la cámara, por eso se alarga mientras se pelea), los colores de la tarde (arriba,
@@ -47,7 +48,9 @@ const GULL = [5, 11] as const;
 /** Lo que se ladea el horizonte al virar (rad, × el ladeo; como sobre el mapa) y cada cuánto se miran las islas (s). */
 const ROLL = 0.16, ISLE_T = 0.5;
 /** Cuántos de cada volador se preparan (el jefe, uno). */
-const POOL: Record<SkyKind, number> = { bee: 3, bat: 3, cthulhu: 3, dragon: 3, boss: 1 };
+const POOL: Record<SkyKind, number> = { bee: 3, bat: 3, cthulhu: 3, dragon: 3, serpent: 3, boss: 1 };
+/** Los dragones orientales: hechos por piezas (`SerpentLook`), sin modelo. */
+const SERPENT: Partial<Record<SkyKind, SerpentOpt>> = { serpent: SERPENT_SMALL, boss: SERPENT_BOSS };
 /** Lo que escupe cada uno (el pulpo, plasma; los dragones, fuego) y el tamaño de su bola (m). */
 const BALL: Partial<Record<SkyKind, { kind: MissileKind; size: number }>> = { cthulhu: { kind: 'plasma', size: 0.35 }, dragon: { kind: 'fire', size: 0.4 }, boss: { kind: 'fire', size: 0.65 } };
 
@@ -289,7 +292,9 @@ function leafy(m: Material, done: Map<Material, Material>): Material {
 interface Critter {
   kind: SkyKind;
   g: Group;
-  mixer: AnimationMixer;
+  mixer: AnimationMixer | null;
+  /** El dragón oriental (cuerpo y cabeza por piezas; `g`, su cabeza). */
+  serp: SerpentLook | null;
   fly: AnimationAction | null;
   bite: AnimationAction | null;
   hit: AnimationAction | null;
@@ -367,7 +372,7 @@ export class SkyScene {
     if (this.built) return true;
     const isl = kitParts('island'), nat = kitParts('nature');
     if (!isl || !nat) return false;
-    for (const k of Object.keys(POOL) as SkyKind[]) if (!AssetManager.getGLTF(FOE_DEF[k === 'boss' ? 'dragon' : k].asset, { shared: true })) return false;
+    for (const k of Object.keys(POOL) as SkyKind[]) if (!SERPENT[k] && !AssetManager.getGLTF(FOE_DEF[k].asset, { shared: true })) return false;
     // el cielo
     this.skyMat = new ShaderMaterial({ uniforms: { uT: { value: 0 }, uZen: { value: ZENITH }, uHor: { value: HORIZON }, uSun: { value: SUN }, uEye: { value: this.eyeSky }, uSeaY: { value: SEA_Y } }, vertexShader: VERT, fragmentShader: FRAG, side: BackSide, depthWrite: false, fog: false, toneMapped: false });
     this.sky = new Mesh(new SphereGeometry(SKY_R, 48, 24), this.skyMat);
@@ -461,9 +466,11 @@ export class SkyScene {
     M.instanceMatrix.needsUpdate = true;
   }
 
-  // un volador del catálogo (el jefe, el dragón en grande)
+  // un volador del catálogo (los dragones orientales, por piezas)
   private critter(kind: SkyKind): Critter {
-    const d = FOE_DEF[kind === 'boss' ? 'dragon' : kind], gltf = AssetManager.getGLTF(d.asset)!, model = gltf.scene, g = new Group();
+    const so = SERPENT[kind];
+    if (so) return this.serpent(kind, so);
+    const d = FOE_DEF[kind], gltf = AssetManager.getGLTF(d.asset)!, model = gltf.scene, g = new Group();
     const nat = d.h / d.k, S = SKY_KIND[kind].size;
     model.scale.setScalar(S / nat);
     model.position.y = -S * d.ctr;
@@ -502,7 +509,28 @@ export class SkyScene {
       },
       center: (out: Vector3): Vector3 => g.getWorldPosition(out),
     };
-    return { kind, g, mixer, fly: act(d.clips.walk, true), bite: act(d.clips.attack, false), hit: act(d.clips.hit, false), die: act(d.clips.death, false), id: 0, spin: 0, lock };
+    return { kind, g, mixer, serp: null, fly: act(d.clips.walk, true), bite: act(d.clips.attack, false), hit: act(d.clips.hit, false), die: act(d.clips.death, false), id: 0, spin: 0, lock };
+  }
+
+  // un dragón oriental: su cabeza es `g` (la diana va a ella) y el cuerpo lo rehace `SerpentLook` en cada fotograma
+  private serpent(kind: SkyKind, so: SerpentOpt): Critter {
+    const S = new SerpentLook(this.frame, so), g = S.g;
+    S.visible = false;
+    warmKeep(S.body.clone());
+    const lock = {
+      scale: 1,
+      live: false,
+      radius: so.hs * 0.7,
+      root: g as Object3D,
+      get alive(): boolean {
+        return lock.live;
+      },
+      get lockScale(): number {
+        return lock.scale;
+      },
+      center: (out: Vector3): Vector3 => g.getWorldPosition(out),
+    };
+    return { kind, g, mixer: null, serp: S, fly: null, bite: null, hit: null, die: null, id: 0, spin: 0, lock };
   }
 
   // un gesto de una vez (atacar, recibir, caer), saliendo del vuelo
@@ -689,6 +717,7 @@ export class SkyScene {
     for (const C of this.critters) if (C.id && !F.foes.some((f) => f.id === C.id && f.st !== 'off')) {
       C.id = 0;
       C.g.visible = false;
+      if (C.serp) C.serp.visible = false;
     }
     for (const f of F.foes) {
       if (f.st === 'off') continue;
@@ -699,10 +728,24 @@ export class SkyScene {
         C.id = f.id;
         C.spin = 0;
         C.fly?.reset().play();
+        if (C.serp) {
+          C.g.position.set(f.x, f.y, f.z);
+          C.serp.reset(F.x, F.y, F.z);
+        }
       }
       C.g.visible = true;
-      C.mixer.update(dt);
+      C.mixer?.update(dt);
       C.g.position.set(f.x, f.y, f.z);
+      if (C.serp) {
+        // el dragón oriental: la cabeza mira hacia donde va (y, quieto, hacia ti) y el cuerpo la sigue serpenteando
+        const S = C.serp, moving = f.st === 'lunge' || f.st === 'fall' || f.st === 'in' || f.st === 'back';
+        const lx = moving ? f.vx : F.x - f.x, ly = moving ? f.vy : F.y - f.y, lz = moving ? f.vz : F.z - f.z;
+        C.g.rotation.set(-Math.atan2(ly, Math.hypot(lx, lz)), Math.atan2(lx, lz), f.st === 'fall' ? (C.spin += dt * 2) : 0, 'YXZ');
+        S.visible = true;
+        S.flash(f.flash > 0 ? Math.min(1, f.flash * 5) : 0);
+        S.update(dt, F.x, F.y, F.z, F.fwdX(), F.fwdZ(), f.st === 'wind' || f.st === 'lunge' || (f.kind === 'boss' && f.salvo > 0) ? 1 : 0);
+        continue;
+      }
       // de cara a ti (lanzado, hacia donde va); derribado, dando vueltas
       const lx = f.st === 'lunge' ? f.vx : F.x - f.x, lz = f.st === 'lunge' ? f.vz : F.z - f.z;
       C.g.rotation.set(0, Math.atan2(lx, lz), 0);

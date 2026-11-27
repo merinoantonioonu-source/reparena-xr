@@ -563,9 +563,17 @@ No las cambies sin preguntarle.
     delante un **corazón** rojo con su halo y su aro de luz, algo a un lado y a otra altura: se coge **pasando a través** y
     devuelve una vida («¡+1 vida!»); si se escapa, no pasa nada. **«Al fallo»**, con vidas infinitas o con las vidas llenas,
     no sale ninguno.
+  - **El dragón oriental** (pedido del usuario: «dragones con un movimiento más estilizado, como los dragones chinos, que
+    serpenteen por el cielo… los voladores no dejan de ser muy poligonales»; elegida la opción A: **hecho por piezas**, como
+    los robots de RepArena, porque no hay un modelo libre: excepción a «no crear enemigos de cero»): un cuerpo largo de
+    escamas (unos 16 m) con la barriga dorada, una cresta de aletas naranjas, cuatro patas con garras y la cola en penacho;
+    la cabeza, con hocico, mandíbula que se abre al atacar, ojos grandes, cuernos de ciervo, bigotes largos que se mecen y
+    melena. **Serpentea**: el cuerpo sigue el camino de la cabeza, estirado hacia atrás por el viento de tu vuelo, con una
+    onda que lo recorre de la cabeza a la cola, y hace grandes eses de lado a lado y arriba y abajo; se lanza a por ti
+    ondulando. Verde jade, desde la segunda oleada.
   - **Cada oleada**, tantos voladores como remos pide (su vida, entre todos); se acaba al derribarlos. **El jefe**, el dragón
-    grande, en la última oleada (y, sin fin, cada cinco), con ráfagas de tres bolas de fuego; el marcador dice lo que le
-    queda. El marcador: lo que queda por derribar, lo que corres y a qué altura vas, y los derribados.
+    oriental grande (unos 40 m, **rojo y oro**), en la última oleada (y, sin fin, cada cinco), con ráfagas de tres bolas de
+    fuego; el marcador dice lo que le queda. El marcador: lo que queda por derribar, lo que corres y a qué altura vas, y los derribados.
 - **En Barras, las manos que el juego calcula no cuentan** (con el diagnóstico del usuario: tumbado, las manos colocadas
   con el cuerpo al perderlas salían por debajo del suelo y el juego decía «te soltaste»): para saber si te has soltado solo
   valen las manos que las gafas ven de verdad.

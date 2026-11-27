@@ -75,6 +75,9 @@ export const SKY = {
   g: 9.8,
   /** El picado y la subida brusca (pedido del usuario: «picadas o subidas bruscas para esquivar las embestidas»): lo que
    * bajas o subes de golpe (m), en cuánto (s, arrancando y frenando suave) y lo que hay que esperar para el siguiente (s). */
+  /** El dragón oriental, al lanzarse: lo que ondula de lado (m) y su ritmo (rad/s). */
+  wobA: 1.2,
+  wobW: 5,
   jolt: 12,
   joltT: 0.7,
   joltCool: 0.9,
@@ -84,7 +87,7 @@ export const SKY = {
   heart: { every: [20, 34] as const, ahead: [120, 170] as const, side: 0.3, up: [-6, 8] as const, r: 5, life: 45, behind: 30 },
 } as const;
 
-export type SkyKind = 'bee' | 'bat' | 'cthulhu' | 'dragon' | 'boss';
+export type SkyKind = 'bee' | 'bat' | 'cthulhu' | 'dragon' | 'serpent' | 'boss';
 export interface SkyKindDef {
   /** Su vida (disparos normales), su tamaño (m), si escupe o se lanza, su voz y sus puntos. */
   hp: number;
@@ -92,6 +95,8 @@ export interface SkyKindDef {
   act: 'spit' | 'lunge';
   voice: string;
   pts: number;
+  /** Los dragones orientales (hechos por piezas, `serpent-look.ts`): lo largo del cuerpo (m); `size`, su cabeza. */
+  len?: number;
 }
 /** Cada volador: los pequeños se lanzan a por ti; los grandes escupen fuego. Grandes, para que se vean a 15-20 m. */
 export const SKY_KIND: Record<SkyKind, SkyKindDef> = {
@@ -99,7 +104,10 @@ export const SKY_KIND: Record<SkyKind, SkyKindDef> = {
   bat: { hp: 1, size: 1.6, act: 'lunge', voice: 'bat', pts: 50 },
   cthulhu: { hp: 2, size: 2.4, act: 'spit', voice: 'cthulhu', pts: 90 },
   dragon: { hp: 3, size: 3.2, act: 'spit', voice: 'dragon', pts: 140 },
-  boss: { hp: SKY.bossHp, size: 9, act: 'spit', voice: 'dragon', pts: 600 },
+  // el dragón oriental (elegido por el usuario: «que serpenteen por el cielo»): verde jade, se lanza ondulando; y el jefe,
+  // el grande, rojo y oro, que escupe ráfagas de fuego
+  serpent: { hp: 3, size: 2.2, act: 'lunge', voice: 'dragon', pts: 160, len: 16 },
+  boss: { hp: SKY.bossHp, size: 4.5, act: 'spit', voice: 'dragon', pts: 600, len: 40 },
 };
 
 export type SkyState = 'off' | 'in' | 'hold' | 'wind' | 'lunge' | 'back' | 'fall';
@@ -258,7 +266,7 @@ export class SkyFight {
     this.wave = i;
     this.boss = boss;
     this.queue.length = 0;
-    const pool: SkyKind[] = i <= 0 ? ['bee', 'bat'] : i === 1 ? ['bee', 'bat', 'cthulhu'] : ['bee', 'bat', 'cthulhu', 'dragon'];
+    const pool: SkyKind[] = i <= 0 ? ['bee', 'bat'] : i === 1 ? ['bee', 'bat', 'cthulhu', 'serpent'] : ['bee', 'bat', 'cthulhu', 'dragon', 'serpent', 'serpent'];
     let left = Math.max(1, Math.round(need));
     this.bossNeed = boss ? Math.round(need * 0.6) : 0;
     if (boss) {
@@ -428,7 +436,8 @@ export class SkyFight {
   // adónde quiere ir: su sitio delante de ti, con su vaivén
   private stationOf(F: SkyFoe): [number, number, number] {
     const fx = this.fwdX(), fz = this.fwdZ(), rx = -fz, rz = fx, w = F.t + F.ph;
-    const side = F.side + Math.sin(w * 0.6) * (F.kind === 'boss' ? 4 : 2), up = F.up + Math.sin(w * 0.9 + 1.3) * 1.2;
+    // (los dragones orientales serpentean mucho más: grandes eses de lado a lado y arriba y abajo)
+    const sn = !!SKY_KIND[F.kind].len, side = F.side + Math.sin(w * (sn ? 0.75 : 0.6)) * (F.kind === 'boss' ? 9 : sn ? 7 : 2), up = F.up + Math.sin(w * 0.9 + 1.3) * (sn ? 3.5 : 1.2);
     return [this.x + fx * F.ahead + rx * side, this.y + up, this.z + fz * F.ahead + rz * side];
   }
 
@@ -495,10 +504,15 @@ export class SkyFight {
       return busy;
     }
     if (F.st === 'lunge') {
-      // lanzado a por ti: sigue recto; si pasa cerca, te da
+      // lanzado a por ti: sigue recto (el dragón oriental, ondulando de lado); si pasa cerca, te da
       F.x += F.vx * dt;
       F.y += F.vy * dt;
       F.z += F.vz * dt;
+      if (D.len) {
+        const hv = Math.hypot(F.vx, F.vz) || 1, wob = SKY.wobA * SKY.wobW * Math.cos(SKY.wobW * F.t) * dt;
+        F.x += (-F.vz / hv) * wob;
+        F.z += (F.vx / hv) * wob;
+      }
       const dx = this.x - F.x, dy = this.y - F.y, dz = this.z - F.z, d = Math.hypot(dx, dy, dz);
       if (!F.done && d < SKY.hitR + D.size * 0.2) {
         F.done = true;
