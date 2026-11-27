@@ -792,7 +792,8 @@ No las cambies sin preguntarle.
 - Luciérnagas: **el doble que en RepArena** (180), **de colores bien distintos** (tres de cada cuatro: rosa, turquesa,
   violeta, verde, naranja, azul y amarillo; el centro, apenas más claro, que si no todas parecían iguales) y, en los momentos
   especiales (la fiebre, el relámpago, el turbo, la supervelocidad), **un destello más vivo y se hinchan y deshinchan**, cada
-  una a su ritmo (pedido del usuario).
+  una a su ritmo (pedido del usuario). **Un 60 % más grandes** (pedido del usuario: «al menos la mitad más grandes para que
+  resulten más visibles»).
 - **Luciérnagas en la periferia, al compás** (pedido del usuario: al menos 2,5 veces más, sin tapar las compuertas, los
   enemigos ni el entorno inmediato, y que su movimiento haga sentir el ritmo de la música): 480; nada a menos de 4,5 m de ti
   ni en el pasillo de juego (±35° del frente, hasta las compuertas, por debajo de 4,6 m): alrededor, detrás, a los lados y

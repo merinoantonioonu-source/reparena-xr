@@ -146,7 +146,7 @@ function makeMotes(): Points {
         vTint = vec4(aTint.rgb, max(aTint.a, uHype * 0.6));
         // en el momento especial, además, se hinchan y deshinchan (cada una a su ritmo; pedido del usuario)
         float swell = 1.0 + uHype * (0.35 + 0.3 * sin(t * (3.0 + 2.0 * aSeed.z) + aSeed.w * 6.2832));
-        gl_PointSize = clamp(0.1 * (0.75 + 0.5 * aSeed.w) * swell * sqrt(kd) * projectionMatrix[1][1] * uVH * 0.5 / -mv.z, 2.0, 64.0); // (las lejanas, algo más grandes) // (unos 10 cm con el halo; el punto, un par de centímetros)
+        gl_PointSize = clamp(0.16 * (0.75 + 0.5 * aSeed.w) * swell * sqrt(kd) * projectionMatrix[1][1] * uVH * 0.5 / -mv.z, 3.0, 96.0); // (las lejanas, algo más grandes) // (unos 16 cm con el halo; el punto, unos 3 cm: pedido del usuario, «al menos la mitad más grandes para que resulten más visibles»)
       }`,
     fragmentShader: `uniform vec3 uColor; uniform float uGain; varying float vA; varying vec4 vTint;
       void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float d2 = dot(q, q); if (d2 > 1.0) discard;
