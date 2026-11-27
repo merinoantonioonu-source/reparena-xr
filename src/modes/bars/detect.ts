@@ -292,7 +292,7 @@ export class BarDetector {
 
   /** Un nivel más de carga aguantando arriba (RepArena: barPower). */
   private power(p: number, env: BarsEnv, out: BarEvent[]): void {
-    if (env.lenient) return; // (en el parapente aguantar arriba frena: ni carga ni onda)
+    if (env.noPower) return; // (en el parapente sobre el mapa, aguantar arriba solo frena: ni carga ni onda)
     out.push({ type: 'snd', name: 'power', args: [p] });
     out.push({ type: 'cheer', text: `CARGA ×${p}`, col: powHex(p), dur: 0.9 });
     out.push({ type: 'fx', name: 'glow', at: env.head.p.clone().add(_ba.set(0, 0.1, 0)), args: [powRgb(p), 0.25 + p * 0.06, 0.15] });
@@ -303,7 +303,7 @@ export class BarDetector {
     const p = this.pw;
     this.pw = 1;
     this.pwT = 0;
-    if (env.state !== 'play' || p < 2 || env.lenient) return;
+    if (env.state !== 'play' || p < 2 || env.noPower) return;
     const h = env.head.p.clone().add(_ba.set(0, 0.08, 0)), rgb = powRgb(p);
     out.push({ type: 'fx', name: 'glow', at: h, args: [rgb, 0.4 + p * 0.1, 0.2] });
     out.push({ type: 'snd', name: 'power', args: [p, h] });

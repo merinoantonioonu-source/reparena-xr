@@ -65,9 +65,12 @@ export function mapStart(id: string = str('flyMap')): { city: City; agl?: number
 /** ¿Se vuela sobre el mapa? En la Travesía, en plancha y volando, con de dónde salir y la clave puesta. */
 export const mapWanted = (): boolean => settings.mode === 'trek' && settings.exercise === 'pushup' && num('trekFly') > 0 && !!mapStart() && !!mapKey();
 
-/** ¿Se vuela en parapente sobre el mapa? En Barras, con el remo invertido, «Remo invertido: parapente sobre el mapa», de
- * dónde salir y la clave puesta (si no, el remo de siempre). */
-export const paraWanted = (): boolean => settings.mode === 'bars' && settings.exercise === 'row' && !!str('barPara') && !!mapStart(str('barPara')) && !!mapKey();
+/** ¿Se vuela en parapente? En Barras, con el remo invertido y «Remo invertido: parapente»: sobre el mapa, con de dónde salir y
+ * la clave puesta (si no, el remo de siempre); o el combate en las islas del cielo («sky», sin mapa ni clave). */
+export const paraWanted = (): boolean =>
+  settings.mode === 'bars' && settings.exercise === 'row' && !!str('barPara') && (str('barPara') === 'sky' || (!!mapStart(str('barPara')) && !!mapKey()));
+/** ¿Es el combate en las islas del cielo? */
+export const paraSky = (): boolean => paraWanted() && str('barPara') === 'sky';
 
 /** Lo que le ha pasado al mapa las últimas veces (en este aparato; no viaja con la sincronización): la página lo enseña en
  * «Volar sobre el mapa», para saber por qué no carga sin depender del diagnóstico (que solo guarda los últimos 30 s). */

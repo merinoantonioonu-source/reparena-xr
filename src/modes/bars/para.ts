@@ -123,6 +123,11 @@ export class ParaPilot {
     this.kicked = this.boosted = false;
   }
 
+  /** Te ha dado un volador (el combate): frenas a la mitad (la marcha que llevabas, la mitad; nunca menos de la de crucero). */
+  hurt(): void {
+    this.stored = Math.max(PARA.gear0, this.stored * 0.5);
+  }
+
   /** Empieza una oleada: sus remos, de cero (el vuelo sigue como iba). */
   startWave(): void {
     this.reps = 0;

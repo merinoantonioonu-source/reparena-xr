@@ -723,7 +723,13 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         // Barras: lo que queda por reventar o los segundos colgado
         const h = this.bars()?.hud();
         const M = h && h.paraLeft !== null ? this.mapFly()?.hud() : null;
-        if (h && h.paraLeft !== null) {
+        if (h && h.paraSky) {
+          // el combate en el parapente: lo que queda por derribar (o el jefe), lo que corres y la altura
+          const K = h.paraSky;
+          lines[0] = h.mount ? 'Parapente: a las paralelas' : K.boss !== null ? `Dragón: le quedan ${K.boss}` : `Quedan ${h.paraLeft}`;
+          lines[1] = `${Math.round(K.kmh)} km/h · a ${Math.round(K.alt)} m`;
+          lines[2] = K.kills ? `Derribados: ${K.kills}` : 'Cada remo, un disparo';
+        } else if (h && h.paraLeft !== null) {
           // el parapente sobre el mapa: los remos que faltan y, del vuelo, la velocidad, la altura y el aro (o por dónde vas)
           const far = (m: number): string => (m >= 1000 ? `${(m / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(m / 10) * 10} m`);
           lines[0] = h.mount ? 'Parapente: a las paralelas' : `Remos: faltan ${h.paraLeft}`;
@@ -732,7 +738,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
             lines[2] = M.next ? `Aro: ${M.next} · ${far(M.dist)}${Math.abs(M.dy) > 25 ? ` · ${M.dy > 0 ? 'sube' : 'baja'} ${far(Math.abs(M.dy))}` : ''}` : placeText(M.lat, M.lon);
           }
         } else if (h) lines[0] = settings.exercise === 'hang' ? `Colgado ${Math.floor(h.hold)} de ${Math.round(h.need)} s` : h.bossLeft !== null ? `${h.bossName}: le quedan ${h.bossLeft}` : h.ropeLeft !== null ? `Faltan ${h.ropeLeft} m${h.turbo ? ' · TURBO ×2' : ''}` : `Quedan ${h.left}`;
-        const g = M ? null : this.rw.ghostText();
+        const g = M || h?.paraSky ? null : this.rw.ghostText();
         if (g) lines[1] = minus(g[0]);
       } else if (settings.mode === 'touch') {
         // Toques: cuántos quedan y de dónde vienen (la ayuda de cada tipo la dan los avisos al fallar)
