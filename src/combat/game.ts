@@ -41,7 +41,8 @@ import { Foe } from './components.js';
 import { STAND_EX, standDefaults, StandingDetector, WARN_COL, type StandCfg, type StandEvent, type StandInput } from '../exercise/standing.js';
 import { CALIB_LINES, IDLE, PLACE } from '../exercise/how.js';
 import { FLOOR_EX, FloorDetector, floorDefaults, iwReach, type FloorCfg, type FloorInput } from '../exercise/floor.js';
-import { aimForced, aimManual, deepOn, flyList, foes, groundList, handsFree, holdsWeights, isFloor, isSupine, isTiny, oneArm, pistolOn, skyFoes, twoShots } from '../core/rules.js';
+import { aimForced, aimManual, deepOn, fistsOn, flyList, foes, groundList, handsFree, holdsWeights, isFloor, isSupine, isTiny, oneArm, pistolOn, skyFoes, swordSet, twoShots } from '../core/rules.js';
+import { Swords, type SwordEnv } from './swords.js';
 import { HatchSystem, hatchFoes } from './hatch-foes.js';
 import { devFoe, flyFoes, FOE_DEF, foeName, foeReady, gateFoes } from './foes.js';
 import { faunaOf, legOf, PLACE_NAME, placeAt, travelsAt, type Place } from './journey.js';
@@ -240,6 +241,12 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   // el lanzamiento con las manos (src/input/throw.ts), la diana y lo que le pasa
   private env!: ThrowEnv;
   private locks = new LockLines();
+  /** Las espadas (src/combat/swords.ts) y lo que les pasa la partida en cada fotograma. */
+  private readonly swords = new Swords();
+  private swEnv!: SwordEnv;
+  private readonly swSides: Side[] = [];
+  /** Los puños cargados: ya se ha dicho cómo se usan. */
+  private fistTold = false;
   private cfx!: ComicFx;
   private gaze = new Vector3(0, 0, -1);
   // oleadas
@@ -302,6 +309,9 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.fx = new Effects();
     this.world.createTransformEntity(this.fx.group);
     this.world.createTransformEntity(this.locks.group);
+    // las espadas (en los mandos) y su bloqueo de los golpes
+    this.world.createTransformEntity(this.swords.root);
+    this.enemies.block = { start: (t) => this.swords.blockStart(t), strike: (t) => this.swords.blockStrike(t) };
     this.cfx = new ComicFx();
     this.world.createTransformEntity(this.cfx.group);
     this.env = {
@@ -317,6 +327,25 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       haptic,
       say: (text, color, secs) => this.message(text, secs, color, true),
       lockShow: (e) => this.locks.show(e as FoeTarget),
+    };
+    this.swEnv = {
+      sides: this.swSides,
+      laser: false,
+      minSpeed: 1.6,
+      block: true,
+      standY: 1.6,
+      squat: 0.3,
+      playing: false,
+      targets: this.enemies.targets,
+      hit: (t, dmg, dir, perfect) => this.enemies.hit(t.entity, dmg, 1, this.tmpC.copy(dir).setY(0).normalize(), perfect),
+      sparks: (p, n, hex, sp) => this.fx.sparks.burst(p, n, hex, sp ?? 2.4, 0.03),
+      flash: (p, hex, size) => this.fx.flashes.at(p, hex, size, 0.12),
+      say: (text, color, secs) => this.message(text, secs, color, true),
+      blocked: () => {
+        GAME.score += 100;
+        GAME.combo++;
+        GAME.bestCombo = Math.max(GAME.bestCombo, GAME.combo);
+      },
     };
     this.stIn = { hands, head, fwd: new Vector3(0, 0, -1), play: false }; // (delante, en la arena: hacia las compuertas)
     this.flIn = { ...this.stIn, headQ: head.q, wave: false, iwZ: 9, standY: 1.6 };
@@ -1011,6 +1040,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     throwReset();
     gazeLockReset();
     punchReset();
+    this.swords.reset();
+    this.fistTold = false;
     this.locks.clear();
     HOOKS.hideMenu();
     this.seen.clear();
@@ -1256,6 +1287,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // plancha (la línea), a tu alcance por delante de donde estás de pie (RepArena: IW_OFF, arenaFromHead, iwLayout)
     const hs = this.world.getSystem(HatchSystem), inch = ex === 'inchworm', reach = iwReach(num('iwReach'), y);
     this.flIn.standY = y;
+    this.swEnv.standY = y; // (la marca del bloqueo, a tu altura de pie)
     // En el suelo o sentado, el mundo también se coloca delante de ti, hacia donde apunta tu cuerpo (RepArena: arenaFromHead con
     // bodyYaw: en plancha, hacia donde apunta la coronilla): las trampillas quedan ante tus manos y las compuertas, de frente.
     // Sin esto, la arena diminuta salía siempre mirando a las compuertas aunque te tumbaras hacia otro lado (las trampillas, a
@@ -1805,6 +1837,21 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       this.fx.sparks.burst(bp, 18 + 6 * pow, 0xff5a78, 2.4, 0.03);
       this.fx.flashes.at(bp, 0xff4060, 0.35 + 0.1 * pow, 0.18);
     }
+    // las espadas: cada repetición carga la hoja (se derriba a tajos: sin diana ni rayo); los puños, cada mano (un puñetazo
+    // con la carga quita vida)
+    if (this.swSides.length) {
+      this.swords.onRep(perfect, this.swSides);
+      return;
+    }
+    if (fistsOn()) {
+      HTH.taught = true; // (no «lánzala»: se golpea)
+      throwCharge(dmg, perfect, pow, true, true, this.env.say);
+      if (!this.fistTold) {
+        this.fistTold = true;
+        this.message('¡Puños cargados! Golpea al enemigo', 2, '#3cf0c6', true);
+      }
+      return;
+    }
     const mode = aimNow(), inXR = this.world.visibilityState.peek() !== VisibilityState.NonImmersive;
     if (import.meta.env.DEV) console.info(`rxdbg repetición ${perfect ? 'perfecta' : 'normal'} ×${pow} (puntería ${mode})`);
     // (sin la bola, de la mano del brazo que hizo el curl, o del pecho; en la plancha con un brazo, siempre de la mano que
@@ -1969,7 +2016,18 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
 
   // un puñetazo: lo aparta (hacia donde iba el puño) y lo aturde; no le quita vida
   private onPunch = (side: Side, t: PunchTarget, v: Vector3, sp: number): void => {
-    const e = t as FoeTarget, k = Math.max(0.6, Math.min(1.4, sp / 4));
+    const e = t as FoeTarget, k = Math.max(0.6, Math.min(1.4, sp / 4)), c = fistsOn() ? HTH[side].c : null;
+    // con los puños cargados: el golpe le quita vida (la carga de esa mano, gastada)
+    if (c) {
+      HTH[side].c = null;
+      const hp = this.tmpB.copy(hands[side].wrist).lerp(e.center(this.tmpA), 0.5);
+      this.fx.sparks.burst(hp, 26, c.perfect ? 0xffd166 : 0xff8a3d, 3, 0.04);
+      this.fx.flashes.at(hp, 0xfff0c0, 0.5, 0.1);
+      SND.boltHit(hp, c.pow > 1 ? 2 : 1);
+      haptic(side, 1, 90);
+      this.enemies.hit(e.entity, c.dmg, c.pow, this.tmpC.copy(v).setY(0).normalize(), c.perfect);
+      return;
+    }
     this.enemies.shove(e.entity, 0.55 * k, 0.5, v);
     const hp = this.tmpB.copy(hands[side].wrist).lerp(e.center(this.tmpA), 0.5);
     this.fx.sparks.burst(hp, 14, 0xffd98a, 2.5, 0.035);
@@ -2125,8 +2183,23 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       }
     }
     // las manos: lanzar el rayo (la sacudida o el gatillo), la mirada y el puñetazo
-    const mode = aimNow(), env = this.env;
-    env.on = playing && mode === 'hands';
+    const mode = aimNow(), env = this.env, fists = fistsOn();
+    // las espadas: las manos que las llevan (con el mando) y lo que pasa con ellas
+    this.swSides.length = 0;
+    if (swordSet() && settings.mode === 'combat') {
+      if (str('sword') === 'two') this.swSides.push('left', 'right');
+      else this.swSides.push(str('swordHand') === 'left' ? 'left' : 'right');
+    }
+    const S = this.swEnv;
+    S.sides = this.swSides;
+    S.laser = str('swordKind') === 'laser';
+    S.minSpeed = num('swordSpeed');
+    S.block = on('swordBlock');
+    S.squat = num('squatDepth') / 100;
+    S.playing = playing && !GAME.between;
+    this.swords.update(dt, S);
+    env.on = playing && mode === 'hands' && !fists && !this.swSides.length;
+    env.sword = this.swSides.length > 0;
     env.playing = playing && !GAME.between;
     env.byGaze = str('throwPick') !== 'hand';
     env.assist = num('assist');
@@ -2135,11 +2208,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       const e = gazeLockStep(time, head.p, this.gaze, this.enemies.targets, num('assist')) as FoeTarget | null;
       if (e) this.locks.show(e);
     }
-    punchStep(dt, playing && on('punch'), this.enemies.targets, this.onPunch);
-    // la carga en cada mano: un orbe en la muñeca, del color de la carga
+    punchStep(dt, playing && (on('punch') || fists) && !this.swSides.length, this.enemies.targets, this.onPunch);
+    // la carga en cada mano: un orbe en la muñeca, del color de la carga (con los puños, en el puño)
     for (const s of SIDES) {
       const c = HTH[s].c, h = hands[s];
-      this.fx.orbs.set(s, env.on && h.ok && c ? this.tmpB.copy(h.wrist).addScaledVector(GAME.fwd, 0.05) : null, !!c?.perfect, c?.pow ?? 1, time);
+      this.fx.orbs.set(s, (env.on || fists) && h.ok && c ? this.tmpB.copy(h.wrist).addScaledVector(GAME.fwd, 0.05) : null, !!c?.perfect, c?.pow ?? 1, time);
     }
     this.locks.step(dt, head.p);
     // la bola: a un metro del pecho, a su altura (por debajo de los ojos), hacia donde mira el cuerpo

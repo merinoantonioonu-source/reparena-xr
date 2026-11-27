@@ -54,9 +54,13 @@ export class SkinHand extends AnimatedHand {
   }
 }
 
+/** Las manos que llevan un arma (la espada en el mando: src/combat/swords.ts): no se ven, se ve el arma (REGLAS: «con
+ * pistolas o espada, el arma»). */
+export const WEAPON_HAND = { left: false, right: false };
+
 /** La piel de una mano de IWSDK, a la vista solo si no se está pintando el guante de ese lado (ni llega aplastada: perdida,
- * con todas las articulaciones en un punto; src/input/hand-collapse.ts). */
+ * con todas las articulaciones en un punto; src/input/hand-collapse.ts) ni lleva un arma. */
 export function skinShown(skin: Object3D[], side: 'left' | 'right'): void {
-  const v = !(str('handLook') !== 'skin' && GLOVE_ON[side]) && !COLLAPSE[side];
+  const v = !(str('handLook') !== 'skin' && GLOVE_ON[side]) && !COLLAPSE[side] && !WEAPON_HAND[side];
   for (const o of skin) if (o.visible !== v) o.visible = v;
 }
