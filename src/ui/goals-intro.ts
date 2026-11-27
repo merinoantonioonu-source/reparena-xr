@@ -49,13 +49,16 @@ export class GoalsSystem extends createSystem({}) {
     this.p.tex.needsUpdate = true;
   }
 
+  private near = 1;
   private start(): void {
     const o = this.p.mesh;
     this.shown = true;
     this.fill();
     const ly = lyingEx();
     VIEW_FRAME.hudLocal(this.tmp.set(0, 0.05, -2), o.position, head, ly);
-    o.quaternion.copy(VIEW_FRAME.hudQ(head, ly));
+    // (nunca bajo el suelo: más cerca, más pequeño)
+    this.near = VIEW_FRAME.near;
+    o.quaternion.copy(VIEW_FRAME.hudQAt(head, ly, o.position, this.near));
     this.t = 0;
     this.skip = false;
     this.keyHit = false;
@@ -102,7 +105,7 @@ export class GoalsSystem extends createSystem({}) {
     this.veil.visible = a > 0.01;
     (o.material as MeshBasicMaterial).opacity = a;
     o.visible = a > 0.01;
-    o.scale.setScalar(1 + 0.05 * Math.max(0, 1 - this.t / 0.4));
+    o.scale.setScalar((1 + 0.05 * Math.max(0, 1 - this.t / 0.4)) * this.near);
     if (this.t >= GOALS_DUR) this.clear();
   }
 }

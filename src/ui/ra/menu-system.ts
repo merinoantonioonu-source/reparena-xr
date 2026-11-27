@@ -386,7 +386,9 @@ export class RaMenuSystem extends createSystem({}, {}) {
     const q = UI.menu;
     if (q?.kind === 'quick' && (GAME.phase !== 'playing' || GAME.paused || (q.low && (now - QUICK.pressT > 12 || head.p.y > 1.15)))) hideMenu();
     // en plancha, la palma izquierda hacia la cara medio segundo (la mano de verdad, a menos de 60 cm): la tira, en el suelo
-    const low = inXR && GAME.phase === 'playing' && !GAME.paused && head.p.y < 0.95 && h.ok && !h.est && h.isHand && !isFist(h);
+    // (en Barras no: colgado de las paralelas, la mano que agarra la barra mira hacia la cara y la tira salía una y otra vez
+    // —lo vio el usuario en el parapente—; allí, el botón MENÚ)
+    const low = inXR && GAME.phase === 'playing' && !GAME.paused && settings.mode !== 'bars' && head.p.y < 0.95 && h.ok && !h.est && h.isHand && !isFist(h);
     let palm = false;
     if (low) {
       this.a.copy(head.p).sub(h.wrist);

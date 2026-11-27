@@ -63,6 +63,10 @@ const SKY_LANE = { y: 2.6, r: 0.45 };
 export class ViewSystem extends createSystem({}) {
   // el del centro y el breve: lienzos como en RepArena (src/ui/info-draw.ts; antes, paneles de UIKit con el texto saliéndose)
   private center!: RaPanel;
+  /** Lo que se han acercado el del centro y el breve para no meterse en el suelo (suavizado; 1, nada). */
+  private cNear = 1;
+  private duelNear = 1;
+  private tNear = 1;
   private toast!: RaPanel;
   private readonly C = hudSpot([[0, -0.08], [0, 0.42], [0, -0.5]], -1.1, 0.5 * CENTER_SC, 0.2 * CENTER_SC);
   private readonly T = hudSpot([[0, -0.4], [0, 0.4], [-0.5, -0.24], [0.5, -0.24]], -1.2, TOAST_W, TOAST_H);
@@ -117,7 +121,8 @@ export class ViewSystem extends createSystem({}) {
       this.demoFr.reset();
     });
     // la caricatura
-    this.demo = makeCanvasPanel(DEMO_W, DEMO_H, 640);
+    // (sin prueba de profundidad, como el del centro: pegada al suelo no se esconde en él)
+    this.demo = makeCanvasPanel(DEMO_W, DEMO_H, 640, false);
     this.demo.mesh.scale.setScalar(DEMO_HS);
     this.demo.mesh.renderOrder = 29;
     this.demo.mesh.visible = false;
@@ -243,11 +248,15 @@ export class ViewSystem extends createSystem({}) {
     // (antes de empezar —colocarse, prepararte—, sigue tu mirada antes: si no, se quedaba hacia donde estaba el menú, a un
     // lado, y no se podía leer; lo vio el usuario en la Travesía)
     const pre = c.kind === 'calib' || c.kind === 'ready';
-    const L = lazyAt(VIEW_FRAME, this.lzC, hudSlot(VIEW_FRAME, this.C, slots, head, lying, this.threats, n, dt, this.at), VIEW_FRAME.hudQ(head, lying), head, dt, pre ? PRE_ANG : undefined);
+    // (nunca bajo el suelo: en plancha o tumbado, mirando abajo, se acerca hasta él y se encoge en proporción)
+    const want = hudSlot(VIEW_FRAME, this.C, slots, head, lying, this.threats, n, dt, this.at), nk = VIEW_FRAME.near;
+    const L = lazyAt(VIEW_FRAME, this.lzC, want, VIEW_FRAME.hudQAt(head, lying, want, nk), head, dt, pre ? PRE_ANG : undefined);
+    this.cNear += (nk - this.cNear) * (1 - Math.exp(-dt * 7));
+    o.scale.setScalar(this.cNear);
     o.position.copy(L.at);
     o.quaternion.copy(L.q);
     // con la caricatura al lado, los dos centrados delante de ti (antes la caricatura quedaba 70 cm a la derecha)
-    if (on('demo') && GAME.phase === 'playing' && GAME.menu === 'none') o.position.addScaledVector(this.v.set(1, 0, 0).applyQuaternion(L.q), -((DEMO_W * DEMO_HS) / 2 + 0.02));
+    if (on('demo') && GAME.phase === 'playing' && GAME.menu === 'none') o.position.addScaledVector(this.v.set(1, 0, 0).applyQuaternion(L.q), -((DEMO_W * DEMO_HS) / 2 + 0.02) * this.cNear);
     // si tapa algo que viene, se aparta y, mientras, se aclara
     const vis = this.C.fade * lazyClear(L, o, 0.75, 0.3, head.p, this.threats, n, dt);
     (o.material as MeshBasicMaterial).opacity = vis;
@@ -277,7 +286,10 @@ export class ViewSystem extends createSystem({}) {
       return;
     }
     this.toastT -= dt;
-    const L = lazyAt(VIEW_FRAME, this.lzT, hudSlot(VIEW_FRAME, this.T, lying && skyFoes() ? SKY_T : this.T.slots, head, lying, this.threats, n, dt, this.at), VIEW_FRAME.hudQ(head, lying), head, dt);
+    const want = hudSlot(VIEW_FRAME, this.T, lying && skyFoes() ? SKY_T : this.T.slots, head, lying, this.threats, n, dt, this.at), nk = VIEW_FRAME.near;
+    const L = lazyAt(VIEW_FRAME, this.lzT, want, VIEW_FRAME.hudQAt(head, lying, want, nk), head, dt);
+    this.tNear += (nk - this.tNear) * (1 - Math.exp(-dt * 7));
+    o.scale.setScalar(this.tNear);
     const vis = Math.min(1, this.toastT * 3) * this.T.fade * lazyClear(L, o, TOAST_W, TOAST_H, head.p, this.threats, n, dt);
     (o.material as MeshBasicMaterial).opacity = vis;
     o.position.copy(L.at);
@@ -299,13 +311,18 @@ export class ViewSystem extends createSystem({}) {
     const m = this.demo.mesh, co = this.center.mesh;
     if (wait) {
       let q: Quaternion, tgt: Vector3;
+      let k0: number;
       if (co?.visible) {
         q = co.quaternion;
-        tgt = this.v.set(1, 0, 0).applyQuaternion(q).multiplyScalar(0.25 * CENTER_SC + (DEMO_W * DEMO_HS) / 2 + 0.04).add(co.position);
+        k0 = this.cNear;
+        tgt = this.v.set(1, 0, 0).applyQuaternion(q).multiplyScalar((0.25 * CENTER_SC + (DEMO_W * DEMO_HS) / 2 + 0.04) * k0).add(co.position);
       } else {
-        q = this.q.copy(VIEW_FRAME.hudQ(head, lying));
         tgt = VIEW_FRAME.hudLocal(this.v.set(0, 0, -1.05), this.at, head, lying);
+        k0 = VIEW_FRAME.near;
+        q = this.q.copy(VIEW_FRAME.hudQAt(head, lying, tgt, k0));
       }
+      // (como el del centro: más cerca del suelo, más pequeña)
+      m.scale.setScalar(DEMO_HS * k0);
       if (!this.demoInit) {
         m.position.copy(tgt);
         m.quaternion.copy(q);
@@ -426,7 +443,9 @@ export class ViewSystem extends createSystem({}) {
     for (const s of ['left', 'right'] as const) this.mask[s] = padMask(hands[s]); // (lo que ya estaba pulsado no cuenta)
     // 2,5 m delante de ti, derecho
     VIEW_FRAME.hudLocal(this.v.set(0, 0, -2.5), this.duel.mesh.position, head, lyingEx());
-    this.duel.mesh.quaternion.copy(VIEW_FRAME.hudQ(head, lyingEx()));
+    // (nunca bajo el suelo: más cerca, más pequeña)
+    this.duelNear = VIEW_FRAME.near;
+    this.duel.mesh.quaternion.copy(VIEW_FRAME.hudQAt(head, lyingEx(), this.duel.mesh.position, this.duelNear));
     this.duelReady();
   }
 
@@ -514,7 +533,7 @@ export class ViewSystem extends createSystem({}) {
     this.veil.visible = v > 0.01;
     this.duel.mat.opacity = a;
     this.duel.mesh.visible = a > 0.01;
-    this.duel.mesh.scale.setScalar(1 + 0.04 * Math.max(0, 1 - t / 0.4));
+    this.duel.mesh.scale.setScalar((1 + 0.04 * Math.max(0, 1 - t / 0.4)) * this.duelNear);
     if (t >= DUEL_DUR) this.duelClear();
   }
 }
