@@ -91,11 +91,38 @@ describe('el vuelo sobre el mapa', () => {
     expect(F.climb).toBeGreaterThan(-0.8); // (más abajo de la mitad: bajas, en proporción)
     expect(F.dive).toBe(0);
     const v0 = F.speed;
-    run(F, 3, IN({ head: LOW }));
+    run(F, 1.5, IN({ head: LOW })); // (más, y llegaría al suelo: ahora se baja el doble de deprisa)
     expect(F.climb).toBeCloseTo(-1, 2);
     expect(F.dive).toBeGreaterThan(0.9);
     expect(F.vs).toBeLessThan(-MAP.sink * 0.9);
     expect(F.speed).toBeGreaterThan(v0 * 1.3); // (en picado, más deprisa)
+  });
+  it('la flexión de golpe: subir de golpe, una subida brusca; dejarte caer de golpe, un picado; una flexión normal, nada', () => {
+    // (de media flexión arriba en `secs` s, y vuelta abajo en `secs`; cuenta los golpes)
+    const reps = (F: MapFlight, secs: number): number[] => {
+      const got: number[] = [];
+      for (let r = 0; r < 3; r++)
+        for (const [a, b] of [[MID - 0.15, TOP], [TOP, MID - 0.15]]) {
+          for (let t = 0; t <= secs; t += DT) {
+            F.step(DT, IN({ head: a + (b - a) * Math.min(1, t / secs) }));
+            if (F.jolted) got.push(F.jolted);
+          }
+          run(F, 1.2, IN({ head: b }));
+        }
+      return got;
+    };
+    expect(reps(new MapFlight(cityOf('nyc')!), 0.9)).toEqual([]);
+    const got = reps(new MapFlight(cityOf('nyc')!), 0.18);
+    expect(got).toContain(1);
+    expect(got).toContain(-1);
+    // (cuánto: unos 30 m de golpe, recto a media flexión antes y después)
+    const A = new MapFlight(cityOf('nyc')!);
+    run(A, 2, IN({ head: MID - 0.15 }));
+    const y0 = A.alt;
+    for (let t = 0; t <= 0.15; t += DT) A.step(DT, IN({ head: MID - 0.15 + (TOP - MID + 0.15) * Math.min(1, t / 0.15) }));
+    run(A, 0.85, IN({ head: MID }));
+    expect(A.alt - y0).toBeGreaterThan(MAP.jolt * 0.5); // (antes bajaba: aun así, sube de golpe)
+    expect(A.alt - y0).toBeLessThan(MAP.jolt * A.scale * 1.4);
   });
   it('arriba de la plancha se afina solo: calibrado bajo, estirar los brazos de verdad sigue siendo subir', () => {
     const F = new MapFlight(cityOf('nyc')!);

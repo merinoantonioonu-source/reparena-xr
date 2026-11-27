@@ -1327,7 +1327,7 @@ export class TrekSystem extends createSystem({}) {
           const fl = this.floorAt((c + 0.5) * TREK_CH);
           // (del lado del marcador, nada alto que lo atraviese: board-spot.ts)
           const bs = str('board'), cl: -1 | 0 | 1 = bs === 'right' ? 1 : bs === 'left' ? -1 : 0;
-          L = fl === 'cliff' ? cliffDecoPuts(c, []) : fl === 'sky' ? skyDecoPuts(c, [], cl) : fl === 'coast' ? coastDecoPuts(c, [], cl) : decoPuts(c, [], this.biomeAt(c * TREK_CH), cl);
+          L = fl === 'cliff' ? cliffDecoPuts(c, [], R.fly) : fl === 'sky' ? skyDecoPuts(c, [], cl) : fl === 'coast' ? coastDecoPuts(c, [], cl) : decoPuts(c, [], this.biomeAt(c * TREK_CH), cl);
           this.deco.set(c, L);
         }
         for (const u of L) this.put(u, u.ds, 0, 1);

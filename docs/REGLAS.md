@@ -126,6 +126,8 @@ No las cambies sin preguntarle.
   varios mundos, hasta los cuatro (con 3 tramos, uno por mundo: bosque, risco e islas, cada uno con su jefe).
 - Travesía de plataformas, **el risco** (el segundo mundo, propuesto y aprobado): un sendero de roca pegado a una pared de
   montaña, con el vacío a la derecha y un mar de nubes muy abajo (los riscos lejanos salen de él; la foto de fondo, de montaña).
+  **Volando, la pared, más lejos** (pedido del usuario: «la pared de roca de la izquierda llega a ser un poco molesta»;
+  elegido «más lejos»): se aparta 5 m del camino (más de lo que te puedes apartar volando), con sus pinos y la montaña.
   Sus retos: la **cornisa** (el camino se estrecha: pegarse a la pared, a la izquierda, mientras dure), las **rachas de viento**
   (polvo que cruza el camino: inclinarse contra el viento y aguantar mientras sopla) y los **desprendimientos** (rocas que caen
   de lo alto a un lado del camino, con aviso: apartarse al otro). Si no, frenas a la mitad y se rompe la racha, sin vidas. Sin
@@ -184,8 +186,12 @@ No las cambies sin preguntarle.
   por encima del recorrido (unos 6 m; los árboles, debajo) como un planeador, sin pasarela salvo al salir y ante cada cofre,
   donde te posas. Lo que hay que ver va **por debajo de ti o sube desde abajo** (en plancha se mira al suelo).
   - **A, en plancha** (la base; afinado con `docs/PLAN-VUELO.md`, «aplica todas tus sugerencias»): **la cabeza es la palanca**,
-    respecto a un centro que no se mueve en el aire. **Escorarte es la posición de lado**: tanto te escoras, tanto te apartas
-    y, al volver al centro, el vuelo vuelve; el mundo se desplaza a tu lado. **Sin sacudidas** (pedido del usuario: costaba alinearse con las frutas): lo que pide la cabeza se suaviza y el vuelo
+    respecto a un centro que no se mueve en el aire. **De lado, como sobre el mapa** (elegido por el usuario: «la mecánica
+    del vuelo es distinta a la de los mapas: una ligerísima inclinación hacia izquierda o derecha hace que el vuelo cambie
+    bruscamente»; antes, «tanto te escoras, tanto te apartas»): lo que te escoras es **lo deprisa que te deslizas** a ese
+    lado (una escora pequeña, un desliz lento; del todo, unos 2 m/s) y, al volver al centro, **te quedas donde estás**; el
+    mundo se desplaza a tu lado. **La mitad de inercia** (pedido del usuario: «reducir al menos un 50 % la inercia… dificulta
+    mucho el vuelo»): de lado, al subir y al bajar, todo responde el doble de pronto. **Sin sacudidas** (pedido del usuario: costaba alinearse con las frutas): lo que pide la cabeza se suaviza y el vuelo
     arranca y frena suave, a los lados y al subir y bajar; las frutas del aire, algo más fáciles de coger. **Con inercia**
     (pedido del usuario: «un ligero movimiento lateral me aparta bruscamente de la hilera de frutas… el giro es una sacudida
     que se frena en seco»): el vuelo va hacia donde pide la cabeza como un ala, no como un cursor: arranca suave, al volver
@@ -263,6 +269,13 @@ No las cambies sin preguntarle.
       (bajas a toda velocidad y ganas marcha). Aquí no cuentan «Vuelo: recorrido para bajar» ni la pica: cuenta lo alta que va
       la cabeza entre el suelo y arriba de tu plancha, que **se afina sola** (si calibraste algo encogido, en cuanto estiras
       los brazos de verdad esa es la nueva altura de arriba). **Vuelo rasante**: el suelo y los tejados te sostienen a 7 m.
+      **Rasantes y subidas bruscas** (pedido del usuario: «sigo viendo complicado hacer vuelos rasantes y elevaciones bruscas,
+      ni siquiera cuando hago una bajada brusca en la flexión»; elegidas «las dos cosas»): subir y bajar va **el doble de
+      deprisa** y con zonas más anchas, y **la flexión de golpe** es una maniobra: **subir de golpe** (una flexión explosiva) es
+      una **subida brusca** de unos 30 m y **dejarte caer de golpe** al suelo, un **picado** de otros tantos (más cuanto más alto
+      vas), arrancando y frenando suave, con vibración fuerte, un golpe de aire y «¡Arriba!» o «¡Picado!» las primeras veces;
+      una flexión a ritmo normal no lo hace. **La mitad de inercia** al virar, al subir y bajar y con la marcha (el parapente de
+      Barras, con su mando, sigue como estaba).
     - **La marcha, acumulativa** (pedido del usuario): **cada impulso brusco hacia delante es una marcha más** (hasta 8; con su
       vibración, su golpe de aire y «¡Impulso! Marcha 3») y **se mantiene** aunque vuelvas a tu sitio; echado adelante y
       aguantando, sube poco a poco; **echado atrás, frenas** (más cuanto más atrás, hasta pararte: «Frenado · un impulso

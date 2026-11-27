@@ -1556,6 +1556,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   **Por confirmar en las gafas**: que el suelo del guardián no cambie entre sesiones (en RepArena era así). El ancla de
   IWSDK sigue aparte, en pruebas; si está en marcha, manda ella.
 
+- **El vuelo de la Travesía, más ágil** (pedido del usuario: «reducir al menos un 50 % la inercia», rasantes y subidas
+  bruscas, el lado «como el mapa» y la pared del risco «más lejos»). Sobre el mapa (`map-route.ts`): `MAP.bankTau`,
+  `vsTau` y `speedTau` a la mitad (el parapente de Barras, con su `MapIn.ctl`, las de antes con `slowK` y `ctlRate`), subir
+  y bajar el doble (`climb`, `sink`) con zonas más anchas (`upFrom`, `upFull`, `downFrom`, `downFull`) y la flexión de golpe
+  (`MapFlight.jolted`, `MAP.jolt*`: la velocidad de la cabeza en flexiones enteras por segundo; `MapSystem` lo hace notar).
+  En el recorrido (`fly.ts`): el lado deja de ser posición y pasa a velocidad (`FLY.slideV`, `slideTau`; `tgtU` sigue siendo
+  lo que pide la cabeza, que es lo que vira sobre el mapa) y la mitad de inercia (`sideIn`, `altTau`, `MID.tau`). El risco
+  volando, `cliffDecoPuts(…, fly)` con `CLIFF_FLY_OFF`.
 - **El combate en el parapente: las islas del cielo** (Barras, en pruebas; `barPara` = 'sky'; elegidas por el usuario todas
   las recomendaciones). La lógica, pura y con pruebas (`tests/unit/sky-fight.test.ts`), en `src/modes/bars/sky-fight.ts`:
   `SkyFight` (el vuelo en el cielo con lo que decide `ParaPilot`; los voladores por oleadas, que se quedan delante en tu marco

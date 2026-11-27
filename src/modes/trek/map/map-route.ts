@@ -127,11 +127,20 @@ export function toLocal(c: { lat: number; lon: number }, lat: number, lon: numbe
  * - Las paredes: lo que se mira por delante (s de vuelo y, como poco, m) y a cuánto te paras (m).
  * - El ancla: a cuánto del punto del mapa se vuelve a anclar (m: la Tierra es redonda).
  */
+// (pedido del usuario con las flexiones: «reducir al menos un 50 % la inercia… dificulta mucho el vuelo» y costaba hacer
+// rasantes y subidas bruscas: las inercias, a la mitad; subir y bajar, el doble de rápido y con zonas más anchas; y la
+// flexión de golpe, `jolt`. El parapente de Barras, con su mando, sigue con las de antes: `slowK`)
 export const MAP = {
-  bankTau: 0.7, turn: 0.5, roll: 0.16,
-  low: 0.17, upFrom: 0.88, upFull: 0.97, downFrom: 0.62, downFull: 0.22, topUp: 0.6, topDown: 0.002, topSpan: 0.15,
-  alt0: 260, floor: 7, climb: 18, sink: 45, vsTau: 0.7, scaleAlt: 260, altMax: 3e6,
-  gear: 40, gear0: 1, gearMax: 8, hold: 0.6, brake: 1.4, brakeFrom: 0.07, brakeFull: 0.18, speedTau: 1.2, scalePow: 0.92, diveK: 0.6,
+  bankTau: 0.35, turn: 0.5, roll: 0.16,
+  low: 0.17, upFrom: 0.84, upFull: 0.94, downFrom: 0.6, downFull: 0.25, topUp: 0.6, topDown: 0.002, topSpan: 0.15,
+  alt0: 260, floor: 7, climb: 36, sink: 90, vsTau: 0.35, scaleAlt: 260, altMax: 3e6,
+  gear: 40, gear0: 1, gearMax: 8, hold: 0.6, brake: 1.4, brakeFrom: 0.07, brakeFull: 0.18, speedTau: 0.6, scalePow: 0.92, diveK: 0.6,
+  /** El parapente de Barras (su mando, `MapIn.ctl`): sus inercias y sus subidas y bajadas, × las de arriba (las de antes). */
+  slowK: 2, ctlRate: 0.5,
+  /** La flexión de golpe (subir o dejarte caer, en un momento): lo deprisa que tiene que ir la cabeza (veces la flexión
+   * entera por segundo: una flexión normal va a 1,2; una explosiva, a 3), lo que sube o baja el vuelo (m, × lo deprisa que va
+   * todo por la altura), en cuánto (s) y la espera hasta la siguiente (s). */
+  joltV: 2.5, jolt: 30, joltT: 0.8, joltCool: 1,
   ringR: 40, slack: 14, ringClear: 30, ringAgl: 150, startBack: 700,
   aheadT: 1.3, aheadMin: 30, stopAt: 10,
   reanchor: 25000,
@@ -173,6 +182,14 @@ export class MapFlight {
   dive = 0;
   top = NaN;
   private nF = NaN;
+  /** La flexión de golpe: lo deprisa que va la cabeza (flexiones enteras por segundo, suavizado), lo que lleva el golpe (s;
+   * −1, ninguno), lo que mueve (m; −, abajo), la espera y el de este fotograma (+1 sube, −1 baja; 0, ninguno). */
+  private nL = NaN;
+  private nV = 0;
+  private joltAt = -1;
+  private joltD = 0;
+  private joltCd = 0;
+  jolted = 0;
   /** La altura sobre el suelo a la que empiezas (m) y si ya estás puesto sobre el suelo de verdad (al medirlo la primera vez). */
   startAgl: number = MAP.alt0;
   placed = false;
@@ -226,7 +243,9 @@ export class MapFlight {
     this.alt = this.city.h + MAP.alt0;
     this.bank = this.speed = this.vs = this.flown = this.climb = this.dive = 0;
     this.gear = MAP.gear0;
-    this.top = this.nF = NaN;
+    this.top = this.nF = this.nL = NaN;
+    this.nV = this.joltCd = this.jolted = 0;
+    this.joltAt = -1;
     this.ahead = Infinity;
     this.next = 0;
   }
@@ -272,7 +291,16 @@ export class MapFlight {
     else this.top = Math.max(I.ref - MAP.topSpan, this.top - MAP.topDown * dt);
     // lo alto que vas en la flexión (0, el pecho en el suelo; 1, los brazos estirados), suavizado
     const n = (I.head - MAP.low) / Math.max(0.2, this.top - MAP.low);
-    this.nF = Number.isNaN(this.nF) ? n : this.nF + (n - this.nF) * Math.min(1, dt / 0.12);
+    this.nF = Number.isNaN(this.nF) ? n : this.nF + (n - this.nF) * Math.min(1, dt / 0.06);
+    // la flexión de golpe: subir de golpe, una subida brusca; dejarte caer de golpe, un picado
+    if (!Number.isNaN(this.nL)) this.nV += ((n - this.nL) / dt - this.nV) * Math.min(1, dt / 0.05);
+    this.nL = n;
+    if (this.joltCd <= 0 && this.joltAt < 0 && Math.abs(this.nV) > MAP.joltV) {
+      this.jolted = this.nV > 0 ? 1 : -1;
+      this.joltD = this.jolted * MAP.jolt * this.scale;
+      this.joltAt = 0;
+      this.joltCd = MAP.joltCool;
+    }
     const up = c01((this.nF - MAP.upFrom) / (MAP.upFull - MAP.upFrom)), down = c01((MAP.downFrom - this.nF) / (MAP.downFrom - MAP.downFull));
     this.climb = up > 0 ? up : -down;
     this.dive = c01((down - 0.6) / 0.4);
@@ -287,6 +315,10 @@ export class MapFlight {
   step(dt: number, I: MapIn): void {
     if (dt <= 0) return;
     const c = (v: number): number => Math.max(-1, Math.min(1, v));
+    this.jolted = 0;
+    this.joltCd = Math.max(0, this.joltCd - dt);
+    // (las inercias: con el mando del parapente, las de antes)
+    const k = I.ctl ? MAP.slowK : 1, r = I.ctl ? MAP.ctlRate : 1;
     if (I.live && I.ctl) {
       this.climb = c(I.ctl.climb);
       this.dive = 0;
@@ -294,11 +326,17 @@ export class MapFlight {
     } else if (I.live) this.pilot(dt, I);
     else this.climb = this.dive = 0;
     // el ladeo sigue a lo que te escoras, con su inercia: entra y sale del viraje suave (antes viraba en seco)
-    this.bank += ((I.live ? c(I.steer) : 0) - this.bank) * (1 - Math.exp(-dt / MAP.bankTau));
+    this.bank += ((I.live ? c(I.steer) : 0) - this.bank) * (1 - Math.exp(-dt / (MAP.bankTau * k)));
     this.heading -= MAP.turn * this.bank * dt; // (ladeado a la derecha, viras a la derecha)
     const f = this.scale, cl = this.climb;
-    this.vs += ((cl > 0 ? MAP.climb : MAP.sink) * cl * f - this.vs) * (1 - Math.exp(-dt / MAP.vsTau));
+    this.vs += ((cl > 0 ? MAP.climb : MAP.sink) * r * cl * f - this.vs) * (1 - Math.exp(-dt / (MAP.vsTau * k)));
     this.alt = Math.min(MAP.altMax, this.alt + this.vs * dt);
+    // la flexión de golpe: de golpe, pero arrancando y frenando suave (sin tirones que mareen)
+    if (this.joltAt >= 0) {
+      const ease = (u: number): number => u * u * (3 - 2 * u), a = this.joltAt / MAP.joltT, b = Math.min(1, (this.joltAt + dt) / MAP.joltT);
+      this.alt = Math.min(MAP.altMax, this.alt + this.joltD * (ease(b) - ease(a)));
+      this.joltAt = b >= 1 ? -1 : this.joltAt + dt;
+    }
     // el suelo (o el tejado) te sostiene: nunca más cerca que `floor`, y te sube suave si se te echa encima
     const low = this.ground + MAP.floor;
     if (this.alt < low) {
@@ -310,7 +348,7 @@ export class MapFlight {
     const room = this.ahead - MAP.stopAt;
     if (room < want * MAP.aheadT) want = Math.max(0, room / MAP.aheadT);
     // (frenar, más vivo que acelerar; ante una pared, en seco)
-    this.speed += (want - this.speed) * (1 - Math.exp(-dt / (want >= this.speed ? MAP.speedTau : room < this.speed * MAP.aheadT ? 0.25 : MAP.speedTau / 2)));
+    this.speed += (want - this.speed) * (1 - Math.exp(-dt / (want >= this.speed ? MAP.speedTau * k : room < this.speed * MAP.aheadT ? 0.25 : (MAP.speedTau * k) / 2)));
     if (room <= 0) this.speed = 0;
     const d = this.speed * dt;
     this.x += -Math.sin(this.heading) * d;
