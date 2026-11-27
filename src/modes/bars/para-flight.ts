@@ -4,7 +4,7 @@
  * te vas a un lado, lo subido que vas) y se lo pasa al mapa por `MAPPILOT` (`MapSystem` es quien vuela y pinta el mapa).
  * Hasta que te cuelgas la primera vez se ve la arena de siempre; luego, solo el cielo y el mapa (y tus paralelas).
  *
- * Con «Islas en el cielo: combate» (`barPara` = 'sky'), en vez del mapa, el combate contra voladores (`SkyScene`): se vuela igual
+ * Con «Combate en el cielo» (`barPara` = 'sky'), en vez del mapa, el combate contra voladores (`SkyScene`): se vuela igual
  * y, además, cada remo dispara hacia donde miras, el explosivo da el disparo fuerte y aguantar arriba carga una onda.
  */
 import { Vector3 } from '@iwsdk/core';

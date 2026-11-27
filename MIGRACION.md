@@ -1569,7 +1569,16 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   suelta la onda (`BarsEnv.noPower` solo apaga la carga sobre el mapa), `startWave(need, i, boss)` con `isBossWave`, y lo que
   pasa (`onSky`: te dan, `ParaPilot.hurt`; esquivas; derribas, `HOOKS.foeDown`). El marcador, `BarsSystem.hud().paraSky`. Los
   números de esquivar se afinaron simulando (`SKY.turn`, `shotV`, `hitR`): sin cambiar de rumbo te dan siempre y virando al
-  oír el rugido se esquiva casi todo. Probado sin gafas forzando el colgarse. **Por confirmar en las gafas**: el tamaño y la
+  oír el rugido se esquiva casi todo. Probado sin gafas forzando el colgarse.
+  *Tras verlo el usuario* («buena pinta, pero…»): (a) en el menú, las opciones del parapente (8 en una fila) salían con la letra
+  diminuta: `grid: 3` y nombres cortos (también las de «Volando: sobre el mapa»); (b) las islas, blancas y sin relieve (la
+  niebla, 0,0028, las lavaba a 100 m: ahora 0,0011) y el cielo, vacío: `SkyIsles` con 18 cercanas y 5 enormes a lo lejos y lo
+  de encima del kit de naturaleza (`SkyDeco`: árboles, arbustos, hierba, flores…; con `placedTop`/`placedFlat`), el mar de nubes
+  como un disco de verdad bajo tus pies con sus nubes quietas en el cielo (corren al volar: `SEA_*`), nubes sueltas
+  (`SkyPuffs`, cuadros de cara a cada ojo) y gaviotas (`SND.gull`); (c) no se veía ningún disparo: el rayo de `Bolts` necesita
+  que quien lo lanza lo haga avanzar (`Lightning.k`) y llamar a `arrive`, como `GameSystem.stepProjs`; ahora `SkyScene.stepBolts`
+  lo lleva hasta el blanco (siguiéndolo) y el golpe llega con él (`SkyFight.pick` y `hit`); la diana, la de Combate
+  (`LockLines`, con `LockTarget.lockScale` para verla a 20-30 m), en el que da la mirada. **Por confirmar en las gafas**: el tamaño y la
   distancia de los voladores, los tiempos para esquivar y lo que cansa.
 
 - **El parapente del remo invertido sobre el mapa** (Barras, en pruebas; pedido del usuario, postura 1 y mandos aprobados).

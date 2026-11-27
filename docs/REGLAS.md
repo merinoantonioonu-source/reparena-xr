@@ -526,13 +526,19 @@ No las cambies sin preguntarle.
 - **El combate en el parapente: las islas del cielo** (pedido del usuario: «además del mapa, una modalidad de lucha con
   dragones o enemigos volantes que hubiera que esquivar; los mandos, los mismos que con mapa»; elegidas todas las
   recomendaciones: disparar con el remo, la carga y el explosivo, y las islas en el cielo; «Remo invertido: parapente» →
-  «Islas en el cielo: combate», *en pruebas*, sin mapa ni clave). Se vuela igual que sobre el mapa (el remo sube, el explosivo
+  «Combate en el cielo», *en pruebas*, sin mapa ni clave; las opciones del parapente, en rejilla de tres y con nombres cortos:
+  en una fila, la letra salía diminuta). Se vuela igual que sobre el mapa (el remo sube, el explosivo
   acelera, un brazo vira, aguantar arriba frena, los brazos estirados bajan; la inclinación y «Ajustar a mi mirada», igual),
-  sobre **un mar de nubes al atardecer con islas flotando por debajo** (losas de roca con su panza colgando y algún árbol
-  apoyado; siempre por debajo de lo más bajo que se vuela: no hay con qué chocar; cuando una queda atrás, sale otra por
-  delante).
+  sobre **un mar de nubes al atardecer con islas flotando por debajo** (siempre por debajo de lo más bajo que se vuela: no
+  hay con qué chocar; cuando una queda atrás, sale otra por delante). **Más adornado** (pedido del usuario tras verlo: «los
+  islotes aparecen en blanco, sin relieve, y el entorno está demasiado desprovisto»): menos calima (las islas, con su roca y
+  su relieve), más islas y más grandes, cada una con sus árboles, arbustos, hierba, flores, helechos y setas del kit de
+  naturaleza (apoyados en la roca), y unas pocas enormes a lo lejos; **el mar de nubes corre bajo tus pies** al volar (y la
+  panza de las islas se pierde entre sus nubes); **nubes sueltas** a tu altura que pasan a tu lado (se atraviesan) y
+  gaviotas que se oyen.
   - **Disparar**: **cada remo es un disparo hacia donde miras** (el rayo de Combate, al volador más cercano a tu mirada, sin
-    apuntar exacto); **el remo explosivo, el disparo fuerte** (quita el doble; y sigue acelerando); **aguantar arriba carga**
+    apuntar exacto; **el que vas a darle lleva la diana de Combate**, más grande cuanto más lejos, y **el rayo sale de delante
+    de tu cara y va hasta él**: pedido del usuario, que derribaba sin ver ningún disparo); **el remo explosivo, el disparo fuerte** (quita el doble; y sigue acelerando); **aguantar arriba carga**
     ×2, ×3 y ×4 (y frena) y, al bajar, **una onda** que da a todos los que tengas cerca (unos 35 m) con esa fuerza.
   - **Los voladores** (los del catálogo, de Quaternius: abeja, murciélago, pulpo volador y dragón; con cada oleada, más
     grandes) se te ponen delante, a la vista, y te siguen al virar; **de uno en uno, se echan atrás y rugen** (el aviso) y
