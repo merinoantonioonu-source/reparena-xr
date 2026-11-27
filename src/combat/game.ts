@@ -216,6 +216,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
   private trophyCur = '';
   private readonly trophyHome = new Vector3();
   private readonly trophyHomeQ = new Quaternion();
+  private trophyNear = 1;
+  private waveNear = 1;
   private failBest = -1;
   // el final de la ronda: el resumen que sale tras el fundido a negro, y el tiempo de oleada (para las calorías)
   private summary: ReturnType<typeof summaryOf> | null = null;
@@ -900,7 +902,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       // arriba (no tapa lo que llega, ni el panel entre oleadas, que va justo debajo), quieto y derecho como los demás avisos
       // de la vista; tumbado, sobre el suelo bajo la cara
       VIEW_FRAME.hudLocal(this.tmpA.set(0, TROPHY_Y, -1.6), this.trophyHome, head, lyingEx());
-      this.trophyHomeQ.copy(VIEW_FRAME.hudQ(head, lyingEx()));
+      this.trophyNear = VIEW_FRAME.near; // (nunca bajo el suelo: más cerca, más pequeño)
+      this.trophyHomeQ.copy(VIEW_FRAME.hudQAt(head, lyingEx(), this.trophyHome, this.trophyNear));
       o.visible = true;
       SND.combo();
       haptic('left', 0.7, 160);
@@ -923,7 +926,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     VIEW.trophy.on = o.visible;
     this.trophyT -= dt;
     const age = TROPHY_SECS - this.trophyT;
-    o.scale.setScalar(age < 0.25 ? 0.6 + 1.8 * age : age < 0.4 ? 1.05 - (age - 0.25) / 3 : 1); // (entra con un golpe y se asienta)
+    o.scale.setScalar((age < 0.25 ? 0.6 + 1.8 * age : age < 0.4 ? 1.05 - (age - 0.25) / 3 : 1) * (M && !M.closed && M.group.visible ? 1 : this.trophyNear)); // (entra con un golpe y se asienta)
     if (age < dt * 1.5 || (age > 0.6 && age < 0.6 + dt)) this.fx.sparks.burst(o.position, 50, 0xffd14d, 2.6, 0.04);
     if (this.trophyT <= 0) {
       o.visible = false;
@@ -1125,7 +1128,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // delante de ti y de cara, derecho (nunca se ladea con la cabeza); tumbado, en el suelo bajo la cara
     const V = VIEW_FRAME, ly = lyingEx();
     V.hudLocal(this.tmpA.set(0, -0.02, -1.6), o.position, head, ly);
-    o.quaternion.copy(V.hudQ(head, ly));
+    this.waveNear = V.near; // (nunca bajo el suelo: más cerca, más pequeño)
+    o.quaternion.copy(V.hudQAt(head, ly, o.position, this.waveNear));
     this.veil.position.copy(head.p);
     this.introT = 0;
   }
@@ -1139,7 +1143,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.veil.visible = a > 0.01;
     this.veil.position.copy(head.p); // (contigo: el fundido no tiene bordes que se vean)
     o.visible = a > 0.05;
-    o.scale.setScalar(1 + 0.08 * Math.max(0, 1 - t / 0.5));
+    o.scale.setScalar((1 + 0.08 * Math.max(0, 1 - t / 0.5)) * this.waveNear);
     const I = VIEW.intro;
     I.x = o.position.x;
     I.y = o.position.y;

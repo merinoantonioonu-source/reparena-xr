@@ -81,11 +81,63 @@ export class ViewFrame {
     return this.fix.on ? this.fx.set(0, 0, -1).applyQuaternion(this.fix.q) : this.fx.set(0, 0, -1).applyQuaternion(head.q);
   }
 
-  /** Un punto delante de la vista (off, en el espacio de los avisos: x a la derecha, y arriba, z hacia atrás). */
+  /** Un punto delante de la vista (off, en el espacio de los avisos: x a la derecha, y arriba, z hacia atrás). Nunca bajo el
+   * suelo (ver `floorLift`). */
   hudLocal(off: Vector3, out: Vector3, head: HeadPose, lying: boolean): Vector3 {
-    return this.fix.on ? out.copy(off).applyQuaternion(this.fix.q).add(this.fix.p) : out.copy(off).applyQuaternion(this.viewQ(head, lying)).add(head.p);
+    if (this.fix.on) out.copy(off).applyQuaternion(this.fix.q).add(this.fix.p);
+    else out.copy(off).applyQuaternion(this.viewQ(head, lying)).add(head.p);
+    return this.floorLift(this.fix.on ? this.fix.p : head.p, out, head);
+  }
+
+  /** Lo que se ha acercado el último aviso para no meterse en el suelo (× su distancia de siempre; 1, nada): se encoge en
+   * esa proporción y se ve igual de grande. */
+  near = 1;
+  private readonly lb = new Vector3();
+  private readonly lq = new Quaternion();
+  private readonly lz = new Vector3();
+  // (pedido del usuario: preparándose en plancha o tumbado, la caricatura y el aviso «se entierran en el suelo y
+  // desaparecen»: mirando al suelo con la cabeza a medio metro, a 1,1 m por la mirada quedaban bajo él) — se acerca hasta
+  // el suelo por la mirada; si así quedaría demasiado cerca de los ojos, se adelanta por el suelo, hacia lo alto de tu cabeza
+  private floorLift(base: Vector3, out: Vector3, head: HeadPose): Vector3 {
+    this.near = 1;
+    if (out.y >= VIEW_FLOOR.y) return out;
+    const dx = out.x - base.x, dy = out.y - base.y, dz = out.z - base.z, d = Math.hypot(dx, dy, dz), drop = base.y - VIEW_FLOOR.y;
+    if (d < 1e-3 || dy >= 0) return out;
+    if (drop < 0.05) {
+      out.y = VIEW_FLOOR.y;
+      return out;
+    }
+    const s = (d * drop) / -dy;
+    if (s >= VIEW_FLOOR.min) {
+      this.near = s / d;
+      return out.set(base.x + dx * this.near, base.y + dy * this.near, base.z + dz * this.near);
+    }
+    // (adelante: lo que se aparta en horizontal la mirada o, mirando derecho abajo, hacia lo alto de tu cabeza)
+    const v = -drop / VIEW_FLOOR.min, hm = Math.sqrt(Math.max(0, 1 - v * v));
+    let hx = dx, hz = dz, hl = Math.hypot(hx, hz);
+    if (hl < 0.05 * d) {
+      const u = this.lie.on ? this.lie.up : this.lb.set(0, 1, 0).applyQuaternion(head.q);
+      hx = u.x;
+      hz = u.z;
+      hl = Math.hypot(hx, hz) || 1;
+    }
+    this.near = VIEW_FLOOR.min / d;
+    return out.set(base.x + (hx / hl) * hm * VIEW_FLOOR.min, base.y + v * VIEW_FLOOR.min, base.z + (hz / hl) * hm * VIEW_FLOOR.min);
+  }
+
+  /** El giro del aviso que está en `at`: el de siempre o, si se ha acercado al suelo, de cara a tus ojos. */
+  hudQAt(head: HeadPose, lying: boolean, at: Vector3, near: number): Quaternion {
+    const q = this.hudQ(head, lying);
+    if (near >= 0.999) return q;
+    const b = this.fix.on ? this.fix.p : head.p;
+    this.lz.set(0, 0, 1).applyQuaternion(q);
+    this.lb.copy(b).sub(at).normalize();
+    return this.lq.setFromUnitVectors(this.lz, this.lb).multiply(q);
   }
 }
+
+/** Lo más bajo que salen los avisos de la vista (m sobre el suelo) y lo más cerca de los ojos al acercarse a él (m). */
+export const VIEW_FLOOR = { y: 0.16, min: 0.6 };
 
 // ¿Tapa este panel (w × h en su plano) alguno de los n que vienen? Uno sin prueba de profundidad (los avisos de la vista) se
 // dibuja encima de todo lo que cae dentro de su silueta (RepArena: panelHides)

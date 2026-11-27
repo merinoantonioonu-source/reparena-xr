@@ -885,7 +885,11 @@ No las cambies sin preguntarle.
   curls, la elevación frontal, los antebrazos, el swing y el peso muerto), sin panel: en el aviso breve, justo bajo la
   mirada; y **colgado** en Barras, sin aviso en el suelo (no se ve), solo el breve.
 - **Antes de empezar**, la colocación y la caricatura van juntas y centradas delante de ti, y vienen a tu mirada enseguida
-  (antes quedaban a un lado, hacia donde estaba el menú).
+  (antes quedaban a un lado, hacia donde estaba el menú). **Nunca bajo el suelo** (pedido del usuario: preparándose en
+  plancha o tumbado, «se entierran en el suelo y desaparecen»): mirando al suelo, los avisos de la vista (la colocación, la
+  caricatura, el breve, el logro, el panel de la oleada, las metas de hoy y la carátula) se acercan hasta él por tu mirada,
+  encogiéndose en proporción (se ven igual de grandes) y de cara a tus ojos; si así quedarían a menos de 60 cm, se adelantan
+  por el suelo hacia lo alto de tu cabeza.
 - **Con un menú abierto, nada lo tapa**: ni los avisos del suelo ni el breve ni la carga del suelo (pedido del usuario).
 - Al empezar cada ronda, la **carátula del duelo** (`src/64_intro.js`, modelo 3 de los propuestos; en RepArena XR, con la cortinilla del ejercicio): 7 s, grande, a 2,5 m,
   con todo lo demás en negro; tú (rango y récord) contra el jefe de la ronda, sin la caricatura (sale después, hasta
@@ -913,7 +917,8 @@ No las cambies sin preguntarle.
     marcha en lo que juegas: la nitidez del mapa, ladearse al virar, los instrumentos, el sendero con curvas, el ambiente…),
     Recalibrar y **PAUSA** (que abre el menú grande). Otra vez MENÚ, la palma hacia abajo o el puño la recogen. **En
     plancha**, sale con la palma izquierda hacia la cara medio segundo, en el suelo delante de las manos, y se pulsa con una
-    mano (se va sola a los 12 s sin tocarla o al ponerte de pie). La «Nitidez en las gafas» nunca va aquí (se elige al entrar).
+    mano (se va sola a los 12 s sin tocarla o al ponerte de pie). **En Barras no** (con el vídeo del usuario: colgado de las
+    paralelas, la mano que agarra la barra mira hacia la cara y la tira salía una y otra vez): allí, solo con el botón MENÚ. La «Nitidez en las gafas» nunca va aquí (se elige al entrar).
   - Fuera de la ronda (o en la pausa), el botón MENÚ trae el menú grande delante de ti. Las cartas de mejora siguen saliendo
     de la muñeca y quedándose quietas delante; el asistente del vuelo, en el suelo delante de las manos.
 - **Cada menú sale donde estaba el anterior**: el menú grande, siempre en su sitio de la habitación (si ya no te queda
