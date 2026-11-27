@@ -585,7 +585,8 @@ export class BarsSystem extends createSystem({}) {
     const req = Math.max(0.05, barReq(this.env)), up = playing && this.bar.det !== 'down' ? (head.p.y - this.bar.ref) / req : 0;
     // (brazos estirados: la cabeza cerca de donde quedaba al colgarte; para bajar)
     const low = playing && head.p.y - this.bar.ref < req * PARA.lowUp;
-    this.para.step(dt, live, GAME.paused, playing, up, low);
+    // (lo subido sin recortar: para el picado del combate, dejarse caer de golpe desde arriba)
+    this.para.step(dt, live, GAME.paused, playing, up, low, playing ? (head.p.y - this.bar.ref) / req : 0);
   }
 
   // la cuerda: subes remando y, sin remar, resbalas un poco; al llegar al cofre del tramo, el tramo superado

@@ -1591,6 +1591,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   pieza con instancias y su sombreador (como las de la cuerda, con la calima hecha a mano); las hojas, en una copia con
   `alphaToCoverage` (de lejos los árboles se quedaban en palos). La escena se monta en cuanto los kits están cargados, antes
   de colgarte.
+  *Más emoción* (pedido del usuario; elegidos el picado y la subida brusca, los corazones con golpes que quitan vida y el
+  dragón oriental por piezas, que va aparte): `SkyFight.jolt(±1)` (`SKY.jolt*`: 12 m en 0,7 s con arranque y frenada suaves,
+  sin pasar del suelo de nubes ni del techo; los voladores apuntan sin contar con él); el picado lo detecta `DropWatch`
+  (`para.ts`: de lo alto de la subida, `PARA.dropFrom`, a los brazos estirados en menos de `PARA.dropT`, con lo subido sin
+  recortar que le pasa `BarsSystem`) y la subida brusca es el remo explosivo. Los golpes llaman a `HOOKS.playerHit` (en
+  Barras, el parapente no quitaba vidas). El corazón, `SkyFight.heart` (uno a la vez, solo con `hearts`: lo pone
+  `ParaFlight` si te falta alguna vida y no es «Al fallo»), y al cogerlo `HOOKS.lifeUp` (nuevo: suma una vida si hay
+  sitio). Se ve con `heartModel` (`sky-scene.ts`: la figura extruida con su halo y su aro).
 
 - **El parapente del remo invertido sobre el mapa** (Barras, en pruebas; pedido del usuario, postura 1 y mandos aprobados).
   La lógica, pura y con pruebas, en `src/modes/bars/para.ts` (`ParaPilot`: el impulso de cada remo que se pierde, la marcha,

@@ -132,6 +132,8 @@ export const WAVE_EV = { kind: '' as string, t: 0 };
 export const HOOKS = {
   /** Un enemigo te ha dado (str: las vidas que quita, su fuerza). */
   playerHit: (_str?: number, _silent?: boolean): void => {},
+  /** Una vida de más (el corazón del combate en el cielo): ¿había sitio? (con las vidas llenas o infinitas, no). */
+  lifeUp: (): boolean => false,
   /** Ha caído uno (kind: el que es; boss: el jefe). */
   foeDown: (_kind?: string, _boss?: boolean, _target?: unknown): void => {},
   /** Puntos de más (una piedra parada o esquivada) y si suman al combo. */

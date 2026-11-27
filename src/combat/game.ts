@@ -405,6 +405,11 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.enemies.slowOf = (t) => this.rw.slow(t);
     GAME.maxLives = GAME.lives = nLives(); // (las de tu rango)
     HOOKS.playerHit = (str, silent) => this.onPlayerHit(str ?? 1, !!silent);
+    HOOKS.lifeUp = () => {
+      if (GAME.phase !== 'playing' || !(GAME.maxLives > 0) || GAME.lives >= GAME.maxLives) return false;
+      GAME.lives++;
+      return true;
+    };
     HOOKS.arcRep = (perfect) => this.arcRep(perfect);
     HOOKS.foeDown = (k, b, t) => this.onFoeDown(k, b, (t as FoeTarget | undefined) ?? null);
     HOOKS.score = (pts, combo) => {

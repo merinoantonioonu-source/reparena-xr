@@ -1,6 +1,6 @@
 /** El parapente del remo invertido: cada remo, un impulso que se pierde; irte a un lado vira; aguantar arriba frena. */
 import { describe, expect, it } from 'vitest';
-import { gazeDeg, tiltOfGaze, PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from '../../src/modes/bars/para.js';
+import { DropWatch, gazeDeg, tiltOfGaze, PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from '../../src/modes/bars/para.js';
 import { CITIES, MAP, MapFlight, type MapIn } from '../../src/modes/trek/map/map-route.js';
 
 const DT = 1 / 72;
@@ -255,5 +255,28 @@ describe('el parapente: la inclinación del mapa y tu mirada', () => {
     expect(tiltOfGaze(33)).toBe(35);
     expect(tiltOfGaze(-4)).toBe(0);
     expect(tiltOfGaze(97)).toBe(90);
+  });
+});
+
+describe('el picado del combate en el cielo: dejarse caer de golpe', () => {
+  const fall = (secs: number): boolean => {
+    const D = new DropWatch();
+    let hit = false;
+    // (arriba un momento y luego abajo, en `secs`)
+    for (let t = 0; t < 0.3; t += 1 / 72) hit = D.step(1 / 72, 1, true) || hit;
+    for (let t = 0; t <= secs; t += 1 / 72) hit = D.step(1 / 72, 1 - t / secs, true) || hit;
+    for (let t = 0; t < 0.5; t += 1 / 72) hit = D.step(1 / 72, 0, true) || hit;
+    return hit;
+  };
+  it('de golpe (medio segundo o menos), picado; bajando controlado (un segundo), no', () => {
+    expect(fall(0.3)).toBe(true);
+    expect(fall(1)).toBe(false);
+  });
+  it('sin jugar (en el descanso), nunca', () => {
+    const D = new DropWatch();
+    let hit = false;
+    for (let t = 0; t < 0.3; t += 1 / 72) hit = D.step(1 / 72, 1, false) || hit;
+    for (let t = 0; t < 0.3; t += 1 / 72) hit = D.step(1 / 72, 0, false) || hit;
+    expect(hit).toBe(false);
   });
 });

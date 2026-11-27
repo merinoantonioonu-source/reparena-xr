@@ -18,8 +18,8 @@ import { head } from '../../input/hand-model.js';
 import { haptic } from '../../input/hand-system.js';
 import type { BarHits } from './detect.js';
 import { eqAxes, type EqPose } from './equip.js';
-import { gazeDeg, PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from './para.js';
-import { num } from '../../core/values.js';
+import { DropWatch, gazeDeg, PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from './para.js';
+import { num, on as isOn } from '../../core/values.js';
 import { ParaLook } from './para-look.js';
 import { loopSound, type SoundLoop } from '../../audio/sound.js';
 
@@ -58,6 +58,9 @@ export class ParaFlight {
   };
   private readonly inp: ParaIn = { playing: false, up: 0, side: 0, rep: false, fast: false, perfect: false };
   private readonly skyIn = { steer: 0, climb: 0, gear: 1, fight: false };
+  /** El picado del combate (dejarse caer de golpe) y las veces que se ha dicho el picado y la subida brusca. */
+  private readonly drop = new DropWatch();
+  private toldJolt = [0, 0];
   private readonly head0 = new Vector3();
   private readonly right = new Vector3(1, 0, 0);
   private readonly ax = new Vector3();
@@ -93,6 +96,8 @@ export class ParaFlight {
     this.sky = want && sky;
     this.fight.reset();
     this.toldHurt = this.toldDodge = 0;
+    this.toldJolt[0] = this.toldJolt[1] = 0;
+    this.drop.reset();
     this.blastP = 0;
     this.pilot.reset();
     this.thermals.reset();
@@ -134,9 +139,26 @@ export class ParaFlight {
       GAME.combo = 0;
       haptic('left', 1, 260);
       haptic('right', 1, 260);
-      SND.hurt();
-      HOOKS.say(this.toldHurt++ < 3 ? '¡Te ha dado! Vira al verlo echarse atrás' : '¡Te ha dado!', '#ff8a3d', 2.2, true);
+      // (quita una vida, con vidas; elegido por el usuario: «corazón + golpes con vida»)
+      HOOKS.playerHit(1, true);
+      HOOKS.say(this.toldHurt++ < 3 ? '¡Te ha dado! Vira, sube o pica' : '¡Te ha dado!', '#ff8a3d', 2.2, true);
       diagEvent(`parapente: combate · te ha dado ${E.kind ? `el ${E.kind}` : 'una bola'}${E.big ? ' (del jefe)' : ''}`);
+    } else if (E.k === 'jolt') {
+      // el picado o la subida brusca: se nota (vibración fuerte y golpe de aire)
+      const up = E.n > 0;
+      haptic('left', 0.8, 180);
+      haptic('right', 0.8, 180);
+      SND.whoosh(head.p);
+      if (this.toldJolt[up ? 1 : 0]++ < 2) HOOKS.say(up ? '¡Arriba!' : '¡Picado!', '#3cf0c6', 1.2, false);
+      diagEvent(`parapente: combate · ${up ? 'subida brusca' : 'picado'} · a ${Math.round(this.fight.fight.y)} m`);
+    } else if (E.k === 'heart') {
+      // el corazón: una vida (si ya no te falta, unos puntos)
+      haptic('left', 0.6, 200);
+      haptic('right', 0.6, 200);
+      SND.combo();
+      if (HOOKS.lifeUp()) HOOKS.say('¡+1 vida!', '#ff4f7b', 1.8, false);
+      else HOOKS.score(50, false);
+      diagEvent('parapente: combate · corazón cogido');
     } else if (E.k === 'dodge') {
       HOOKS.score(15, false);
       if (this.toldDodge++ < 3) HOOKS.say('¡Esquivado!', '#3cf0c6', 1.2, false);
@@ -186,7 +208,7 @@ export class ParaFlight {
    * Cada fotograma: `live`, en partida y con el aparato en marcha; `paused`, en pausa (todo quieto); `playing`, colgado y en
    * la oleada (si no, planeas solo); `up`, lo subido que llevas el pecho en este remo (0-1).
    */
-  step(dt: number, live: boolean, paused: boolean, playing: boolean, up: number, low = false): void {
+  step(dt: number, live: boolean, paused: boolean, playing: boolean, up: number, low = false, rise = up): void {
     const show = this.on && live && this.placed;
     if (show !== this.shown) {
       this.shown = show;
@@ -218,7 +240,11 @@ export class ParaFlight {
       }
     }
     this.look.update(show);
-    if (this.sky) this.fight.step(dt, show, paused || !show, this.skyIn, head.p, head.q);
+    if (this.sky) {
+      // (los corazones: solo si te falta alguna vida, con vidas y nunca «Al fallo»)
+      this.fight.fight.hearts = GAME.maxLives > 0 && GAME.lives < GAME.maxLives && !isOn('toFail');
+      this.fight.step(dt, show, paused || !show, this.skyIn, head.p, head.q);
+    }
     if (!show || paused) return;
     const I = this.inp, P = this.pilot;
     I.playing = playing;
@@ -229,8 +255,13 @@ export class ParaFlight {
     I.fast = this.fast;
     I.perfect = this.perfect;
     this.rep = false;
-    // el combate: cada remo, un disparo hacia donde miras (el explosivo, el fuerte); la carga, su onda al bajar
-    if (this.sky && I.rep) this.fight.shoot(I.fast ? 2 : 1, head.p, I.perfect);
+    // el combate: cada remo, un disparo hacia donde miras (el explosivo, el fuerte, y una subida brusca); la carga, su onda al
+    // bajar; dejarte caer de golpe, un picado
+    if (this.sky && I.rep) {
+      this.fight.shoot(I.fast ? 2 : 1, head.p, I.perfect);
+      if (I.fast) this.fight.fight.jolt(1);
+    }
+    if (this.sky && this.drop.step(dt, rise, playing)) this.fight.fight.jolt(-1);
     if (this.sky && this.blastP > 1 && playing) this.fight.blast(this.blastP);
     this.blastP = 0;
     // las térmicas (sobre el mapa): por delante y a un lado; dentro, subes sin remar
