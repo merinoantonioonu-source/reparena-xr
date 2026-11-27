@@ -567,8 +567,10 @@ No las cambies sin preguntarle.
     serpenteen por el cielo… los voladores no dejan de ser muy poligonales»; elegida la opción A: **hecho por piezas**, como
     los robots de RepArena, porque no hay un modelo libre: excepción a «no crear enemigos de cero»): un cuerpo largo de
     escamas (unos 16 m) con la barriga dorada, una cresta de aletas naranjas, cuatro patas con garras y la cola en penacho;
-    la cabeza, con hocico, mandíbula que se abre al atacar, ojos grandes, cuernos de ciervo, bigotes largos que se mecen y
-    melena. **Serpentea**: el cuerpo sigue el camino de la cabeza, estirado hacia atrás por el viento de tu vuelo, con una
+    la cabeza, **feroz** (pedido del usuario: «un aspecto más feroz»): hocico largo con una cresta de púas y la nariz chata
+    con los orificios abiertos, la boca siempre entreabierta gruñendo (del todo al atacar) con sus colmillos largos arriba y
+    abajo, ojos amarillos rasgados que brillan con pupila de reptil bajo un ceño fruncido en V, púas en las mejillas, cuernos
+    largos hacia atrás, bigotes finos que se mecen y melena. **Serpentea**: el cuerpo sigue el camino de la cabeza, estirado hacia atrás por el viento de tu vuelo, con una
     onda que lo recorre de la cabeza a la cola, y hace grandes eses de lado a lado y arriba y abajo; se lanza a por ti
     ondulando. Verde jade, desde la segunda oleada.
   - **Cada oleada**, tantos voladores como remos pide (su vida, entre todos); se acaba al derribarlos. **El jefe**, el dragón

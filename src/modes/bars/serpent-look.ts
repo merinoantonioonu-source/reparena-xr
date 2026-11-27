@@ -177,11 +177,16 @@ export class SerpentLook {
     parent.add(this.g);
   }
 
-  // la cabeza (mirando a +z): cráneo, hocico, mandíbula, ojos, cuernos, bigotes, dientes y melena
+  // la cabeza (mirando a +z), feroz (pedido del usuario: «un aspecto más feroz»): cráneo, hocico largo con cresta, mandíbula
+  // siempre algo abierta enseñando los colmillos, ojos rasgados que brillan con pupila de reptil bajo unas cejas fruncidas en
+  // V, púas en las mejillas, cuernos largos hacia atrás, bigotes y melena
   private buildHead(): void {
     const o = this.o, h = o.hs, body = mat(o.body, { map: scales(), rough: 0.55 }), belly = mat(o.belly), horn = mat(o.horn, { rough: 0.4 });
-    const white = mat(0xfff8e0, { rough: 0.3 }), black = mat(0x14101a, { rough: 0.2 }), mane = mat(o.fin, { rough: 0.6 });
-    this.mats.push(body, belly, horn, white, black, mane);
+    const white = mat(0xfff8e0, { rough: 0.3 }), black = mat(0x14101a, { rough: 0.2 }), mane = mat(o.fin, { rough: 0.6 }), gum = mat(0x8a1020, { rough: 0.5 });
+    this.mats.push(body, belly, horn, white, black, mane, gum);
+    // (los ojos brillan con luz propia: fuera de `mats`, que el destello del golpe no se la quite)
+    const eye = new MeshStandardMaterial({ color: 0xffd21a, emissive: 0xff8a00, emissiveIntensity: 0.9, roughness: 0.2, metalness: 0 });
+    comicPatch(eye);
     const add = (geo: BufferGeometry, m: MeshStandardMaterial, x: number, y: number, z: number, sx: number, sy: number, sz: number, parent: Object3D = this.g): Mesh => {
       const M = new Mesh(geo, m);
       M.position.set(x * h, y * h, z * h);
@@ -190,40 +195,75 @@ export class SerpentLook {
       return M;
     };
     const ball = new SphereGeometry(1, 16, 12);
-    add(ball, body, 0, 0.05, -0.1, 0.42, 0.36, 0.5); // el cráneo
-    add(ball, body, 0, -0.02, 0.42, 0.3, 0.22, 0.42); // el hocico
-    add(ball, belly, 0, 0.05, 0.8, 0.16, 0.12, 0.08); // la nariz
-    add(ball, black, 0.07, 0.1, 0.84, 0.03, 0.03, 0.02);
-    add(ball, black, -0.07, 0.1, 0.84, 0.03, 0.03, 0.02);
-    // la mandíbula (se abre al atacar)
-    this.jaw.position.set(0, -0.12 * h, 0.05 * h);
-    this.g.add(this.jaw);
-    add(ball, belly, 0, -0.08, 0.32, 0.24, 0.1, 0.4, this.jaw);
-    const tooth = new ConeGeometry(1, 1, 5);
-    for (const x of [-0.14, -0.05, 0.05, 0.14]) {
-      const T = add(tooth, white, x, -0.08, 0.62 - Math.abs(x), 0.025, 0.08, 0.025);
-      T.rotation.x = Math.PI;
-      const B = add(tooth, white, x * 0.9, 0.0, 0.58 - Math.abs(x), 0.022, 0.07, 0.022, this.jaw);
-      B.rotation.x = 0;
+    const tooth = new ConeGeometry(1, 1, 6), spike = new ConeGeometry(1, 1, 5).translate(0, 0.5, 0);
+    add(ball, body, 0, 0.05, -0.12, 0.4, 0.34, 0.5); // el cráneo
+    add(ball, body, 0, 0.0, 0.5, 0.25, 0.18, 0.56); // el hocico, largo y estrecho
+    // (la cresta del hocico: una fila de púas hasta la frente)
+    for (let k = 0; k < 4; k++) {
+      const P = add(spike, mane, 0, 0.16 - k * 0.015, 0.62 - k * 0.17, 0.035, 0.12 + k * 0.02, 0.05);
+      P.rotation.x = -0.7;
     }
-    // los ojos, con su ceja dorada
+    // la nariz, del color del cuerpo y chata, con los orificios abiertos (una bola dorada lo hacía simpático)
+    add(ball, body, 0, 0.07, 0.96, 0.13, 0.07, 0.07);
     for (const s of [-1, 1]) {
-      add(ball, white, 0.24 * s, 0.2, 0.18, 0.11, 0.11, 0.09);
-      add(ball, black, 0.29 * s, 0.21, 0.23, 0.05, 0.07, 0.05);
-      add(ball, white, 0.31 * s, 0.25, 0.25, 0.015, 0.015, 0.015);
-      const brow = add(ball, belly, 0.22 * s, 0.31, 0.16, 0.14, 0.04, 0.1);
-      brow.rotation.z = -0.35 * s;
+      const N = add(ball, black, 0.07 * s, 0.1, 1.0, 0.04, 0.022, 0.03);
+      N.rotation.z = 0.5 * s;
     }
-    // los cuernos, de ciervo: el tallo hacia atrás y arriba, con una rama
-    const stem = new CylinderGeometry(0.4, 1, 1, 6).translate(0, 0.5, 0);
+    // el labio de arriba, oscuro, con los dientes y dos colmillos largos
+    add(ball, gum, 0, -0.1, 0.5, 0.22, 0.05, 0.4);
+    for (const z of [0.82, 0.7, 0.58, 0.46])
+      for (const s of [-1, 1]) {
+        const T = add(tooth, white, (0.1 - (0.82 - z) * 0.1) * s, -0.15, z, 0.022, 0.07, 0.022);
+        T.rotation.x = Math.PI;
+      }
+    for (const s of [-1, 1]) {
+      const F = add(tooth, white, 0.15 * s, -0.22, 0.66, 0.04, 0.2, 0.04);
+      F.rotation.set(Math.PI - 0.15, 0, 0);
+    }
+    // la mandíbula (siempre algo abierta, gruñendo; del todo al atacar), con sus colmillos hacia arriba
+    this.jaw.position.set(0, -0.14 * h, 0.05 * h);
+    this.g.add(this.jaw);
+    add(ball, belly, 0, -0.08, 0.36, 0.22, 0.09, 0.44, this.jaw);
+    add(ball, gum, 0, -0.01, 0.4, 0.18, 0.04, 0.36, this.jaw);
+    for (const z of [0.72, 0.6, 0.48])
+      for (const s of [-1, 1]) add(tooth, white, (0.09 - (0.72 - z) * 0.1) * s, 0.04, z, 0.02, 0.065, 0.02, this.jaw);
+    for (const s of [-1, 1]) {
+      const F = add(tooth, white, 0.13 * s, 0.1, 0.76, 0.035, 0.16, 0.035, this.jaw);
+      F.rotation.x = 0.15;
+    }
+    // los ojos: rasgados y brillantes, con pupila de reptil, hundidos bajo unas cejas fruncidas en V (más bajas por dentro)
+    for (const s of [-1, 1]) {
+      add(ball, black, 0.24 * s, 0.17, 0.2, 0.13, 0.08, 0.1); // (la cuenca, oscura)
+      const E = add(ball, white, 0.27 * s, 0.17, 0.24, 0.1, 0.05, 0.08);
+      E.material = eye;
+      E.rotation.z = -0.4 * s;
+      const P = add(ball, black, 0.31 * s, 0.17, 0.28, 0.013, 0.045, 0.03);
+      P.rotation.z = -0.4 * s;
+      // (el ceño: una arista del color del cuerpo que tapa lo alto del ojo, con su raya negra, en V)
+      const ridge = add(ball, body, 0.23 * s, 0.225, 0.24, 0.16, 0.05, 0.1);
+      ridge.rotation.set(0.2, 0, 0.6 * s);
+      const frown = add(ball, black, 0.24 * s, 0.2, 0.29, 0.14, 0.014, 0.05);
+      frown.rotation.set(0.2, 0, 0.6 * s);
+      // (una púa en la punta de fuera de cada ceja)
+      const B = add(spike, horn, 0.34 * s, 0.3, 0.16, 0.035, 0.16, 0.035);
+      B.rotation.set(-0.9, 0, -0.9 * s);
+      // (las púas de las mejillas, hacia atrás: una gorguera de pocos amigos)
+      for (let k = 0; k < 3; k++) {
+        const C = add(spike, mane, 0.32 * s, -0.08 + k * 0.1, -0.05 - k * 0.04, 0.06, 0.4 - k * 0.06, 0.04);
+        C.rotation.set(-1.25 + k * 0.15, 0, -(1.05 - k * 0.2) * s);
+      }
+    }
+    // los cuernos: largos y afilados, hacia atrás, con una rama
+    const stem = new CylinderGeometry(0.25, 1, 1, 6).translate(0, 0.5, 0);
     for (const s of [-1, 1]) {
       const H = new Group();
-      H.position.set(0.16 * s * h, 0.32 * h, -0.2 * h);
-      H.rotation.set(-0.9, 0, 0.35 * s);
+      H.position.set(0.17 * s * h, 0.3 * h, -0.22 * h);
+      H.rotation.set(-1.15, 0, 0.3 * s);
       this.g.add(H);
-      add(stem, horn, 0, 0, 0, 0.05, 0.75, 0.05, H);
-      const br = add(stem, horn, 0, 0.35, 0, 0.035, 0.35, 0.035, H);
-      br.rotation.set(0.9, 0, 0);
+      add(stem, horn, 0, 0, 0, 0.055, 1.05, 0.055, H);
+      add(spike, horn, 0, 1.02, 0, 0.022, 0.2, 0.022, H);
+      const br = add(stem, horn, 0, 0.45, 0, 0.035, 0.4, 0.035, H);
+      br.rotation.set(0.85, 0, 0);
     }
     // los bigotes: largos, desde los lados del hocico hacia atrás y abajo; se mecen
     for (const s of [-1, 1]) {
@@ -231,7 +271,7 @@ export class SerpentLook {
       W.position.set(0.2 * s * h, -0.02 * h, 0.66 * h);
       this.g.add(W);
       const curve = new CatmullRomCurve3([new Vector3(0, 0, 0), new Vector3(0.35 * s, -0.08, -0.2), new Vector3(0.7 * s, -0.3, -0.6), new Vector3(0.95 * s, -0.55, -1.15)].map((p) => p.multiplyScalar(h)));
-      W.add(new Mesh(new TubeGeometry(curve, 16, 0.028 * h, 5), belly));
+      W.add(new Mesh(new TubeGeometry(curve, 16, 0.014 * h, 5), belly));
       this.whisk.push(W);
     }
     // la melena: mechones hacia atrás alrededor de la nuca
@@ -282,7 +322,8 @@ export class SerpentLook {
     this.record(G.x - px, G.y - py, G.z - pz);
     // la boca y los bigotes y la melena, que se mecen
     this.open += (openTo - this.open) * Math.min(1, dt * 8);
-    this.jaw.rotation.x = this.open * 0.55;
+    // (siempre algo abierta, gruñendo; del todo al atacar)
+    this.jaw.rotation.x = 0.16 + this.open * 0.5 + Math.sin(this.clock * 2.2) * 0.03;
     const w = this.clock;
     this.whisk[0].rotation.set(Math.sin(w * 2.3) * 0.2, Math.sin(w * 1.7) * 0.25, 0);
     this.whisk[1].rotation.set(Math.sin(w * 2.1 + 1) * 0.2, Math.sin(w * 1.9 + 2) * 0.25, 0);
