@@ -193,6 +193,8 @@ export class MapSystem extends createSystem({}) {
   private readonly attr: { type: string; value: unknown }[] = [];
   private draco: DRACOLoader | null = null;
   /** Lo que manda el cuerpo (sin crear nada en cada fotograma). */
+  /** Las veces que se ha dicho la subida brusca o el picado (solo las primeras). */
+  private toldJolt = 0;
   private readonly inp: MapIn = { live: false, steer: 0, head: 0, ref: 0, lean: 0, kick: false };
 
   init(): void {
@@ -327,6 +329,14 @@ export class MapSystem extends createSystem({}) {
           SND.whoosh(head.p);
           HOOKS.say(`¡Impulso! Marcha ${Math.round(F.gear)}`, '#3cf0c6', 1.2, false);
         } else if (I.live && g0 > 0 && F.gear <= 0) HOOKS.say('Frenado · un impulso adelante para arrancar', '#ffd166', 2.5, false);
+        // la flexión de golpe: una subida brusca o un picado (vibración fuerte y golpe de aire; las primeras veces, dicho)
+        if (I.live && F.jolted) {
+          haptic('left', 0.8, 180);
+          haptic('right', 0.8, 180);
+          SND.whoosh(head.p);
+          if (this.toldJolt++ < 4) HOOKS.say(F.jolted > 0 ? '¡Arriba!' : '¡Picado!', '#3cf0c6', 1.2, false);
+          diagEvent(`mapa: ${F.jolted > 0 ? 'subida brusca' : 'picado'} · a ${Math.round(F.alt - F.ground)} m del suelo`);
+        }
       }
       if (F.judge()) this.passed(F);
       // (la Tierra es redonda: lejos del punto del mapa, se vuelve a anclar debajo de ti)

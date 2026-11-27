@@ -21,7 +21,7 @@ const pushups = (g: Glider, n: number, base: Partial<FlyIn>, d = 0.11, dur = 1.3
   return alts;
 };
 
-describe('el lado: tanto te escoras, tanto te apartas', () => {
+describe('el lado, como sobre el mapa: lo que te escoras es lo deprisa que vas de lado', () => {
   it('la zona muerta no mueve; cerca del centro, suave (no hipersensible); el recorrido entero, el tope; y el ajuste lo cambia', () => {
     expect(sideTarget(0.02, FLY.sideRange)).toBe(0);
     // (a medio recorrido, menos de medio lado: suave cerca del centro)
@@ -30,20 +30,29 @@ describe('el lado: tanto te escoras, tanto te apartas', () => {
     expect(sideTarget(-0.4, FLY.sideRange)).toBeCloseTo(-FLY.uMax, 6);
     // (más recorrido en el ajuste, menos sensible)
     expect(sideTarget(0.06, 0.25)).toBeLessThan(sideTarget(0.06, 0.12));
+    // (la velocidad de lado: la que pide la escora, en proporción a lo que pedía antes de posición)
     const g = new Glider();
-    run(g, 2, IN({ side: 0.08 }));
-    expect(g.u).toBeCloseTo(sideTarget(0.08, FLY.sideRange), 1);
+    run(g, 1, IN({ side: 0.08 }));
+    expect(g.vU).toBeCloseTo((sideTarget(0.08, FLY.sideRange) / FLY.uMax) * FLY.slideV, 1);
   });
-  it('escorado y quieto 10 s, el lado no cambia; al volver al centro, vuelve a 0 sin pasarse', () => {
+  it('una escora pequeña, un desliz lento; al volver al centro te quedas donde estás (no vuelves ni te vas al otro lado)', () => {
     const g = new Glider();
-    run(g, 3, IN({ side: 0.08 })); // (ya asentado: el muelle es suave)
+    run(g, 1, IN({ side: 0.05 }));
+    // (5 cm de escora: medio metro en un segundo como mucho; antes, de golpe a su sitio)
+    expect(g.u).toBeGreaterThan(0.02);
+    expect(g.u).toBeLessThan(0.5);
+    run(g, 1.5, IN({ side: 0.12 }));
     const u1 = g.u;
-    run(g, 10, IN({ side: 0.08 }));
-    expect(Math.abs(g.u - u1)).toBeLessThan(0.01);
     let min = Infinity;
-    run(g, 3, () => (min = Math.min(min, g.u), IN({ side: 0 })));
-    expect(Math.abs(g.u)).toBeLessThan(0.02);
-    expect(min).toBeGreaterThan(-0.05);
+    run(g, 3, () => ((min = Math.min(min, g.u)), IN({ side: 0 })));
+    // (sigue un pelo, con la inercia, y se queda)
+    expect(g.u).toBeGreaterThanOrEqual(u1);
+    expect(g.u - u1).toBeLessThan(0.5);
+    expect(min).toBeGreaterThan(u1 - 0.01);
+    expect(Math.abs(g.vU)).toBeLessThan(0.01);
+    // (escorado del todo, hasta el borde y no más)
+    run(g, 6, IN({ side: 0.3 }));
+    expect(g.u).toBeCloseTo(FLY.uMax, 6);
   });
   it('al calibrar recolocado, el centro es el de después (0, 0, mirando a −Z), no donde estaba la cabeza (caja negra del usuario)', () => {
     const s = new Sim({ trekAuto: 1, pushDepth: 13, trekFly: 1 });
@@ -70,13 +79,13 @@ describe('el lado: tanto te escoras, tanto te apartas', () => {
     run(quick, 3, (t) => ((tq < 0 && quick.u > 1 ? (tq = t) : 0), IN({ side: Math.min(0.12, (0.12 * t) / 0.1) })));
     run(slow, 4, (t) => ((ts < 0 && slow.u > 1 ? (ts = t) : 0), IN({ side: Math.min(0.12, (0.12 * t) / 1.5) })));
     expect(tq).toBeGreaterThan(0);
-    expect(tq).toBeLessThan(0.9); // (deprisa: en menos de un segundo ya vas a un lado; con inercia, no de un latigazo)
+    expect(tq).toBeLessThan(1.5); // (deprisa: en un segundo y poco ya vas un metro a un lado; con inercia, no de un latigazo)
     expect(ts - 1.5).toBeLessThan(tq); // (despacio, el vuelo te sigue al paso de la cabeza)
     expect(fastK(0)).toBe(1);
     expect(fastK(FLY.fastV)).toBeCloseTo(Math.min(2, FLY.fastMax), 6);
     expect(fastK(5)).toBe(FLY.fastMax);
   });
-  it('con inercia: arranca suave, sin latigazo; al volver al centro sigue un poco y se asienta sin tirón', () => {
+  it('con inercia, pero la mitad que antes: arranca suave, sin latigazo; al volver al centro, frena enseguida', () => {
     const g = new Glider();
     // de golpe a un lado: la velocidad de lado crece poco a poco (no salta) y su aceleración no pasa de lo que da un ala
     let vPrev = 0, aMax = 0;
@@ -85,16 +94,11 @@ describe('el lado: tanto te escoras, tanto te apartas', () => {
       vPrev = g.vU;
       return IN({ side: 0.1 });
     });
-    expect(aMax).toBeLessThan(9); // (m/s²: antes, el triple)
-    const u1 = g.u;
-    expect(u1).toBeGreaterThan(0.6);
-    // vuelves al centro: a la décima de segundo sigues casi donde estabas (inercia) y luego vuelve, pasándose apenas
-    run(g, 0.1, IN());
-    expect(g.u).toBeGreaterThan(u1 * 0.9);
-    let lo = 0;
-    run(g, 4, () => ((lo = Math.min(lo, g.u)), IN()));
-    expect(Math.abs(g.u)).toBeLessThan(0.02);
-    expect(lo).toBeGreaterThan(-0.08); // (se pasa un pelo, como un ala; no un rebote)
+    expect(aMax).toBeLessThan(9); // (m/s²)
+    expect(g.u).toBeGreaterThan(0.6);
+    // al centro: en medio segundo, casi parado de lado
+    run(g, 0.5, IN());
+    expect(Math.abs(g.vU)).toBeLessThan(0.1);
   });
   it('el centro del vuelo no sigue a la cabeza: escorado y quieto, la lectura no se va a cero', () => {
     const B = new FlyBody();
@@ -419,19 +423,20 @@ describe('la Travesía volando', () => {
     for (const a of alts.slice(2)) expect(a).toBeGreaterThan(4);
   });
 
-  it('escorado y quieto 10 s, sigues a ese lado; al volver al centro, el vuelo vuelve (no se va al otro lado)', () => {
+  it('escorado, te deslizas a ese lado; al volver al centro, te quedas donde estás (como sobre el mapa)', () => {
     const s = fly();
     s.load(course([mk(1, 'chest', 2000, 0)]));
     s.until(() => false, 72 * 3);
     s.head.x = 0.08;
     s.until(() => false, 72 * 2);
     const u1 = s.r.glider.u;
-    expect(u1).toBeGreaterThan(0.4); // (más fino cerca del centro: 8 cm de cabeza, medio metro de vuelo)
-    s.until(() => false, 72 * 10);
-    expect(Math.abs(s.r.glider.u - u1)).toBeLessThan(0.05);
+    expect(u1).toBeGreaterThan(0.3);
     s.head.x = 0;
     s.until(() => false, 72 * 3);
-    expect(Math.abs(s.r.glider.u)).toBeLessThan(0.05);
+    const u2 = s.r.glider.u;
+    expect(u2).toBeGreaterThan(u1 - 0.05);
+    s.until(() => false, 72 * 3);
+    expect(Math.abs(s.r.glider.u - u2)).toBeLessThan(0.02);
   });
 });
 
@@ -583,5 +588,19 @@ it('antes de empezar (ya pasado el asistente), en el suelo; al empezar, despega 
     let top = 0;
     s.until(() => ((top = Math.max(top, s.r.flyAlt)), false), 72 * 6);
     expect(top).toBeGreaterThan(FLY.alt0 - 0.3);
+  });
+});
+
+describe('el risco, volando', () => {
+  it('la pared de la izquierda, más lejos que lo que te puedes apartar (no se roza)', async () => {
+    const { cliffDecoPuts, CLIFF_FLY_OFF } = await import('../../src/modes/trek/plat/pieces.js');
+    for (let c = 0; c < 30; c++) {
+      // (la pared y la montaña de detrás, a la izquierda; los riscos lejanos de la derecha no se mueven)
+      const left = (L: { n: string; u: number }[]) => L.filter((P) => P.n.startsWith('Cliff') && P.u < 0);
+      const walk = left(cliffDecoPuts(c, [])), flying = left(cliffDecoPuts(c, [], true));
+      expect(flying.length).toBe(walk.length);
+      for (let i = 0; i < walk.length; i++) expect(flying[i].u).toBeCloseTo(walk[i].u - CLIFF_FLY_OFF, 6);
+    }
+    expect(CLIFF_FLY_OFF - 0.5).toBeGreaterThan(FLY.uMax);
   });
 });

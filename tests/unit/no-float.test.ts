@@ -24,6 +24,7 @@ function under(list: Put[], ds: number, u: number): number | null {
 describe('nada flota en la Travesía', () => {
   for (const [name, fn] of [
     ['el risco (los pinos de la pared)', (c: number) => cliffDecoPuts(c, [])],
+    ['el risco volando (la pared, más lejos)', (c: number) => cliffDecoPuts(c, [], true)],
     ['la costa (las palmeras y los huesos de los islotes)', (c: number) => coastDecoPuts(c, [])],
     ['las islas en el cielo (los árboles de las islas)', (c: number) => skyDecoPuts(c, [])],
   ] as const)

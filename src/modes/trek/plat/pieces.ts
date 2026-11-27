@@ -276,12 +276,15 @@ function skyIslands(chunk: number, clear: -1 | 0 | 1): { rocks: Put[]; wish: Wis
 /** La pared del risco en el trozo `chunk`: `Cliff4` sin girar, con su pico del lado del camino (su cara alta es el tercio del
  * medio a lo largo: cada roca, tres veces más larga que su paso, así siempre hay pared alta junto al camino); a trozos de 3 a
  * 5 m, cada uno algo distinto. Con su propio azar: la misma para el trozo y para sus vecinos (los pinos se apoyan en ella). */
-function cliffWall(chunk: number): Put[] {
+/** Volando, lo que se aparta la pared del risco del camino (m: más que lo que te puedes apartar volando, `FLY.uMax`, y algo
+ * más; elegido por el usuario: «la pared de roca de la izquierda llega a ser un poco molesta» → «más lejos»). */
+export const CLIFF_FLY_OFF = 5;
+function cliffWall(chunk: number, off = 0): Put[] {
   const R = trekRng((Math.imul(chunk | 0, 0x9e3779b1) ^ 0x632be5ab) >>> 0), s0 = chunk * TREK_CH, out: Put[] = [];
   const between = (a: number, b: number): number => a + R() * (b - a);
   for (let s = s0; s < s0 + TREK_CH; ) {
     const L = between(3, 5), e = Math.min(s0 + TREK_CH, s + L), m = (s + e) / 2, h = between(5, 8);
-    out.push(rockFit('island', 'Cliff4', -between(7, 9), -DOCK_W / 2 - between(0.2, 0.5), -between(2, 4), h, m - 1.5 * L, m + 1.5 * L));
+    out.push(rockFit('island', 'Cliff4', -between(7, 9) - off, -DOCK_W / 2 - between(0.2, 0.5) - off, -between(2, 4), h, m - 1.5 * L, m + 1.5 * L));
     s = e;
   }
   return out;
@@ -289,21 +292,22 @@ function cliffWall(chunk: number): Put[] {
 
 /** El paisaje del risco en el trozo `chunk`: la pared de roca a la izquierda, que sube muy por encima de ti, con algún pino
  * agarrado a ella; y a la derecha, en el vacío, riscos lejanos que salen de muy abajo (la sensación de altura). */
-export function cliffDecoPuts(chunk: number, out: Put[]): Put[] {
+export function cliffDecoPuts(chunk: number, out: Put[], fly = false): Put[] {
   const R = trekRng((Math.imul(chunk | 0, 0x85ebca6b) ^ 0xc2b2ae35) >>> 0), s0 = chunk * TREK_CH;
   const between = (a: number, b: number): number => a + R() * (b - a);
   // la pared (de este trozo y, para apoyar los pinos, la de los vecinos, que se solapa con ella)
-  const walls = cliffWall(chunk), near = [...cliffWall(chunk - 1), ...walls, ...cliffWall(chunk + 1)];
+  // (volando, la pared, más lejos del camino: `CLIFF_FLY_OFF`)
+  const off = fly ? CLIFF_FLY_OFF : 0, walls = cliffWall(chunk, off), near = [...cliffWall(chunk - 1, off), ...walls, ...cliffWall(chunk + 1, off)];
   out.push(...walls);
   // algún pino en un rellano de la pared: apoyado en la roca, nunca en el aire (con su propio azar: la pared es la misma)
   const P = trekRng((Math.imul(chunk | 0, 0x27d4eb2f) ^ 0x165667b1) >>> 0), pb = (a: number, b: number): number => a + P() * (b - a);
   for (const W of walls) {
     if (P() >= 0.3) continue;
-    const sc = pb(0.6, 0.9), n = P() < 0.5 ? 'Pine_4' : 'Pine_2', ry = P() * 6.28, at = restOn(near, P, W.ds, -pb(5, 7), 1.5);
+    const sc = pb(0.6, 0.9), n = P() < 0.5 ? 'Pine_4' : 'Pine_2', ry = P() * 6.28, at = restOn(near, P, W.ds, -pb(5, 7) - off, 1.5);
     if (at) out.push(put('nature', n, at[1], at[2], at[0] - SINK, { ry, sx: sc, sy: sc, sz: sc }));
   }
   // más arriba, detrás de la pared, la montaña
-  out.push(rockFit('island', 'Cliff3', -between(22, 30), -between(9, 12), -CLIFF_DEPTH, between(18, 26), s0 - 2, s0 + TREK_CH + 2, R() < 0.5));
+  out.push(rockFit('island', 'Cliff3', -between(22, 30) - off, -between(9, 12) - off, -CLIFF_DEPTH, between(18, 26), s0 - 2, s0 + TREK_CH + 2, R() < 0.5));
   // los riscos lejanos, en el vacío de la derecha
   if (R() < 0.7) {
     const u = between(22, 55), w = between(6, 14), h = between(25, 45), ds = between(s0, s0 + TREK_CH);

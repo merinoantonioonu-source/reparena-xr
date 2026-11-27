@@ -5,8 +5,9 @@
  * Afinado con docs/PLAN-VUELO.md (el usuario lo probó y no se entendían los controles): **la cabeza es la palanca**. El vuelo
  * va donde va tu cabeza, en proporción y sin memoria, respecto a un centro que no se mueve mientras vuelas (`FlyBody`: se toma
  * al calibrar y, posado en cada cofre, en plancha arriba):
- * - **A los lados** (escorarte): la **posición** de lado. Tanto te escoras, tanto te apartas; vuelves al centro y el vuelo
- *   vuelve (zona muerta de 1,5 cm; el recorrido entero, «Vuelo: recorrido de lado», que pone a tu gusto el asistente: fly-coach.ts).
+ * - **A los lados** (escorarte), como sobre el mapa (elegido por el usuario): lo que te escoras es lo deprisa que te deslizas
+ *   a ese lado (zona muerta de 2,5 cm; del todo, con «Vuelo: recorrido de lado», que pone a tu gusto el asistente:
+ *   fly-coach.ts); vuelves al centro y te quedas donde estás.
  * - **Abajo** (bajar el pecho) y **atrás** (subir la cadera, la pica): la altura, según el mando de altura (`FlyModel`):
  *   - **P, posición** («el cuerpo es el avión»): tu altura sale de tu cabeza. Bajar el pecho baja el vuelo en proporción
  *     (la flexión entera, 3,5 m); la pica lo sube (hasta 3 m) y frena. En la dura, cada flexión sube el crucero y sin
@@ -43,9 +44,15 @@ export const FLY = {
   uW: 3,
   uZ: 0.8,
   uV: 2.6,
+  /** El lado, como sobre el mapa (pedido del usuario: «la mecánica del vuelo es distinta a la de los mapas: una ligerísima
+   * inclinación hacia izquierda o derecha hace que el vuelo cambie bruscamente»; elegido «como el mapa»): escorarte te
+   * desliza hacia ese lado, más deprisa cuanto más te escoras (m/s, escorado del todo), y al volver al centro te quedas donde
+   * estás; lo que tarda en coger esa velocidad (s: la inercia, la mitad que antes). */
+  slideV: 2.2,
+  slideTau: 0.2,
   /** Lo que se suaviza lo que lees de la cabeza antes del muelle (s): el vaivén de cada flexión movía la cabeza unos
    * centímetros y el vuelo daba sacudidas a los lados (vídeo del usuario: costaba alinearse con las frutas). */
-  sideIn: 0.3,
+  sideIn: 0.15,
   /** Rápido, rápido (pedido del usuario: para esquivar algo deprisa): cuanto más deprisa mueves la cabeza, menos se suaviza y
    * más deprisa responde el vuelo, como el filtro «1 €» (quieto, suave; deprisa, al momento). La velocidad de la cabeza
    * (m/s) a la que ya responde el doble y lo más que se aviva (veces). */
@@ -75,7 +82,7 @@ export const FLY = {
   cruiseBack: 0.3,
   burst: 1.2,
   /** P: el muelle de la altura (s) y sus topes de velocidad (m/s) y de aceleración (m/s²), por comodidad. */
-  altTau: 0.35,
+  altTau: 0.18,
   altV: 2.5,
   altA: 6,
   /** A: el aletazo de cada flexión (m/s de subida: ×`tau` es lo que sube; 1,2 m), la perfecta (1,6 m), la explosiva (2,5 m) y
@@ -118,7 +125,8 @@ export function flyModel(setting: number, _auto: boolean): FlyModel {
  * bajada) y lo deprisa que se sube y se baja del todo (m/s: con los brazos estirados y con el pecho abajo del todo). */
 // (tau: lo que tarda en coger la velocidad de subir o bajar; con 0,3 s cada flexión daba un tirón de altura)
 // (0,7 s y sin avivarse apenas con la cabeza: subir y bajar también eran bruscos; el vaivén de la flexión no da tirones)
-export const MID = { dead: 0.15, up: 2.2, down: 3, tau: 0.7, fast: 1.3 } as const;
+// (la mitad de inercia, pedido del usuario: «reducir al menos un 50 % la inercia… dificulta mucho el vuelo»)
+export const MID = { dead: 0.15, up: 2.2, down: 3, tau: 0.35, fast: 1.3 } as const;
 
 /** Lo que manda el cuerpo en este fotograma (de `FlyBody`, la marcha y las muñecas). */
 export interface FlyIn {
@@ -227,11 +235,13 @@ export class Glider {
     const fast = fastK(this.sideV);
     this.sideF += (I.side - this.sideF) * Math.min(1, (dt * fast) / FLY.sideIn);
     this.tgtU = sideTarget(this.sideF, I.range);
-    // (un muelle amortiguado justo, en pasos cortos para que no dependa de las imágenes por segundo)
-    const w = FLY.uW * fast, vMax = FLY.uV * fast;
-    for (let n = Math.ceil(dt / 0.01), h = dt / n; n > 0; n--) {
-      this.vU = clamp(this.vU + (w * w * (this.tgtU - this.u) - 2 * FLY.uZ * w * this.vU) * h, -vMax, vMax);
-      this.u = clamp(this.u + this.vU * h, -FLY.uMax, FLY.uMax);
+    // (como sobre el mapa: lo que te escoras es lo deprisa que vas de lado; en el centro, te quedas donde estás)
+    const vT = (this.tgtU / FLY.uMax) * FLY.slideV * fast;
+    this.vU += (vT - this.vU) * (1 - Math.exp(-dt / FLY.slideTau));
+    this.u += this.vU * dt;
+    if (this.u > FLY.uMax || this.u < -FLY.uMax) {
+      this.u = clamp(this.u, -FLY.uMax, FLY.uMax);
+      this.vU = 0;
     }
     // la pica (la cabeza atrás) manda sobre el picado, con su margen para no parpadear entre los dos
     if (this.pike) this.pike = I.back >= FLY.pikeOff;
