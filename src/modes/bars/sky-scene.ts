@@ -10,7 +10,8 @@
  * pies, e inclinado hacia tu vista lo que diga «Parapente: inclinación del mapa» (`MAPPILOT.pitch`). Las bolas y los rayos,
  * en la sala (ahí viven sus partículas). Hecho al empezar y reutilizado: en plena pelea no se crea nada.
  */
-import { AdditiveBlending, AnimationMixer, AssetManager, BackSide, CanvasTexture, CircleGeometry, Color, DoubleSide, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Quaternion, ShaderMaterial, SphereGeometry, Vector3, type AnimationAction, type PerspectiveCamera, type Scene, type SkinnedMesh } from '@iwsdk/core';
+import { AdditiveBlending, AnimationMixer, AssetManager, BackSide, BufferAttribute, CanvasTexture, CircleGeometry, Color, DoubleSide, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, ShaderMaterial, SphereGeometry, Vector3, type AnimationAction, type BufferGeometry, type Material, type PerspectiveCamera, type Scene, type SkinnedMesh } from '@iwsdk/core';
+import { comicPatch } from '../../style/comic.js';
 import { SND } from '../../audio/sound.js';
 import { Bolts, type Lightning } from '../../combat/bolt.js';
 import { LockLines, type LockTarget } from '../../combat/lockline.js';
@@ -26,12 +27,16 @@ import { ISLE_BELLY, ISLE_BUSHES, ISLE_GROUND, ISLE_SLAB, ISLE_SLAB_Y, ISLE_TREE
 /** El cielo: su radio (m; dentro del alcance de la cámara, por eso se alarga mientras se pelea), los colores de la tarde (arriba,
  * el horizonte y la calima de lo lejano) y hacia dónde está el sol (en el cielo, normalizado al usarlo). */
 const SKY_R = 1500, CAM_FAR = 2200;
-const ZENITH = new Color(0x4d86d8), HORIZON = new Color(0xf7dcb8), HAZE = new Color(0xdcd6d8), SUN = new Vector3(0.55, 0.22, -0.8).normalize();
-/** La niebla de lo lejano (poca: con más, a 100 m las islas ya se veían blancas, sin relieve; se pierden pasados unos 900 m). */
-const FOG = 0.0011;
+const ZENITH = new Color(0x4d86d8), HORIZON = new Color(0xf7dcb8), HAZE = new Color(0xeadfd8), SUN = new Vector3(0.55, 0.22, -0.8).normalize();
+/** La niebla de lo lejano (poca: con más, a 100 m las islas ya se veían blancas, sin relieve; a 1 km, a medias), del color del
+ * mar de nubes a lo lejos. Se pone en cada fotograma: al colgarte, el juego volvía a poner la de la escena (rosa y espesa: en
+ * las gafas, las islas se veían como siluetas rosas lisas). */
+const FOG = 0.0008;
 /** El mar de nubes de verdad (un disco bajo tus pies que te sigue, con sus nubes quietas en el cielo: corren mientras vuelas):
  * a qué altura (m, en el cielo) y su radio (m). Por debajo, la panza de las islas se pierde entre las nubes. */
 const SEA_Y = -60, SEA_R = 1400;
+/** Las cascadas: cuántas caben (una por isla) y hasta dónde caen (m, en el cielo: por debajo del mar de nubes). */
+const FALL_CAP = 24, FALL_BOT = -75;
 /** Lo que se pone encima de las islas (`SkyIsles`): cuántos caben de cada modelo. */
 const DECO = [...ISLE_TREES, ...ISLE_BUSHES, ...ISLE_GROUND], DECO_CAP = 160;
 /** Los rayos: lo que tardan en llegar (s, más la distancia a 1/`BOLT_V` s por m; como en Combate, algo más deprisa) y su
@@ -46,6 +51,27 @@ const POOL: Record<SkyKind, number> = { bee: 3, bat: 3, cthulhu: 3, dragon: 3, b
 /** Lo que escupe cada uno (el pulpo, plasma; los dragones, fuego) y el tamaño de su bola (m). */
 const BALL: Partial<Record<SkyKind, { kind: MissileKind; size: number }>> = { cthulhu: { kind: 'plasma', size: 0.35 }, dragon: { kind: 'fire', size: 0.4 }, boss: { kind: 'fire', size: 0.65 } };
 
+// el mar de nubes en un punto (p: sus x y -z en el cielo; d, a qué distancia de tus ojos): sus nubes, quietas en el cielo
+// (corren bajo ti al volar), blancas arriba y gris lila en las hondonadas, doradas hacia el sol; lejos, sin detalle (no
+// centellean) y del color del horizonte. Es el mismo en el disco de debajo y en el cielo por debajo del horizonte: así no hay
+// costura ni franja entre los dos (antes, lo de más allá del disco era una franja gris lisa)
+const SEA_FN = /* glsl */ `
+float hash(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+float fbm(vec2 p){ float v = 0.0, a = 0.55; for (int i = 0; i < 4; i++) { v += a * vnoise(p); p *= 2.07; a *= 0.48; } return v / 0.9927; }
+vec3 seaCol(vec2 p, float d, vec2 dir) {
+  vec2 q = p / 140.0 + vec2(uT * 0.01, uT * 0.004);
+  float det = exp(-d / 3500.0);
+  float n = mix(0.5, fbm(q), det), n2 = mix(0.5, fbm(q + vec2(0.06, 0.05)), det);
+  float top = smoothstep(0.3, 0.8, n), side = clamp((n - n2) * 5.0 + 0.5, 0.0, 1.0);
+  vec3 col = mix(vec3(0.6, 0.6, 0.76), vec3(1.0, 0.97, 0.94), top * (0.5 + 0.5 * side));
+  // (hacia el sol, la luz de la tarde en lo alto de las nubes)
+  float sw = max(dot(normalize(dir), normalize(vec2(uSun.x, -uSun.z))), 0.0);
+  col = mix(col, col * vec3(1.08, 0.9, 0.74), sw * sw * (0.25 + 0.5 * top));
+  // (lejos, la calima: hasta el color del horizonte)
+  return mix(col, uHor, 1.0 - exp(-d / 3400.0));
+}`;
+
 const VERT = /* glsl */ `
 varying vec3 vDir;
 void main() {
@@ -53,14 +79,13 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`;
 // el cielo de la tarde: azul arriba, cálido en el horizonte, el sol con su resplandor y unas nubes altas muy tenues; por debajo
-// del horizonte, el mar de nubes (como el del risco: src/modes/trek/cloud-sea.ts), con bruma hacia el horizonte
+// del horizonte, el mar de nubes hasta el horizonte (el mismo que el disco de debajo, más allá de él)
 const FRAG = /* glsl */ `
 uniform float uT;
-uniform vec3 uZen, uHor, uHaze, uSun;
+uniform vec3 uZen, uHor, uSun, uEye;
+uniform float uSeaY;
 varying vec3 vDir;
-float hash(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
-float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
-float fbm(vec2 p){ float v = 0.0, a = 0.55; for (int i = 0; i < 4; i++) { v += a * vnoise(p); p *= 2.07; a *= 0.48; } return v / 0.9927; }
+${SEA_FN}
 void main() {
   vec3 d = normalize(vDir); float h = d.y, s = max(dot(d, uSun), 0.0);
   vec3 col;
@@ -71,11 +96,13 @@ void main() {
     float c = smoothstep(0.55, 0.85, fbm(uv)) * smoothstep(0.0, 0.25, h);
     col = mix(col, vec3(1.0, 0.97, 0.94), c * 0.45);
   } else {
-    // (por debajo del horizonte, la calima: el mar de nubes es un disco de verdad, más cerca)
-    col = mix(uHaze, vec3(0.86, 0.86, 0.92), smoothstep(0.0, -0.3, h));
+    // (por debajo del horizonte, el mar de nubes: donde lo corta tu mirada)
+    float t = min((uSeaY - uEye.y) / min(h, -1e-4), 60000.0);
+    vec2 p = vec2(uEye.x + d.x * t, -(uEye.z + d.z * t));
+    col = seaCol(p, t, vec2(d.x, -d.z));
   }
-  // el sol: su disco y su resplandor (también sobre las nubes de abajo, más suave)
-  col += vec3(1.0, 0.85, 0.6) * (pow(s, 12.0) * 0.35 + pow(s, 200.0) * 0.8) * (h >= 0.0 ? 1.0 : 0.4);
+  // el sol: su disco y su resplandor (también sobre las nubes de abajo, más suave; sin corte en el horizonte)
+  col += vec3(1.0, 0.85, 0.6) * (pow(s, 12.0) * 0.35 + pow(s, 200.0) * 0.8) * mix(0.4, 1.0, smoothstep(-0.06, 0.0, h));
   col = mix(col, vec3(1.0, 0.98, 0.9), smoothstep(0.9993, 0.9997, s));
   gl_FragColor = vec4(col, 1.0);
 }`;
@@ -85,28 +112,53 @@ void main() {
 const SEA_VERT = /* glsl */ `
 uniform vec2 uOff;
 varying vec2 vW;
-varying float vR;
 void main() {
   vW = position.xy + uOff;
-  vR = length(position.xy);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`;
 const SEA_FRAG = /* glsl */ `
-uniform float uT, uR;
-uniform vec3 uHaze;
+uniform float uT, uSeaY;
+uniform vec3 uHor, uSun, uEye;
 varying vec2 vW;
-varying float vR;
-float hash(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
-float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
-float fbm(vec2 p){ float v = 0.0, a = 0.55; for (int i = 0; i < 4; i++) { v += a * vnoise(p); p *= 2.07; a *= 0.48; } return v / 0.9927; }
+${SEA_FN}
 void main() {
   // (sin cortar en trozos: cortado, se veía una raya recta en el mar; con unos km volados, los números caben de sobra)
-  vec2 p = vW / 140.0 + vec2(uT * 0.01, uT * 0.004);
-  float n = fbm(p), n2 = fbm(p + vec2(0.06, 0.05));
-  float top = smoothstep(0.3, 0.8, n), side = clamp((n - n2) * 5.0 + 0.5, 0.0, 1.0);
-  vec3 col = mix(vec3(0.55, 0.58, 0.72), vec3(1.0, 0.97, 0.94), top * (0.5 + 0.5 * side));
-  col = mix(col, uHaze, smoothstep(uR * 0.35, uR * 0.95, vR));
-  gl_FragColor = vec4(col, 1.0);
+  vec2 dd = vec2(vW.x - uEye.x, vW.y + uEye.z);
+  gl_FragColor = vec4(seaCol(vW, length(vec3(dd, uSeaY - uEye.y)), dd), 1.0);
+}`;
+// las cascadas (como las de la cuerda, src/modes/bars/rope-scene.ts, con sus instancias): hilos de agua que bajan deprisa, con
+// espuma donde rompe en el borde, abriéndose y deshaciéndose en bruma al caer; lo lejano, con la calima (la niebla de la escena)
+const FALL_VS = /* glsl */ `
+varying vec2 vUv;
+varying float vH, vFog;
+uniform float uFog;
+void main() {
+  vUv = uv;
+  vH = length(instanceMatrix[1].xyz);
+  vec4 mv = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+  float f = uFog * -mv.z;
+  vFog = 1.0 - exp(-f * f);
+  gl_Position = projectionMatrix * mv;
+}`;
+const FALL_FS = /* glsl */ `
+uniform float uT;
+uniform vec3 uHaze;
+varying vec2 vUv;
+varying float vH, vFog;
+float hash(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+void main() {
+  float y = 1.0 - vUv.y, sp = 1.0 + y * 0.6;
+  float x = (vUv.x - 0.5) / sp + 0.5;
+  vec2 p = vec2(x * 12.0, vUv.y * vH / 9.0 + uT * 2.2);
+  float n = vnoise(p) * 0.55 + vnoise(p * vec2(2.3, 1.7) + 7.1) * 0.3 + vnoise(p * vec2(5.0, 3.1) - 2.3) * 0.15;
+  float edge = smoothstep(0.0, 0.18 + 0.1 * vnoise(vec2(vUv.y * 7.0 - uT, 1.0)), x) * smoothstep(1.0, 0.82 - 0.1 * vnoise(vec2(vUv.y * 7.0 - uT, 5.0)), x);
+  float foam = smoothstep(0.035, 0.0, y) * 0.9;
+  float mist = smoothstep(0.35, 1.0, y);
+  vec3 c = mix(vec3(0.36, 0.62, 0.8), vec3(0.97, 0.99, 1.0), clamp(n * 0.9 + foam + mist * 0.6, 0.0, 1.0));
+  float a = edge * (0.75 + 0.25 * n) + foam * 0.4;
+  a *= 1.0 - mist * 0.6;
+  gl_FragColor = vec4(mix(c, uHaze, vFog), a);
 }`;
 // las nubes sueltas: cuadros de cara a ti (en cada ojo) con su bocanada; se desvanecen al acercarte (las atraviesas)
 const PUFF_VERT = /* glsl */ `
@@ -149,6 +201,65 @@ function puffTexture(): CanvasTexture {
   return new CanvasTexture(cv);
 }
 
+/** El tono de cada isla (multiplica sus colores): la mayoría, tal cual; otras, más rojizas, doradas o verdes. */
+const ISLE_TINTS = [0xffffff, 0xffffff, 0xffe6d8, 0xfff0d0, 0xe8ffe0, 0xffdcd0] as const;
+// los colores de la roca de las islas, por vértice (sale de su forma: lo que mira arriba, hierba; lo demás, roca a capas, más
+// oscura hacia abajo); la panza va del revés, así que es toda de roca
+function isleColors(src: BufferGeometry, slab: boolean): BufferGeometry {
+  const g = src.clone(), P = g.getAttribute('position'), N = g.getAttribute('normal'), n = P.count, c = new Float32Array(n * 3);
+  g.computeBoundingBox();
+  const y0 = g.boundingBox!.min.y, y1 = g.boundingBox!.max.y;
+  for (let i = 0; i < n; i++) {
+    const y = (P.getY(i) - y0) / (y1 - y0 || 1), ny = N ? N.getY(i) : 0, band = Math.floor(P.getY(i) * 2.3 + Math.sin(P.getX(i) * 0.9) * 0.6) & 1;
+    let r: number, gg: number, b: number;
+    if (slab && ny > 0.5) {
+      // la hierba (más clara en lo alto, con manchas)
+      const k = 0.5 + 0.5 * Math.sin(P.getX(i) * 1.7 + P.getZ(i) * 1.3);
+      r = 0.46 + 0.1 * k;
+      gg = 0.74 + 0.08 * k;
+      b = 0.34;
+    } else if (slab && ny > 0.2) {
+      // el borde de tierra
+      r = 0.68;
+      gg = 0.56;
+      b = 0.36;
+    } else {
+      // la roca: arenisca cálida a capas, más oscura hacia abajo (la panza, del revés: su «abajo» es arriba)
+      const d = slab ? y : 1 - y, k = 0.72 + 0.28 * d;
+      r = (band ? 0.82 : 0.7) * k;
+      gg = (band ? 0.58 : 0.47) * k;
+      b = (band ? 0.4 : 0.36) * k;
+    }
+    c[i * 3] = r;
+    c[i * 3 + 1] = gg;
+    c[i * 3 + 2] = b;
+  }
+  g.setAttribute('color', new BufferAttribute(c, 3));
+  return g;
+}
+// el material de la roca de las islas (de colores por vértice y de cada isla), ya con el cómic
+function isleRock(): MeshStandardMaterial {
+  const m = new MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 });
+  comicPatch(m);
+  return m;
+}
+// las hojas, que de lejos no se claréen (con las hojas tal cual, a 100 m los árboles eran palos): una copia que corta menos y
+// usa el suavizado de bordes de las gafas (una por material)
+function leafy(m: Material, done: Map<Material, Material>): Material {
+  const sm = m as MeshStandardMaterial;
+  if (!sm.isMeshStandardMaterial || !(sm.alphaTest > 0)) return m;
+  let c = done.get(m);
+  if (!c) {
+    const k = sm.clone();
+    k.alphaTest = 0.3;
+    k.alphaToCoverage = true;
+    comicPatch(k);
+    done.set(m, k);
+    c = k;
+  }
+  return c;
+}
+
 /** Un volador del catálogo, a su tamaño, con su vuelo de siempre y sus gestos (atacar, recibir y caer). */
 interface Critter {
   kind: SkyKind;
@@ -184,6 +295,11 @@ export class SkyScene {
   private readonly flying: { lt: Lightning; id: number; dmg: number; t: number; dur: number }[] = [];
   private sea: Mesh | null = null;
   private seaMat: ShaderMaterial | null = null;
+  private fallMat: ShaderMaterial | null = null;
+  private falls: InstancedMesh | null = null;
+  /** Tus ojos en el cielo (para el mar de nubes hasta el horizonte) y el tono de cada isla. */
+  private readonly eyeSky = new Vector3();
+  private readonly tint = new Color();
   private puffMesh: InstancedMesh | null = null;
   private readonly lock = new LockLines();
   private gullT: number = GULL[0];
@@ -225,7 +341,7 @@ export class SkyScene {
     if (!isl || !nat) return false;
     for (const k of Object.keys(POOL) as SkyKind[]) if (!AssetManager.getGLTF(FOE_DEF[k === 'boss' ? 'dragon' : k].asset, { shared: true })) return false;
     // el cielo
-    this.skyMat = new ShaderMaterial({ uniforms: { uT: { value: 0 }, uZen: { value: ZENITH }, uHor: { value: HORIZON }, uHaze: { value: HAZE }, uSun: { value: SUN } }, vertexShader: VERT, fragmentShader: FRAG, side: BackSide, depthWrite: false, fog: false, toneMapped: false });
+    this.skyMat = new ShaderMaterial({ uniforms: { uT: { value: 0 }, uZen: { value: ZENITH }, uHor: { value: HORIZON }, uSun: { value: SUN }, uEye: { value: this.eyeSky }, uSeaY: { value: SEA_Y } }, vertexShader: VERT, fragmentShader: FRAG, side: BackSide, depthWrite: false, fog: false, toneMapped: false });
     this.sky = new Mesh(new SphereGeometry(SKY_R, 48, 24), this.skyMat);
     this.sky.frustumCulled = false;
     this.sky.renderOrder = -10;
@@ -235,23 +351,39 @@ export class SkyScene {
     // las islas: una pieza por modelo, con sus instancias
     type Kit = NonNullable<ReturnType<typeof kitParts>>;
     const models: [string, Kit, number][] = [[ISLE_SLAB, isl, this.isles.list.length], [ISLE_BELLY, isl, this.isles.list.length], ...DECO.map((n): [string, Kit, number] => [n, nat, DECO_CAP])];
+    const rock = isleRock(), leaf = new Map<Material, Material>();
     for (const [n, kit, cap] of models) {
       const parts = kit[n];
       if (!parts) continue;
+      const isle = n === ISLE_SLAB || n === ISLE_BELLY;
       this.batches.set(
         n,
         parts.map((p) => {
-          const im = new InstancedMesh(p.geo, p.mat, cap);
+          // (la roca de las islas, con sus colores: hierba arriba y roca cálida a capas; las hojas, sin clarearse de lejos)
+          const geo = isle ? isleColors(p.geo, n === ISLE_SLAB) : p.geo, mat = isle ? rock : leafy(p.mat, leaf);
+          const im = new InstancedMesh(geo, mat, cap);
           im.count = 0;
           im.frustumCulled = false;
+          if (isle) for (let i = 0; i < cap; i++) im.setColorAt(i, this.tint.setRGB(1, 1, 1));
           this.frame.add(im);
-          warmKeep(new InstancedMesh(p.geo, p.mat, 1));
+          const w = new InstancedMesh(geo, mat, 1);
+          if (isle) w.setColorAt(0, this.tint);
+          warmKeep(w);
           return im;
         }),
       );
     }
+    // las cascadas (una por isla, como mucho)
+    this.fallMat = new ShaderMaterial({ uniforms: { uT: { value: 0 }, uFog: { value: FOG }, uHaze: { value: HAZE } }, vertexShader: FALL_VS, fragmentShader: FALL_FS, transparent: true, depthWrite: false, side: DoubleSide, fog: false, toneMapped: false });
+    this.falls = new InstancedMesh(new PlaneGeometry(1, 1).translate(0, -0.5, 0), this.fallMat, FALL_CAP);
+    this.falls.count = 0;
+    this.falls.frustumCulled = false;
+    this.falls.renderOrder = 3;
+    this.falls.userData.noInk = true;
+    this.frame.add(this.falls);
+    warmKeep(new InstancedMesh(this.falls.geometry, this.fallMat, 1));
     // el mar de nubes (un disco bajo tus pies) y las nubes sueltas
-    this.seaMat = new ShaderMaterial({ uniforms: { uT: { value: 0 }, uR: { value: SEA_R }, uOff: { value: [0, 0] }, uHaze: { value: HAZE } }, vertexShader: SEA_VERT, fragmentShader: SEA_FRAG, fog: false, toneMapped: false });
+    this.seaMat = new ShaderMaterial({ uniforms: { uT: { value: 0 }, uOff: { value: [0, 0] }, uHor: { value: HORIZON }, uSun: { value: SUN }, uEye: { value: this.eyeSky }, uSeaY: { value: SEA_Y } }, vertexShader: SEA_VERT, fragmentShader: SEA_FRAG, fog: false, toneMapped: false });
     this.sea = new Mesh(new CircleGeometry(SEA_R, 72), this.seaMat);
     this.sea.rotation.x = -Math.PI / 2;
     this.sea.frustumCulled = false;
@@ -392,6 +524,29 @@ export class SkyScene {
       im.count = L.length;
       im.instanceMatrix.needsUpdate = true;
     }
+    // (cada isla, su tono: unas más rojizas, otras más doradas o más verdes; sale de dónde está, no cambia al repintar)
+    for (let i = 0; i < L.length; i++) {
+      if (!all && !this.isles.moved.includes(i)) continue;
+      const k = Math.abs(Math.sin(L[i].x * 12.9898 + L[i].z * 78.233)) * 43758.5453, c = ISLE_TINTS[Math.floor((k - Math.floor(k)) * ISLE_TINTS.length)];
+      this.tint.setHex(c);
+      for (const n of [ISLE_SLAB, ISLE_BELLY]) for (const im of this.batches.get(n) ?? []) {
+        im.setColorAt(i, this.tint);
+        if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      }
+    }
+    // las cascadas: del borde hasta perderse en el mar de nubes
+    const W = this.falls;
+    if (W) {
+      let nf = 0;
+      for (const I of L) {
+        const f = I.fall;
+        if (!f || nf >= FALL_CAP) continue;
+        this.q.setFromAxisAngle(this.AX_Y, f.ry);
+        W.setMatrixAt(nf++, this.m4.compose(this.v.set(f.x, f.y, f.z), this.q, this.sc.set(f.w, f.y - FALL_BOT, 1)));
+      }
+      W.count = nf;
+      W.instanceMatrix.needsUpdate = true;
+    }
     // lo de encima (árboles, arbustos, hierba, flores): lo de todas las islas, en sus instancias
     const cnt: Record<string, number> = {};
     for (const I of L)
@@ -423,11 +578,14 @@ export class SkyScene {
    */
   step(dt: number, show: boolean, paused: boolean, I: SkyIn, eye: Vector3, eyeQ: Quaternion): void {
     if (show !== this.shown) this.setShown(show);
-    if (!show || !this.build()) {
+    // (se monta en cuanto haya con qué, antes de colgarte: así no da un tirón al salir el cielo)
+    const ready = this.build();
+    if (!show || !ready) {
       this.root.visible = false;
       return;
     }
     this.root.visible = true;
+    this.keepFog();
     const F = this.fight;
     if (!paused) {
       F.step(dt, I);
@@ -442,6 +600,7 @@ export class SkyScene {
       }
       this.skyMat!.uniforms.uT.value += dt;
       this.seaMat!.uniforms.uT.value += dt;
+      this.fallMat!.uniforms.uT.value += dt;
       // las gaviotas: se oyen de vez en cuando, a tu alrededor
       this.gullT -= dt;
       if (this.gullT <= 0) {
@@ -482,6 +641,7 @@ export class SkyScene {
     R.updateMatrixWorld(true);
     this.qInv.copy(R.quaternion).invert();
     this.sky!.position.set(F.x, F.y, F.z);
+    this.eyeSky.set(F.x, F.y, F.z);
     // (el mar de nubes, bajo tus pies; sus nubes, quietas en el cielo)
     this.sea!.position.set(F.x, SEA_Y, F.z);
     const off = this.seaMat!.uniforms.uOff.value as number[];
@@ -621,6 +781,19 @@ export class SkyScene {
     this.fight.blast(p);
     for (let i = n0; i < this.fight.ev.length; i++) this.handle(this.fight.ev[i]);
     (this.ring!.material as MeshBasicMaterial).color.setHex(POW_COL[Math.min(4, p) - 1]);
+  }
+
+  // la niebla y el alcance de la cámara del cielo, en cada fotograma (al colgarte, el juego ponía otra vez los de la escena)
+  private keepFog(): void {
+    const fog = (this.scene() as unknown as { fog: { color: Color; density: number } | null } | null)?.fog, cam = this.camera();
+    if (fog && (fog.density !== FOG || !fog.color.equals(HAZE))) {
+      fog.color.copy(HAZE);
+      fog.density = FOG;
+    }
+    if (cam && cam.far < CAM_FAR) {
+      cam.far = CAM_FAR;
+      cam.updateProjectionMatrix();
+    }
   }
 
   // el cielo a la vista o no: la niebla (calima), el alcance de la cámara y la vista sin arena (MAPVIEW), y al revés

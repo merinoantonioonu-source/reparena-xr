@@ -535,7 +535,13 @@ No las cambies sin preguntarle.
   su relieve), más islas y más grandes, cada una con sus árboles, arbustos, hierba, flores, helechos y setas del kit de
   naturaleza (apoyados en la roca), y unas pocas enormes a lo lejos; **el mar de nubes corre bajo tus pies** al volar (y la
   panza de las islas se pierde entre sus nubes); **nubes sueltas** a tu altura que pasan a tu lado (se atraviesan) y
-  gaviotas que se oyen.
+  gaviotas que se oyen. **Con color y hasta el horizonte** (pedido del usuario con su vídeo: «no veo que los islotes tengan
+  color… se ve una franja gris sólida en el horizonte que no tiene sentido visual»): cada isla, con **hierba verde arriba y
+  roca cálida a capas** (arenisca, más oscura hacia abajo; unas algo más rojizas, otras más doradas o más verdes), y en
+  muchas una **cascada** que cae de su borde y se deshace en bruma hasta perderse en el mar de nubes (las grandes de lo
+  lejos, siempre); los árboles no se clarean de lejos; y **el mar de nubes llega hasta el horizonte**, cada vez más suave y
+  del color de la tarde (dorado hacia el sol), sin franja. (En las gafas, al colgarte volvía la niebla rosa de la arena y las
+  islas se veían como siluetas rosas lisas: ya no.)
   - **Disparar**: **cada remo es un disparo hacia donde miras** (el rayo de Combate, al volador más cercano a tu mirada, sin
     apuntar exacto; **el que vas a darle lleva la diana de Combate**, más grande cuanto más lejos, y **el rayo sale de delante
     de tu cara y va hasta él**: pedido del usuario, que derribaba sin ver ningún disparo); **el remo explosivo, el disparo fuerte** (quita el doble; y sigue acelerando); **aguantar arriba carga**

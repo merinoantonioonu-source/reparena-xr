@@ -1580,6 +1580,17 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   lo lleva hasta el blanco (siguiéndolo) y el golpe llega con él (`SkyFight.pick` y `hit`); la diana, la de Combate
   (`LockLines`, con `LockTarget.lockScale` para verla a 20-30 m), en el que da la mirada. **Por confirmar en las gafas**: el tamaño y la
   distancia de los voladores, los tiempos para esquivar y lo que cansa.
+  *Con su vídeo de las gafas* (islas sin color, nada que ver y «una franja gris sólida en el horizonte»): (a) las islas eran
+  siluetas rosas lisas porque la niebla de la escena (rosa, 0,011, la de `main.iwsdk.scene.json`) volvía al colgarte (la
+  escena de colgado la guarda y la repone): `SkyScene.keepFog` pone la suya (y el alcance de la cámara) en cada fotograma
+  mientras se ve; en el ordenador no se veía porque las pruebas cuelgan sin pasar por ahí; (b) la franja: por debajo del
+  horizonte el cielo era un gris liso más allá del disco del mar de nubes; ahora el cielo pinta el mismo mar (`SEA_FN`:
+  donde corta tu mirada su plano, con la calima hacia `uHor` y menos detalle lejos), igual que el disco, sin costura; (c) las
+  islas, con su material de colores por vértice (`isleColors`: hierba lo que mira arriba, roca a capas) y un tono por isla
+  (`ISLE_TINTS`, `setColorAt`); las cascadas (`SkyIsle.fall`, del borde de la losa hacia fuera, `ISLES.fall*`) en una sola
+  pieza con instancias y su sombreador (como las de la cuerda, con la calima hecha a mano); las hojas, en una copia con
+  `alphaToCoverage` (de lejos los árboles se quedaban en palos). La escena se monta en cuanto los kits están cargados, antes
+  de colgarte.
 
 - **El parapente del remo invertido sobre el mapa** (Barras, en pruebas; pedido del usuario, postura 1 y mandos aprobados).
   La lógica, pura y con pruebas, en `src/modes/bars/para.ts` (`ParaPilot`: el impulso de cada remo que se pierde, la marcha,
