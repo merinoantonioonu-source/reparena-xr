@@ -217,4 +217,29 @@ describe('las islas del cielo', () => {
     expect(I.list.some((S) => S.deco.length > 6)).toBe(true);
     expect(I.list.filter((S) => S.far).length).toBe(ISLES.big.n);
   });
+
+  it('las cascadas salen del borde de la losa (fuera de la roca, a la altura de su borde) y las grandes siempre llevan una', () => {
+    const I = new SkyIsles(seeded(5));
+    I.reset(0, 0);
+    let n = 0;
+    for (let k = 0; k < 30; k++) {
+      I.step(k * 40, -k * 60, -0.4);
+      for (const S of I.list) {
+        if (S.far) expect(S.fall).not.toBeNull();
+        const f = S.fall;
+        if (!f) continue;
+        n++;
+        // (fuera de la losa: el agua no la atraviesa)
+        expect(placedTop(ISLE_SLAB, S.x, S.y, S.z, S.ry, S.s, S.s * ISLE_SLAB_Y, S.s, f.x, f.z)).toBeNull();
+        // (pero pegada a ella: un paso hacia dentro ya es roca)
+        const cx = S.x + 0.28 * S.s, cz = S.z + 0.28 * S.s, d = Math.hypot(f.x - cx, f.z - cz), back = (ISLES.fallOut + 0.1) * S.s;
+        expect(placedTop(ISLE_SLAB, S.x, S.y, S.z, S.ry, S.s, S.s * ISLE_SLAB_Y, S.s, cx + ((f.x - cx) * (d - back)) / d, cz + ((f.z - cz) * (d - back)) / d)).not.toBeNull();
+        expect(f.y).toBeLessThanOrEqual(ISLES.top);
+        expect(f.w).toBeGreaterThan(1);
+        // (de cara hacia fuera)
+        expect(Math.sin(f.ry) * (f.x - cx) + Math.cos(f.ry) * (f.z - cz)).toBeGreaterThan(0);
+      }
+    }
+    expect(n).toBeGreaterThan(30);
+  });
 });

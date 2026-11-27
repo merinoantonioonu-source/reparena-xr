@@ -619,6 +619,16 @@ export interface SkyIsle {
   /** ¿Una de las grandes de lo lejos? */
   far: boolean;
   deco: SkyDeco[];
+  /** Su cascada (o ninguna): sale del borde de la losa (x, z, a la altura `y` de su borde), mirando hacia fuera (`ry`), con
+   * su ancho `w` (m), y cae hasta perderse en el mar de nubes. */
+  fall: SkyFall | null;
+}
+export interface SkyFall {
+  x: number;
+  y: number;
+  z: number;
+  ry: number;
+  w: number;
 }
 /**
  * Las islas (pedido del usuario: «el entorno está demasiado desprovisto: habría que adornarlo algo más»): las cercanas, de 4 a
@@ -639,6 +649,12 @@ export const ISLES = {
   top: -14,
   low: -52,
   treeH: 8,
+  /** Las cascadas (pedido del usuario: «más elementos visuales»): en cuántas de las cercanas (de 5 de tamaño en adelante;
+   * las grandes de lo lejos, siempre), su ancho (× el tamaño) y lo que sale del borde (× el tamaño: la losa se ensancha un
+   * poco por debajo de su borde y el agua no la atraviesa). */
+  fall: 0.45,
+  fallW: 0.5,
+  fallOut: 0.22,
 } as const;
 /** La losa de una isla (Cliff1, aplanada) y su panza colgando (Cliff3, del revés). */
 export const ISLE_SLAB = 'Cliff1', ISLE_BELLY = 'Cliff3', ISLE_SLAB_Y = 0.5;
@@ -656,7 +672,7 @@ export class SkyIsles {
   readonly moved: number[] = [];
 
   constructor(private readonly rnd: () => number = Math.random) {
-    for (let i = 0; i < ISLES.n + ISLES.big.n; i++) this.list.push({ x: 0, y: 0, z: 0, ry: 0, s: 1, far: i >= ISLES.n, deco: [] });
+    for (let i = 0; i < ISLES.n + ISLES.big.n; i++) this.list.push({ x: 0, y: 0, z: 0, ry: 0, s: 1, far: i >= ISLES.n, deco: [], fall: null });
   }
 
   /** Al empezar: repartidas alrededor de (x, z). */
@@ -712,6 +728,22 @@ export class SkyIsles {
     for (let i = 0; i < want.t; i++) put(ISLE_TREES[Math.floor(R() * ISLE_TREES.length)], tree * between(0.8, 1.2), 0.5 * tree, 2.2 * tree);
     for (let i = 0; i < want.b; i++) put(ISLE_BUSHES[Math.floor(R() * ISLE_BUSHES.length)], tree * between(0.7, 1.1), 0.4 * tree, 1.2 * tree);
     for (let i = 0; i < want.g; i++) put(ISLE_GROUND[Math.floor(R() * ISLE_GROUND.length)], tree * between(0.8, 1.3), 0.25 * tree, 0);
+    // la cascada: hacia un lado, hasta el borde de la losa (lo último que es roca), y un poco hacia fuera
+    I.fall = null;
+    if (I.far || (s >= 5 && R() < ISLES.fall)) {
+      const a = R() * 6.283, ca = Math.cos(a), sa = Math.sin(a), cx = x + 0.28 * s, cz = z + 0.28 * s;
+      let last = -1, top = 0;
+      for (let r = 0.2 * s; r < 4 * s; r += 0.08 * s) {
+        const t = placedTop(ISLE_SLAB, x, I.y, z, I.ry, s, sy, s, cx + ca * r, cz + sa * r);
+        if (t === null) break;
+        last = r;
+        top = t;
+      }
+      if (last > 0) {
+        const r = last + ISLES.fallOut * s;
+        I.fall = { x: cx + ca * r, y: top, z: cz + sa * r, ry: Math.atan2(ca, sa), w: ISLES.fallW * s };
+      }
+    }
   }
 }
 
