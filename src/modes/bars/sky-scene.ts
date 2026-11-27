@@ -1,16 +1,19 @@
 /**
- * Lo que se ve del combate en el parapente (la lógica, `sky-fight.ts`): el cielo de la tarde con su sol y, muy abajo, el mar de
- * nubes; las islas flotando por debajo de ti; los voladores del catálogo con sus animaciones (vuelan, se echan atrás al atacar,
- * se quejan al recibir y caen derribados); sus bolas de fuego (las de los jefes: src/style/missile-fx.ts); tus rayos (los de
- * Combate: src/combat/bolt.ts) y la onda de la carga.
+ * Lo que se ve del combate en el parapente (la lógica, `sky-fight.ts`): el cielo de la tarde con su sol; muy abajo, el mar de
+ * nubes, que corre bajo tus pies mientras vuelas; las islas flotando por encima de él (y por debajo de ti), con sus árboles,
+ * arbustos, hierba y flores, y unas pocas enormes a lo lejos; nubes sueltas a tu altura; gaviotas que se oyen; los voladores del
+ * catálogo con sus animaciones (vuelan, se echan atrás al atacar, se quejan al recibir y caen derribados) y la diana de Combate
+ * en el que miras; sus bolas de fuego (las de los jefes: src/style/missile-fx.ts); tus rayos (los de Combate:
+ * src/combat/bolt.ts), que van hasta el blanco, y la onda de la carga.
  *
  * Todo lo del cielo va en un grupo (`frame`) girado y desplazado como el mapa del parapente (MapSystem): lo de delante, hacia tus
  * pies, e inclinado hacia tu vista lo que diga «Parapente: inclinación del mapa» (`MAPPILOT.pitch`). Las bolas y los rayos,
  * en la sala (ahí viven sus partículas). Hecho al empezar y reutilizado: en plena pelea no se crea nada.
  */
-import { AdditiveBlending, AnimationMixer, AssetManager, BackSide, Color, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, Object3D, Quaternion, ShaderMaterial, SphereGeometry, Vector3, type AnimationAction, type PerspectiveCamera, type Scene, type SkinnedMesh } from '@iwsdk/core';
+import { AdditiveBlending, AnimationMixer, AssetManager, BackSide, CanvasTexture, CircleGeometry, Color, DoubleSide, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Quaternion, ShaderMaterial, SphereGeometry, Vector3, type AnimationAction, type PerspectiveCamera, type Scene, type SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
-import { Bolts } from '../../combat/bolt.js';
+import { Bolts, type Lightning } from '../../combat/bolt.js';
+import { LockLines, type LockTarget } from '../../combat/lockline.js';
 import { FOE_DEF } from '../../combat/foes.js';
 import { boltColor, POW_COL } from '../../combat/fx.js';
 import { HOOKS, MAPPILOT, MAPVIEW } from '../../core/state.js';
@@ -18,22 +21,30 @@ import { on as isOn } from '../../core/values.js';
 import { kitParts } from '../../env/scenery.js';
 import { Missile, type MissileKind } from '../../style/missile-fx.js';
 import { warmKeep } from '../../style/warm.js';
-import { ISLE_BELLY, ISLE_SLAB, ISLE_SLAB_Y, SKY, SKY_KIND, SkyFight, SkyIsles, type SkyEv, type SkyIn, type SkyKind } from './sky-fight.js';
+import { ISLE_BELLY, ISLE_BUSHES, ISLE_GROUND, ISLE_SLAB, ISLE_SLAB_Y, ISLE_TREES, PUFFS, SKY, SKY_KIND, SkyFight, SkyIsles, SkyPuffs, type SkyEv, type SkyIn, type SkyKind } from './sky-fight.js';
 
 /** El cielo: su radio (m; dentro del alcance de la cámara, por eso se alarga mientras se pelea), los colores de la tarde (arriba,
  * el horizonte y la calima de lo lejano) y hacia dónde está el sol (en el cielo, normalizado al usarlo). */
 const SKY_R = 1500, CAM_FAR = 2200;
 const ZENITH = new Color(0x4d86d8), HORIZON = new Color(0xf7dcb8), HAZE = new Color(0xdcd6d8), SUN = new Vector3(0.55, 0.22, -0.8).normalize();
-/** La niebla de lo lejano (las islas se pierden entre la calima a unos 400 m). */
-const FOG = 0.0028;
+/** La niebla de lo lejano (poca: con más, a 100 m las islas ya se veían blancas, sin relieve; se pierden pasados unos 900 m). */
+const FOG = 0.0011;
+/** El mar de nubes de verdad (un disco bajo tus pies que te sigue, con sus nubes quietas en el cielo: corren mientras vuelas):
+ * a qué altura (m, en el cielo) y su radio (m). Por debajo, la panza de las islas se pierde entre las nubes. */
+const SEA_Y = -60, SEA_R = 1400;
+/** Lo que se pone encima de las islas (`SkyIsles`): cuántos caben de cada modelo. */
+const DECO = [...ISLE_TREES, ...ISLE_BUSHES, ...ISLE_GROUND], DECO_CAP = 160;
+/** Los rayos: lo que tardan en llegar (s, más la distancia a 1/`BOLT_V` s por m; como en Combate, algo más deprisa) y su
+ * grosor (× el de Combate: a 20-30 m, con el de siempre apenas se veían), más grueso cuanto más lejos. */
+const BOLT_T = 0.08, BOLT_V = 55, BOLT_W = 2.2;
+/** Cada cuánto se oye una gaviota (s, entre estos dos). */
+const GULL = [5, 11] as const;
 /** Lo que se ladea el horizonte al virar (rad, × el ladeo; como sobre el mapa) y cada cuánto se miran las islas (s). */
 const ROLL = 0.16, ISLE_T = 0.5;
 /** Cuántos de cada volador se preparan (el jefe, uno). */
 const POOL: Record<SkyKind, number> = { bee: 3, bat: 3, cthulhu: 3, dragon: 3, boss: 1 };
 /** Lo que escupe cada uno (el pulpo, plasma; los dragones, fuego) y el tamaño de su bola (m). */
 const BALL: Partial<Record<SkyKind, { kind: MissileKind; size: number }>> = { cthulhu: { kind: 'plasma', size: 0.35 }, dragon: { kind: 'fire', size: 0.4 }, boss: { kind: 'fire', size: 0.65 } };
-/** Los árboles que puede llevar una isla (los de `SkyIsles`) y cuántos caben de cada uno. */
-const TREES = ['CommonTree_3', 'CommonTree_4', 'Pine_4'], TREE_CAP = 24;
 
 const VERT = /* glsl */ `
 varying vec3 vDir;
@@ -60,18 +71,83 @@ void main() {
     float c = smoothstep(0.55, 0.85, fbm(uv)) * smoothstep(0.0, 0.25, h);
     col = mix(col, vec3(1.0, 0.97, 0.94), c * 0.45);
   } else {
-    float k = 1.0 / max(-h + 0.035, 0.035);
-    vec2 uv = d.xz * k * 0.55 + vec2(uT * 0.006, uT * 0.0025);
-    float n = fbm(uv), n2 = fbm(uv + vec2(0.11, 0.07));
-    float top = smoothstep(0.32, 0.78, n), side = clamp((n - n2) * 4.0 + 0.5, 0.0, 1.0);
-    col = mix(vec3(0.6, 0.6, 0.72), vec3(1.0, 0.97, 0.93), top * (0.55 + 0.45 * side));
-    col = mix(col, uHaze, smoothstep(-0.25, 0.0, h) * 0.8);
+    // (por debajo del horizonte, la calima: el mar de nubes es un disco de verdad, más cerca)
+    col = mix(uHaze, vec3(0.86, 0.86, 0.92), smoothstep(0.0, -0.3, h));
   }
   // el sol: su disco y su resplandor (también sobre las nubes de abajo, más suave)
   col += vec3(1.0, 0.85, 0.6) * (pow(s, 12.0) * 0.35 + pow(s, 200.0) * 0.8) * (h >= 0.0 ? 1.0 : 0.4);
   col = mix(col, vec3(1.0, 0.98, 0.9), smoothstep(0.9993, 0.9997, s));
   gl_FragColor = vec4(col, 1.0);
 }`;
+
+// el mar de nubes (el disco): sus nubes, quietas en el cielo (corren bajo ti al volar), blancas arriba y gris azulado en las
+// hondonadas, con el sol encima; hacia el borde, la calima del horizonte
+const SEA_VERT = /* glsl */ `
+uniform vec2 uOff;
+varying vec2 vW;
+varying float vR;
+void main() {
+  vW = position.xy + uOff;
+  vR = length(position.xy);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+const SEA_FRAG = /* glsl */ `
+uniform float uT, uR;
+uniform vec3 uHaze;
+varying vec2 vW;
+varying float vR;
+float hash(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+float fbm(vec2 p){ float v = 0.0, a = 0.55; for (int i = 0; i < 4; i++) { v += a * vnoise(p); p *= 2.07; a *= 0.48; } return v / 0.9927; }
+void main() {
+  // (sin cortar en trozos: cortado, se veía una raya recta en el mar; con unos km volados, los números caben de sobra)
+  vec2 p = vW / 140.0 + vec2(uT * 0.01, uT * 0.004);
+  float n = fbm(p), n2 = fbm(p + vec2(0.06, 0.05));
+  float top = smoothstep(0.3, 0.8, n), side = clamp((n - n2) * 5.0 + 0.5, 0.0, 1.0);
+  vec3 col = mix(vec3(0.55, 0.58, 0.72), vec3(1.0, 0.97, 0.94), top * (0.5 + 0.5 * side));
+  col = mix(col, uHaze, smoothstep(uR * 0.35, uR * 0.95, vR));
+  gl_FragColor = vec4(col, 1.0);
+}`;
+// las nubes sueltas: cuadros de cara a ti (en cada ojo) con su bocanada; se desvanecen al acercarte (las atraviesas)
+const PUFF_VERT = /* glsl */ `
+varying vec2 vUv;
+varying float vA;
+void main() {
+  vUv = uv;
+  vec4 c = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+  float s = length(instanceMatrix[0].xyz), d = -c.z;
+  vA = smoothstep(s * 0.6, s * 1.6, d) * (1.0 - smoothstep(600.0, 760.0, d));
+  c.xy += position.xy * s;
+  gl_Position = projectionMatrix * c;
+}`;
+const PUFF_FRAG = /* glsl */ `
+uniform sampler2D map;
+varying vec2 vUv;
+varying float vA;
+void main() {
+  vec4 t = texture2D(map, vUv);
+  gl_FragColor = vec4(t.rgb, t.a * vA * 0.85);
+}`;
+// la bocanada de una nube (un dibujo, hecho una vez): bultos blancos con sombra por debajo, deshilachados por el borde
+function puffTexture(): CanvasTexture {
+  const N = 128, cv = document.createElement('canvas');
+  cv.width = cv.height = N;
+  const c = cv.getContext('2d')!;
+  let seed = 7;
+  const r = (): number => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 26; i++) {
+    const x = N * (0.22 + 0.56 * r()), y = N * (0.32 + 0.4 * r()), rad = N * (0.1 + 0.14 * r());
+    const g = c.createRadialGradient(x, y - rad * 0.25, rad * 0.1, x, y, rad);
+    g.addColorStop(0, 'rgba(255,253,250,0.9)');
+    g.addColorStop(0.6, 'rgba(236,236,244,0.55)');
+    g.addColorStop(1, 'rgba(210,214,230,0)');
+    c.fillStyle = g;
+    c.beginPath();
+    c.arc(x, y, rad, 0, Math.PI * 2);
+    c.fill();
+  }
+  return new CanvasTexture(cv);
+}
 
 /** Un volador del catálogo, a su tamaño, con su vuelo de siempre y sus gestos (atacar, recibir y caer). */
 interface Critter {
@@ -85,11 +161,14 @@ interface Critter {
   /** El volador al que está puesto (su id; 0, libre) y lo que lleva girado al caer. */
   id: number;
   spin: number;
+  /** Su diana (la de Combate: sale de sus huesos), más grande cuanto más lejos. */
+  lock: LockTarget & { scale: number; live: boolean };
 }
 
 export class SkyScene {
   readonly fight: SkyFight;
   readonly isles: SkyIsles;
+  readonly puffs: SkyPuffs;
   /** En la sala: lo que se ve en ella (las bolas, los rayos); `frame`, el cielo. */
   readonly root = new Group();
   readonly frame = new Group();
@@ -101,6 +180,13 @@ export class SkyScene {
   private readonly missiles: Missile[] = [];
   private readonly wasOn: boolean[] = [];
   private bolts: Bolts | null = null;
+  /** Los rayos en camino: hasta quién (su id; 0, a ninguno), su daño, lo que llevan y lo que tardan (s). */
+  private readonly flying: { lt: Lightning; id: number; dmg: number; t: number; dur: number }[] = [];
+  private sea: Mesh | null = null;
+  private seaMat: ShaderMaterial | null = null;
+  private puffMesh: InstancedMesh | null = null;
+  private readonly lock = new LockLines();
+  private gullT: number = GULL[0];
   private ring: Mesh | null = null;
   private ringT = -1;
   private isleT = 0;
@@ -125,8 +211,10 @@ export class SkyScene {
   constructor(parent: Object3D, private readonly scene: () => Scene | null, private readonly camera: () => PerspectiveCamera | null, private readonly onEv: (E: SkyEv) => void, rnd: () => number = Math.random) {
     this.fight = new SkyFight(rnd);
     this.isles = new SkyIsles(rnd);
+    this.puffs = new SkyPuffs(rnd);
     parent.add(this.root);
     this.root.add(this.frame);
+    this.root.add(this.lock.group);
     this.root.visible = false;
   }
 
@@ -146,7 +234,7 @@ export class SkyScene {
     warmKeep(new Mesh(new SphereGeometry(1, 8, 4), this.skyMat));
     // las islas: una pieza por modelo, con sus instancias
     type Kit = NonNullable<ReturnType<typeof kitParts>>;
-    const models: [string, Kit, number][] = [[ISLE_SLAB, isl, this.isles.list.length], [ISLE_BELLY, isl, this.isles.list.length], ...TREES.map((n): [string, Kit, number] => [n, nat, TREE_CAP])];
+    const models: [string, Kit, number][] = [[ISLE_SLAB, isl, this.isles.list.length], [ISLE_BELLY, isl, this.isles.list.length], ...DECO.map((n): [string, Kit, number] => [n, nat, DECO_CAP])];
     for (const [n, kit, cap] of models) {
       const parts = kit[n];
       if (!parts) continue;
@@ -162,6 +250,22 @@ export class SkyScene {
         }),
       );
     }
+    // el mar de nubes (un disco bajo tus pies) y las nubes sueltas
+    this.seaMat = new ShaderMaterial({ uniforms: { uT: { value: 0 }, uR: { value: SEA_R }, uOff: { value: [0, 0] }, uHaze: { value: HAZE } }, vertexShader: SEA_VERT, fragmentShader: SEA_FRAG, fog: false, toneMapped: false });
+    this.sea = new Mesh(new CircleGeometry(SEA_R, 72), this.seaMat);
+    this.sea.rotation.x = -Math.PI / 2;
+    this.sea.frustumCulled = false;
+    this.sea.renderOrder = -9;
+    this.sea.userData.noInk = true;
+    this.frame.add(this.sea);
+    warmKeep(new Mesh(new CircleGeometry(1, 8), this.seaMat));
+    const pm = new ShaderMaterial({ uniforms: { map: { value: puffTexture() } }, vertexShader: PUFF_VERT, fragmentShader: PUFF_FRAG, transparent: true, depthWrite: false, fog: false, toneMapped: false, side: DoubleSide });
+    this.puffMesh = new InstancedMesh(new PlaneGeometry(1, 1), pm, PUFFS.n);
+    this.puffMesh.frustumCulled = false;
+    this.puffMesh.renderOrder = 4;
+    this.puffMesh.userData.noInk = true;
+    this.frame.add(this.puffMesh);
+    warmKeep(new InstancedMesh(this.puffMesh.geometry, pm, 1));
     // los voladores
     for (const k of Object.keys(POOL) as SkyKind[]) for (let i = 0; i < POOL[k]; i++) this.critters.push(this.critter(k));
     // sus bolas (una por cada bola del combate), tus rayos y la onda
@@ -179,7 +283,17 @@ export class SkyScene {
     this.frame.add(this.ring);
     this.built = true;
     this.placeIsles(true);
+    this.placePuffs();
     return true;
+  }
+
+  // las nubes sueltas, en sus instancias (su sitio y su tamaño; de cara a ti las pone el sombreador)
+  private placePuffs(): void {
+    const M = this.puffMesh;
+    if (!M) return;
+    this.q.identity();
+    this.puffs.list.forEach((P, i) => M.setMatrixAt(i, this.m4.compose(this.v.set(P.x, P.y, P.z), this.q, this.sc.set(P.s, P.s * 0.6, P.s))));
+    M.instanceMatrix.needsUpdate = true;
   }
 
   // un volador del catálogo (el jefe, el dragón en grande)
@@ -209,7 +323,21 @@ export class SkyScene {
       }
       return A;
     };
-    return { kind, g, mixer, fly: act(d.clips.walk, true), bite: act(d.clips.attack, false), hit: act(d.clips.hit, false), die: act(d.clips.death, false), id: 0, spin: 0 };
+    // (la diana: su centro, en la sala; viva mientras está puesto a un volador que vuela)
+    const lock = {
+      scale: 1,
+      live: false,
+      radius: S / 2,
+      root: model as Object3D,
+      get alive(): boolean {
+        return lock.live;
+      },
+      get lockScale(): number {
+        return lock.scale;
+      },
+      center: (out: Vector3): Vector3 => g.getWorldPosition(out),
+    };
+    return { kind, g, mixer, fly: act(d.clips.walk, true), bite: act(d.clips.attack, false), hit: act(d.clips.hit, false), die: act(d.clips.death, false), id: 0, spin: 0, lock };
   }
 
   // un gesto de una vez (atacar, recibir, caer), saliendo del vuelo
@@ -223,6 +351,9 @@ export class SkyScene {
   reset(): void {
     this.fight.reset(0);
     this.isles.reset(0, 0);
+    this.puffs.reset(0, 0);
+    this.flying.length = 0;
+    this.lock.clear();
     for (const C of this.critters) {
       C.id = 0;
       C.g.visible = false;
@@ -231,7 +362,10 @@ export class SkyScene {
     this.wasOn.fill(false);
     this.bolts?.clear();
     this.ringT = -1;
-    if (this.built) this.placeIsles(true);
+    if (this.built) {
+      this.placeIsles(true);
+      this.placePuffs();
+    }
   }
 
   /** Empieza una oleada (sus voladores; `boss`, la del jefe). */
@@ -258,16 +392,16 @@ export class SkyScene {
       im.count = L.length;
       im.instanceMatrix.needsUpdate = true;
     }
-    // los árboles: los de todas las islas (pocos), en sus instancias
+    // lo de encima (árboles, arbustos, hierba, flores): lo de todas las islas, en sus instancias
     const cnt: Record<string, number> = {};
     for (const I of L)
-      for (const T of I.trees) {
+      for (const T of I.deco) {
         const i = cnt[T.n] ?? 0;
-        if (i >= TREE_CAP) continue;
+        if (i >= DECO_CAP) continue;
         cnt[T.n] = i + 1;
         put(T.n, i, this.m4.compose(this.v.set(T.x, T.y, T.z), this.q.setFromAxisAngle(this.AX_Y, T.ry), this.sc.setScalar(T.sc)));
       }
-    for (const n of TREES)
+    for (const n of DECO)
       for (const im of this.batches.get(n) ?? []) {
         im.count = cnt[n] ?? 0;
         im.instanceMatrix.needsUpdate = true;
@@ -303,8 +437,18 @@ export class SkyScene {
         this.isleT = ISLE_T;
         this.isles.step(F.x, F.z, F.heading);
         this.placeIsles(false);
+        this.puffs.step(F.x, F.z, F.heading);
+        this.placePuffs();
       }
       this.skyMat!.uniforms.uT.value += dt;
+      this.seaMat!.uniforms.uT.value += dt;
+      // las gaviotas: se oyen de vez en cuando, a tu alrededor
+      this.gullT -= dt;
+      if (this.gullT <= 0) {
+        this.gullT = GULL[0] + (GULL[1] - GULL[0]) * Math.random();
+        const a = Math.random() * 6.283;
+        SND.gull(this.w.set(eye.x + Math.sin(a) * 12, eye.y + 3 + Math.random() * 4, eye.z + Math.cos(a) * 12));
+      }
     }
     this.place();
     // la mirada, en el cielo (para apuntar)
@@ -312,6 +456,7 @@ export class SkyScene {
     if (paused) return;
     this.drawFoes(dt, eye);
     this.drawShots(dt, eye, eyeQ);
+    this.stepBolts(dt);
     this.bolts!.update(dt, eye);
     if (this.ringT >= 0) {
       this.ringT += dt;
@@ -337,6 +482,11 @@ export class SkyScene {
     R.updateMatrixWorld(true);
     this.qInv.copy(R.quaternion).invert();
     this.sky!.position.set(F.x, F.y, F.z);
+    // (el mar de nubes, bajo tus pies; sus nubes, quietas en el cielo)
+    this.sea!.position.set(F.x, SEA_Y, F.z);
+    const off = this.seaMat!.uniforms.uOff.value as number[];
+    off[0] = F.x;
+    off[1] = -F.z;
   }
 
   // los voladores, cada uno con su modelo (puesto al salir, libre al perderse)
@@ -367,7 +517,34 @@ export class SkyScene {
         C.g.rotation.z = C.spin;
       }
     }
-    void eye;
+    // la diana (la de Combate) en el que miras: es al que va el disparo
+    for (const C of this.critters) C.lock.live = false;
+    const T = F.pick(this.gaze.x, this.gaze.y, this.gaze.z), C = T && this.critters.find((c) => c.id === T.id);
+    if (C) {
+      C.lock.live = true;
+      C.lock.scale = Math.min(8, Math.max(1, C.g.getWorldPosition(this.w).distanceTo(eye) / 5));
+      this.lock.show(C.lock);
+    }
+    this.lock.step(dt, eye);
+  }
+
+  // los rayos en camino: la cabeza sigue al blanco (que puede moverse); al llegar, el golpe (y lo que pase: le da, lo derriba)
+  private stepBolts(dt: number): void {
+    const F = this.fight;
+    for (let i = this.flying.length - 1; i >= 0; i--) {
+      const B = this.flying[i];
+      B.t += dt;
+      const f = B.id ? F.foes.find((q) => q.id === B.id && q.st !== 'off') : null;
+      if (f) this.toRoom(f.x, f.y, f.z, B.lt.to);
+      const k = Math.min(1, B.t / B.dur);
+      B.lt.k = Math.max(B.lt.k, k);
+      if (k < 1) continue;
+      B.lt.arrive();
+      this.flying.splice(i, 1);
+      if (!B.id) continue;
+      const n0 = F.ev.length;
+      if (F.hit(B.id, B.dmg)) for (let j = n0; j < F.ev.length; j++) this.handle(F.ev[j]);
+    }
   }
 
   // las bolas de fuego (en la sala): vuelan, y al acabar estallan en ti o siguen de largo
@@ -425,14 +602,16 @@ export class SkyScene {
   /** Un disparo hacia donde miras (`dmg`, su daño; el explosivo, 2): el rayo sale de delante de tus ojos. */
   shoot(dmg: number, eye: Vector3, perfect: boolean): void {
     if (!this.built || !this.shown) return;
-    const E = this.fight.shoot(this.gaze.x, this.gaze.y, this.gaze.z, dmg);
-    this.from.set(0, 0, 0).add(this.w.copy(this.gaze).applyQuaternion(this.frame.quaternion).multiplyScalar(0.7)).add(eye);
-    this.from.y -= 0.12;
-    const to = this.toRoom(E.x, E.y, E.z, this.v);
-    this.bolts!.start(this.from, to, dmg > 1 ? 2 : perfect ? 1 : 0, boltColor(perfect, dmg > 1 ? 2 : 1));
-    SND.bolt(this.from, dmg > 1 ? 2 : 0);
-    // (lo que pasa con el disparo: le da, lo derriba, la oleada acaba)
-    for (const ev of this.fight.ev) if (ev !== E && (ev.k === 'hit' || ev.k === 'kill' || ev.k === 'clear')) this.handle(ev);
+    const F = this.fight, T = F.pick(this.gaze.x, this.gaze.y, this.gaze.z);
+    // (sale de delante de tu cara, algo por debajo de los ojos, y va hasta el de la diana; sin nadie, hacia donde miras)
+    this.from.copy(this.w.copy(this.gaze).applyQuaternion(this.frame.quaternion)).multiplyScalar(0.9).add(eye);
+    this.from.y -= 0.15;
+    const to = T ? this.toRoom(T.x, T.y, T.z, this.v) : this.v.copy(this.w).multiplyScalar(40).add(eye);
+    const d = this.from.distanceTo(to), L = dmg > 1 ? 2 : perfect ? 1 : 0;
+    const lt = this.bolts!.start(this.from, to, L, boltColor(perfect, dmg > 1 ? 2 : 1), BOLT_W * (1 + d / 40));
+    this.flying.push({ lt, id: T?.id ?? 0, dmg, t: 0, dur: BOLT_T + d / BOLT_V });
+    SND.bolt(this.from, L);
+    this.onEv({ k: 'shot', id: T?.id ?? 0, kind: T?.kind ?? '', x: 0, y: 0, z: 0, n: T ? dmg : -1, big: dmg > 1 });
   }
 
   /** La onda de la carga ×p, alrededor de ti. */
@@ -483,6 +662,8 @@ export class SkyScene {
     this.farWas = 0;
     for (const M of this.missiles) M.stop();
     this.bolts?.clear();
+    this.flying.length = 0;
+    this.lock.clear();
   }
 
   /** Al acabar: fuera el cielo (y la niebla y la cámara, como estaban). */

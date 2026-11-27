@@ -202,18 +202,19 @@ describe('las islas del cielo', () => {
       I.step(x, z, -0.3);
       for (const S of I.list) {
         expect(S.y + 2.482 * S.s * ISLE_SLAB_Y).toBeLessThanOrEqual(ISLES.top);
-        for (const T of S.trees) {
+        for (const T of S.deco) {
           // (de pie en la losa: su pie, a ras o un poco hundido, nunca en el aire)
           const t = placedTop(ISLE_SLAB, S.x, S.y, S.z, S.ry, S.s, S.s * ISLE_SLAB_Y, S.s, T.x, T.z)!;
           expect(t).not.toBeNull();
           expect(T.y).toBeLessThanOrEqual(t);
           expect(T.y).toBeGreaterThan(t - 0.6);
-          expect(T.y + T.sc * 10).toBeLessThan(SKY.floor);
+          expect(T.y + T.sc * ISLES.treeH).toBeLessThan(SKY.floor);
         }
       }
     }
     // (y nunca se quedan atrás: siempre alrededor de donde vas)
-    for (const S of I.list) expect(Math.hypot(S.x - x, S.z - z)).toBeLessThan(ISLES.gone + 1);
-    expect(I.list.some((S) => S.trees.length > 0)).toBe(true);
+    for (const S of I.list) expect(Math.hypot(S.x - x, S.z - z)).toBeLessThan((S.far ? ISLES.big.gone : ISLES.gone) + 1);
+    expect(I.list.some((S) => S.deco.length > 6)).toBe(true);
+    expect(I.list.filter((S) => S.far).length).toBe(ISLES.big.n);
   });
 });

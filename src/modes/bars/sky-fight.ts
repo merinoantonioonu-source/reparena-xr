@@ -1,5 +1,5 @@
 /**
- * El combate en el parapente (Barras, remo invertido; «Remo invertido: parapente» → «Islas en el cielo: combate»; pedido del
+ * El combate en el parapente (Barras, remo invertido; «Remo invertido: parapente» → «Combate en el cielo»; pedido del
  * usuario: «una modalidad de lucha con dragones o enemigos volantes que hubiera que esquivar», con los mismos mandos que sobre
  * el mapa; elegidas todas las recomendaciones):
  *
@@ -534,6 +534,16 @@ export class SkyFight {
    * `dmg` de daño (el explosivo, 2). Devuelve el suceso del disparo (`to`: adónde va; n = −1 si no había nadie).
    */
   shoot(gx: number, gy: number, gz: number, dmg: number): SkyEv {
+    const best = this.pick(gx, gy, gz), m = Math.max(1e-6, Math.hypot(gx, gy, gz));
+    if (!best) return this.emit('shot', null, this.x + (gx / m) * 40, this.y + (gy / m) * 40, this.z + (gz / m) * 40, -1, dmg > 1);
+    const E = this.emit('shot', best, best.x, best.y, best.z, dmg, dmg > 1);
+    this.damage(best, dmg);
+    return E;
+  }
+
+  /** El volador al que apunta tu mirada (gx, gy, gz, en el cielo): el más cercano a ella dentro del cono, o ninguno. Es el de
+   * la diana y al que va el disparo. */
+  pick(gx: number, gy: number, gz: number): SkyFoe | null {
     const m = Math.max(1e-6, Math.hypot(gx, gy, gz)), ux = gx / m, uy = gy / m, uz = gz / m;
     let best: SkyFoe | null = null, bestA: number = SKY.cone;
     for (const F of this.foes) {
@@ -545,10 +555,16 @@ export class SkyFight {
         best = F;
       }
     }
-    if (!best) return this.emit('shot', null, this.x + ux * 40, this.y + uy * 40, this.z + uz * 40, -1, dmg > 1);
-    const E = this.emit('shot', best, best.x, best.y, best.z, dmg, dmg > 1);
-    this.damage(best, dmg);
-    return E;
+    return best;
+  }
+
+  /** El golpe de un disparo que acaba de llegar (el rayo tarda en llegar, como en Combate): `dmg` al volador `id`, si sigue en
+   * el aire. Devuelve si le ha dado. */
+  hit(id: number, dmg: number): boolean {
+    const F = this.foes.find((f) => f.id === id && f.st !== 'off' && f.st !== 'fall');
+    if (!F) return false;
+    this.damage(F, dmg);
+    return true;
   }
 
   /** La onda de la carga ×p: a todos los que tengas a menos de `blastR`, `p` de daño. Devuelve a cuántos ha dado. */
@@ -583,41 +599,73 @@ export class SkyFight {
 
 }
 
-/** Una isla del cielo: dónde (m, en el cielo), su giro, su tamaño y sus árboles (cada uno apoyado en ella). */
+/** Lo que va encima de una isla (un árbol, un arbusto, hierba, flores…): qué modelo, dónde (m, en el cielo), su giro y su
+ * tamaño; apoyado en la losa (su pie, en ella o un poco hundido). */
+export interface SkyDeco {
+  n: string;
+  x: number;
+  y: number;
+  z: number;
+  ry: number;
+  sc: number;
+}
+/** Una isla del cielo: dónde (m, en el cielo), su giro, su tamaño y lo que lleva encima. */
 export interface SkyIsle {
   x: number;
   y: number;
   z: number;
   ry: number;
   s: number;
-  trees: { n: string; x: number; y: number; z: number; ry: number; sc: number }[];
+  /** ¿Una de las grandes de lo lejos? */
+  far: boolean;
+  deco: SkyDeco[];
 }
-/** Las islas: cuántas, dónde (m: de lo más cerca a lo más lejos al empezar; cuando una queda atrás, sale otra por delante a
- * esta distancia y a este ángulo como mucho) y sus tamaños; su altura, siempre por debajo de lo más bajo que se vuela. */
-export const ISLES = { n: 16, near: 100, far: 540, again: [420, 540] as const, againSide: 1.2, gone: 580, s: [4, 9] as const, top: -14, low: -48, treeK: 0.35, treeMax: 2.2 } as const;
+/**
+ * Las islas (pedido del usuario: «el entorno está demasiado desprovisto: habría que adornarlo algo más»): las cercanas, de 4 a
+ * 11 (× la losa, m), a menos de `near`/`far` m, y unas pocas enormes a lo lejos (`big`: cuántas, dónde y su tamaño); cuando
+ * una queda atrás (`gone`), sale otra por delante (a `again` m, a `againSide` rad como mucho). Lo alto de cada una (y de lo
+ * que lleve encima: los árboles, de unos 8 m a escala 1), siempre por debajo de `top`, lo más bajo que se vuela menos un
+ * margen: no hay con qué chocar. Por debajo de `low`, ya entre las nubes.
+ */
+export const ISLES = {
+  n: 18,
+  near: 60,
+  far: 520,
+  again: [380, 520] as const,
+  againSide: 1.2,
+  gone: 560,
+  s: [4, 11] as const,
+  big: { n: 5, near: 650, far: 1150, again: [900, 1150] as const, gone: 1250, s: [16, 26] as const },
+  top: -14,
+  low: -52,
+  treeH: 8,
+} as const;
 /** La losa de una isla (Cliff1, aplanada) y su panza colgando (Cliff3, del revés). */
 export const ISLE_SLAB = 'Cliff1', ISLE_BELLY = 'Cliff3', ISLE_SLAB_Y = 0.5;
-const TREES = ['CommonTree_3', 'CommonTree_4', 'Pine_4'];
-const SPOTS: [number, number][] = [[0, 0], [0.8, 0.3], [-0.8, -0.3], [0.3, -0.9], [-0.4, 0.9]];
+/** Lo que se pone encima (del kit de naturaleza): árboles, arbustos y lo del suelo (hierba, flores, helechos, setas). */
+export const ISLE_TREES = ['CommonTree_4', 'CommonTree_5', 'Pine_4', 'Pine_5'] as const;
+export const ISLE_BUSHES = ['Bush_Common', 'Bush_Common_Flowers', 'Plant_1_Big'] as const;
+export const ISLE_GROUND = ['Grass_Wispy_Tall', 'Grass_Common_Tall', 'Flower_3_Group', 'Clover_1', 'Plant_7_Big', 'Fern_1', 'Mushroom_Common'] as const;
 /** Lo alto de la losa, a escala 1 (m: la caja de Cliff1). */
 const SLAB_TOP = 2.482;
 
 /** Las islas que flotan sobre el mar de nubes, por debajo de ti; cuando una queda atrás, sale otra por delante. */
 export class SkyIsles {
   readonly list: SkyIsle[] = [];
-  /** Las que acaban de cambiar de sitio (se repintan solo esas). */
+  /** Las que acaban de cambiar de sitio (se repinta lo de encima de todas). */
   readonly moved: number[] = [];
 
   constructor(private readonly rnd: () => number = Math.random) {
-    for (let i = 0; i < ISLES.n; i++) this.list.push({ x: 0, y: 0, z: 0, ry: 0, s: 1, trees: [] });
+    for (let i = 0; i < ISLES.n + ISLES.big.n; i++) this.list.push({ x: 0, y: 0, z: 0, ry: 0, s: 1, far: i >= ISLES.n, deco: [] });
   }
 
   /** Al empezar: repartidas alrededor de (x, z). */
   reset(x: number, z: number): void {
     this.moved.length = 0;
     for (let i = 0; i < this.list.length; i++) {
-      const a = this.rnd() * 6.283, d = ISLES.near + (ISLES.far - ISLES.near) * Math.sqrt(this.rnd());
-      this.place(this.list[i], x - Math.sin(a) * d, z - Math.cos(a) * d);
+      const I = this.list[i], near = I.far ? ISLES.big.near : ISLES.near, far = I.far ? ISLES.big.far : ISLES.far;
+      const a = this.rnd() * 6.283, d = near + (far - near) * Math.sqrt(this.rnd());
+      this.place(I, x - Math.sin(a) * d, z - Math.cos(a) * d);
       this.moved.push(i);
     }
   }
@@ -626,33 +674,78 @@ export class SkyIsles {
   step(x: number, z: number, heading: number): void {
     this.moved.length = 0;
     for (let i = 0; i < this.list.length; i++) {
-      const I = this.list[i];
-      if (Math.hypot(I.x - x, I.z - z) < ISLES.gone) continue;
-      const a = heading + (this.rnd() * 2 - 1) * ISLES.againSide, d = ISLES.again[0] + (ISLES.again[1] - ISLES.again[0]) * this.rnd();
+      const I = this.list[i], gone = I.far ? ISLES.big.gone : ISLES.gone, ag = I.far ? ISLES.big.again : ISLES.again;
+      if (Math.hypot(I.x - x, I.z - z) < gone) continue;
+      const a = heading + (this.rnd() * 2 - 1) * ISLES.againSide, d = ag[0] + (ag[1] - ag[0]) * this.rnd();
       this.place(I, x - Math.sin(a) * d, z - Math.cos(a) * d);
       this.moved.push(i);
     }
   }
 
-  // una isla en (x, z): su tamaño, su altura (lo de encima, árboles incluidos, por debajo de lo que se vuela) y sus árboles
+  // una isla en (x, z): su tamaño, su altura (lo de encima, árboles incluidos, por debajo de `top`) y lo que lleva encima
   private place(I: SkyIsle, x: number, z: number): void {
-    const R = this.rnd, s = ISLES.s[0] + (ISLES.s[1] - ISLES.s[0]) * R(), tree = Math.min(ISLES.treeMax, s * ISLES.treeK);
-    // (lo alto de la losa, con sitio para sus árboles —de unos 6 m a escala 1— por debajo de `top`)
-    const hi = ISLES.top - tree * 6 - SLAB_TOP * s * ISLE_SLAB_Y;
+    const R = this.rnd, between = (a: number, b: number): number => a + (b - a) * R();
+    const sr = I.far ? ISLES.big.s : ISLES.s, s = between(sr[0], sr[1]), tree = Math.min(I.far ? 4 : 2.4, s * 0.22);
+    const hi = ISLES.top - tree * 1.2 * ISLES.treeH - SLAB_TOP * s * ISLE_SLAB_Y;
     I.x = x;
     I.z = z;
     I.y = ISLES.low + (hi - ISLES.low) * R();
     I.ry = R() * 6.283;
     I.s = s;
-    I.trees.length = 0;
-    // (uno o dos árboles en un sitio llano de la losa; si no lo hay, ninguno: nunca en el aire)
-    const want = R() < 0.75 ? 1 + Math.floor(R() * 2) : 0;
-    for (const [ox, oz] of SPOTS) {
-      if (I.trees.length >= want) break;
-      const tx = x + ox * s, tz = z + oz * s, sy = s * ISLE_SLAB_Y;
-      const t = placedTop(ISLE_SLAB, x, I.y, z, I.ry, s, sy, s, tx, tz);
-      if (t === null || !placedFlat(ISLE_SLAB, x, I.y, z, I.ry, s, sy, s, tx, tz, 0.5 * s, 0.35 * s)) continue;
-      I.trees.push({ n: TREES[Math.floor(R() * TREES.length)], x: tx, y: t - 0.15 * tree, z: tz, ry: R() * 6.283, sc: tree * (0.8 + 0.3 * R()) });
+    I.deco.length = 0;
+    // cuántos de cada (más cuanto más grande; las de lejos, solo árboles: lo pequeño no se distinguiría)
+    const big = s >= 8 || I.far, mid = s >= 5.5;
+    const want = I.far ? { t: 6 + Math.floor(R() * 4), b: 2, g: 0 } : big ? { t: 3 + Math.floor(R() * 3), b: 3 + Math.floor(R() * 3), g: 8 + Math.floor(R() * 7) } : mid ? { t: 1 + Math.floor(R() * 3), b: 2 + Math.floor(R() * 2), g: 5 + Math.floor(R() * 4) } : { t: Math.floor(R() * 2), b: 1 + Math.floor(R() * 2), g: 3 + Math.floor(R() * 3) };
+    const sy = s * ISLE_SLAB_Y;
+    // (sitios al azar en la losa, de lo más llano; los árboles, separados entre sí)
+    const put = (n: string, sc: number, flat: number, apart: number): boolean => {
+      for (let k = 0; k < 14; k++) {
+        const a = R() * 6.283, r = Math.sqrt(R()) * 2.3 * s, tx = x + 0.28 * s + Math.cos(a) * r, tz = z + 0.28 * s + Math.sin(a) * r;
+        if (apart > 0 && I.deco.some((d) => Math.hypot(d.x - tx, d.z - tz) < apart)) continue;
+        const t = placedTop(ISLE_SLAB, x, I.y, z, I.ry, s, sy, s, tx, tz);
+        if (t === null || !placedFlat(ISLE_SLAB, x, I.y, z, I.ry, s, sy, s, tx, tz, flat, flat * 0.7)) continue;
+        I.deco.push({ n, x: tx, y: t - 0.08 * sc, z: tz, ry: R() * 6.283, sc });
+        return true;
+      }
+      return false;
+    };
+    for (let i = 0; i < want.t; i++) put(ISLE_TREES[Math.floor(R() * ISLE_TREES.length)], tree * between(0.8, 1.2), 0.5 * tree, 2.2 * tree);
+    for (let i = 0; i < want.b; i++) put(ISLE_BUSHES[Math.floor(R() * ISLE_BUSHES.length)], tree * between(0.7, 1.1), 0.4 * tree, 1.2 * tree);
+    for (let i = 0; i < want.g; i++) put(ISLE_GROUND[Math.floor(R() * ISLE_GROUND.length)], tree * between(0.8, 1.3), 0.25 * tree, 0);
+  }
+}
+
+/** Las nubes sueltas a tu altura (pasan a tu lado y por debajo: se nota que vuelas): cuántas, dónde (m) y su tamaño (m). Sin
+ * peso: se atraviesan (pegadas a los ojos, se desvanecen). */
+export const PUFFS = { n: 30, near: 80, far: 700, again: [450, 700] as const, gone: 760, y: [-30, 150] as const, s: [25, 70] as const } as const;
+export interface SkyPuff {
+  x: number;
+  y: number;
+  z: number;
+  s: number;
+}
+export class SkyPuffs {
+  readonly list: SkyPuff[] = [];
+  constructor(private readonly rnd: () => number = Math.random) {
+    for (let i = 0; i < PUFFS.n; i++) this.list.push({ x: 0, y: 0, z: 0, s: 0 });
+  }
+  private place(P: SkyPuff, x: number, z: number): void {
+    P.x = x;
+    P.z = z;
+    P.y = PUFFS.y[0] + (PUFFS.y[1] - PUFFS.y[0]) * this.rnd();
+    P.s = PUFFS.s[0] + (PUFFS.s[1] - PUFFS.s[0]) * this.rnd();
+  }
+  reset(x: number, z: number): void {
+    for (const P of this.list) {
+      const a = this.rnd() * 6.283, d = PUFFS.near + (PUFFS.far - PUFFS.near) * Math.sqrt(this.rnd());
+      this.place(P, x - Math.sin(a) * d, z - Math.cos(a) * d);
+    }
+  }
+  step(x: number, z: number, heading: number): void {
+    for (const P of this.list) {
+      if (Math.hypot(P.x - x, P.z - z) < PUFFS.gone) continue;
+      const a = heading + (this.rnd() * 2 - 1) * 1.2, d = PUFFS.again[0] + (PUFFS.again[1] - PUFFS.again[0]) * this.rnd();
+      this.place(P, x - Math.sin(a) * d, z - Math.cos(a) * d);
     }
   }
 }

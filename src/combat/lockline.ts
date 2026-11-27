@@ -8,9 +8,11 @@ import { CanvasTexture, DoubleSide, Group, Mesh, MeshBasicMaterial, Object3D, Pl
 import type { Bone } from '@iwsdk/core';
 import type { Target } from '../input/target.js';
 
-/** Un enemigo con diana: su centro y el modelo de donde salen sus huesos. */
+/** Un enemigo con diana: su centro y el modelo de donde salen sus huesos; `lockScale`, la diana más grande (los voladores del
+ * parapente, a 20-30 m: con la de siempre, de unos 30 cm, no se veía; sin él, ×1). */
 export interface LockTarget extends Target {
   readonly root: Object3D;
+  readonly lockScale?: number;
 }
 
 const RAYS = 26;
@@ -142,8 +144,8 @@ export class LockLines {
     g.position.copy(c).addScaledVector(rt, (F[0] + F[1]) / 2);
     g.position.y += (F[2] + F[3]) / 2;
     g.lookAt(eye.x, g.position.y, eye.z); // (de cara a ti y siempre derecha)
-    const hw = Math.max(0.32, (F[1] - F[0]) / 2), hh = Math.max(0.32, (F[3] - F[2]) / 2), t = R.t;
-    const L = clamp(Math.min(hw, hh) * 0.6, 0.12, 0.3), W = Math.max(0.035, L * 0.4), spin = t * 0.6, br = 1 + 0.06 * Math.sin(t * 3.2);
+    const s = e.lockScale ?? 1, hw = Math.max(0.32 * s, (F[1] - F[0]) / 2), hh = Math.max(0.32 * s, (F[3] - F[2]) / 2), t = R.t;
+    const L = clamp(Math.min(hw, hh) * 0.6, 0.12 * s, 0.3 * s), W = Math.max(0.035 * s, L * 0.4), spin = t * 0.6, br = 1 + 0.06 * Math.sin(t * 3.2);
     for (const U of R.rays) {
       const k = (t * 0.9 * U.sp + U.ph) % 1, ang = U.a + spin + 0.16 * Math.sin(t * 2.6 + U.a * 3), ca = Math.cos(ang), sa = Math.sin(ang);
       const out = br * (1.0 + 0.4 * k) + 0.05 * Math.sin(t * 5 + U.a * 5), len = L * Math.sin(Math.PI * k) + 0.001;
