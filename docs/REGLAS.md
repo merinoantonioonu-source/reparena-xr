@@ -691,6 +691,16 @@ No las cambies sin preguntarle.
 - Espada: corta solo con el brazo (la mano también a ≥ 0,6 m/s, `SWORD_ARM`); el bloqueo, con la hoja en la marca en los
   últimos 0,35 s (`BLOCK_LATE`), y la marca se pone turquesa al cubrirla. Arriba del curl y la elevación frontal, chispa y
   chasquido (`topCue`); el disparo sigue al bajar (por las cargas). Puñetazo y tajo empujan también hacia el lado del golpe.
+- **Las espadas, por fin en RepArena XR** (el usuario elegía «Espadas: dos» y le salían las manos: nunca se habían pasado;
+  elegido «sí, como en RepArena»): en Combate, con los mandos, una o dos, de acero o láser, **en la mano del mando** (la mano
+  no se ve: se ve el arma). Cada repetición carga la hoja (el filo brilla); se derriba a tajos amplios y rápidos con el brazo;
+  sin carga, rebota; el golpe del enemigo se para con la hoja en su marca (los medios y bajos, agachado) y queda aturdido: el
+  contraataque hace el doble. Las dos hojas chocan con chispas. En Toques, aún no.
+- **Los puños** (pedido del usuario: «cuando uso los mandos el puñetazo sí es preciso y exacto»; elegido «cargas y
+  golpeas»; «Puños», en Rivales y armas): en Combate y solo con los brazos libres (sentadilla, zancada, zancada lateral y
+  patinador; nunca agarrado a una barra, en flexiones ni en plancha). **Cada repetición carga los dos puños** (una bola de luz
+  en cada uno); **un puñetazo rápido al enemigo con el puño cargado le quita vida** (la perfecta, el doble) y gasta esa
+  carga; sin carga, solo lo aparta, como «Apartar a golpes». Sin rayos ni diana: se pelea a puñetazos.
 - **[PR 3: la mano que agarra el mando es la de IWSDK (`AnimatedControllerHand`, arreglada en `src/input/controller-hand.ts`); las armas, en el PR 9]** Mandos como manos: con mandos se ven manos en todo el juego (en la partida, con pistolas o espada, el arma). En
   sentadillas y zancadas: gatillo + agarre = puño; el rayo se lanza
   apuntando con la mano y con el gatillo. Con mando, la puntería por defecto es «con las manos».

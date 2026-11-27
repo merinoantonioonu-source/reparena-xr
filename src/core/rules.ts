@@ -69,6 +69,8 @@ export const aimForced = (): boolean => oneArm() || settings.exercise === 'super
 export const autoAim = (): boolean => isCombat() && !pistolOn() && (settings.aim === 'auto' || aimForced());
 export const aimManual = (): boolean => isCombat() && !pistolOn() && !autoAim();
 // Espadas: en Combate contra robots (sentadillas o zancadas) y en Toques de pie; solo se ven si llevas los mandos
+// Los puños (elegido por el usuario: «cargas y golpeas»): en Combate, con los brazos libres y sin espadas
+export const fistsOn = (): boolean => !!settings.fists && handsFree() && settings.mode === 'combat' && !swordSet();
 export const swordSet = (): boolean => settings.sword !== 'off' && (isCombat() ? handsFree() && foes() === 'robots' : settings.mode === 'touch' && (['squat', 'lunge', 'jump', 'slam'].includes(settings.exercise) || (settings.exercise === 'combo' && settings.comboBase === 'stand')));
 // Cada repetición da un disparo por mano (dos pistolas o dos manos que lanzan); con una espada y el bláster, uno cada uno
 export const twoShots = (): boolean => isCombat() && handsFree() && ((pistolOn() && !swordSet()) || (aimManual() && settings.aim === 'hands'));

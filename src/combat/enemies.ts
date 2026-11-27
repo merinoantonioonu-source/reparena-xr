@@ -207,6 +207,8 @@ export class EnemySystem extends createSystem(
   private beatHit = false;
   /** Lo que se frena cada uno (las mejoras: escarcha y calma); lo pone la partida. */
   slowOf: (t: FoeTarget) => number = () => 1;
+  /** Las espadas (src/combat/swords.ts): al preparar el golpe marcan su altura y, al llegar, ¿lo paran? */
+  block: { start(t: FoeTarget): void; strike(t: FoeTarget): boolean } | null = null;
   /** Los voladores (src/combat/flyers.ts): se enganchan solos al arrancar. */
   flyers: FlyerSystem | null = null;
   /** Los de las trampillas (src/combat/hatch-foes.ts): también se enganchan solos. */
@@ -943,6 +945,7 @@ export class EnemySystem extends createSystem(
             newState = FoeState.Attack;
             rt.struck = false;
             this.anim(rt, 'attack', 0.25, true, 0);
+            if (!d.thrower) this.block?.start(rt.target);
             roar(p, d.voice, d.heavy ? 0.8 : 1);
           } else if (P && rt.actions.get('dance')) this.anim(rt, 'dance', 0.3, false, rt.actions.get('dance')!.getClip().duration / (2 * P));
           else this.anim(rt, 'idle', 0.3);
@@ -1008,6 +1011,12 @@ export class EnemySystem extends createSystem(
             else this.hand.copy(p).setY(p.y + d.h * 0.3);
             this.rocks.throw(this.hand, k);
             rt.throwCD = (3.5 + Math.random() * 2) / Math.sqrt(Math.max(0.7, rt.pace)) / k; // (RepArena: más a menudo con más rapidez de gestos)
+          } else if (this.block?.strike(rt.target)) {
+            // parado con la espada: aturdido, retrocede (el contraataque hace el doble)
+            newState = FoeState.Stagger;
+            rt.stun = 1.6;
+            rt.charged = false;
+            this.anim(rt, 'hit', 0.08, true, 1.2);
           } else {
             if (dist < sf.stop + r + 0.6) HOOKS.playerHit(rt.str);
             SND.step(p, true);

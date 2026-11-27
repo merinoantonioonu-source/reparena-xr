@@ -130,7 +130,7 @@ RA_DIR=../reparena npm run test:compare   # compara lo portado con el código or
 - [x] **PR 8b · Diablillo, puglin y lanzador** — #11
 - [x] **PR 8c · Voladores con modelo (abeja, murciélago, Cthulhu y dragón)** — #12
 - [x] **PR 8d · Amenazas, formas de moverse, rapidez de gestos y esquivas** — #13
-- [ ] **PR 9 · Armas y defensa** (aplazado por el usuario: se hará más adelante; después del 8d va el 10)
+- [ ] **PR 9 · Armas y defensa** (aplazado por el usuario; **las espadas de Combate y los puños, hechos**: faltan las pistolas, los cortes de Toques y la guardia)
 - [x] **PR 10a · Oleadas, jefes, puntos y combo** — #14
 - [x] **PR 10b · Premios: cartas de mejora, enemigo dorado, relámpago, cofre y carrera contra tu récord** — #15
 - [x] **PR 10c · El marcador elegido (C), celebraciones y trofeos dorados** — #16
@@ -1556,6 +1556,14 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   **Por confirmar en las gafas**: que el suelo del guardián no cambie entre sesiones (en RepArena era así). El ancla de
   IWSDK sigue aparte, en pruebas; si está en marcha, manda ella.
 
+- **Las espadas y los puños** (PR 9, en parte; el usuario elegía espadas y le salían las manos). La lógica de las espadas,
+  de RepArena (`src/76_sword.js`), en `src/combat/sword-logic.ts` (pura: `SwordCharge`, `cutOf`, `blockHolds`, `segSeg`;
+  pruebas en `tests/unit/swords.test.ts`); lo que se ve, `src/combat/swords.ts` (`Swords`: la hoja de rombo y la láser en la
+  postura del mando, `WEAPON_HAND` esconde esa mano en `skinShown`, los tajos contra la cápsula de cada enemigo de tierra con
+  `EnemySystem.hit`, el choque y la marca del bloqueo). El bloqueo, con `EnemySystem.block` (al preparar el golpe, `start`; al
+  llegar, `strike`: si lo para, queda aturdido). Los puños, `fistsOn` (`rules.ts`, ajuste `fists`, solo de RepArena XR): la
+  repetición carga las dos manos con `throwCharge` (sin lanzar: `ThrowEnv.on` apagado) y `onPunch` gasta la carga de esa mano
+  con `EnemySystem.hit`. Probadas sin gafas forzando el mando (`Swords.held`); en las gafas, por ver.
 - **El vuelo de la Travesía, más ágil** (pedido del usuario: «reducir al menos un 50 % la inercia», rasantes y subidas
   bruscas, el lado «como el mapa» y la pared del risco «más lejos»). Sobre el mapa (`map-route.ts`): `MAP.bankTau`,
   `vsTau` y `speedTau` a la mitad (el parapente de Barras, con su `MapIn.ctl`, las de antes con `slowK` y `ctlRate`), subir
