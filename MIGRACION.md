@@ -1556,6 +1556,22 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   **Por confirmar en las gafas**: que el suelo del guardián no cambie entre sesiones (en RepArena era así). El ancla de
   IWSDK sigue aparte, en pruebas; si está en marcha, manda ella.
 
+- **El combate en el parapente: las islas del cielo** (Barras, en pruebas; `barPara` = 'sky'; elegidas por el usuario todas
+  las recomendaciones). La lógica, pura y con pruebas (`tests/unit/sky-fight.test.ts`), en `src/modes/bars/sky-fight.ts`:
+  `SkyFight` (el vuelo en el cielo con lo que decide `ParaPilot`; los voladores por oleadas, que se quedan delante en tu marco
+  y te siguen al virar, atacan de uno en uno tras echarse atrás —`SKY.windup`— y apuntan al punto de encuentro si sigues
+  igual, `meet`; `shoot` al más cercano a la mirada dentro de `SKY.cone`; `blast`, la onda) y `SkyIsles` (las islas, por
+  debajo de `ISLES.top`, con los árboles apoyados con `placedTop`). Lo que se ve, `sky-scene.ts` (`SkyScene`): el cielo (una
+  esfera con su sombreador: la tarde, el sol y el mar de nubes por debajo), las islas en instancias, los voladores del catálogo
+  con sus animaciones, las bolas de `Missile`, los rayos de `Bolts` y la onda; el cielo va en un grupo girado como el mapa
+  (`MAPPILOT.yaw`, `pitch`). Mientras se ve, `MAPVIEW.on` (fuera la arena), su niebla y la cámara hasta 2,2 km (la de serie
+  llega a 200 m); al acabar, como estaban. `ParaFlight` lo une: los remos (`hits.rep`) disparan, la carga (`hits.blast`)
+  suelta la onda (`BarsEnv.noPower` solo apaga la carga sobre el mapa), `startWave(need, i, boss)` con `isBossWave`, y lo que
+  pasa (`onSky`: te dan, `ParaPilot.hurt`; esquivas; derribas, `HOOKS.foeDown`). El marcador, `BarsSystem.hud().paraSky`. Los
+  números de esquivar se afinaron simulando (`SKY.turn`, `shotV`, `hitR`): sin cambiar de rumbo te dan siempre y virando al
+  oír el rugido se esquiva casi todo. Probado sin gafas forzando el colgarse. **Por confirmar en las gafas**: el tamaño y la
+  distancia de los voladores, los tiempos para esquivar y lo que cansa.
+
 - **El parapente del remo invertido sobre el mapa** (Barras, en pruebas; pedido del usuario, postura 1 y mandos aprobados).
   La lógica, pura y con pruebas, en `src/modes/bars/para.ts` (`ParaPilot`: el impulso de cada remo que se pierde, la marcha,
   frenar aguantando arriba, virar con lo que te vas a un lado); `para-flight.ts` la une a la escena (al colgarte fija el punto

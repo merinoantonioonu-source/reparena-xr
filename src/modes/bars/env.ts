@@ -28,9 +28,11 @@ export interface BarGate {
 
 export interface BarsEnv {
   /** El parapente: sin castigar las manos (soltar una mano o que las gafas no las vean no es soltarse; sí lo es irte del
-   * aparato o acabar con la cabeza en el suelo) y sin la carga ni la onda de aguantar arriba (allí aguantar arriba frena:
-   * el usuario veía «CARGA» sin saber qué era). */
+   * aparato o acabar con la cabeza en el suelo). */
   lenient?: boolean;
+  /** El parapente sobre el mapa: sin la carga ni la onda de aguantar arriba (allí aguantar arriba solo frena: el usuario veía
+   * «CARGA» sin saber qué era). En el combate en el cielo sí cargan: la onda da a los voladores cercanos. */
+  noPower?: boolean;
   /** Un ajuste numérico (RepArena: settings[k]: doorH, pullRange, fallMargin, barWait…). */
   s(key: string): number;
   /** Un ajuste de texto (RepArena: settings[k]: exercise, dipBars, barTarget). */

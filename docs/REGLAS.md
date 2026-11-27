@@ -523,6 +523,26 @@ No las cambies sin preguntarle.
   de luz turquesa) que salen de vez en cuando por delante y algo a un lado: virando hacia ellas y pasando por dentro subes
   sin remar, y unos segundos más al salir (un premio, con sus puntos: no pasar no cuesta nada). Las otras posturas
   propuestas (dominadas en la barra, fondos), sin hacer.
+- **El combate en el parapente: las islas del cielo** (pedido del usuario: «además del mapa, una modalidad de lucha con
+  dragones o enemigos volantes que hubiera que esquivar; los mandos, los mismos que con mapa»; elegidas todas las
+  recomendaciones: disparar con el remo, la carga y el explosivo, y las islas en el cielo; «Remo invertido: parapente» →
+  «Islas en el cielo: combate», *en pruebas*, sin mapa ni clave). Se vuela igual que sobre el mapa (el remo sube, el explosivo
+  acelera, un brazo vira, aguantar arriba frena, los brazos estirados bajan; la inclinación y «Ajustar a mi mirada», igual),
+  sobre **un mar de nubes al atardecer con islas flotando por debajo** (losas de roca con su panza colgando y algún árbol
+  apoyado; siempre por debajo de lo más bajo que se vuela: no hay con qué chocar; cuando una queda atrás, sale otra por
+  delante).
+  - **Disparar**: **cada remo es un disparo hacia donde miras** (el rayo de Combate, al volador más cercano a tu mirada, sin
+    apuntar exacto); **el remo explosivo, el disparo fuerte** (quita el doble; y sigue acelerando); **aguantar arriba carga**
+    ×2, ×3 y ×4 (y frena) y, al bajar, **una onda** que da a todos los que tengas cerca (unos 35 m) con esa fuerza.
+  - **Los voladores** (los del catálogo, de Quaternius: abeja, murciélago, pulpo volador y dragón; con cada oleada, más
+    grandes) se te ponen delante, a la vista, y te siguen al virar; **de uno en uno, se echan atrás y rugen** (el aviso) y
+    atacan: los pequeños **se lanzan a por ti** y los grandes **escupen** (el pulpo, plasma; el dragón, fuego). Apuntan adonde
+    vas a estar si sigues igual: **se esquiva cambiando de rumbo** al oír el rugido (virar, lo que más; también subir con un
+    remo, bajar o cambiar de marcha). Si te dan, se rompe la racha y frenas a la mitad, sin vidas («¡Te ha dado!»);
+    esquivado, unos puntos.
+  - **Cada oleada**, tantos voladores como remos pide (su vida, entre todos); se acaba al derribarlos. **El jefe**, el dragón
+    grande, en la última oleada (y, sin fin, cada cinco), con ráfagas de tres bolas de fuego; el marcador dice lo que le
+    queda. El marcador: lo que queda por derribar, lo que corres y a qué altura vas, y los derribados.
 - **En Barras, las manos que el juego calcula no cuentan** (con el diagnóstico del usuario: tumbado, las manos colocadas
   con el cuerpo al perderlas salían por debajo del suelo y el juego decía «te soltaste»): para saber si te has soltado solo
   valen las manos que las gafas ven de verdad.

@@ -7,7 +7,7 @@
  * aquí se pinta, suena y puntúa. La partida (GameSystem) pasa las oleadas con lo que este sistema le dice (`waveCleared`).
  */
 import { AnimationMixer, AssetManager, createSystem, DoubleSide, Group, LoopRepeat, Mesh, MeshBasicMaterial, CylinderGeometry, Quaternion, Vector3, XRAnchor, type Entity } from '@iwsdk/core';
-import type { Material, Object3D, SkinnedMesh } from '@iwsdk/core';
+import type { Material, Object3D, PerspectiveCamera, Scene, SkinnedMesh } from '@iwsdk/core';
 import { SND } from '../../audio/sound.js';
 import { dv, nWaves, store, waveReps } from '../../core/settings.js';
 import { GAME, HOOKS, type CenterInfo } from '../../core/state.js';
@@ -40,7 +40,8 @@ import { barReq } from './detect.js';
 import { RopeScene } from './rope-scene.js';
 import { eqAxes } from './equip.js';
 import { ParaFlight } from './para-flight.js';
-import { paraWanted } from '../trek/map/map-key.js';
+import { paraSky, paraWanted } from '../trek/map/map-key.js';
+import { isBossWave } from '../../combat/waves.js';
 import type { BarHits } from './detect.js';
 
 /** Dónde está la partida de Barras: colgándose (la cuenta atrás), jugando o descansando. */
@@ -200,7 +201,7 @@ export class BarsSystem extends createSystem({}) {
     const arena = ['arena-floor', 'gate-left', 'gate-center', 'gate-right', 'comic-valley', 'comic-clouds'];
     this.hang.arenaOf = () => arena.map((id) => this.world.getSceneEntity(id)?.object3D).filter((o): o is NonNullable<typeof o> => !!o);
     this.ropeScene = new RopeScene(this.root, this.hang.arenaOf, () => (this.world.scene as unknown as { fog: { color: { getHex(): number } } | null }).fog?.color.getHex() ?? 0xc8d6e4);
-    this.para = new ParaFlight(this.hang.arenaOf, this.root);
+    this.para = new ParaFlight(this.hang.arenaOf, this.root, () => this.world.scene as unknown as Scene, () => this.world.camera as PerspectiveCamera);
     this.trialsLook = new RopeTrialsLook(this.root, this.ropeScene.trackGroup);
     this.foesLook = new RopeFoesLook(this.root, this.ropeScene.trackGroup, (p, n, c) => HOOKS.sparks(p, n, c));
     this.bossLook = new RopeBossLook(this.root, (p, n, c) => HOOKS.sparks(p, n, c));
@@ -300,8 +301,9 @@ export class BarsSystem extends createSystem({}) {
     this.bar.reset();
     this.bar.toMount(0, false);
     this.mstate = 'mount';
-    this.para.begin(paraWanted());
+    this.para.begin(paraWanted(), paraSky());
     this.env.lenient = this.para.on;
+    this.env.noPower = this.para.on && !this.para.sky;
     // la cuerda de toda la ronda: cada tramo, lo que piden sus repeticiones
     if (this.ropeOn()) {
       const lens: number[] = [];
@@ -327,7 +329,7 @@ export class BarsSystem extends createSystem({}) {
 
   /** La oleada i va a empezar (la partida ya la preparó): la cola de objetivos, o los segundos de colgado. */
   startWave(i: number): void {
-    if (this.para.on) this.para.startWave(waveReps(i));
+    if (this.para.on) this.para.startWave(waveReps(i), i, isBossWave(i, nWaves()));
     else if (this.rope) this.rope.startWave(i);
     else this.field.startWave(this.env, i);
     this.mstate = 'play';
@@ -349,9 +351,9 @@ export class BarsSystem extends createSystem({}) {
   }
 
   /** Para el marcador. */
-  hud(): { hold: number; need: number; left: number; mount: boolean; paraLeft: number | null; ropeLeft: number | null; bossLeft: number | null; bossName: string; turbo: boolean } {
+  hud(): { hold: number; need: number; left: number; mount: boolean; paraLeft: number | null; paraSky: ReturnType<ParaFlight['skyHud']>; ropeLeft: number | null; bossLeft: number | null; bossName: string; turbo: boolean } {
     const B = this.boss;
-    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount', paraLeft: this.para.on ? this.para.left : null, ropeLeft: this.rope ? Math.ceil(this.rope.left) : null, bossLeft: B && B.blocking ? B.nHits - B.hits : null, bossName: B ? BOSS_NAME[B.kind].replace(/^El /, '').replace(/^./, (c) => c.toUpperCase()) : '', turbo: !!this.rope?.turbo };
+    return { hold: this.bar.hold, need: this.bar.need, left: this.field.queue.length + this.field.alive(), mount: this.mstate === 'mount', paraLeft: this.para.on ? this.para.left : null, paraSky: this.para.on ? this.para.skyHud() : null, ropeLeft: this.rope ? Math.ceil(this.rope.left) : null, bossLeft: B && B.blocking ? B.nHits - B.hits : null, bossName: B ? BOSS_NAME[B.kind].replace(/^El /, '').replace(/^./, (c) => c.toUpperCase()) : '', turbo: !!this.rope?.turbo };
   }
   /** ¿Va la cuerda con el turbo? (las luciérnagas destellan, como en la Travesía) */
   get ropeTurbo(): boolean {
@@ -410,7 +412,7 @@ export class BarsSystem extends createSystem({}) {
     this.entries.length = 0;
     this.mstate = 'off';
     this.para?.clear();
-    if (this.env) this.env.lenient = false;
+    if (this.env) this.env.lenient = this.env.noPower = false;
     this.hang?.clear();
     if (this.rig) this.rig.grp.visible = false;
     this.rope = null;

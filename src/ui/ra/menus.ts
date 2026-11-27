@@ -161,7 +161,7 @@ function lastLines(): [string, string] {
   if (trek && settings.exercise === 'pushup' && num('trekFly')) extra.push(settings.flyMap ? `volando sobre ${optName('flyMap').replace(/ \(.*$/, '')}` : 'volando');
   if (trek && num('trekAuto') && ['pushup', 'lunge'].includes(String(settings.exercise))) extra.push(settings.exercise === 'pushup' ? 'avance solo' : 'zancada estática');
   if (trek && num('trekHills')) extra.push('con cuestas');
-  if (settings.mode === 'bars' && settings.exercise === 'row' && settings.barPara) extra.push('parapente');
+  if (settings.mode === 'bars' && settings.exercise === 'row' && settings.barPara) extra.push(settings.barPara === 'sky' ? 'parapente: combate en el cielo' : 'parapente');
   else if (settings.mode === 'bars' && settings.exercise === 'row' && num('barRope') > 0) extra.push('aventura en la cuerda');
   if (!extra.length) extra.push(`${exName(settings.exercise)} en ${MODE_NAMES[settings.mode]}`);
   return [l1, extra.join(' · ')];
@@ -444,7 +444,7 @@ function quickFields(): string[] {
   const para = settings.mode === 'bars' && settings.exercise === 'row' && !!settings.barPara;
   const k: string[] = [];
   if (para) k.push('barParaTilt');
-  if (map || para) k.push('flyMapSharp', 'flyMapBank');
+  if (map || (para && settings.barPara !== 'sky')) k.push('flyMapSharp', 'flyMapBank');
   else if (fly) k.push('flyGauges');
   else if (trek) k.push('trekCurves');
   if (settings.mode === 'combat' || settings.mode === 'touch' || settings.mode === 'arcs') k.push('ambient');

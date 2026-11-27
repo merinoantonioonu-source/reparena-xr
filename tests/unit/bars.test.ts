@@ -137,9 +137,9 @@ describe('el modo Barras', () => {
     expect(w.bar.pw).toBe(1);
   });
 
-  it('en el parapente aguantar arriba frena: ni carga ni onda (el remo cuenta igual)', () => {
+  it('en el parapente sobre el mapa aguantar arriba frena: ni carga ni onda (el remo cuenta igual)', () => {
     const w = mkWorld();
-    w.env.lenient = true;
+    w.env.lenient = w.env.noPower = true;
     w.mount();
     w.pull(0.36, 1, 1, 2);
     expect(w.count('rep')).toBe(1);
