@@ -236,6 +236,31 @@ describe('el combate en el parapente: tus disparos', () => {
   });
 });
 
+describe('el combate en el parapente: el dragón oriental', () => {
+  it('sale desde la segunda oleada y serpentea: grandes eses de lado a lado, mucho más que los demás', () => {
+    const S = new SkyFight(seeded(4));
+    S.reset(0);
+    S.startWave(2, 40, false);
+    // (lo que se aparta de lado respecto a ti, de cada clase)
+    const lo: Record<string, number> = {}, hi: Record<string, number> = {};
+    run(S, 40, (t, Q) => {
+      for (const F of Q.foes) {
+        if (F.st !== 'hold') continue;
+        const side = (F.x - Q.x) * -Q.fwdZ() + (F.z - Q.z) * Q.fwdX(), k = `${F.kind}${F.id}`;
+        lo[k] = Math.min(lo[k] ?? side, side);
+        hi[k] = Math.max(hi[k] ?? side, side);
+      }
+      // (los que no son dragones orientales, derribados: así salen ellos)
+      for (const F of Q.foes) if (F.st === 'hold' && F.kind !== 'serpent' && F.t > 3) Q.hit(F.id, 9);
+      return mkIn({ fight: false });
+    });
+    const swing = (kind: string): number => Math.max(0, ...Object.keys(lo).filter((k) => k.startsWith(kind)).map((k) => hi[k] - lo[k]));
+    expect(swing('serpent')).toBeGreaterThan(9);
+    expect(swing('serpent')).toBeGreaterThan(swing('bee') * 2);
+    expect(SKY_KIND.serpent.len).toBeGreaterThan(10);
+  });
+});
+
 describe('el combate en el parapente: el jefe', () => {
   it('en su oleada sale el dragón grande, con más vida, y escupe ráfagas de tres', () => {
     const S = new SkyFight(seeded(5));
@@ -249,7 +274,8 @@ describe('el combate en el parapente: el jefe', () => {
     // (bolas grandes, de tres en tres: la primera ráfaga, en poco más de un segundo)
     const big = evs.filter((e) => e.k === 'fire' && e.big);
     expect(big.length).toBeGreaterThanOrEqual(3);
-    expect(SKY_KIND.boss.size).toBeGreaterThan(SKY_KIND.dragon.size * 2);
+    // (el jefe, el dragón oriental grande: largo de verdad)
+    expect(SKY_KIND.boss.len!).toBeGreaterThan(SKY_KIND.serpent.len! * 2);
   });
 });
 

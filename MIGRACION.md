@@ -1599,6 +1599,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
   Barras, el parapente no quitaba vidas). El corazón, `SkyFight.heart` (uno a la vez, solo con `hearts`: lo pone
   `ParaFlight` si te falta alguna vida y no es «Al fallo»), y al cogerlo `HOOKS.lifeUp` (nuevo: suma una vida si hay
   sitio). Se ve con `heartModel` (`sky-scene.ts`: la figura extruida con su halo y su aro).
+  *El dragón oriental* (opción A del usuario: por piezas, como los robots): `SkyKind` 'serpent' (desde la segunda oleada) y
+  el jefe, los dos con `SkyKindDef.len` (su cuerpo; `size`, su cabeza): su sitio hace eses más grandes (`stationOf`) y al
+  lanzarse ondula de lado (`SKY.wob*`). Lo que se ve, `src/modes/bars/serpent-look.ts` (`SerpentLook`): la cabeza de piezas
+  (`g`, la que coloca `SkyScene.drawFoes` y la que lleva la diana) y el cuerpo, un tubo de anillos que se rehace en cada
+  fotograma sin crear nada (el camino de la cabeza respecto a ti, guardado en un anillo, estirado lejos de ti con `DRIFT` y
+  con una onda que lo recorre); su contorno de tinta empuja por las mismas normales (`aOutN` = `normal`). Las aletas, en
+  instancias; las patas, grupos que dan zarpazos. Verde jade (`SERPENT_SMALL`) o rojo y oro (`SERPENT_BOSS`).
 
 - **El parapente del remo invertido sobre el mapa** (Barras, en pruebas; pedido del usuario, postura 1 y mandos aprobados).
   La lógica, pura y con pruebas, en `src/modes/bars/para.ts` (`ParaPilot`: el impulso de cada remo que se pierde, la marcha,
