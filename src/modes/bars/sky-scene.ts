@@ -10,7 +10,7 @@
  * pies, e inclinado hacia tu vista lo que diga «Parapente: inclinación del mapa» (`MAPPILOT.pitch`). Las bolas y los rayos,
  * en la sala (ahí viven sus partículas). Hecho al empezar y reutilizado: en plena pelea no se crea nada.
  */
-import { AdditiveBlending, AnimationMixer, AssetManager, BackSide, BufferAttribute, CanvasTexture, CircleGeometry, Color, DoubleSide, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, ShaderMaterial, SphereGeometry, Vector3, type AnimationAction, type BufferGeometry, type Material, type PerspectiveCamera, type Scene, type SkinnedMesh } from '@iwsdk/core';
+import { AdditiveBlending, AnimationMixer, AssetManager, BackSide, BufferAttribute, CanvasTexture, CircleGeometry, Color, DoubleSide, ExtrudeGeometry, Group, InstancedMesh, LoopOnce, LoopRepeat, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, ShaderMaterial, Shape, SphereGeometry, TorusGeometry, Vector3, type AnimationAction, type BufferGeometry, type Material, type PerspectiveCamera, type Scene, type SkinnedMesh } from '@iwsdk/core';
 import { comicPatch } from '../../style/comic.js';
 import { SND } from '../../audio/sound.js';
 import { Bolts, type Lightning } from '../../combat/bolt.js';
@@ -201,6 +201,31 @@ function puffTexture(): CanvasTexture {
   return new CanvasTexture(cv);
 }
 
+/** El corazón del cielo (una vida): la figura de relieve (unos 2,4 m), un halo rosa y un aro de luz alrededor. */
+function heartModel(): Group {
+  const g = new Group(), sh = new Shape();
+  // (el corazón: dos lóbulos arriba y la punta abajo)
+  sh.moveTo(0, -1);
+  sh.bezierCurveTo(-0.15, -0.75, -1.1, -0.2, -1.1, 0.35);
+  sh.bezierCurveTo(-1.1, 0.85, -0.55, 1.05, 0, 0.6);
+  sh.bezierCurveTo(0.55, 1.05, 1.1, 0.85, 1.1, 0.35);
+  sh.bezierCurveTo(1.1, -0.2, 0.15, -0.75, 0, -1);
+  const geo = new ExtrudeGeometry(sh, { depth: 0.35, bevelEnabled: true, bevelThickness: 0.22, bevelSize: 0.18, bevelSegments: 4, curveSegments: 18 });
+  geo.center();
+  const m = new MeshStandardMaterial({ color: 0xff3d6e, roughness: 0.5, metalness: 0, emissive: 0x5a0a1e });
+  comicPatch(m);
+  const body = new Mesh(geo, m);
+  body.scale.setScalar(1.2);
+  g.add(body);
+  const halo = new Mesh(new SphereGeometry(2.4, 24, 12), new MeshBasicMaterial({ color: 0xff4f7b, transparent: true, opacity: 0.18, blending: AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }));
+  halo.userData.noInk = true;
+  g.add(halo);
+  const ring = new Mesh(new TorusGeometry(2.9, 0.12, 8, 48), new MeshBasicMaterial({ color: 0xffb3c8, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }));
+  ring.userData.noInk = true;
+  g.add(ring);
+  return g;
+}
+
 /** El tono de cada isla (multiplica sus colores): la mayoría, tal cual; otras, más rojizas, doradas o verdes. */
 const ISLE_TINTS = [0xffffff, 0xffffff, 0xffe6d8, 0xfff0d0, 0xe8ffe0, 0xffdcd0] as const;
 // los colores de la roca de las islas, por vértice (sale de su forma: lo que mira arriba, hierba; lo demás, roca a capas, más
@@ -296,6 +321,9 @@ export class SkyScene {
   private sea: Mesh | null = null;
   private seaMat: ShaderMaterial | null = null;
   private fallMat: ShaderMaterial | null = null;
+  /** El corazón (uno a la vez): la figura, su halo y su aro, y lo que lleva girado. */
+  private heart: Group | null = null;
+  private heartSpin = 0;
   private falls: InstancedMesh | null = null;
   /** Tus ojos en el cielo (para el mar de nubes hasta el horizonte) y el tono de cada isla. */
   private readonly eyeSky = new Vector3();
@@ -373,6 +401,11 @@ export class SkyScene {
         }),
       );
     }
+    // el corazón: rojo y con relieve, con su halo y un aro de luz que se ven de lejos
+    this.heart = heartModel();
+    this.heart.visible = false;
+    this.frame.add(this.heart);
+    warmKeep(heartModel());
     // las cascadas (una por isla, como mucho)
     this.fallMat = new ShaderMaterial({ uniforms: { uT: { value: 0 }, uFog: { value: FOG }, uHaze: { value: HAZE } }, vertexShader: FALL_VS, fragmentShader: FALL_FS, transparent: true, depthWrite: false, side: DoubleSide, fog: false, toneMapped: false });
     this.falls = new InstancedMesh(new PlaneGeometry(1, 1).translate(0, -0.5, 0), this.fallMat, FALL_CAP);
@@ -610,6 +643,7 @@ export class SkyScene {
       }
     }
     this.place();
+    this.drawHeart(dt);
     // la mirada, en el cielo (para apuntar)
     this.gaze.set(0, 0, -1).applyQuaternion(eyeQ).applyQuaternion(this.qInv);
     if (paused) return;
@@ -738,6 +772,7 @@ export class SkyScene {
       if (C && E.k === 'wind') this.gesture(C, C.bite);
       if (E.kind) SND.roar(this.near(this.v), E.kind === 'boss' ? 0.8 : 1, SKY_KIND[E.kind].voice);
     } else if (E.k === 'fire' || E.k === 'lunge') SND.whoosh(this.near(this.toRoom(E.x, E.y, E.z, this.v)), E.k === 'fire' ? 'throw' : 'flyer');
+    else if (E.k === 'heart') HOOKS.sparks(this.near(this.toRoom(E.x, E.y, E.z, this.v)), 30, 0xff4f7b);
     else if (E.k === 'hit' || E.k === 'kill') {
       const C = this.critters.find((c) => c.id === E.id), at = this.toRoom(E.x, E.y, E.z, this.v);
       if (C) this.gesture(C, E.k === 'kill' ? C.die : C.hit);
@@ -781,6 +816,19 @@ export class SkyScene {
     this.fight.blast(p);
     for (let i = n0; i < this.fight.ev.length; i++) this.handle(this.fight.ev[i]);
     (this.ring!.material as MeshBasicMaterial).color.setHex(POW_COL[Math.min(4, p) - 1]);
+  }
+
+  // el corazón: donde está, girando y latiendo (y algo más grande de lejos, para verlo)
+  private drawHeart(dt: number): void {
+    const H = this.fight.heart, G = this.heart;
+    if (!G) return;
+    G.visible = H.on;
+    if (!H.on) return;
+    this.heartSpin += dt * 1.6;
+    const F = this.fight, d = Math.hypot(H.x - F.x, H.y - F.y, H.z - F.z), beat = 1 + 0.12 * Math.max(0, Math.sin(this.heartSpin * 3.2)) ** 6;
+    G.position.set(H.x, H.y + Math.sin(this.heartSpin * 0.9) * 0.6, H.z);
+    G.rotation.set(0, this.heartSpin, 0);
+    G.scale.setScalar(beat * (1 + Math.max(0, d - 40) / 60));
   }
 
   // la niebla y el alcance de la cámara del cielo, en cada fotograma (al colgarte, el juego ponía otra vez los de la escena)

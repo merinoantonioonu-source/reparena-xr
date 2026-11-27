@@ -61,7 +61,42 @@ export const PARA = {
   standUp: 0.2,
   gazeTau: 3,
   gazeMin: 2,
+  /** El picado del combate en el cielo (elegido por el usuario: «picadas… para esquivar las embestidas»): dejarse caer de
+   * golpe desde arriba (desde esta parte de la subida) hasta los brazos estirados (`lowUp`), en menos de `dropT` s. Una
+   * bajada controlada tarda casi un segundo. */
+  dropFrom: 0.7,
+  dropT: 0.5,
 } as const;
+
+/** El picado: ¿te has dejado caer de golpe desde arriba hasta los brazos estirados? (`rise`, lo subido que llevas el pecho,
+ * sin recortar: 0, brazos estirados; 1, en las barras.) */
+export class DropWatch {
+  private clock = 0;
+  private topAt = -1;
+
+  reset(): void {
+    this.clock = 0;
+    this.topAt = -1;
+  }
+
+  /** Un fotograma: ¿acabas de dejarte caer? */
+  step(dt: number, rise: number, playing: boolean): boolean {
+    this.clock += dt;
+    if (!playing) {
+      this.topAt = -1;
+      return false;
+    }
+    if (rise >= PARA.dropFrom) {
+      this.topAt = this.clock;
+      return false;
+    }
+    if (this.topAt < 0 || rise > PARA.lowUp) return false;
+    // (abajo: de golpe, picado; despacio, una bajada sin más)
+    const fast = this.clock - this.topAt <= PARA.dropT;
+    this.topAt = -1;
+    return fast;
+  }
+}
 
 /**
  * Lo que mira el jugador por encima del suelo, hacia sus pies (grados, de 0 a 90): `fy`, lo que sube su mirada; `fh`, lo que

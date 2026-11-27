@@ -73,6 +73,15 @@ export const SKY = {
   /** Lo que tarda en caer uno derribado hasta perderse (s) y la gravedad (m/s²). */
   fallT: 3,
   g: 9.8,
+  /** El picado y la subida brusca (pedido del usuario: «picadas o subidas bruscas para esquivar las embestidas»): lo que
+   * bajas o subes de golpe (m), en cuánto (s, arrancando y frenando suave) y lo que hay que esperar para el siguiente (s). */
+  jolt: 12,
+  joltT: 0.7,
+  joltCool: 0.9,
+  /** Los corazones (elegido por el usuario: «corazón + golpes con vida»; solo si te falta alguna vida y nunca «Al fallo»):
+   * cada cuánto sale uno (s, entre estos dos), a cuánto por delante (m), lo que se aparta del rumbo (rad, como mucho), de tu
+   * altura (m, entre estos dos), a cuánto se coge (m, pasando a través), cuánto dura (s) y a cuánto por detrás se pierde (m). */
+  heart: { every: [20, 34] as const, ahead: [120, 170] as const, side: 0.3, up: [-6, 8] as const, r: 5, life: 45, behind: 30 },
 } as const;
 
 export type SkyKind = 'bee' | 'bat' | 'cthulhu' | 'dragon' | 'boss';
@@ -132,7 +141,7 @@ export interface SkyShot {
   vz: number;
   t: number;
 }
-export type SkyEvKind = 'spawn' | 'boss' | 'wind' | 'fire' | 'lunge' | 'hurt' | 'dodge' | 'shot' | 'hit' | 'kill' | 'blast' | 'clear';
+export type SkyEvKind = 'spawn' | 'boss' | 'wind' | 'fire' | 'lunge' | 'hurt' | 'dodge' | 'shot' | 'hit' | 'kill' | 'blast' | 'clear' | 'jolt' | 'heart';
 /** Un suceso, para lo que se ve y se oye y para la partida: quién (id y clase), dónde (m, en el cielo) y un número (el daño,
  * los que alcanza la onda…). `to` y `miss`, los del disparo: adónde va y si no había nadie. */
 export interface SkyEv {
@@ -158,6 +167,15 @@ export interface SkyIn {
   fight: boolean;
 }
 
+/** Un corazón en el cielo: dónde (m), si está y lo que lleva. */
+export interface SkyHeart {
+  on: boolean;
+  x: number;
+  y: number;
+  z: number;
+  t: number;
+}
+
 export class SkyFight {
   /** El vuelo: dónde vas (m), el rumbo (rad: 0 hacia −z; + a la izquierda), el ladeo (−1 a 1, + derecha) y las velocidades. */
   x = 0;
@@ -181,6 +199,14 @@ export class SkyFight {
   private nextId = 1;
   /** Derribados en la ronda. */
   kills = 0;
+  /** El picado o la subida brusca en marcha: lo que lleva (s; −1, ninguno), lo que mueve (m; −, abajo) y la espera. */
+  private joltAt = -1;
+  private joltD = 0;
+  private joltCd = 0;
+  /** El corazón (uno a la vez) y si salen (lo pone la partida: te falta alguna vida y no es «Al fallo»). */
+  readonly heart: SkyHeart = { on: false, x: 0, y: 0, z: 0, t: 0 };
+  hearts = false;
+  private heartT: number = SKY.heart.every[0];
 
   constructor(private readonly rnd: () => number = Math.random) {
     for (let i = 0; i < FOES; i++)
@@ -205,6 +231,26 @@ export class SkyFight {
     this.spawnT = 0;
     this.kills = 0;
     this.ev.length = 0;
+    this.joltAt = -1;
+    this.joltCd = 0;
+    this.heart.on = false;
+    this.heartT = SKY.heart.every[0];
+  }
+
+  /** Un picado (−1) o una subida brusca (+1): de golpe, unos metros (sin pasar del suelo de nubes ni del techo). ¿Ha salido? */
+  jolt(dir: number): boolean {
+    if (this.joltCd > 0 || this.joltAt >= 0) return false;
+    const D = dir > 0 ? Math.min(SKY.jolt, SKY.ceil - this.y) : -Math.min(SKY.jolt, this.y - SKY.floor);
+    if (Math.abs(D) < 2) return false;
+    this.joltD = D;
+    this.joltAt = 0;
+    this.joltCd = SKY.joltCool;
+    this.emit('jolt', null, this.x, this.y, this.z, Math.sign(D));
+    return true;
+  }
+  /** ¿En pleno picado o subida brusca? */
+  get jolting(): boolean {
+    return this.joltAt >= 0;
   }
 
   /** Empieza la oleada `i`: sus voladores, con tanta vida entre todos como remos pide (`need`); `boss`, la del jefe. */
@@ -278,6 +324,7 @@ export class SkyFight {
     this.ev.length = 0;
     if (dt <= 0) return;
     this.fly(dt, I);
+    this.heartStep(dt, I.fight);
     if (this.started) this.spawnStep(dt);
     // (lo que ataca: nunca dos a la vez)
     let busy = false;
@@ -297,6 +344,13 @@ export class SkyFight {
     if (want > 0 && this.y > SKY.ceil - 20) want *= Math.max(0, (SKY.ceil - this.y) / 20);
     this.vs += (want - this.vs) * (1 - Math.exp(-dt / SKY.vsTau));
     this.y += this.vs * dt;
+    // el picado o la subida brusca: de golpe, pero arrancando y frenando suave (sin tirones que mareen)
+    this.joltCd = Math.max(0, this.joltCd - dt);
+    if (this.joltAt >= 0) {
+      const ease = (u: number): number => u * u * (3 - 2 * u), a = this.joltAt / SKY.joltT, b = Math.min(1, (this.joltAt + dt) / SKY.joltT);
+      this.y += this.joltD * (ease(b) - ease(a));
+      this.joltAt = b >= 1 ? -1 : this.joltAt + dt;
+    }
     // las nubes te sostienen: nunca más abajo de `floor` (las islas, por debajo)
     if (this.y < SKY.floor) {
       this.y += (SKY.floor - this.y) * Math.min(1, dt * 4);
@@ -306,6 +360,30 @@ export class SkyFight {
     this.speed += (v - this.speed) * (1 - Math.exp(-dt / SKY.speedTau));
     this.x += this.fwdX() * this.speed * dt;
     this.z += this.fwdZ() * this.speed * dt;
+  }
+
+  // el corazón: sale por delante (algo a un lado y a otra altura: hay que ir a por él) y se coge pasando a través
+  private heartStep(dt: number, fight: boolean): void {
+    const H = this.heart, C = SKY.heart;
+    if (H.on) {
+      H.t += dt;
+      const dx = H.x - this.x, dy = H.y - this.y, dz = H.z - this.z;
+      if (dx * dx + dy * dy + dz * dz < C.r * C.r) {
+        H.on = false;
+        this.emit('heart', null, H.x, H.y, H.z);
+      } else if (H.t > C.life || dx * this.fwdX() + dz * this.fwdZ() < -C.behind) H.on = false;
+      return;
+    }
+    if (!this.hearts || !fight) return;
+    this.heartT -= dt;
+    if (this.heartT > 0) return;
+    this.heartT = r01(this.rnd, C.every[0], C.every[1]);
+    const a = this.heading + (this.rnd() * 2 - 1) * C.side, d = r01(this.rnd, C.ahead[0], C.ahead[1]);
+    H.x = this.x - Math.sin(a) * d;
+    H.z = this.z - Math.cos(a) * d;
+    H.y = Math.max(SKY.floor + 4, Math.min(SKY.ceil - 4, this.y + r01(this.rnd, C.up[0], C.up[1])));
+    H.t = 0;
+    H.on = true;
   }
 
   // sale otro (si caben y toca)

@@ -550,8 +550,19 @@ No las cambies sin preguntarle.
     grandes) se te ponen delante, a la vista, y te siguen al virar; **de uno en uno, se echan atrás y rugen** (el aviso) y
     atacan: los pequeños **se lanzan a por ti** y los grandes **escupen** (el pulpo, plasma; el dragón, fuego). Apuntan adonde
     vas a estar si sigues igual: **se esquiva cambiando de rumbo** al oír el rugido (virar, lo que más; también subir con un
-    remo, bajar o cambiar de marcha). Si te dan, se rompe la racha y frenas a la mitad, sin vidas («¡Te ha dado!»);
-    esquivado, unos puntos.
+    remo, bajar o cambiar de marcha). Si te dan, se rompe la racha, frenas a la mitad y **pierdes una vida** («¡Te ha
+    dado!»; con vidas infinitas, no; elegido por el usuario con los corazones); esquivado, unos puntos.
+  - **El picado y la subida brusca** (pedido del usuario: «picadas o subidas bruscas para esquivar las embestidas»; elegidos
+    los dos de las propuestas, sin el tonel): **dejarte caer de golpe** desde arriba hasta estirar los brazos (en medio
+    segundo o menos; bajando controlado no cuenta) es un **picado**: bajas de golpe unos 12 m; y **el remo explosivo**, además
+    del disparo fuerte y la marcha, es una **subida brusca** de unos 12 m. Los dos arrancan y frenan suave (sin tirones), con
+    vibración fuerte y un golpe de aire, y hay que esperar un instante entre uno y otro. Se esquiva sobre todo al verlos
+    **lanzarse o escupir** (al echarse atrás todavía te apuntan).
+  - **Los corazones** (elegido por el usuario: «corazón + golpes con vida, pero que el usuario pudiera también elegir Al
+    fallo, en cuyo caso no habría corazones ni nada»): si te falta alguna vida, de vez en cuando (cada 20-34 s) flota por
+    delante un **corazón** rojo con su halo y su aro de luz, algo a un lado y a otra altura: se coge **pasando a través** y
+    devuelve una vida («¡+1 vida!»); si se escapa, no pasa nada. **«Al fallo»**, con vidas infinitas o con las vidas llenas,
+    no sale ninguno.
   - **Cada oleada**, tantos voladores como remos pide (su vida, entre todos); se acaba al derribarlos. **El jefe**, el dragón
     grande, en la última oleada (y, sin fin, cada cinco), con ráfagas de tres bolas de fuego; el marcador dice lo que le
     queda. El marcador: lo que queda por derribar, lo que corres y a qué altura vas, y los derribados.

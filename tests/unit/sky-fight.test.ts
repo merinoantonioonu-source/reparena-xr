@@ -52,6 +52,68 @@ describe('el combate en el parapente: el vuelo', () => {
   });
 });
 
+describe('el combate en el parapente: el picado y la subida brusca', () => {
+  it('el picado baja unos 12 m de golpe (sin pasar del suelo de nubes) y la subida brusca sube; hay que esperar entre uno y otro', () => {
+    const S = new SkyFight(seeded());
+    S.reset(0);
+    S.y = 60;
+    expect(S.jolt(-1)).toBe(true);
+    expect(S.jolt(1)).toBe(false); // (en pleno picado)
+    run(S, SKY.joltT + 0.05, mkIn({ fight: false, climb: 0.04 }));
+    expect(S.y).toBeLessThan(60 - SKY.jolt + 1.5);
+    expect(S.jolting).toBe(false);
+    run(S, SKY.joltCool, mkIn({ fight: false, climb: 0.04 }));
+    const y = S.y;
+    expect(S.jolt(1)).toBe(true);
+    run(S, SKY.joltT + 0.05, mkIn({ fight: false, climb: 0.04 }));
+    expect(S.y).toBeGreaterThan(y + SKY.jolt - 1.5);
+    // (pegado al suelo de nubes, no hay picado)
+    S.y = SKY.floor + 0.5;
+    run(S, SKY.joltCool + 0.1, mkIn({ fight: false }));
+    expect(S.jolt(-1)).toBe(false);
+  });
+
+  it('picando o subiendo de golpe al verlos lanzarse (o escupir), se esquivan casi siempre', () => {
+    const S = new SkyFight(seeded(3));
+    S.reset(0);
+    S.startWave(1, 20, false);
+    let dir = 1, wait = -1;
+    const evs = run(S, 60, (t, Q) => {
+      for (const E of Q.ev) if (E.k === 'lunge' || E.k === 'fire') wait = 0.3;
+      if (wait > 0 && (wait -= DT) <= 0) {
+        Q.jolt(dir);
+        dir = -dir;
+      }
+      return mkIn();
+    });
+    const hurt = evs.filter((e) => e.k === 'hurt').length, dodge = evs.filter((e) => e.k === 'dodge').length;
+    expect(dodge).toBeGreaterThan(3);
+    expect(hurt).toBeLessThan(dodge / 3);
+  });
+});
+
+describe('el combate en el parapente: los corazones', () => {
+  it('sin vidas que recuperar no sale ninguno; con ellas, sale por delante y se coge pasando a través', () => {
+    const S = new SkyFight(seeded(9));
+    S.reset(0);
+    run(S, 60, mkIn({ fight: true }));
+    expect(S.heart.on).toBe(false);
+    expect(S.ev.some((e) => e.k === 'heart')).toBe(false);
+    S.hearts = true;
+    let seen = false;
+    // (vuela hacia él: vira y sube o baja hacia donde está)
+    const evs = run(S, 90, (t, Q) => {
+      const H = Q.heart;
+      if (!H.on) return mkIn({ fight: true });
+      seen = true;
+      const dx = H.x - Q.x, dz = H.z - Q.z, side = dx * -Q.fwdZ() + dz * Q.fwdX();
+      return mkIn({ fight: true, steer: Math.max(-1, Math.min(1, side / 15)), climb: Math.max(-0.5, Math.min(1, (H.y - Q.y) / 6)) });
+    });
+    expect(seen).toBe(true);
+    expect(evs.filter((e) => e.k === 'heart').length).toBeGreaterThan(0);
+  });
+});
+
 describe('el combate en el parapente: los voladores', () => {
   it('cada oleada trae tanta vida como remos pide; salen de uno en uno, como mucho dos en la primera', () => {
     const S = new SkyFight(seeded());
