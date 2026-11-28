@@ -346,6 +346,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
         GAME.combo++;
         GAME.bestCombo = Math.max(GAME.bestCombo, GAME.combo);
       },
+      fwd: GAME.fwd,
+      bolt: (side, o, d, tg, dmg, perfect) => this.fireFromHand(side, o, d, tg, { dmg, perfect, pow: 1 }),
     };
     this.stIn = { hands, head, fwd: new Vector3(0, 0, -1), play: false }; // (delante, en la arena: hacia las compuertas)
     this.flIn = { ...this.stIn, headQ: head.q, wave: false, iwZ: 9, standY: 1.6 };
@@ -1797,7 +1799,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     this.chargePow = p;
     SND.power(p);
     if (deep) SND.perfect();
-    if (p >= 4) {
+    if (p >= 4 && !this.swSides.length) {
       this.fx.ball.flashMax();
       this.fx.sparks.burst(this.fx.ball.pos, 60, 0xff4d70, 3.2, 0.03);
     }
@@ -1840,7 +1842,7 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
     // las espadas: cada repetición carga la hoja (se derriba a tajos: sin diana ni rayo); los puños, cada mano (un puñetazo
     // con la carga quita vida)
     if (this.swSides.length) {
-      this.swords.onRep(perfect, this.swSides);
+      this.swords.onRep(perfect, this.swSides, dmg);
       return;
     }
     if (fistsOn()) {
@@ -2234,7 +2236,8 @@ export class GameSystem extends createSystem({ foes: { required: [Foe] } }, {}) 
       const k = clamp((GAME.head.y - 0.9) / 0.2, 0, 1);
       this.ballTarget.set(GAME.head.x + GAME.fwd.x * 1.0, Math.max(0.22, GAME.head.y - 0.12 - 0.2 * k) + 0.012 * Math.sin(time * 1.7), GAME.head.z + GAME.fwd.z * 1.0);
     }
-    this.fx.ball.update(dt, this.ballTarget, playing ? this.chargePow : 0, sup ? this.supBallK() : -1);
+    // (con espadas no hay bola: la carga va en la hoja)
+    this.fx.ball.update(dt, this.ballTarget, playing && !this.swSides.length ? this.chargePow : 0, sup ? this.supBallK() : -1);
     if (this.fx.ball.visible !== GAME.ballOn && this.fx.ball.visible) {
       // (al diagnóstico, dónde sale la bola: si no se ve, ¿estaba lejos de la mirada?)
       const to = this.tmpA.subVectors(this.ballTarget, head.p), d = to.length(), f = headFwd(this.tmpC);

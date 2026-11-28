@@ -33,25 +33,42 @@ export type BlockZone = keyof typeof BLOCK_Z;
 /** Al azar, como en RepArena (más golpes medios). */
 export const pickZone = (r: number): BlockZone => (['high', 'mid', 'mid', 'low'] as const)[Math.min(3, Math.floor(r * 4))];
 
-/** La carga de las espadas: una por espada, cada una con si fue perfecta (la perfecta quita el doble). */
+/** La carga de las espadas: una por espada, cada una con si fue perfecta y su daño (la perfecta, el doble; aguantando abajo
+ * ×2-×4, más, como el rayo). */
 export class SwordCharge {
   readonly perf: boolean[] = [];
+  readonly dmg: number[] = [];
+  /** Si la última que se gastó era perfecta. */
+  lastPerfect = false;
   constructor(public cap = 1) {}
   /** Una repetición: cada espada, cargada (sin acumular). */
-  charge(perfect: boolean): void {
-    for (let i = 0; i < this.cap; i++) this.perf.push(perfect);
-    while (this.perf.length > this.cap) this.perf.shift();
+  charge(perfect: boolean, dmg: number = perfect ? 2 : 1): void {
+    for (let i = 0; i < this.cap; i++) {
+      this.perf.push(perfect);
+      this.dmg.push(dmg);
+    }
+    while (this.perf.length > this.cap) {
+      this.perf.shift();
+      this.dmg.shift();
+    }
   }
   get charged(): boolean {
     return this.perf.length > 0;
   }
-  /** Gasta una carga: el daño (1; la perfecta, 2) o 0 si no había. */
+  /** La más fuerte que lleva (0: sin carga). */
+  get top(): number {
+    let m = 0;
+    for (const d of this.dmg) m = Math.max(m, d);
+    return m;
+  }
+  /** Gasta una carga: su daño o 0 si no había. */
   spend(): number {
     if (!this.perf.length) return 0;
-    return this.perf.shift() ? 2 : 1;
+    this.lastPerfect = this.perf.shift()!;
+    return this.dmg.shift()!;
   }
   reset(): void {
-    this.perf.length = 0;
+    this.perf.length = this.dmg.length = 0;
   }
 }
 
@@ -150,3 +167,62 @@ export class BladeContact {
 
 /** El giro que aparta una hoja `push` m en la dirección `n`, para un punto a `lever` m de la mano (rad). */
 export const pushAngle = (push: number, lever: number): number => Math.atan2(push, Math.max(0.15, lever));
+
+/**
+ * El lanzamiento con la espada (pedido del usuario: «al cargar, lanzar rayos con las espadas haciendo un gesto de lanzamiento,
+ * para no esperar a que lleguen los enemigos»): una estocada o un lanzamiento hacia delante, rápido (la mano, a más de
+ * `on` m/s y casi toda hacia delante, la de tu cuerpo) y de al menos `len` m; al frenar (la mitad de lo más rápido que iba)
+ * sale el rayo en la dirección del gesto. Un tajo a un lado no lo es. Lo que decide si hay a quién (y que esté fuera del
+ * alcance de la hoja: de cerca, se corta), en src/combat/swords.ts.
+ */
+export const SWORD_THROW = { on: 1.5, fwd: 0.6, len: 0.2, cool: 0.5, maxT: 0.45, settle: 0.06 } as const;
+export class SwordThrow {
+  private readonly prev = new Vector3();
+  private readonly v = new Vector3();
+  private readonly from = new Vector3();
+  private have = false;
+  private going = false;
+  private peak = 0;
+  private t = 0;
+  private slow = 0;
+  private cool = 0;
+  reset(): void {
+    this.have = this.going = false;
+    this.cool = 0;
+  }
+  /** Un fotograma: la mano y hacia dónde mira tu cuerpo (horizontal). ¿Ha lanzado? (la dirección, en `out`) */
+  step(dt: number, hand: Vector3, fwd: Vector3, out: Vector3): boolean {
+    if (dt <= 0) return false;
+    this.cool = Math.max(0, this.cool - dt);
+    if (!this.have) {
+      this.prev.copy(hand);
+      this.have = true;
+      return false;
+    }
+    const vx = (hand.x - this.prev.x) / dt, vy = (hand.y - this.prev.y) / dt, vz = (hand.z - this.prev.z) / dt;
+    this.prev.copy(hand);
+    this.v.set(this.v.x * 0.4 + vx * 0.6, this.v.y * 0.4 + vy * 0.6, this.v.z * 0.4 + vz * 0.6);
+    const sp = this.v.length(), fw = this.v.x * fwd.x + this.v.z * fwd.z;
+    if (!this.going) {
+      if (this.cool <= 0 && sp > SWORD_THROW.on && fw > SWORD_THROW.fwd * sp) {
+        this.going = true;
+        this.peak = sp;
+        this.t = this.slow = 0;
+        this.from.copy(hand).addScaledVector(this.v, -dt);
+      }
+      return false;
+    }
+    this.t += dt;
+    this.peak = Math.max(this.peak, sp);
+    // (frenado un instante, no un fotograma suelto: las gafas dan a veces una postura repetida y la velocidad cae a cero)
+    if (sp > this.peak * 0.5) this.slow = 0;
+    else this.slow += dt;
+    if (this.slow < SWORD_THROW.settle && this.t < SWORD_THROW.maxT) return false;
+    this.going = false;
+    out.subVectors(hand, this.from);
+    if (out.length() < SWORD_THROW.len || out.x * fwd.x + out.z * fwd.z < SWORD_THROW.fwd * out.length()) return false;
+    out.normalize();
+    this.cool = SWORD_THROW.cool;
+    return true;
+  }
+}
