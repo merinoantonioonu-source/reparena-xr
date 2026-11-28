@@ -1559,11 +1559,28 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
 - **Las espadas y los puños** (PR 9, en parte; el usuario elegía espadas y le salían las manos). La lógica de las espadas,
   de RepArena (`src/76_sword.js`), en `src/combat/sword-logic.ts` (pura: `SwordCharge`, `cutOf`, `blockHolds`, `segSeg`;
   pruebas en `tests/unit/swords.test.ts`); lo que se ve, `src/combat/swords.ts` (`Swords`: la hoja de rombo y la láser en la
-  postura del mando, `WEAPON_HAND` esconde esa mano en `skinShown`, los tajos contra la cápsula de cada enemigo de tierra con
+  postura del mando, los tajos contra la cápsula de cada enemigo de tierra con
   `EnemySystem.hit`, el choque y la marca del bloqueo). El bloqueo, con `EnemySystem.block` (al preparar el golpe, `start`; al
   llegar, `strike`: si lo para, queda aturdido). Los puños, `fistsOn` (`rules.ts`, ajuste `fists`, solo de RepArena XR): la
   repetición carga las dos manos con `throwCharge` (sin lanzar: `ThrowEnv.on` apagado) y `onPunch` gasta la carga de esa mano
   con `EnemySystem.hit`. Probadas sin gafas forzando el mando (`Swords.held`); en las gafas, por ver.
+  - Tras probarlas el usuario: **empuñadas** y **sólidas**. La mano del mando se ve con el puño cerrado: `WEAPON_GRIP`
+    (`skin-hand.ts`) hace que `ControllerHand.update` (`src/input/controller-hand.ts`) le pase a la mano de IWSDK un mando con
+    todo apretado (`FIST`), y la espada va en el hueco de ese puño, no en la postura del mando (`fistFrame`: el centro de los
+    cuatro dedos doblados, la hoja del meñique al índice y el filo hacia los nudillos, respecto al mando; si no hay mano del
+    mando a la vista, la postura del mando). Las hojas, `BladeContact` (`sword-logic.ts`: de qué lado estaba cada una y cuánto
+    se han metido) y `Swords.clash`, que gira cada hoja sobre su mano (`pushAngle`) hasta apoyarlas; más de `PUSH_MAX`, se
+    dejan pasar. Comprobado en el emulador con los mandos (`IWER_DEVICE.controlMode = 'programmatic'`): con las manos
+    cruzándose 30 cm más, las hojas se quedan apoyadas.
+- **La chuleta del vuelo** (pedido del usuario: la caricatura era «demasiado genérica» para volar): `src/ui/fly-card.ts`
+  (`flyCardOf`, pura, con `tests/unit/fly-card.test.ts`; `flyCardDraw`) la pinta una vez en el lienzo de la caricatura
+  (`ViewSystem.stepDemo`) en la Travesía volando (recorrido o mapa: `mapWanted`) y en el parapente (`paraWanted`).
+- **El vuelo de la Travesía, en curvas** (pedido del usuario: «líneas rectas, a saltos»): en `Glider.step` (`fly.ts`) la
+  velocidad de lado pasa por dos suavizados (`vA` y `vU`), sin `fastK` (daba tirones), frena cerca del borde (`edgeSoft`) y
+  da `bank`, con el que `TrekSystem.draw` ladea `root` alrededor de los ojos (`bankRoll`, con «Volando: ladearse al virar»,
+  `flyMapBank`, que ahora vale también sin mapa).
+- **El remo explosivo del parapente, menos sensible** (el usuario hacía la subida brusca con remos normales): `BurstJudge`
+  (`para.ts`) compara la subida con lo que sueles tardar (`fastRel`, aprendido de tus remos normales) y con `fastT` (0,3 s).
 - **El vuelo de la Travesía, más ágil** (pedido del usuario: «reducir al menos un 50 % la inercia», rasantes y subidas
   bruscas, el lado «como el mapa» y la pared del risco «más lejos»). Sobre el mapa (`map-route.ts`): `MAP.bankTau`,
   `vsTau` y `speedTau` a la mitad (el parapente de Barras, con su `MapIn.ctl`, las de antes con `slowK` y `ctlRate`), subir

@@ -161,6 +161,8 @@ Build and deployment → Source: **GitHub Actions**.
 | `iwsdk.config.json` | El proyecto: escena, recursos, componentes, VR con seguimiento de manos y física |
 | `src/index.ts` | Arranca el mundo y registra los sistemas del juego |
 | `src/combat/game.ts` | La partida: el ejercicio elegido, carga ×2-×4, la carga en las manos, rayos y daño, puñetazos, oleadas, vidas, paneles (y los avisos en el suelo) y nitidez |
+| `src/combat/sword-logic.ts` | Las espadas, la lógica (pura): la carga, el tajo, el bloqueo y las dos hojas sólidas (`BladeContact`) |
+| `src/combat/swords.ts` | Las espadas, lo que se ve y se nota: la hoja empuñada, el choque, los tajos y la marca del bloqueo |
 | `src/combat/lockline.ts` | La diana: líneas de enfoque alrededor del zombi apuntado |
 | `src/combat/gates.ts` | Las compuertas: abrirse para sacar a un zombi, la baliza y sus cuerpos de física |
 | `src/style/comic.ts`, `src/style/comic-system.ts` | El estilo Cómic: el sombreado, los colores y los contornos de tinta, y el sistema que lo aplica a todo |
@@ -229,6 +231,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/ui/view.ts` | Dónde salen los avisos de la vista: siguen la mirada sin ladearse; tumbado, en el suelo bajo la cara; no tapan lo que viene |
 | `src/ui/view-panels.ts` | Los avisos de la vista (el del centro y el breve), la caricatura del ejercicio y la carátula del duelo |
 | `src/ui/demo-art.ts` | La caricatura del ejercicio (el monigote que lo hace, el rayo y el texto), pintada en un lienzo |
+| `src/ui/fly-card.ts` | La chuleta del vuelo (cada gesto y lo que hace), en el sitio de la caricatura al volar en la Travesía y en el parapente |
 | `src/ui/prize-system.ts` | Los premios de los cofres: salen de su boca, suben flotando y se esfuman (`prize-path.ts`, el vuelo; `prize-draw.ts`, el medallón) |
 | `src/ui/demo-frames.ts` | Los dibujos de la caricatura, guardados: cada uno se pinta y se sube una vez (sin tirones en el menú) |
 | `src/ui/duel-art.ts` | La ilustración de la carátula del duelo (tú contra el jefe, el VS y las placas), pintada en un lienzo |
@@ -251,7 +254,7 @@ Build and deployment → Source: **GitHub Actions**.
 | `src/input/hand-model.ts` | Lo que el juego sabe de cada mano (muñeca, articulaciones, pellizco, gatillo, agarre, rayo) y el puño |
 | `src/input/throw.ts` | La sacudida que lanza el rayo y el gatillo con mandos como manos (los de RepArena), sin IWSDK |
 | `src/input/gaze-lock.ts`, `src/input/punch.ts`, `src/input/target.ts` | La mirada que fija al enemigo, el puñetazo y lo que ven de cada enemigo (de RepArena, sin IWSDK) |
-| `src/input/controller-hand.ts` | La mano de IWSDK que agarra el mando, con sus fallos de esta versión arreglados |
+| `src/input/controller-hand.ts` | La mano de IWSDK que agarra el mando, con sus fallos de esta versión arreglados; con espada, el puño cerrado y su hueco (`fistFrame`) |
 | `src/input/skin-hand.ts`, `src/input/glove-system.ts`, `src/scene-assets/glove.scene-asset.ts` | Las manos que se ven («Manos que se ven»): los guantes robóticos de RepArena (de serie) o la mano de IWSDK, opaca |
 | `src/input/hold.ts` | Las teclas sólidas: cuánto se aparta la mano que se ve para quedarse apoyada en la tecla o en el panel |
 | `src/input/input-models.ts` | Sirve desde el juego los modelos de las manos y los mandos (sin descargarlos de internet) |

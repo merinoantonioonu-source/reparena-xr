@@ -50,6 +50,12 @@ export const FLY = {
    * estás; lo que tarda en coger esa velocidad (s: la inercia, la mitad que antes). */
   slideV: 2.2,
   slideTau: 0.2,
+  /** Suave, en curvas (pedido del usuario: «va como en líneas rectas, a saltos, en vez de suave como con mapas»): la
+   * velocidad de lado pasa por dos suavizados seguidos (sin quiebros: el camino traza curvas, como un ala), lo rápido de la
+   * cabeza ya no la multiplica (daba tirones), cerca del borde frena poco a poco (antes chocaba y se paraba en seco: m) y el
+   * horizonte se ladea con lo que te deslizas (rad del todo, como sobre el mapa: «Ladearse al virar»). */
+  edgeSoft: 0.7,
+  bankRoll: 0.12,
   /** Lo que se suaviza lo que lees de la cabeza antes del muelle (s): el vaivén de cada flexión movía la cabeza unos
    * centímetros y el vuelo daba sacudidas a los lados (vídeo del usuario: costaba alinearse con las frutas). */
   sideIn: 0.15,
@@ -183,6 +189,9 @@ export class Glider {
   u = 0;
   alt: number = FLY.alt0;
   vU = 0;
+  /** La velocidad de lado, a medio suavizar, y lo ladeado (de −1 a 1, + a la derecha: el horizonte). */
+  private vA = 0;
+  bank = 0;
   /** Lo que pide la cabeza de lado, suavizado (m), lo que pedía antes (m) y lo deprisa que se mueve (m/s, suavizado). */
   sideF = 0;
   private sideL = NaN;
@@ -212,7 +221,7 @@ export class Glider {
   }
 
   reset(alt: number = FLY.alt0): void {
-    this.u = this.vU = this.vAlt = this.tgtU = this.sideF = this.sideV = 0;
+    this.u = this.vU = this.vA = this.bank = this.vAlt = this.tgtU = this.sideF = this.sideV = 0;
     this.sideL = NaN;
     this.alt = alt;
     this.tgtAlt = this.cruise = FLY.alt0;
@@ -236,12 +245,17 @@ export class Glider {
     this.sideF += (I.side - this.sideF) * Math.min(1, (dt * fast) / FLY.sideIn);
     this.tgtU = sideTarget(this.sideF, I.range);
     // (como sobre el mapa: lo que te escoras es lo deprisa que vas de lado; en el centro, te quedas donde estás)
-    const vT = (this.tgtU / FLY.uMax) * FLY.slideV * fast;
-    this.vU += (vT - this.vU) * (1 - Math.exp(-dt / FLY.slideTau));
+    let vT = (this.tgtU / FLY.uMax) * FLY.slideV;
+    // (cerca del borde, hacia fuera, cada vez más despacio: sin chocar con él)
+    if (vT * this.u > 0) vT *= clamp((FLY.uMax - Math.abs(this.u)) / FLY.edgeSoft, 0, 1);
+    const k = 1 - Math.exp(-dt / (FLY.slideTau * 0.6));
+    this.vA += (vT - this.vA) * k;
+    this.vU += (this.vA - this.vU) * k;
     this.u += this.vU * dt;
+    this.bank = clamp(this.vU / FLY.slideV, -1, 1);
     if (this.u > FLY.uMax || this.u < -FLY.uMax) {
       this.u = clamp(this.u, -FLY.uMax, FLY.uMax);
-      this.vU = 0;
+      this.vU = this.vA = 0;
     }
     // la pica (la cabeza atrás) manda sobre el picado, con su margen para no parpadear entre los dos
     if (this.pike) this.pike = I.back >= FLY.pikeOff;
@@ -262,7 +276,7 @@ export class Glider {
       this.alt += (0 - this.alt) * Math.min(1, I.land * dt * 3);
       if (I.land >= 1) this.alt = 0;
       this.u += (0 - this.u) * Math.min(1, I.land * dt * 3);
-      this.vAlt = this.vU = 0;
+      this.vAlt = this.vU = this.vA = this.bank = 0;
       this.tgtAlt = this.alt;
       this.cruise = FLY.alt0;
       this.diving = false;

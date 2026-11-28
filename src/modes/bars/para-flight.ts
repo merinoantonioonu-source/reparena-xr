@@ -18,7 +18,7 @@ import { head } from '../../input/hand-model.js';
 import { haptic } from '../../input/hand-system.js';
 import type { BarHits } from './detect.js';
 import { eqAxes, type EqPose } from './equip.js';
-import { DropWatch, gazeDeg, PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from './para.js';
+import { BurstJudge, DropWatch, gazeDeg, PARA, ParaPilot, THERMAL, Thermals, type ParaIn } from './para.js';
 import { num, on as isOn } from '../../core/values.js';
 import { ParaLook } from './para-look.js';
 import { loopSound, type SoundLoop } from '../../audio/sound.js';
@@ -40,14 +40,16 @@ export class ParaFlight {
   private toldDodge = 0;
   private rep = false;
   private fast = false;
+  private readonly burst = new BurstJudge();
   private dur = 0;
   private perfect = false;
   /** Lo que el detector de las paralelas le cuenta: cada remo. */
   readonly hits: BarHits = {
     rep: (o) => {
       this.rep = true;
-      // (explosivo: la subida, de golpe; lo del detector, `o.fast`, pedía tanta prisa que casi nunca salía)
-      this.fast = o.dur !== undefined ? o.dur < PARA.fastT : o.fast;
+      // (explosivo: la subida, de golpe y bastante más deprisa que tus remos de siempre; lo del detector, `o.fast`, pedía
+      // tanta prisa que casi nunca salía)
+      this.fast = o.dur !== undefined ? this.burst.judge(o.dur) : o.fast;
       this.dur = o.dur ?? 0;
       this.perfect = o.perfect;
     },
@@ -98,6 +100,7 @@ export class ParaFlight {
     this.toldHurt = this.toldDodge = 0;
     this.toldJolt[0] = this.toldJolt[1] = 0;
     this.drop.reset();
+    this.burst.reset();
     this.blastP = 0;
     this.pilot.reset();
     this.thermals.reset();

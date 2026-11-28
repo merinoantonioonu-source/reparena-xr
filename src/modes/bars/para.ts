@@ -37,10 +37,15 @@ export const PARA = {
   diveMax: 0.33,
   diveGear: 0.5,
   /** La marcha: la de crucero (nunca menos), la que suma un remo explosivo (solo él: el normal sube, no acelera), lo que
-   * se pierde por segundo y el tope; y cuándo un remo es explosivo (la subida, en menos de estos segundos). */
+   * se pierde por segundo y el tope; y cuándo un remo es explosivo (`BurstJudge`: la subida, en menos de `fastT` s y de
+   * `fastRel` veces lo que sueles tardar; con 0,4 s a secas, un remo normal ya hacía la subida brusca: corregido por el
+   * usuario). */
   gear0: 1,
   gearFast: 1,
-  fastT: 0.4,
+  fastT: 0.3,
+  fastRel: 0.6,
+  fastTypical: 0.8,
+  fastLearn: 0.25,
   gearLoss: 0.08,
   gearMax: 8,
   /** Frenar: aguantando arriba (desde esta parte de la subida) más de `brakeAfter` s; la marcha que queda del todo frenado
@@ -94,6 +99,26 @@ export class DropWatch {
     // (abajo: de golpe, picado; despacio, una bajada sin más)
     const fast = this.clock - this.topAt <= PARA.dropT;
     this.topAt = -1;
+    return fast;
+  }
+}
+
+/**
+ * ¿Un remo explosivo? (el que acelera y, en el combate, la subida brusca y el disparo fuerte). Pedido del usuario: «la
+ * sensibilidad es excesiva: con una flexión más o menos normal hago una elevación brusca». Se compara con lo que sueles
+ * tardar en subir (se aprende de tus remos normales): explosivo es subir en menos de `PARA.fastRel` veces eso y, además, en
+ * menos de `PARA.fastT` s.
+ */
+export class BurstJudge {
+  typical: number = PARA.fastTypical;
+  reset(): void {
+    this.typical = PARA.fastTypical;
+  }
+  /** Un remo que subió en `dur` s: ¿explosivo? */
+  judge(dur: number): boolean {
+    const fast = dur < PARA.fastT && dur < this.typical * PARA.fastRel;
+    // (lo que sueles tardar, de los remos normales: uno explosivo no lo baja)
+    if (!fast && dur > 0.1 && dur < 3) this.typical += (dur - this.typical) * PARA.fastLearn;
     return fast;
   }
 }

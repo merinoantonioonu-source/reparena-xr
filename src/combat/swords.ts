@@ -1,19 +1,20 @@
 /**
  * Las espadas en Combate (de RepArena: src/76_sword.js; elegido por el usuario: «sí, como en RepArena»): una o dos, en los
  * mandos (con las manos desnudas no hay espada), metálica o láser. Lo que decide, en src/combat/sword-logic.ts; aquí, lo
- * que se ve, se oye y se nota: la hoja en la mano del mando (la mano se esconde: se ve el arma), su filo que brilla con la
- * carga, el silbido del tajo, el choque de las dos hojas, los tajos a los enemigos y la marca del bloqueo.
+ * que se ve, se oye y se nota: la hoja en la mano del mando (la mano la empuña: los dedos, cerrados en la empuñadura), su
+ * filo que brilla con la carga, el silbido del tajo, el choque de las dos hojas (sólidas: no se atraviesan), los tajos a los enemigos y la marca del bloqueo.
  *
  * Diseñadas para el estilo Cómic: la hoja de acero, de rombo con su nervio, con colores claros; la láser, un haz de luz del
  * color de esa mano (azul la izquierda, naranja la derecha).
  */
-import { AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TorusGeometry, Vector3, type Object3D, type Quaternion } from '@iwsdk/core';
+import { AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TorusGeometry, Quaternion, Vector3, type Object3D } from '@iwsdk/core';
 import { SND } from '../audio/sound.js';
 import { hands, head, SIDES, type Side } from '../input/hand-model.js';
 import { haptic } from '../input/hand-system.js';
-import { WEAPON_HAND } from '../input/skin-hand.js';
+import { WEAPON_GRIP } from '../input/skin-hand.js';
+import { fistFrame } from '../input/controller-hand.js';
 import { comicPatch } from '../style/comic.js';
-import { BLADE_N, BLOCK_Z, bladeBase, blockHolds, cutOf, HIT_COOL, pickZone, segSeg, SwordCharge, swordLen, type BlockZone } from './sword-logic.js';
+import { BLADE_N, BLOCK_Z, BladeContact, bladeBase, blockHolds, cutOf, HIT_COOL, pickZone, PUSH_MAX, pushAngle, segSeg, SwordCharge, swordLen, type BlockZone } from './sword-logic.js';
 import type { FoeTarget } from './enemies.js';
 
 const SWORD_COL: Record<Side, number> = { left: 0x4aa8ff, right: 0xff7a2a };
@@ -130,6 +131,12 @@ export class Swords {
   private readonly ca = new Vector3();
   private readonly cb = new Vector3();
   private readonly hp = new Vector3();
+  private readonly touch = new BladeContact();
+  private readonly axis = new Vector3();
+  private readonly rq = new Quaternion();
+  private readonly fp = new Vector3();
+  private readonly fq = new Quaternion();
+  private touching = false;
 
   constructor() {
     this.blades = { left: this.make('left'), right: this.make('right') };
@@ -219,7 +226,7 @@ export class Swords {
       B.had = false;
       B.hitCool.clear();
       B.g.visible = false;
-      WEAPON_HAND[s] = false;
+      WEAPON_GRIP[s] = false;
     }
     for (const M of this.marks) {
       M.t = null;
@@ -237,7 +244,7 @@ export class Swords {
     for (const side of SIDES) {
       const B = this.blades[side], on = this.held(side), h = hands[side];
       B.g.visible = on;
-      WEAPON_HAND[side] = on; // (con la espada en la mano, la mano no se ve: se ve el arma)
+      WEAPON_GRIP[side] = on; // (la mano que la lleva, con los dedos cerrados en la empuñadura: src/input/controller-hand.ts)
       B.metal.visible = !E.laser;
       B.laser.visible = E.laser;
       if (!on) {
@@ -245,7 +252,7 @@ export class Swords {
         B.speed = 0;
         continue;
       }
-      this.place(B.g, h.wrist, h.wristQ);
+      this.place(B.g, side, h.wrist, h.wristQ);
       // los puntos de la hoja (de la guarda a la punta), los de antes y la velocidad de la punta y de la mano
       const tmp = B.prev;
       B.prev = B.cur;
@@ -282,6 +289,7 @@ export class Swords {
       }
     }
     if (this.held('left') && this.held('right')) this.clash();
+    else this.touch.release();
     if (E.playing) for (const s of SIDES) if (this.held(s)) this.vsFoes(this.blades[s], E);
     this.stepMarks(E);
     for (const [e, until] of this.dazed) if (until < t || !e.alive) this.dazed.delete(e);
@@ -291,27 +299,67 @@ export class Swords {
     return this.dazed.size > 0;
   }
 
-  // la espada en la mano: en la postura del mando (la hoja sale por −Z, como algo que se sostiene en el puño)
-  private place(g: Object3D, p: Vector3, q: Quaternion): void {
-    g.position.copy(p);
-    g.quaternion.copy(q);
+  // la espada en la mano: con la mano del mando a la vista, en el hueco de su puño cerrado (la empuñadura dentro de los
+  // dedos, la hoja por encima del índice: src/input/controller-hand.ts); si no, en la postura del mando (la hoja por −Z)
+  private place(g: Object3D, side: Side, p: Vector3, q: Quaternion): void {
+    if (fistFrame(side, this.fp, this.fq)) {
+      g.position.copy(this.fp).applyQuaternion(q).add(p);
+      g.quaternion.multiplyQuaternions(q, this.fq);
+    } else {
+      g.position.copy(p);
+      g.quaternion.copy(q);
+    }
     g.updateMatrixWorld(true);
   }
   private bladePoint(B: Blade, k: number, laser: boolean, out: Vector3): Vector3 {
     return B.g.localToWorld(out.set(0, 0, -bladeBase(laser) - swordLen(laser) * k));
   }
 
-  // las dos hojas se cruzan deprisa: el choque
+  // las dos hojas, sólidas: si se tocan o se han cruzado, cada una gira sobre su mano hacia su lado hasta quedar apoyada en
+  // la otra (src/combat/sword-logic.ts, BladeContact); al llegar deprisa, el choque (sonido, chispas y vibración) y, mientras
+  // se empujan, un roce suave en los mandos
   private clash(): void {
-    const A = this.blades.left, B = this.blades.right, E = this.env!;
-    if (this.clashT > 0) return;
-    const rel = this.v.subVectors(A.vel, B.vel).length();
-    if (rel < 1 || segSeg(A.cur[0], A.cur[BLADE_N - 1], B.cur[0], B.cur[BLADE_N - 1], this.hp) > 0.03) return;
-    this.clashT = 0.25;
-    SND.swordClang(this.hp, E.laser, rel);
-    E.sparks(this.hp, E.laser ? 16 : 22, E.laser ? 0x9fe0ff : 0xffc05a, 2.5);
-    haptic('left', 0.8, 50);
-    haptic('right', 0.8, 50);
+    const A = this.blades.left, B = this.blades.right, E = this.env!, C = this.touch;
+    const n = BLADE_N - 1;
+    if (!C.step(A.cur[0], A.cur[n], B.cur[0], B.cur[n])) {
+      this.touching = false;
+      return;
+    }
+    const la = this.v.subVectors(C.pa, A.g.position).length(), lb = this.w.subVectors(C.pb, B.g.position).length();
+    const aa = pushAngle(C.pen / 2, la), ab = pushAngle(C.pen / 2, lb);
+    if (aa > PUSH_MAX || ab > PUSH_MAX) {
+      // (las manos, muy cruzadas: se dejan pasar)
+      C.release();
+      this.touching = false;
+      return;
+    }
+    this.turn(A, C.pa, C.n, aa);
+    this.turn(B, C.pb, this.hp.copy(C.n).negate(), ab);
+    for (const X of [A, B]) for (let i = 0; i < BLADE_N; i++) this.bladePoint(X, i / (BLADE_N - 1), E.laser, X.cur[i]);
+    const rel = this.v.subVectors(A.vel, B.vel).length(), p = this.hp.addVectors(C.pa, C.pb).multiplyScalar(0.5);
+    if (!this.touching && rel > 0.8 && this.clashT <= 0) {
+      this.clashT = 0.25;
+      SND.swordClang(p, E.laser, rel);
+      E.sparks(p, E.laser ? 16 : 22, E.laser ? 0x9fe0ff : 0xffc05a, 2.5);
+      haptic('left', 0.8, 50);
+      haptic('right', 0.8, 50);
+    } else if (this.clashT <= 0) {
+      // (apoyadas y empujando: un roce, con alguna chispa si se deslizan)
+      this.clashT = 0.12;
+      haptic('left', 0.2, 25);
+      haptic('right', 0.2, 25);
+      if (rel > 0.5) E.sparks(p, 3, E.laser ? 0x9fe0ff : 0xffc05a, 1);
+    }
+    this.touching = true;
+  }
+
+  // gira la hoja sobre la mano para que su punto `at` vaya hacia `dir` el ángulo `ang`
+  private turn(X: Blade, at: Vector3, dir: Vector3, ang: number): void {
+    this.axis.subVectors(at, X.g.position).cross(dir);
+    if (this.axis.lengthSq() < 1e-8) return;
+    this.rq.setFromAxisAngle(this.axis.normalize(), ang);
+    X.g.quaternion.premultiply(this.rq);
+    X.g.updateMatrixWorld(true);
   }
 
   // los tajos: cada punto de la hoja barre desde el fotograma anterior; el enemigo es una cápsula de pie

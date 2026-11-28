@@ -16,7 +16,7 @@ import { MW, UI } from './ra/menu-core.js';
 import { HITCH } from '../core/hitch.js';
 import { createSystem, BackSide, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, Vector3, VisibilityState } from '@iwsdk/core';
 import { GAME, HOOKS, TRAVEL, VIEW, type CenterInfo } from '../core/state.js';
-import { num, on, settings } from '../core/values.js';
+import { num, on, settings, str } from '../core/values.js';
 import { hands, head } from '../input/hand-model.js';
 import { padMask, thumbsUp } from '../input/thumbs.js';
 import { isFloor, isSupine, isTiny, foes, groundList, flyList, twoShots, isBars, skyFoes } from '../core/rules.js';
@@ -34,6 +34,8 @@ import { makeCanvasPanel, type CanvasPanel } from './canvas-panel.js';
 import { hudSlot, hudSpot, lazyAt, lazyClear, mkLazy, ViewFrame, type Threat } from './view.js';
 import { demoDraw, demoInfo, type DemoOpts } from './demo-art.js';
 import { DemoFrames } from './demo-frames.js';
+import { flyCardDraw, flyCardKey, flyCardOf, type FlyCardIn } from './fly-card.js';
+import { mapWanted, paraWanted } from '../modes/trek/map/map-key.js';
 import { cortDraw, cortImage, cortInfo, cortUrl } from './cortinilla.js';
 import { duelBoss, duelRecord, duelScene, duelName, duelSub, type DuelEnv } from '../combat/duel.js';
 import { duelDeco, duelPaint, duelPlates } from './duel-art.js';
@@ -88,6 +90,9 @@ export class ViewSystem extends createSystem({}) {
   private demoInit = false;
   /** Los dibujos de la caricatura, guardados (src/ui/demo-frames.ts: sin subir uno nuevo en cada fotograma). */
   private demoFr = new DemoFrames(DEMO_W, DEMO_H);
+  /** La chuleta del vuelo (src/ui/fly-card.ts): lo que se pintó por última vez en el lienzo y lo que se lee para elegirla. */
+  private cardKey = '';
+  private readonly cardIn: FlyCardIn = { mode: '', exercise: '', trekFly: false, flyMap: '', flyAlt: 0, trekAuto: false, barPara: '' };
   // la carátula del duelo: la ilustración se pinta antes, en el menú, por partes (una cada 0,15 s) y se guarda; al
   // empezar la ronda solo se copia y se escriben los datos encima (RepArena: INTRO_ART)
   private duel!: CanvasPanel;
@@ -349,6 +354,30 @@ export class ViewSystem extends createSystem({}) {
     // (guardada: cada dibujo se pinta y se sube una sola vez y luego solo se cambia cuál se ve. Pintar y subir el lienzo 12
     // veces por segundo daba tirones al menú principal en las gafas)
     const o = this.demoOpts(), ex = settings.exercise, mode = settings.mode;
+    // volando (la Travesía en plancha y el parapente), en vez del monigote, la chuleta de los movimientos: pintada una vez
+    const C = this.cardIn;
+    C.mode = mode;
+    C.exercise = ex;
+    C.trekFly = num('trekFly') > 0;
+    C.flyMap = mapWanted() ? 'map' : '';
+    C.flyAlt = num('flyAlt');
+    C.trekAuto = num('trekAuto') > 0;
+    C.barPara = paraWanted() ? str('barPara') : '';
+    const card = flyCardOf(C);
+    if (card) {
+      const key = flyCardKey(card);
+      if (key !== this.cardKey) {
+        this.cardKey = key;
+        flyCardDraw(this.demo.ctx, this.demo.W, this.demo.H, card);
+        this.demo.tex.needsUpdate = true;
+      }
+      if (this.demo.mat.map !== this.demo.tex) this.demo.mat.map = this.demo.tex;
+      return;
+    }
+    if (this.cardKey) {
+      this.cardKey = '';
+      this.demoDrawT = 0;
+    }
     if (this.demoFr.can(ex)) {
       const P = demoInfo(ex, mode, o).D.P, cycles = mode === 'combat' && o.foes === 'mix' ? 2 : 1; // (los mixtos, robots y voladores por turnos)
       this.demo.mat.map = this.demoFr.frame(`${ex}|${mode}|${o.perfectTime}|${o.perks}|${o.foes}`, this.demoT, P, cycles, (c, W, H, t) => demoDraw(c, W, H, ex, mode, t, o));

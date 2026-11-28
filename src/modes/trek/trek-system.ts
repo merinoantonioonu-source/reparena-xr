@@ -24,7 +24,8 @@ import { diagEvent } from '../../core/diag.js';
 import { dv, setSetting, store, waveReps, nWaves, rankIdx } from '../../core/settings.js';
 import { CAMP } from '../../core/campaign.js';
 import { GAME, HOOKS, LITE, VIEW } from '../../core/state.js';
-import { num, settings, str } from '../../core/values.js';
+import { num, on, settings, str } from '../../core/values.js';
+import { FLY as GLIDE } from './plat/fly.js';
 import { haptic } from '../../input/hand-system.js';
 import { hands, head, headFwd, type Hand } from '../../input/hand-model.js';
 import { Wings } from './wings.js';
@@ -314,6 +315,9 @@ export class TrekSystem extends createSystem({}) {
   private readonly sc = new Vector3();
   private readonly at = new Vector3();
   private readonly bp = { x: 0, z: 0 };
+  private bankF = 0;
+  private readonly zAx = new Vector3(0, 0, 1);
+  private readonly pivot = new Vector3();
 
   constructor(...a: ConstructorParameters<ReturnType<typeof createSystem>>) {
     super(...a);
@@ -1269,7 +1273,16 @@ export class TrekSystem extends createSystem({}) {
     if (!this.ready) return;
     const R = this.runner, tk = R.tk, d = R.dist, lite = LITE.on;
     tk.frame();
-    this.root.position.y = R.dip - R.flyAlt; // (el salto: el mundo baja y sube bajo los pies; volando, todo lo que vuelas)
+    this.root.position.set(0, R.dip - R.flyAlt, 0); // (el salto: el mundo baja y sube bajo los pies; volando, todo lo que vuelas)
+    // volando, el horizonte se ladea con lo que te deslizas, girando alrededor de tus ojos (como sobre el mapa: «Ladearse
+    // al virar»; pedido del usuario: el vuelo iba «como en líneas rectas»)
+    const roll = R.fly && !R.mapMode && on('flyMapBank') ? R.glider.bank * GLIDE.bankRoll * Math.min(1, R.glider.alt / 2) : 0;
+    this.bankF += (roll - this.bankF) * 0.15;
+    if (Math.abs(this.bankF) > 1e-4) {
+      this.root.quaternion.setFromAxisAngle(this.zAx, this.bankF);
+      this.pivot.set(0, head.p.y, 0);
+      this.root.position.sub(this.pivot).applyQuaternion(this.root.quaternion).add(this.pivot);
+    } else if (this.root.quaternion.w !== 1) this.root.quaternion.identity();
     this.hNow = R.grades.length ? R.heightAt(d) : 0; // (las cuestas: lo alto del sendero bajo tus pies)
     for (const b of this.batches.values()) b.n = 0;
     // el muelle (recalculado al avanzar un tramo de tablas o al montar otro tramo del recorrido)
