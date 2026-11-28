@@ -280,3 +280,20 @@ describe('el picado del combate en el cielo: dejarse caer de golpe', () => {
     expect(hit).toBe(false);
   });
 });
+
+describe('el remo explosivo del parapente (la subida brusca y el acelerón)', () => {
+  it('un remo normal no lo es; uno bastante más rápido que los tuyos, sí', async () => {
+    const { BurstJudge, PARA: P } = await import('../../src/modes/bars/para.js');
+    const J = new BurstJudge();
+    // (remos normales, de 0,5-0,7 s: ninguno explosivo; con 0,4 s a secas, alguno lo era)
+    for (const d of [0.6, 0.5, 0.55, 0.7, 0.45, 0.5]) expect(J.judge(d)).toBe(false);
+    expect(J.judge(0.38)).toBe(false);
+    expect(J.judge(0.22)).toBe(true);
+    // quien rema siempre deprisa necesita ir aún más deprisa
+    const K = new BurstJudge();
+    for (let i = 0; i < 12; i++) K.judge(0.32);
+    expect(K.judge(0.24)).toBe(false);
+    expect(K.judge(0.15)).toBe(true);
+    expect(P.fastT).toBeLessThan(0.4);
+  });
+});

@@ -68,8 +68,8 @@ export const blockHolds = (strikeT: number, coverT: number): boolean => strikeT 
 
 const _d1 = new Vector3(), _d2 = new Vector3(), _r0 = new Vector3(), _p = new Vector3(), _q = new Vector3();
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
-/** La distancia entre los segmentos a-b y c-d (y, en `out`, el punto más cercano del primero). */
-export function segSeg(a: Vector3, b: Vector3, c: Vector3, d: Vector3, out?: Vector3): number {
+/** La distancia entre los segmentos a-b y c-d (y, en `out` y `outQ`, sus puntos más cercanos). */
+export function segSeg(a: Vector3, b: Vector3, c: Vector3, d: Vector3, out?: Vector3, outQ?: Vector3): number {
   _d1.subVectors(b, a);
   _d2.subVectors(d, c);
   _r0.subVectors(a, c);
@@ -77,6 +77,7 @@ export function segSeg(a: Vector3, b: Vector3, c: Vector3, d: Vector3, out?: Vec
   let s = 0, u = 0;
   if (A < 1e-9 && E < 1e-9) {
     out?.copy(a);
+    outQ?.copy(c);
     return _r0.length();
   }
   if (A < 1e-9) u = clamp01(F / E);
@@ -98,5 +99,54 @@ export function segSeg(a: Vector3, b: Vector3, c: Vector3, d: Vector3, out?: Vec
   }
   const p = _p.copy(a).addScaledVector(_d1, s), q = _q.copy(c).addScaledVector(_d2, u);
   out?.copy(p);
+  outQ?.copy(q);
   return p.distanceTo(q);
 }
+
+/**
+ * Las dos hojas, sólidas (pedido del usuario: «cuando choco una espada con otra, no debería poder atravesarlas»): cada una
+ * es una barra de `BLADE_R` de grosor (las dos juntas) y se recuerda de qué lado de la otra estaba (`n`). Si en este
+ * fotograma se tocan o ya se han cruzado (las manos siguen de verdad), `pen` es lo que hay que apartarlas por ese lado: lo
+ * hace src/combat/swords.ts girando cada hoja sobre su mano. Si haría falta girarlas más de `PUSH_MAX`, se dejan pasar (las
+ * manos ya están muy cruzadas: forzarlas parecería que la espada se dobla).
+ */
+export const BLADE_R = 0.04, PUSH_MAX = 0.6;
+export class BladeContact {
+  /** De la hoja B hacia la A, la última vez que no se tocaban. */
+  readonly n = new Vector3();
+  has = false;
+  pen = 0;
+  /** Los puntos más cercanos de cada hoja. */
+  readonly pa = new Vector3();
+  readonly pb = new Vector3();
+  private readonly sep = new Vector3();
+
+  /** ¿Se tocan? (y cuánto hay que apartarlas, en `pen`) */
+  step(a0: Vector3, a1: Vector3, b0: Vector3, b1: Vector3): boolean {
+    const d = segSeg(a0, a1, b0, b1, this.pa, this.pb);
+    this.sep.subVectors(this.pa, this.pb);
+    this.pen = 0;
+    if (!this.has) {
+      if (d > 1e-4) {
+        this.n.copy(this.sep).divideScalar(d);
+        this.has = true;
+      }
+      return false;
+    }
+    const s = this.sep.dot(this.n);
+    if (s >= BLADE_R) {
+      if (d > 1e-4) this.n.copy(this.sep).divideScalar(d);
+      return false;
+    }
+    this.pen = BLADE_R - s;
+    return true;
+  }
+  /** Se han dejado pasar (o una espada no está): se vuelve a mirar de qué lado está cada una. */
+  release(): void {
+    this.has = false;
+    this.pen = 0;
+  }
+}
+
+/** El giro que aparta una hoja `push` m en la dirección `n`, para un punto a `lever` m de la mano (rad). */
+export const pushAngle = (push: number, lever: number): number => Math.atan2(push, Math.max(0.15, lever));

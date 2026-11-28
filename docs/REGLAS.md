@@ -196,8 +196,12 @@ No las cambies sin preguntarle.
     (pedido del usuario: «un ligero movimiento lateral me aparta bruscamente de la hilera de frutas… el giro es una sacudida
     que se frena en seco»): el vuelo va hacia donde pide la cabeza como un ala, no como un cursor: arranca suave, al volver
     al centro sigue un instante y se asienta pasándose apenas; y cerca del centro es más fino (un poco de cabeza, un poco de
-    vuelo). **Deprisa, deprisa** (pedido del usuario: para esquivar algo rápido): moviendo la cabeza deprisa responde algo
-    más vivo (hasta un 60 % más; con el triple de antes, cada gesto era un latigazo). **Suave cerca del centro** (corregido por el usuario:
+    vuelo). **Deprisa, deprisa** (pedido del usuario: para esquivar algo rápido): moviendo la cabeza deprisa lee antes el
+    gesto (hasta un 60 % más vivo; con el triple de antes, cada gesto era un latigazo). **En curvas, como sobre el mapa**
+    (pedido del usuario: «va como en líneas rectas, a saltos, en vez de suave como con mapas»): el desliz no da quiebros (traza
+    curvas, como un ala; lo rápido de la cabeza ya no lo acelera de golpe), cerca del borde del recorrido frena poco a poco en
+    vez de pararse en seco, y **el horizonte se ladea** con lo que te deslizas (unos 7°, girando alrededor de tus ojos, como
+    al virar sobre el mapa; «Volando: ladearse al virar» lo quita si marea). **Suave cerca del centro** (corregido por el usuario:
     «hipersensible»): 2,5 cm sin efecto y del todo a un lado con lo que diga «Vuelo: recorrido de lado» (15 cm de serie, de 8
     a 30: más, menos sensible); el asistente lo cambia a tu gusto. **La sensibilidad de cada eje, en los ajustes** (pedido del
     usuario como desarrollador): «Vuelo: recorrido de lado», «Vuelo: recorrido para bajar» (13 cm de serie), «Vuelo: recorrido
@@ -282,7 +286,7 @@ No las cambies sin preguntarle.
       adelante para arrancar»). Empiezas en la primera.
     - **Con inercia, como un ave** (pedido del usuario: «el giro es una sacudida que se frena en seco»): escorarte te ladea y el
       ladeo te hace virar; entra y sale del viraje suave y, al enderezarte, sigues virando un poco. El horizonte se ladea al
-      virar (unos 9°; «Volando sobre el mapa: ladearse al virar» lo quita si marea). Subir, bajar y la marcha, igual: sin
+      virar (unos 9°; «Volando: ladearse al virar» lo quita si marea). Subir, bajar y la marcha, igual: sin
       tirones.
     - **No se atraviesa nada** (pedido del usuario: «si me tropiezo con un edificio, entro dentro de él»): el suelo y los
       tejados te sostienen (nunca a menos de 7 m) y ante una pared frenas hasta pararte a unos metros («¡Un edificio! Vira o
@@ -504,7 +508,9 @@ No las cambies sin preguntarle.
     antes daba altura y marcha a la vez, y solo se notaba la velocidad): un impulso de altura que se va perdiendo, unos 15 m
     por remo a ras de ciudad (más cuanto más alto vas); uno cada 12 s, más o menos, mantiene la altura. Se nota: vibración y
     un golpe de aire.
-  - **Remo explosivo** (subir de golpe, en menos de 0,4 s): **acelera** (elegido por el usuario entre tres: «no se me ocurre
+  - **Remo explosivo** (subir de golpe: en menos de 0,3 s y bastante más deprisa que tus remos de siempre —menos de seis
+    décimas de lo que sueles tardar, que el juego aprende de tus remos normales—; corregido por el usuario: «con una flexión
+    más o menos normal hago una elevación brusca»; antes bastaba con menos de 0,4 s): **acelera** (elegido por el usuario entre tres: «no se me ocurre
     cómo aumentar la velocidad»; como el acelerador de pie de un parapente de verdad, pero con los brazos): sube lo mismo y,
     además, **una marcha más** (hasta 8), con una vibración más fuerte y «¡Acelerón! Marcha 3». La marcha se va perdiendo
     despacio hasta la de crucero (un remo normal no acelera).
@@ -692,10 +698,15 @@ No las cambies sin preguntarle.
   últimos 0,35 s (`BLOCK_LATE`), y la marca se pone turquesa al cubrirla. Arriba del curl y la elevación frontal, chispa y
   chasquido (`topCue`); el disparo sigue al bajar (por las cargas). Puñetazo y tajo empujan también hacia el lado del golpe.
 - **Las espadas, por fin en RepArena XR** (el usuario elegía «Espadas: dos» y le salían las manos: nunca se habían pasado;
-  elegido «sí, como en RepArena»): en Combate, con los mandos, una o dos, de acero o láser, **en la mano del mando** (la mano
-  no se ve: se ve el arma). Cada repetición carga la hoja (el filo brilla); se derriba a tajos amplios y rápidos con el brazo;
+  elegido «sí, como en RepArena»): en Combate, con los mandos, una o dos, de acero o láser, **empuñadas**: la mano del mando se
+  ve con los dedos cerrados alrededor de la empuñadura, que pasa por dentro del puño, la hoja por encima del índice y el filo
+  hacia los nudillos (corregido por el usuario: «no puede quedar abierta, los dedos tienen que cerrarse en torno al mango»),
+  aprietes o no los botones; con los guantes, igual. Cada repetición carga la hoja (el filo brilla); se derriba a tajos amplios y rápidos con el brazo;
   sin carga, rebota; el golpe del enemigo se para con la hoja en su marca (los medios y bajos, agachado) y queda aturdido: el
-  contraataque hace el doble. Las dos hojas chocan con chispas. En Toques, aún no.
+  contraataque hace el doble. **Las dos hojas son sólidas** (pedido del usuario: «no debería poder atravesarlas»): al
+  juntarlas se quedan apoyadas una en la otra, cada una girando un poco sobre su mano aunque las manos sigan; al chocar
+  deprisa, chispas, sonido y vibración, y apoyadas y empujando, un roce suave en los mandos. Solo si cruzas las manos mucho
+  (haría falta torcerlas más de unos 35°) se dejan pasar. En Toques, aún no.
 - **Los puños** (pedido del usuario: «cuando uso los mandos el puñetazo sí es preciso y exacto»; elegido «cargas y
   golpeas»; «Puños», en Rivales y armas): en Combate y solo con los brazos libres (sentadilla, zancada, zancada lateral y
   patinador; nunca agarrado a una barra, en flexiones ni en plancha). **Cada repetición carga los dos puños** (una bola de luz
@@ -861,7 +872,11 @@ No las cambies sin preguntarle.
   `public/cortinillas/`): son la pantalla grande de antes de cada ronda (en lugar de la ilustración de la carátula del duelo;
   también en la Travesía), quietas, con la franja de abajo diciendo las oleadas (o tramos) y las vidas que tienes puestas.
   **La caricatura animada se queda** junto al menú principal, antes de calibrar y en la página (corregido por el usuario:
-  las cortinillas no la sustituyen).
+  las cortinillas no la sustituyen). **Volando, la chuleta** (pedido del usuario: «antes de empezar cada partida, una pantalla
+  resumen de los movimientos, o en la caricatura, que ahora es demasiado genérica»): en la Travesía volando (sobre el
+  recorrido o sobre el mapa) y en el parapente (sobre el mapa o el combate en el cielo), en el sitio de la caricatura (junto
+  al menú principal y mientras te preparas) sale una tarjeta con cada gesto y lo que hace («Escórate a un lado → vas a ese
+  lado», «Remo explosivo → subida brusca»…), con los de esa forma de jugar.
 - Cuentas de vida (opción A elegida; `LIFE`, `src/70_game.js`): encima de cada enemigo, desde que sale, una fila de bolitas
   doradas de cara al jugador, una por disparo normal; las que pierde **desaparecen** (no se quedan huecas) y las demás se
   juntan; los que aguantan más de 8, bolitas grandes de 5. Sustituyen a la barra de vida. Un solo dibujo (puntos).

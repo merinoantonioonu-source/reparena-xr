@@ -2,7 +2,7 @@
  * con el enemigo. */
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
-import { BLOCK_LATE, blockHolds, cutOf, pickZone, segSeg, SWORD_ARM, SwordCharge } from '../../src/combat/sword-logic.js';
+import { BLADE_R, BladeContact, BLOCK_LATE, blockHolds, cutOf, pickZone, pushAngle, segSeg, SWORD_ARM, SwordCharge } from '../../src/combat/sword-logic.js';
 
 describe('las espadas', () => {
   it('cada repetición carga cada espada, sin acumular; la perfecta quita el doble', () => {
@@ -37,5 +37,24 @@ describe('las espadas', () => {
     expect(segSeg(a, b, c, d)).toBeLessThan(1e-6);
     // (por encima de la cabeza, no)
     expect(segSeg(a.clone().setY(2.5), b.clone().setY(2.5), c, d)).toBeCloseTo(0.6, 6);
+  });
+
+  it('las dos hojas son sólidas: al cruzarse, se sabe de qué lado estaba cada una y cuánto apartarlas', () => {
+    const C = new BladeContact();
+    // la A, vertical delante; la B, cruzada por detrás de ella (a 20 cm), y luego las manos la pasan 5 cm por delante
+    const a0 = new Vector3(0, 1, -0.5), a1 = new Vector3(0, 1.8, -0.5);
+    const b0 = new Vector3(-0.4, 1.4, -0.3), b1 = new Vector3(0.4, 1.4, -0.3);
+    expect(C.step(a0, a1, b0, b1)).toBe(false);
+    expect(C.n.z).toBeCloseTo(-1, 6); // (la A, más adelante que la B)
+    b0.z = b1.z = -0.55;
+    expect(C.step(a0, a1, b0, b1)).toBe(true);
+    expect(C.pen).toBeCloseTo(BLADE_R + 0.05, 6);
+    // apoyadas sin cruzarse, también se tocan
+    b0.z = b1.z = -0.5 + BLADE_R * 0.5;
+    expect(C.step(a0, a1, b0, b1)).toBe(true);
+    // el giro de cada una, más pequeño cuanto más lejos de la mano
+    expect(pushAngle(0.05, 0.6)).toBeLessThan(pushAngle(0.05, 0.3));
+    C.release();
+    expect(C.step(a0, a1, b0, b1)).toBe(false);
   });
 });
