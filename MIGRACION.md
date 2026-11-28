@@ -1572,6 +1572,13 @@ Cada uno: qué cubre, de dónde sale en RepArena y cuándo está listo. Tamaño 
     se han metido) y `Swords.clash`, que gira cada hoja sobre su mano (`pushAngle`) hasta apoyarlas; más de `PUSH_MAX`, se
     dejan pasar. Comprobado en el emulador con los mandos (`IWER_DEVICE.controlMode = 'programmatic'`): con las manos
     cruzándose 30 cm más, las hojas se quedan apoyadas.
+  - Después: **la carga se ve y se lanza**. `SwordCharge` guarda el daño de cada carga (con ×2-×4, `onRep(…, dmg)`), la hoja
+    cargada se tiñe (`steel`), lleva filamentos (`stepArcs`: cintas cruzadas que se rehacen 20 veces por segundo, sin crear
+    nada), zumba (`loopSound('espada-cargada')`, de serie en `sounds/de-serie/espada-cargada.ogg`, fabricado aquí) y vibra
+    cada 0,14 s. El lanzamiento, `SwordThrow` (puro, con pruebas: rápido, hacia delante, al menos 20 cm, y sale al frenar un
+    instante) y `Swords.throwBolt`, que elige el blanco con `throwTarget` (fuera del alcance de la hoja) y dispara con
+    `SwordEnv.bolt` (`fireFromHand`). Con espadas, `GameSystem` no enciende la bola. Comprobado en el emulador: una estocada
+    hacia un enemigo a 12 m le lanza el rayo y gasta una carga.
 - **La chuleta del vuelo** (pedido del usuario: la caricatura era «demasiado genérica» para volar): `src/ui/fly-card.ts`
   (`flyCardOf`, pura, con `tests/unit/fly-card.test.ts`; `flyCardDraw`) la pinta una vez en el lienzo de la caricatura
   (`ViewSystem.stepDemo`) en la Travesía volando (recorrido o mapa: `mapWanted`) y en el parapente (`paraWanted`).

@@ -707,6 +707,14 @@ No las cambies sin preguntarle.
   juntarlas se quedan apoyadas una en la otra, cada una girando un poco sobre su mano aunque las manos sigan; al chocar
   deprisa, chispas, sonido y vibración, y apoyadas y empujando, un roce suave en los mandos. Solo si cruzas las manos mucho
   (haría falta torcerlas más de unos 35°) se dejan pasar. En Toques, aún no.
+- **Las espadas, cargadas** (pedido del usuario): **se ve, se oye y se nota que están cargadas**: la hoja se tiñe del color de
+  su mano (azul la izquierda, naranja la derecha) y le brillan los filos, la recorren **filamentos eléctricos** que
+  chisporrotean y saltan fuera de ella (más cuanto más fuerte la carga), con alguna chispa; suena un **zumbido eléctrico**
+  (`espada-cargada`, sustituible) y los mandos **zumban** con una vibración suave y seguida. Aguantando abajo (×2-×4), la
+  carga quita más, como el rayo. **Lanzar el rayo con la espada** (para no esperar a que lleguen): con carga, una **estocada o
+  un lanzamiento rápido hacia delante** hacia un enemigo que está fuera del alcance de la hoja saca el rayo de la punta y
+  gasta esa carga (de cerca, se corta; un tajo a un lado no lanza). **Sin la bola roja**: con espadas, la carga va en la
+  hoja.
 - **Los puños** (pedido del usuario: «cuando uso los mandos el puñetazo sí es preciso y exacto»; elegido «cargas y
   golpeas»; «Puños», en Rivales y armas): en Combate y solo con los brazos libres (sentadilla, zancada, zancada lateral y
   patinador; nunca agarrado a una barra, en flexiones ni en plancha). **Cada repetición carga los dos puños** (una bola de luz

@@ -7,14 +7,15 @@
  * Diseñadas para el estilo Cómic: la hoja de acero, de rombo con su nervio, con colores claros; la láser, un haz de luz del
  * color de esa mano (azul la izquierda, naranja la derecha).
  */
-import { AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TorusGeometry, Quaternion, Vector3, type Object3D } from '@iwsdk/core';
-import { SND } from '../audio/sound.js';
+import { AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TorusGeometry, Quaternion, Vector3, type Object3D } from '@iwsdk/core';
+import { loopSound, SND, type SoundLoop } from '../audio/sound.js';
+import { throwTarget } from '../input/throw.js';
 import { hands, head, SIDES, type Side } from '../input/hand-model.js';
 import { haptic } from '../input/hand-system.js';
 import { WEAPON_GRIP } from '../input/skin-hand.js';
 import { fistFrame } from '../input/controller-hand.js';
 import { comicPatch } from '../style/comic.js';
-import { BLADE_N, BLOCK_Z, BladeContact, bladeBase, blockHolds, cutOf, HIT_COOL, pickZone, PUSH_MAX, pushAngle, segSeg, SwordCharge, swordLen, type BlockZone } from './sword-logic.js';
+import { BLADE_N, BLOCK_Z, BladeContact, SwordThrow, bladeBase, blockHolds, cutOf, HIT_COOL, pickZone, PUSH_MAX, pushAngle, segSeg, SwordCharge, swordLen, type BlockZone } from './sword-logic.js';
 import type { FoeTarget } from './enemies.js';
 
 const SWORD_COL: Record<Side, number> = { left: 0x4aa8ff, right: 0xff7a2a };
@@ -39,7 +40,15 @@ export interface SwordEnv {
   say(text: string, color: string, secs: number): void;
   /** Un bloqueo: sus puntos y su combo. */
   blocked(at: Vector3): void;
+  /** Hacia dónde mira tu cuerpo (horizontal): el lanzamiento va hacia delante. */
+  fwd: Vector3;
+  /** El rayo lanzado con la espada: desde la punta, hacia el gesto, al enemigo con su daño. */
+  bolt(side: Side, from: Vector3, dir: Vector3, to: FoeTarget, dmg: number, perfect: boolean): void;
 }
+
+/** Los filamentos de la hoja cargada: cuántos arcos, de cuántos tramos, cada cuánto cambian (s) y su color. */
+const ARC_N = 5, ARC_SEG = 7, ARC_DT = 0.05;
+const ARC_COL: Record<Side, number> = { left: 0x5ff0ff, right: 0xb98cff };
 
 // la hoja de acero (RepArena: bladeGeo): sección de rombo con una cara central plana y biseles hasta cada filo, que se
 // estrecha poco a poco y acaba en una punta centrada; z0, la guarda; la hoja sale por −Z
@@ -92,6 +101,13 @@ interface Blade {
   laser: Group;
   edge: MeshBasicMaterial;
   beam: MeshBasicMaterial;
+  /** La hoja de acero (se tiñe del color de la mano con la carga), los filamentos eléctricos y el lanzamiento. */
+  steel: MeshStandardMaterial;
+  arcs: Mesh;
+  arcMat: MeshBasicMaterial;
+  arcT: number;
+  sparkT: number;
+  throwW: SwordThrow;
   halo: MeshBasicMaterial;
   prev: Vector3[];
   cur: Vector3[];
@@ -137,6 +153,10 @@ export class Swords {
   private readonly fp = new Vector3();
   private readonly fq = new Quaternion();
   private touching = false;
+  private hum: SoundLoop | null = null;
+  private readonly steel0 = new Color(0xdfe5ec);
+  private readonly tint = new Color();
+  private readonly td = new Vector3();
 
   constructor() {
     this.blades = { left: this.make('left'), right: this.make('right') };
@@ -156,7 +176,7 @@ export class Swords {
   private make(side: Side): Blade {
     const col = SWORD_COL[side], g = new Group(), metal = new Group(), laser = new Group();
     g.add(metal, laser);
-    const L = swordLen(false), blade = new Mesh(bladeGeo(L, -0.1), std(0xdfe5ec, 0.2));
+    const L = swordLen(false), steel = std(0xdfe5ec, 0.2), blade = new Mesh(bladeGeo(L, -0.1), steel);
     metal.add(blade);
     const gold = std(0xe0b058, 0.3), box = new Mesh(new BoxGeometry(0.2, 0.022, 0.03), gold);
     box.position.z = -0.088;
@@ -197,10 +217,26 @@ export class Swords {
       b.userData.noInk = true;
       laser.add(b);
     }
+    // los filamentos de la carga: arcos de luz quebrados que chisporrotean por la hoja y saltan fuera (se rehacen 20 veces
+    // por segundo, sin crear nada: solo se mueven sus puntos). Cada tramo, dos cintas cruzadas con grosor (una línea de un
+    // píxel apenas se veía en las gafas)
+    const ag = new BufferGeometry(), nSeg = ARC_N * ARC_SEG, idx: number[] = [];
+    for (let i = 0; i < nSeg; i++) {
+      const b = i * 8;
+      idx.push(b, b + 1, b + 2, b + 2, b + 1, b + 3, b + 4, b + 5, b + 6, b + 6, b + 5, b + 7);
+    }
+    ag.setAttribute('position', new BufferAttribute(new Float32Array(nSeg * 24), 3));
+    ag.setIndex(idx);
+    const arcMat = new MeshBasicMaterial({ color: ARC_COL[side], transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false, toneMapped: false, fog: false, side: DoubleSide });
+    const arcs = new Mesh(ag, arcMat);
+    arcs.frustumCulled = false;
+    arcs.visible = false;
+    arcs.userData.noInk = true;
+    g.add(arcs);
     g.visible = false;
     this.root.add(g);
     const pts = (): Vector3[] => Array.from({ length: BLADE_N }, () => new Vector3());
-    return { side, g, metal, laser, edge, beam, halo, prev: pts(), cur: pts(), had: false, speed: 0, arm: 0, vel: new Vector3(), hp: new Vector3(), swishT: 0, glow: 0, hitCool: new Map() };
+    return { side, g, metal, laser, edge, beam, halo, steel, arcs, arcMat, arcT: 0, sparkT: 0, throwW: new SwordThrow(), prev: pts(), cur: pts(), had: false, speed: 0, arm: 0, vel: new Vector3(), hp: new Vector3(), swishT: 0, glow: 0, hitCool: new Map() };
   }
 
   /** ¿La espada de esa mano está en uso? (con el mando a la vista: con las manos desnudas no hay espada) */
@@ -210,9 +246,9 @@ export class Swords {
   }
 
   /** Una repetición: carga las hojas (y se nota). */
-  onRep(perfect: boolean, sides: readonly Side[]): void {
+  onRep(perfect: boolean, sides: readonly Side[], dmg: number = perfect ? 2 : 1): void {
     this.charge.cap = sides.length > 1 ? 2 : 1;
-    this.charge.charge(perfect);
+    this.charge.charge(perfect, dmg);
     for (const s of sides) if (this.held(s)) haptic(s, 0.3, 30);
     SND.charge();
   }
@@ -226,8 +262,11 @@ export class Swords {
       B.had = false;
       B.hitCool.clear();
       B.g.visible = false;
+      B.throwW.reset();
       WEAPON_GRIP[s] = false;
     }
+    this.hum?.stop();
+    this.hum = null;
     for (const M of this.marks) {
       M.t = null;
       M.m.visible = false;
@@ -250,6 +289,7 @@ export class Swords {
       if (!on) {
         B.had = false;
         B.speed = 0;
+        B.throwW.reset();
         continue;
       }
       this.place(B.g, side, h.wrist, h.wristQ);
@@ -278,22 +318,99 @@ export class Swords {
       B.edge.opacity = B.glow;
       B.beam.opacity = 0.22 + B.glow * 0.5;
       B.halo.opacity = 0.08 + B.glow * 0.14;
+      // cargada, se ve distinta (pedido del usuario): la hoja se tiñe del color de su mano y la recorren filamentos eléctricos
+      // que saltan fuera, con alguna chispa
+      B.steel.color.lerpColors(this.steel0, this.tint.setHex(SWORD_COL[side]), B.glow * 0.45);
+      this.stepArcs(B, dt, E);
+      // el lanzamiento: con carga, una estocada o un lanzamiento hacia delante saca el rayo de la punta hacia un enemigo
+      // fuera del alcance de la hoja (de cerca, se corta)
+      if (B.throwW.step(dt, h.wrist, E.fwd, this.td) && E.playing) this.throwBolt(B, tip, E);
       for (const [e, c] of B.hitCool) if (t - c > 0.6) B.hitCool.delete(e);
     }
-    // con carga, el mando late suave (sabes que la llevas)
-    if (E.playing && this.charge.charged) {
+    // con carga, el mando zumba (una vibración suave y seguida) y suena el zumbido eléctrico
+    const live = E.playing && this.charge.charged && (this.held('left') || this.held('right'));
+    if (live) {
       this.beatT -= dt;
       if (this.beatT <= 0) {
-        this.beatT = 0.9;
-        for (const s of SIDES) if (this.held(s)) haptic(s, 0.08, 20);
+        this.beatT = 0.14;
+        const k = Math.min(1, 0.07 + 0.03 * this.charge.top);
+        for (const s of SIDES) if (this.held(s)) haptic(s, k, 90);
       }
+      if (!this.hum) this.hum = loopSound('espada-cargada', 0.55, E.laser ? 1.15 : 1);
+      const B = this.blades[this.held('right') ? 'right' : 'left'];
+      this.hum?.set(B.cur[2]);
+    } else if (this.hum) {
+      this.hum.stop();
+      this.hum = null;
     }
+
     if (this.held('left') && this.held('right')) this.clash();
     else this.touch.release();
     if (E.playing) for (const s of SIDES) if (this.held(s)) this.vsFoes(this.blades[s], E);
     this.stepMarks(E);
     for (const [e, until] of this.dazed) if (until < t || !e.alive) this.dazed.delete(e);
   }
+
+  // los filamentos de la hoja cargada: arcos quebrados entre dos puntos de la hoja, algunos saltando hacia fuera
+  private stepArcs(B: Blade, dt: number, E: SwordEnv): void {
+    const on = B.glow > 0.25;
+    B.arcs.visible = on;
+    if (!on) return;
+    B.arcMat.opacity = Math.min(1, B.glow * 1.3) * (0.7 + 0.3 * Math.random());
+    B.arcT -= dt;
+    if (B.arcT <= 0) {
+      B.arcT = ARC_DT;
+      const P = B.arcs.geometry.getAttribute('position') as BufferAttribute, a = P.array as Float32Array, laser = E.laser;
+      const z0 = -bladeBase(laser), L = swordLen(laser), n = Math.min(ARC_N, 2 + this.charge.top), W = 0.0034;
+      let k = 0;
+      // (un tramo de p a q: dos cintas, una de canto en x y otra en y; los arcos de más, aplastados en un punto)
+      const seg = (px: number, py: number, pz: number, qx: number, qy: number, qz: number, w: number): void => {
+        for (const [ox, oy] of [[w, 0], [0, w]] as const) {
+          a[k++] = px - ox; a[k++] = py - oy; a[k++] = pz;
+          a[k++] = px + ox; a[k++] = py + oy; a[k++] = pz;
+          a[k++] = qx - ox; a[k++] = qy - oy; a[k++] = qz;
+          a[k++] = qx + ox; a[k++] = qy + oy; a[k++] = qz;
+        }
+      };
+      for (let i = 0; i < ARC_N; i++) {
+        const za = z0 - L * (0.05 + 0.85 * Math.random()), len = 0.06 + 0.2 * Math.random(), out = Math.random() < 0.65 ? 0.04 + 0.09 * Math.random() : 0;
+        const ang = Math.random() * Math.PI * 2;
+        let px = 0, py = 0, pz = za;
+        for (let j = 1; j <= ARC_SEG; j++) {
+          const f = j / ARC_SEG, bow = Math.sin(f * Math.PI) * out, r = 0.012 + 0.02 * Math.random();
+          const nx = Math.cos(ang) * bow + (Math.random() - 0.5) * r, ny = Math.sin(ang) * bow + (Math.random() - 0.5) * r, nz = za - len * f;
+          seg(px, py, pz, nx, ny, nz, i < n ? W * (1.2 - 0.6 * f) : 0);
+          px = nx;
+          py = ny;
+          pz = nz;
+        }
+      }
+      P.needsUpdate = true;
+    }
+    B.sparkT -= dt;
+    if (B.sparkT <= 0 && E.playing) {
+      B.sparkT = 0.1 + Math.random() * 0.15;
+      E.sparks(B.cur[1 + Math.floor(Math.random() * (BLADE_N - 1))], 2, ARC_COL[B.side], 0.9);
+    }
+  }
+
+  // el rayo lanzado con la espada (gasta su carga), al enemigo hacia el que va el gesto
+  private throwBolt(B: Blade, tip: Vector3, E: SwordEnv): void {
+    if (!this.charge.charged) return;
+    const tg = throwTarget(tip, this.td, E.targets) as FoeTarget | null;
+    if (!tg) return;
+    const reach = swordLen(E.laser) + 0.6;
+    if (tg.center(this.w).distanceTo(B.hp) < reach) return; // (a su alcance: es un tajo, no un lanzamiento)
+    const dmg = this.charge.spend();
+    E.bolt(B.side, tip, this.td, tg, dmg, this.charge.lastPerfect);
+    haptic(B.side, 0.8, 60);
+    E.flash(tip, ARC_COL[B.side], 0.4);
+    if (!this.thrownOnce) {
+      this.thrownOnce = true;
+      E.say('¡Rayo de espada!', '#3cf0c6', 1);
+    }
+  }
+  private thrownOnce = false;
 
   private dazedAny(): boolean {
     return this.dazed.size > 0;
@@ -404,7 +521,7 @@ export class Swords {
           this.dazed.delete(e);
           E.say('¡CONTRAATAQUE!', '#ffd166', 0.9);
         }
-        E.hit(e, dmg, B.vel, dmg >= 2, p);
+        E.hit(e, dmg, B.vel, counter || this.charge.lastPerfect, p);
       }
     }
   }

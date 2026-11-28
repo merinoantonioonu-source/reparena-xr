@@ -2,6 +2,7 @@
  * con el enemigo. */
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
+import * as SW from '../../src/combat/sword-logic.js';
 import { BLADE_R, BladeContact, BLOCK_LATE, blockHolds, cutOf, pickZone, pushAngle, segSeg, SWORD_ARM, SwordCharge } from '../../src/combat/sword-logic.js';
 
 describe('las espadas', () => {
@@ -56,5 +57,26 @@ describe('las espadas', () => {
     expect(pushAngle(0.05, 0.6)).toBeLessThan(pushAngle(0.05, 0.3));
     C.release();
     expect(C.step(a0, a1, b0, b1)).toBe(false);
+  });
+});
+
+describe('el lanzamiento con la espada', () => {
+  const run = (vel: Vector3, secs: number, stop = 0.25): number => {
+    const { SwordThrow } = SW;
+    const T = new SwordThrow(), h = new Vector3(0.2, 1.2, -0.3), fwd = new Vector3(0, 0, -1), out = new Vector3();
+    let n = 0;
+    for (let t = 0; t < 1; t += 1 / 72) T.step(1 / 72, h, fwd, out); // (quieta)
+    for (let t = 0; t < secs; t += 1 / 72) {
+      h.addScaledVector(vel, 1 / 72);
+      if (T.step(1 / 72, h, fwd, out)) n++;
+    }
+    for (let t = 0; t < stop; t += 1 / 72) if (T.step(1 / 72, h, fwd, out)) n++;
+    return n;
+  };
+  it('una estocada rápida hacia delante lanza; un tajo a un lado o un gesto lento, no', () => {
+    expect(run(new Vector3(0, 0.3, -2.4), 0.18)).toBe(1);
+    expect(run(new Vector3(2.6, 0, -0.4), 0.2)).toBe(0);
+    expect(run(new Vector3(0, 0, -0.9), 0.4)).toBe(0);
+    expect(run(new Vector3(0, 0, -2.4), 0.05)).toBe(0); // (muy corto)
   });
 });

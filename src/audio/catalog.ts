@@ -45,7 +45,7 @@ export const SOUNDS: Record<string, SoundSpec> = {
   trueno: S(), 'metal-lejano': S(6), buho: S(6), gaviota: S(5), pajaro: S(4), crujido: S(3),
   // en bucle
   'ambiente-arena': AMB, 'ambiente-bosque': AMB, 'ambiente-naturaleza': AMB, 'ambiente-isla': AMB,
-  'zumbido-dron': LOOP, 'zumbido-avispa': LOOP, 'espada-laser-zumbido': LOOP, remolino: LOOP, 'arco-zumbido': LOOP, viento: LOOP,
+  'zumbido-dron': LOOP, 'zumbido-avispa': LOOP, 'espada-laser-zumbido': LOOP, 'espada-cargada': LOOP, remolino: LOOP, 'arco-zumbido': LOOP, viento: LOOP,
 };
 // las voces: los rugidos se oyen a 3 m; los siseos, a 0,6; el ataque al lanzarse, a 0,8 (la calavera, con su rugido)
 for (const n of Object.values(VOICE.roar)) SOUNDS[n] = S(3);
